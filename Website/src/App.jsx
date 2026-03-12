@@ -8,7 +8,7 @@ function App() {
       <div className="bg-white w-[1200px] h-[650px] shadow-2xl  relative rounded-xl border border-[#D1DFEC] overflow-hidden">
         <Login />
         <Register />
-        
+        <Auth />
       </div>
     </div>
   );
