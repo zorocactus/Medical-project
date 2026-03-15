@@ -6,7 +6,8 @@ export default function AuthTransition() {
   const [isActive, setIsActive] = useState(false);
 
   return (
-    <>
+    <div className="flex items-center justify-center min-h-screen bg-[#D1DFEC] font-sans">
+      <div className="bg-white w-[1200px] h-[650px] shadow-2xl relative rounded-xl border border-[#D1DFEC] overflow-hidden">  
       <style>{`
         .auth-container {
           position: relative;
@@ -154,6 +155,7 @@ export default function AuthTransition() {
 
         </div>
       </div>
-    </>
+    </div> 
+   </div>
   );
 }
