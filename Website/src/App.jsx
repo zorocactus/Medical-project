@@ -1,11 +1,5 @@
-import AuthTransition from "./components/Auth/AuthTransition";
-import PatientSidebar from "./components/SideBar/PatientSB";
+import AppRouter from "./router/AppRouter";
+
 export default function App() {
-  return (
-    <div className="flex items-center justify-center min-h-screen bg-[#D1DFEC] font-sans">
-      <AuthTransition />
-     
-      </div>
-  
-  );
+  return <AppRouter />;
 }

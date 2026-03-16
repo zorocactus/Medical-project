@@ -2,7 +2,8 @@ import { useState } from "react";
 import LoginForm from "./Login";
 import RegisterForm from "./Register";
 
-export default function AuthTransition() {
+export default function AuthTransition({ onLogin }) {
+  console.log("onLogin reçu :", onLogin) // ← ajoute cette ligne
   const [isActive, setIsActive] = useState(false);
 
   return (
@@ -110,12 +111,12 @@ export default function AuthTransition() {
       <div className={`auth-container${isActive ? " active" : ""}`}>
 
         <div className="form-box login">
-           <LoginForm key={isActive ? "login-hidden" : "login-visible"} />
-        </div>
+  <LoginForm key="login" onLogin={onLogin} />
+</div>
 
-        <div className="form-box register">
-          <RegisterForm key={isActive ? "register-hidden" : "register-visible"} />
-        </div>
+<div className="form-box register">
+  <RegisterForm key="register" onLogin={onLogin} />
+</div>
 
         <div className="toggle-box">
 

@@ -118,11 +118,11 @@ export default function PatientSidebar() {
               className="w-9 h-9 rounded-full bg-[#6492C9] flex items-center
                             justify-center text-white text-sm font-semibold shrink-0"
             >
-              AJ
+              YS
             </div>
             <div className="text-left overflow-hidden">
               <p className="text-sm font-semibold text-white truncate">
-                Alex Johnson
+                Yassir Pahh
               </p>
               <p className="text-xs text-white/60">Patient</p>
             </div>
