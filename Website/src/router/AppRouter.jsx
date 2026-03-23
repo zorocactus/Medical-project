@@ -1,26 +1,32 @@
-import { useAuth } from "../context/AuthContext"
-import AuthTransition from "../components/Auth/AuthTransition"
-import PatientSidebar from "../components/SideBar/PatientSB"
-import DoctorSidebar from "../components/SideBar/DoctorSB"
-import GardeMSidebar from "../components/SideBar/GardeMSB"
-import PharmacienSidebar from "../components/SideBar/PharmacienSB"
+import { useState } from "react";
+import { useAuth } from "../context/AuthContext";
+import LandingPage from "../pages/LandingPage";
+import AuthTransition from "../components/Auth/AuthTransition";
 
 export default function AppRouter() {
-  const { isAuthenticated, accountType, login } = useAuth()
+  const { isAuthenticated, accountType, login } = useAuth();
+  const [view, setView] = useState("landing");
 
-  if (!isAuthenticated) {
-    return <AuthTransition onLogin={(type) => login(type, {})} />
+  if (view === "landing") {
+    return (
+      <LandingPage
+        onLogin={() => setView("auth")}
+        onRegister={() => setView("auth")}
+      />
+    );
   }
 
+  if (!isAuthenticated) {
+    return <AuthTransition onLogin={(type) => login(type, {})} />;
+  }
+
+  // Dashboard — navbar + pages selon accountType
   return (
-    <div className="flex min-h-screen bg-[#D1DFEC] font-sans">
-      {accountType === "Patient"       && <PatientSidebar />}
-      {accountType === "Doctor"        && <DoctorSidebar />}
-      {accountType === "Garde malade"  && <GardeMSidebar />}
-      {accountType === "Pharmacien"    && <PharmacienSidebar />}
-      <main className="flex-1 p-8">
-        {/* dashboard ici */}
+    <div className="min-h-screen bg-[#F5F7FB]">
+      {/* Navbar dashboard ici plus tard */}
+      <main className="pt-[60px] p-8">
+        {/* pages selon accountType */}
       </main>
     </div>
-  )
+  );
 }
