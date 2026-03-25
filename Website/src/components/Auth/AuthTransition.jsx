@@ -1,10 +1,33 @@
 import { useState } from "react";
 import LoginForm from "./Login";
 import RegisterForm from "./Register";
+import PatientForm from "./RegisterStep2/PatientForm";
 
 export default function AuthTransition({ onLogin }) {
   console.log("onLogin reçu :", onLogin) // ← ajoute cette ligne
   const [isActive, setIsActive] = useState(false);
+  const [step, setStep] = useState(1);
+  const [tempUser, setTempUser] = useState(null);
+
+  const handleNextStep = (userData) => {
+    setTempUser(userData);
+    setStep(2);
+  };
+
+  const handleComplete = (additionalData) => {
+    const finalData = { ...tempUser, ...additionalData };
+    // Finalize login with complete profile
+    onLogin(finalData.accountType);
+  };
+
+  if (step === 2) {
+    if (tempUser?.accountType === "patient") {
+      return <PatientForm onComplete={handleComplete} />;
+    }
+    // For other account types, we log them in immediately since no step 2 is provided yet
+    onLogin(tempUser?.accountType || "patient");
+    return null;
+  }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-[#D1DFEC] font-sans">
@@ -115,7 +138,7 @@ export default function AuthTransition({ onLogin }) {
 </div>
 
 <div className="form-box register">
-  <RegisterForm key="register" onLogin={onLogin} />
+  <RegisterForm key="register" onLogin={onLogin} onNextStep={handleNextStep} />
 </div>
 
         <div className="toggle-box">
