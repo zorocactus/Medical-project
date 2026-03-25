@@ -2,6 +2,13 @@ import { useState } from "react";
 import LoginForm from "./Login";
 import RegisterForm from "./Register";
 import PatientForm from "./RegisterStep2/PatientForm";
+import PatientIdentityForm from "./RegisterStep2/PatientIdentityForm";
+import PatientSuccess from "./RegisterStep2/PatientSuccess";
+import MedicalForm from "./RegisterStep2/MedicalForm";
+import MedicalIdentityForm from "./RegisterStep2/MedicalIdentityForm";
+import MedicalRoleForm from "./RegisterStep2/MedicalRoleForm";
+import MedicalInfoForm from "./RegisterStep2/MedicalInfoForm";
+import MedicalSuccess from "./RegisterStep2/MedicalSuccess";
 
 export default function AuthTransition({ onLogin }) {
   console.log("onLogin reçu :", onLogin) // ← ajoute cette ligne
@@ -14,19 +21,66 @@ export default function AuthTransition({ onLogin }) {
     setStep(2);
   };
 
-  const handleComplete = (additionalData) => {
-    const finalData = { ...tempUser, ...additionalData };
-    // Finalize login with complete profile
-    onLogin(finalData.accountType);
+  const handleCompletedStep2 = (additionalData) => {
+    setTempUser((prev) => ({ ...prev, ...additionalData }));
+    setStep(3);
+  };
+
+  const handleCompletedStep3 = (additionalData) => {
+    setTempUser((prev) => ({ ...prev, ...additionalData }));
+    setStep(4);
+  };
+
+  const handleCompletedStep4 = (additionalData) => {
+    setTempUser((prev) => ({ ...prev, ...additionalData }));
+    setStep(5);
+  };
+
+  const handleCompletedStep5 = (additionalData) => {
+    setTempUser((prev) => ({ ...prev, ...additionalData }));
+    setStep(6);
   };
 
   if (step === 2) {
     if (tempUser?.accountType === "patient") {
-      return <PatientForm onComplete={handleComplete} />;
+      return <PatientForm onComplete={handleCompletedStep2} onBack={() => setStep(1)} />;
+    }
+    if (tempUser?.accountType === "personnel médical") {
+      return <MedicalForm onComplete={handleCompletedStep2} onBack={() => setStep(1)} />;
     }
     // For other account types, we log them in immediately since no step 2 is provided yet
     onLogin(tempUser?.accountType || "patient");
     return null;
+  }
+
+  if (step === 3) {
+    if (tempUser?.accountType === "patient") {
+      return <PatientIdentityForm onComplete={handleCompletedStep3} onBack={() => setStep(2)} />;
+    }
+    if (tempUser?.accountType === "personnel médical") {
+      return <MedicalIdentityForm onComplete={handleCompletedStep3} onBack={() => setStep(2)} />;
+    }
+  }
+
+  if (step === 4) {
+    if (tempUser?.accountType === "patient") {
+      return <PatientSuccess onComplete={() => onLogin("patient")} />;
+    }
+    if (tempUser?.accountType === "personnel médical") {
+      return <MedicalRoleForm onComplete={handleCompletedStep4} onBack={() => setStep(3)} />;
+    }
+  }
+
+  if (step === 5) {
+    if (tempUser?.accountType === "personnel médical") {
+      return <MedicalInfoForm onComplete={handleCompletedStep5} onBack={() => setStep(4)} />;
+    }
+  }
+
+  if (step === 6) {
+    if (tempUser?.accountType === "personnel médical") {
+      return <MedicalSuccess onComplete={() => onLogin("personnel médical")} />
+    }
   }
 
   return (
