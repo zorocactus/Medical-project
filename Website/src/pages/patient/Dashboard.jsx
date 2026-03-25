@@ -411,6 +411,16 @@ function MedicalProfilePage({ dk }) {
 }
 
 // ─── AI DIAGNOSIS PAGE ────────────────────────────────────────────────────────
+const HISTORY_SESSIONS = [
+  { id: 1, title: "Douleurs thoraciques",      date: "Aujourd'hui · 2h",   badge: "med",  badgeLabel: "Modérée" },
+  { id: 2, title: "Maux de tête persistants",  date: "Hier · 5 échanges",  badge: "low",  badgeLabel: "Faible"  },
+  { id: 3, title: "Fatigue intense & vertiges", date: "Hier · 4 échanges", badge: "low",  badgeLabel: "Faible"  },
+  { id: 4, title: "Douleur poitrine + bras",    date: "18 Mar · 2 échanges",badge: "high", badgeLabel: "Élevée"  },
+  { id: 5, title: "Toux sèche + fièvre 38.2°", date: "16 Mar · 6 échanges",badge: "low",  badgeLabel: "Faible"  },
+  { id: 6, title: "Douleur lombaire chronique", date: "14 Mar · 4 échanges",badge: "med",  badgeLabel: "Modérée" },
+];
+const BADGE_COLORS = { low: "#2D8C6F", med: "#E8A838", high: "#E05555" };
+
 function AIDiagnosisPage({ dk }) {
   const c = dk ? T.dark : T.light;
   const [input, setInput] = useState("");
@@ -418,14 +428,20 @@ function AIDiagnosisPage({ dk }) {
     { role: "ai", text: "Bonjour Alex 👋 Décrivez vos symptômes en détail — localisation, intensité, durée — et je vous fournirai une analyse immédiate avec des recommandations adaptées." }
   ]);
   const [loading, setLoading] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState([]);
+  const fileInputRef = useState(null);
 
   const quickSymptoms = ["Maux de tête", "Fièvre", "Fatigue", "Douleur thoracique", "Nausées", "Toux"];
 
   const send = (text) => {
     const msg = text || input.trim();
-    if (!msg) return;
-    setMessages(m => [...m, { role: "user", text: msg }]);
+    if (!msg && attachedFiles.length === 0) return;
+    const displayText = msg || `📎 ${attachedFiles.length} fichier(s) joint(s)`;
+    setMessages(m => [...m, { role: "user", text: displayText, files: attachedFiles }]);
     setInput("");
+    setAttachedFiles([]);
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
@@ -443,20 +459,98 @@ function AIDiagnosisPage({ dk }) {
     }, 1500);
   };
 
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    setAttachedFiles(prev => [...prev, ...files.map(f => f.name)]);
+    e.target.value = "";
+  };
+
+  const toggleRecording = () => {
+    setIsRecording(r => !r);
+    if (!isRecording) {
+      // Simulate voice input after 2s
+      setTimeout(() => {
+        setIsRecording(false);
+        setInput("J'ai des douleurs thoraciques et de la fatigue depuis 2 jours");
+      }, 2000);
+    }
+  };
+
   return (
     <>
-      <div className="mb-6 flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold" style={{ color: c.txt }}>AI Diagnosis</h1><p className="text-sm mt-0.5" style={{ color: c.txt2 }}>Powered by MedSmart IA v2.1</p></div>
-        <button onClick={() => setMessages([{ role: "ai", text: "Nouvelle session. Décrivez vos symptômes." }])}
-          className="text-sm font-semibold px-4 py-2 rounded-xl border transition-colors hover:opacity-80"
-          style={{ color: c.blue, borderColor: c.border, background: c.card }}>
-          + New Chat
-        </button>
+      <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: c.txt }}>AI Diagnosis</h1>
+          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>Powered by MedSmart IA v2.1</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* History button */}
+          <div className="relative">
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl border transition-all hover:opacity-80"
+              style={{ color: showHistory ? "#fff" : c.blue, borderColor: c.blue, background: showHistory ? c.blue : c.card, cursor: "pointer" }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Historique
+            </button>
+            {/* History dropdown */}
+            {showHistory && (
+              <div className="absolute right-0 top-11 w-80 rounded-2xl shadow-2xl border z-40 overflow-hidden"
+                style={{ background: c.card, borderColor: c.border }}>
+                <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: c.border }}>
+                  <p className="text-sm font-bold" style={{ color: c.txt }}>Historique des diagnostics</p>
+                  <button onClick={() => setShowHistory(false)} className="w-6 h-6 flex items-center justify-center rounded-full hover:opacity-70" style={{ color: c.txt3, cursor: "pointer" }}>
+                    <X size={14} />
+                  </button>
+                </div>
+                <div className="overflow-y-auto" style={{ maxHeight: 320 }}>
+                  {HISTORY_SESSIONS.map(s => (
+                    <button key={s.id}
+                      onClick={() => { setShowHistory(false); setMessages([{ role: "ai", text: `Session chargée : "${s.title}"` }]); }}
+                      className="w-full flex items-center gap-3 px-4 py-3 border-b text-left transition-colors hover:opacity-80"
+                      style={{ borderColor: c.border, background: "transparent", cursor: "pointer" }}>
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                        style={{ background: BADGE_COLORS[s.badge] + "18" }}>
+                        <Brain size={14} style={{ color: BADGE_COLORS[s.badge] }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate" style={{ color: c.txt }}>{s.title}</p>
+                        <p className="text-xs" style={{ color: c.txt3 }}>{s.date}</p>
+                      </div>
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0"
+                        style={{ color: BADGE_COLORS[s.badge], background: BADGE_COLORS[s.badge] + "18" }}>
+                        {s.badgeLabel}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <div className="p-3 border-t" style={{ borderColor: c.border }}>
+                  <button className="w-full py-2 text-xs font-semibold rounded-xl transition-colors hover:opacity-80"
+                    style={{ color: c.blue, background: c.blueLight, cursor: "pointer" }}>
+                    Voir tout l'historique
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          {/* New chat button */}
+          <button
+            onClick={() => { setMessages([{ role: "ai", text: "Nouvelle session. Décrivez vos symptômes." }]); setShowHistory(false); }}
+            className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl border transition-all hover:opacity-80"
+            style={{ color: c.blue, borderColor: c.border, background: c.card, cursor: "pointer" }}>
+            <Plus size={14} /> New Chat
+          </button>
+        </div>
       </div>
+
+      {/* Close history on outside click */}
+      {showHistory && <div className="fixed inset-0 z-30" onClick={() => setShowHistory(false)} />}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Chat */}
         <div className="lg:col-span-2 flex flex-col gap-4">
           <Card dk={dk} style={{ padding: 0, overflow: "hidden" }}>
+            {/* Chat header */}
             <div className="flex items-center gap-3 p-4 border-b" style={{ borderColor: c.border }}>
               <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #4A6FA5, #304B71)" }}>
                 <Brain size={17} className="text-white" />
@@ -467,8 +561,15 @@ function AIDiagnosisPage({ dk }) {
                   <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />En ligne · Analyse activée
                 </p>
               </div>
+              <button onClick={() => setMessages([{ role: "ai", text: "Conversation effacée. Nouvelle session prête." }])}
+                className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors hover:opacity-70"
+                style={{ borderColor: c.border, color: c.txt3, cursor: "pointer" }}>
+                <X size={14} />
+              </button>
             </div>
-            <div className="p-4 space-y-4 overflow-y-auto" style={{ minHeight: 300, maxHeight: 400 }}>
+
+            {/* Messages */}
+            <div className="p-4 space-y-4 overflow-y-auto" style={{ minHeight: 300, maxHeight: 420 }}>
               {messages.map((m, i) => (
                 <div key={i} className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
                   <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
@@ -503,30 +604,107 @@ function AIDiagnosisPage({ dk }) {
               {loading && (
                 <div className="flex gap-3">
                   <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ background: "linear-gradient(135deg, #4A6FA5, #304B71)" }}>AI</div>
-                  <div className="rounded-2xl p-3.5 flex items-center gap-1" style={{ background: c.card, border: `1px solid ${c.border}` }}>
+                  <div className="rounded-2xl p-3.5 flex items-center gap-1.5" style={{ background: c.card, border: `1px solid ${c.border}` }}>
                     {[0,1,2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: c.txt3, animationDelay: `${i*0.15}s` }} />)}
                   </div>
                 </div>
               )}
             </div>
+
+            {/* Input area */}
             <div className="p-4 border-t" style={{ borderColor: c.border }}>
+              {/* Quick symptoms */}
               <div className="flex gap-2 flex-wrap mb-3">
                 {quickSymptoms.map(s => (
-                  <button key={s} onClick={() => send(s)} className="text-xs px-3 py-1.5 rounded-full border transition-colors hover:opacity-80"
-                    style={{ background: c.blueLight, color: c.blue, borderColor: c.blue + "40" }}>{s}</button>
+                  <button key={s} onClick={() => send(s)}
+                    className="text-xs px-3 py-1.5 rounded-full border transition-colors hover:opacity-80"
+                    style={{ background: c.blueLight, color: c.blue, borderColor: c.blue + "40", cursor: "pointer" }}>
+                    {s}
+                  </button>
                 ))}
               </div>
-              <div className="flex gap-2">
-                <input value={input} onChange={e => setInput(e.target.value)}
+
+              {/* Attached files preview */}
+              {attachedFiles.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {attachedFiles.map((f, i) => (
+                    <div key={i} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border"
+                      style={{ background: c.blueLight, borderColor: c.border, color: c.txt }}>
+                      <FileText size={11} style={{ color: c.blue }} />
+                      {f.length > 20 ? f.slice(0, 18) + "…" : f}
+                      <button onClick={() => setAttachedFiles(fs => fs.filter((_, j) => j !== i))}
+                        className="ml-1 hover:opacity-70" style={{ color: c.txt3, cursor: "pointer" }}>
+                        <X size={11} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Recording indicator */}
+              {isRecording && (
+                <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl border"
+                  style={{ background: "rgba(224,85,85,0.08)", borderColor: "rgba(224,85,85,0.3)" }}>
+                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-xs font-semibold" style={{ color: "#E05555" }}>Enregistrement en cours… parlez maintenant</span>
+                </div>
+              )}
+
+              {/* Input row */}
+              <div className="flex items-center gap-2 rounded-xl border px-3 py-2"
+                style={{ background: c.blueLight, borderColor: c.border }}>
+                {/* Add files button */}
+                <label title="Ajouter fichiers ou photos" className="w-9 h-9 rounded-lg flex items-center justify-center border transition-colors hover:opacity-70 shrink-0"
+                  style={{ borderColor: c.border, background: c.card, cursor: "pointer" }}>
+                  <input type="file" multiple accept="image/*,.pdf,.doc,.docx" className="hidden" onChange={handleFileChange} />
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: c.txt2 }}>
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                  </svg>
+                </label>
+
+                {/* Text input */}
+                <input
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && send()}
-                  placeholder="Décrivez vos symptômes en détail…"
-                  className="flex-1 rounded-xl px-4 py-3 text-sm outline-none border"
-                  style={{ background: c.blueLight, borderColor: c.border, color: c.txt }} />
-                <button onClick={() => send()} className="w-11 h-11 rounded-xl flex items-center justify-center transition-all hover:opacity-80"
-                  style={{ background: c.blue }}>
-                  <Send size={15} className="text-white" />
+                  placeholder={isRecording ? "Enregistrement…" : "Décrivez vos symptômes en détail…"}
+                  disabled={isRecording}
+                  className="flex-1 text-sm outline-none bg-transparent"
+                  style={{ color: c.txt }}
+                />
+
+                {/* Voice button */}
+                <button
+                  onClick={toggleRecording}
+                  title={isRecording ? "Arrêter l'enregistrement" : "Message vocal"}
+                  className="w-9 h-9 rounded-lg flex items-center justify-center border transition-all hover:opacity-80 shrink-0"
+                  style={{
+                    borderColor: isRecording ? "rgba(224,85,85,0.5)" : c.border,
+                    background: isRecording ? "rgba(224,85,85,0.12)" : c.card,
+                    cursor: "pointer",
+                  }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                    style={{ color: isRecording ? "#E05555" : c.txt2 }}>
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="23"/>
+                    <line x1="8" y1="23" x2="16" y2="23"/>
+                  </svg>
+                </button>
+
+                {/* Send button */}
+                <button
+                  onClick={() => send()}
+                  title="Envoyer"
+                  className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:opacity-80 shrink-0"
+                  style={{ background: c.blue, cursor: "pointer" }}>
+                  <Send size={14} className="text-white" />
                 </button>
               </div>
+
+              <p className="text-xs mt-2 text-center" style={{ color: c.txt3 }}>
+                ⏎ Entrée pour envoyer · 🎤 Vocal disponible · 📎 Fichiers acceptés
+              </p>
             </div>
           </Card>
         </div>
@@ -579,6 +757,9 @@ function AppointmentsPage({ dk }) {
     { name: "Dr. Amira Boudali",spec: "Gynécologist",  loc: "Clinique El Azhar",  rating: 4.9, exp: 10, initials: "AB", color: "#7B5EA7", slots: ["09:00","10:00"] },
   ];
   const [selectedSlots, setSelectedSlots] = useState({});
+  const [specFilter, setSpecFilter] = useState("All");
+  const [distFilter, setDistFilter] = useState(10);
+  const [starFilter, setStarFilter] = useState(1);
 
   return (
     <>
@@ -588,20 +769,75 @@ function AppointmentsPage({ dk }) {
           <Plus size={15} /> New Appointment
         </button>
       </div>
-      {/* Search bar */}
-      <Card dk={dk} className="mb-5" style={{ padding: "14px 18px" }}>
-        <div className="flex gap-3 flex-wrap items-center">
-          <div className="flex items-center gap-2 flex-1 min-w-48">
-            <Search size={15} style={{ color: c.txt3 }} />
-            <input placeholder="Search doctor, specialty or clinic…" className="outline-none text-sm bg-transparent flex-1" style={{ color: c.txt }} />
+      {/* ── Search bar ── */}
+      <Card dk={dk} className="mb-4" style={{ padding: "12px 16px" }}>
+        <div className="flex items-center gap-3">
+          <Search size={16} style={{ color: c.txt3, flexShrink: 0 }} />
+          <input placeholder="Search doctor, specialty, or clinic…"
+            className="outline-none text-sm bg-transparent flex-1" style={{ color: c.txt }} />
+          <button className="px-4 py-1.5 rounded-lg text-sm font-semibold text-white shrink-0" style={{ background: c.blue }}>Search</button>
+        </div>
+      </Card>
+
+      {/* ── Specialty chips (from screenshot) ── */}
+      <Card dk={dk} className="mb-4" style={{ padding: "12px 16px" }}>
+        <div className="flex items-center gap-3 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+          <span className="text-xs font-bold shrink-0" style={{ color: c.txt3 }}>Specialty:</span>
+          {[
+            { label: "All",           icon: "●",  active: true  },
+            { label: "Cardiology",    icon: "🫀",  active: false },
+            { label: "Dermatology",   icon: "☀️",  active: false },
+            { label: "General",       icon: "⚡",  active: false },
+            { label: "Neurology",     icon: "🧠",  active: false },
+            { label: "Pediatrics",    icon: "👶",  active: false },
+            { label: "Dentistry",     icon: "🦷",  active: false },
+            { label: "Ophthalmology", icon: "👁",  active: false },
+            { label: "Orthopedics",   icon: "🦴",  active: false },
+          ].map((s, i) => (
+            <button key={s.label}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border whitespace-nowrap shrink-0 transition-all hover:opacity-80"
+              style={{
+                background: specFilter === s.label ? c.blue : "transparent",
+                color: specFilter === s.label ? "#fff" : c.txt2,
+                borderColor: specFilter === s.label ? c.blue : c.border,
+              }}
+              onClick={() => setSpecFilter(s.label)}>
+              <span>{s.icon}</span> {s.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Row 2: secondary filters ── */}
+        <div className="flex items-center gap-3 mt-3 flex-wrap">
+          {/* Date picker */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs" style={{ borderColor: c.border, background: c.card, color: c.txt }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: c.txt3 }}>
+              <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            <input type="date" defaultValue="2024-10-24" className="outline-none text-xs bg-transparent" style={{ color: c.txt }} />
           </div>
-          <select className="text-sm rounded-xl px-3 py-2 outline-none border" style={{ background: c.card, color: c.txt, borderColor: c.border }}>
-            <option>Any Specialty</option><option>Cardiology</option><option>Dermatology</option><option>General</option>
-          </select>
-          <select className="text-sm rounded-xl px-3 py-2 outline-none border" style={{ background: c.card, color: c.txt, borderColor: c.border }}>
-            <option>Any Type</option><option>In-Person</option><option>Teleconsult</option><option>Home Visit</option>
-          </select>
-          <button className="text-sm font-semibold px-4 py-2 rounded-xl text-white" style={{ background: c.blue }}>Search</button>
+
+          {/* Gender */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs" style={{ borderColor: c.border, background: c.card, color: c.txt }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: c.txt3 }}>
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg>
+            <select className="outline-none text-xs bg-transparent" style={{ color: c.txt }}>
+              <option>Any Gender</option><option>Male</option><option>Female</option>
+            </select>
+          </div>
+
+          {/* Star rating */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border" style={{ borderColor: c.border, background: c.card }}>
+            <span className="text-xs" style={{ color: c.txt3 }}>Min:</span>
+            {[1,2,3,4,5].map(star => (
+              <button key={star} onClick={() => setStarFilter(star)}
+                className="text-base leading-none transition-colors"
+                style={{ color: star <= starFilter ? "#E8A838" : c.border }}>
+                ★
+              </button>
+            ))}
+          </div>
         </div>
       </Card>
       <p className="text-sm font-bold mb-4" style={{ color: c.txt2 }}>24 results found</p>
@@ -1077,8 +1313,6 @@ export default function PatientDashboard() {
     { id: "prescriptions",   label: "Prescriptions"   },
     { id: "pharmacy",        label: "Pharmacy"        },
     { id: "care-taker",      label: "Care Taker"      },
-    { id: "notifications",   label: "Notifications", badge: 3 },
-    { id: "settings",        label: "Settings"        },
   ];
 
   const renderPage = () => {
@@ -1099,71 +1333,151 @@ export default function PatientDashboard() {
 
   return (
     <div className="min-h-screen" style={{ background: c.bg, fontFamily: "'Plus Jakarta Sans', sans-serif", color: c.txt, transition: "background 0.3s, color 0.2s" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap'); * { transition: background-color 0.2s, border-color 0.2s; }`}</style>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        * { transition: background-color 0.2s, border-color 0.2s; }
+        button { cursor: pointer !important; }
+        select { cursor: pointer !important; }
+        label { cursor: pointer !important; }
+        a { cursor: pointer !important; }
+        .nav-link:not(.active-nav):hover { background: rgba(100,146,201,0.15) !important; color: #6492C9 !important; }
+      `}</style>
 
       {emergency && <EmergencyModal onClose={() => setEmergency(false)} dk={dk} />}
 
       {/* ═══ NAVBAR ═══ */}
       <nav className="sticky top-0 z-30 border-b shadow-sm" style={{ background: c.nav, borderColor: c.border }}>
         <div className="w-full px-6 h-[60px] flex items-center gap-3">
-          {/* Logo */}
+
+          {/* ── Logo with custom medical cross icon ── */}
           <div className="flex items-center gap-2 shrink-0 mr-2">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: c.blue }}>
-              <Shield size={15} className="text-white" />
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, #304B71, #6492C9)" }}>
+              {/* Medical cross + pulse line SVG */}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <rect x="9" y="2" width="6" height="20" rx="2" fill="white" opacity="0.95"/>
+                <rect x="2" y="9" width="20" height="6" rx="2" fill="white" opacity="0.95"/>
+                <path d="M4 14 L6 10 L8 13 L10 7 L12 15 L14 11 L16 13 L18 11" stroke="#6492C9" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+              </svg>
             </div>
             <span className="font-bold text-base" style={{ color: c.txt }}>MedSmart</span>
           </div>
 
-          {/* Nav links */}
-          <div className="hidden lg:flex items-center gap-0.5 flex-1 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+          {/* ── Nav links — centered with spacing ── */}
+          <div className="hidden lg:flex items-center justify-center gap-1 flex-1 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
             {NAV.map(item => (
               <button key={item.id} onClick={() => setPage(item.id)}
-                className="relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all"
+                className={`nav-link${page === item.id ? " active-nav" : ""} relative flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all`}
                 style={{
-                  color: page === item.id ? c.blue : c.txt2,
-                  background: page === item.id ? c.blueLight : "transparent",
+                  color: page === item.id ? "#fff" : c.txt2,
+                  background: page === item.id ? c.blue : "transparent",
                 }}>
                 {item.label}
-                {item.badge && <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{item.badge}</span>}
               </button>
             ))}
           </div>
 
-          {/* Right */}
+          {/* ── Right section ── */}
           <div className="flex items-center gap-3 ml-auto shrink-0">
-            {/* Dark mode toggle */}
-            <button onClick={() => setDk(!dk)}
-              className="relative w-11 h-6 rounded-full transition-colors duration-300 flex items-center"
-              style={{ background: dk ? c.blue : "#E8A838" }}>
-              <div className="absolute w-5 h-5 rounded-full bg-white shadow flex items-center justify-center transition-all duration-300" style={{ left: dk ? "22px" : "2px" }}>
-                {dk ? <Moon size={10} style={{ color: c.blue }} /> : <Sun size={10} style={{ color: "#E8A838" }} />}
-              </div>
-            </button>
 
-            {/* Profile */}
+            {/* iOS-style dark mode toggle — sun + moon icons outside the pill */}
+            <div className="flex items-center gap-1.5">
+              <Sun size={14} style={{ color: dk ? c.txt3 : "#E8A838" }} />
+              <button
+                onClick={() => setDk(!dk)}
+                className="relative rounded-full transition-all duration-300"
+                style={{
+                  width: 42, height: 24,
+                  background: dk
+                    ? "linear-gradient(135deg, #304B71, #4A6FA5)"
+                    : "#D5DEEF",
+                  border: `1.5px solid ${dk ? c.blue + "80" : "#BBC8DC"}`,
+                  padding: 0,
+                }}>
+                <div
+                  className="absolute top-0.5 rounded-full bg-white shadow-md transition-all duration-300"
+                  style={{
+                    width: 18, height: 18,
+                    left: dk ? 20 : 2,
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
+                  }}
+                />
+              </button>
+              <Moon size={13} style={{ color: dk ? c.blue : c.txt3 }} />
+            </div>
+
+            {/* Profile button — red dot on border corner for notifications */}
             <div className="relative">
+              {/* Red dot on the outer corner of the whole button container */}
+              <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 border-2 z-10 flex items-center justify-center"
+                style={{ borderColor: c.nav, fontSize: 7, color: "#fff", fontWeight: 800, pointerEvents: "none" }}>3</div>
               <button onClick={() => setProfileOpen(!profileOpen)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all hover:opacity-80"
                 style={{ border: `1px solid ${c.border}`, background: "transparent" }}>
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold" style={{ background: c.blue }}>AJ</div>
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0" style={{ background: "linear-gradient(135deg, #304B71, #6492C9)" }}>AJ</div>
                 <div className="hidden sm:block text-left">
                   <p className="text-sm font-semibold leading-tight" style={{ color: c.txt }}>Alex Johnson</p>
                   <p className="text-xs" style={{ color: c.txt3 }}>ID: #8821</p>
                 </div>
                 <ChevronDown size={13} style={{ color: c.txt3 }} />
               </button>
+
+              {/* Profile dropdown — animated slide-down */}
               {profileOpen && (
-                <div className="absolute right-0 top-12 w-52 rounded-2xl shadow-xl border p-2 z-40" style={{ background: c.card, borderColor: c.border }}>
-                  {[{ label: "My Profile", icon: User, page: "medical-profile" }, { label: "Settings", icon: Settings, page: "settings" }].map(item => (
-                    <button key={item.label} onClick={() => { setPage(item.page); setProfileOpen(false); }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors hover:opacity-80"
-                      style={{ color: c.txt2, background: "transparent" }}>
-                      <item.icon size={15} style={{ color: c.txt3 }} /> {item.label}
+                <div
+                  className="absolute right-0 top-12 w-60 rounded-[20px] overflow-hidden z-50"
+                  style={{
+                    background: dk ? c.card : "#ffffff",
+                    border: `1px solid ${dk ? c.border : "#F1F5F9"}`,
+                    boxShadow: "0 12px 40px rgba(0,0,0,0.12)",
+                    animation: "dropdownIn 0.2s ease forwards",
+                  }}>
+                  <style>{`
+                    @keyframes dropdownIn {
+                      from { opacity:0; transform:translateY(-8px) scale(0.97); }
+                      to   { opacity:1; transform:translateY(0) scale(1); }
+                    }
+                    .pd-item { color: #64748B; background: transparent; transition: background 0.15s, color 0.15s; }
+                    .pd-item:hover { background: #F8FAFC; color: #1E293B; }
+                    .pd-item-danger { color: #EF4444; background: transparent; transition: background 0.15s; }
+                    .pd-item-danger:hover { background: rgba(239,68,68,0.08); }
+                  `}</style>
+
+                  {/* User header */}
+                  <div className="px-4 py-3 border-b" style={{ borderColor: dk ? c.border : "#F1F5F9" }}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold shrink-0"
+                        style={{ background: "linear-gradient(135deg, #304B71, #6492C9)" }}>AJ</div>
+                      <div>
+                        <p className="text-sm font-bold" style={{ color: c.txt }}>Alex Johnson</p>
+                        <p className="text-xs" style={{ color: c.txt3 }}>Patient · ID #8821</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-2 flex flex-col gap-1 group">
+                    {/* Notifications */}
+                    <button onClick={() => { setPage("notifications"); setProfileOpen(false); }}
+                      className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer">
+                      <Bell size={16} className="hover:rotate-45 transition-transform" />
+                      Notifications
+                      <span className="ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full"
+                        style={{ background: "#E05555", color: "#fff" }}>3</span>
                     </button>
-                  ))}
-                  <div className="border-t mt-1 pt-1" style={{ borderColor: c.border }}>
-                    <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors hover:opacity-80" style={{ color: "#E05555", background: "transparent" }}>
-                      <LogOut size={15} /> Log out
+
+                    {/* Settings */}
+                    <button onClick={() => { setPage("settings"); setProfileOpen(false); }}
+                      className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer">
+                      <Settings size={16} className="hover:rotate-45 transition-transform" />
+                      Settings
+                    </button>
+
+                    {/* Divider */}
+                    <div className="h-px my-1 mx-2" style={{ background: dk ? c.border : "#F1F5F9" }} />
+
+                    {/* Logout */}
+                    <button className="pd-item-danger w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-xl cursor-pointer">
+                      <LogOut size={16} className="hover:translate-x-1 transition-transform" /> 
+                      Logout
                     </button>
                   </div>
                 </div>
@@ -1183,7 +1497,7 @@ export default function PatientDashboard() {
             {NAV.map(item => (
               <button key={item.id} onClick={() => { setPage(item.id); setMobileMenu(false); }}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all"
-                style={{ color: page === item.id ? c.blue : c.txt2, background: page === item.id ? c.blueLight : "transparent" }}>
+                style={{ color: page === item.id ? "#fff" : c.txt2, background: page === item.id ? c.blue : "transparent" }}>
                 {item.label}
               </button>
             ))}
