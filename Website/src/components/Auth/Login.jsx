@@ -19,7 +19,7 @@ export default function LoginForm({ onLogin }) {
 
     setErrors({});
     console.log("Form submitted");
-    onLogin("Pharmacien");
+    onLogin("Patient");
   }
 
   return (

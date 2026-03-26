@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { User, EyeOff, Eye, Facebook } from "lucide-react";
 
-export default function RegisterForm({ onLogin, isVisible }) {
+export default function RegisterForm({ onLogin, onNextStep, isVisible }) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -29,10 +29,10 @@ export default function RegisterForm({ onLogin, isVisible }) {
 
   function handleSubmit() {
     const newErrors = {};
-    if (!firstName.trim())       newErrors.firstName = true;
-    if (!lastName.trim())        newErrors.lastName = true;
-    if (!email.trim())           newErrors.email = true;
-    if (!password.trim())        newErrors.password = true;
+    if (!firstName.trim()) newErrors.firstName = true;
+    if (!lastName.trim()) newErrors.lastName = true;
+    if (!email.trim()) newErrors.email = true;
+    if (!password.trim()) newErrors.password = true;
     if (!confirmPassword.trim()) newErrors.confirmPassword = true;
 
     // Vérification mots de passe identiques
@@ -47,7 +47,11 @@ export default function RegisterForm({ onLogin, isVisible }) {
 
     setErrors({});
     console.log("Form submitted");
-    onLogin(accountType);
+    if (onNextStep) {
+      onNextStep({ firstName, lastName, email, accountType });
+    } else {
+      onLogin(accountType);
+    }
   }
 
   return (

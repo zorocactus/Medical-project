@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Phone, User, Home, Calendar, ChevronDown } from "lucide-react";
 
-export default function PatientForm({ onComplete, onBack }) {
+export default function MedicalForm({ onComplete, onBack }) {
   const [formData, setFormData] = useState({
     birthDate: "",
     sex: "Masculin",
@@ -25,21 +25,30 @@ export default function PatientForm({ onComplete, onBack }) {
           Créer votre compte
         </h2>
 
-        {/* Step Indicator */}
+        {/* 5-Step Indicator */}
         <div className="flex flex-col items-center mb-10">
-          <div className="flex items-center w-full max-w-[480px] justify-between relative px-2">
+          <div className="flex items-center w-full max-w-[600px] justify-between relative px-2">
             {/* Connecting Lines */}
-            <div className="absolute left-[30px] right-[50%] h-px bg-[#D1DFEC] z-0 top-1/2 -translate-y-1/2"></div>
-            <div className="absolute left-[50%] right-[30px] h-px bg-[#D1DFEC] z-0 top-1/2 -translate-y-1/2"></div>
+            <div className="absolute left-[30px] right-[75%] h-[2px] bg-[#D1DFEC] z-0 top-1/2 -translate-y-1/2"></div>
+            <div className="absolute left-[25%] right-[50%] h-[2px] bg-[#D1DFEC] z-0 top-1/2 -translate-y-1/2"></div>
+            <div className="absolute left-[50%] right-[25%] h-[2px] bg-[#D1DFEC] z-0 top-1/2 -translate-y-1/2"></div>
+            <div className="absolute left-[75%] right-[30px] h-[2px] bg-[#D1DFEC] z-0 top-1/2 -translate-y-1/2"></div>
             
-            <div className="w-[32px] h-[32px] rounded-full bg-[#6492C9] text-white flex items-center justify-center font-bold text-sm z-10 shadow-sm relative">
+            {/* Steps */}
+            <div className="w-[32px] h-[32px] rounded-full bg-[#6492C9] text-white flex items-center justify-center font-bold text-[13px] z-10 shadow-sm relative">
               1
             </div>
-            <div className="w-[32px] h-[32px] rounded-full bg-white border border-[#D1DFEC] text-[#89AEDB] flex items-center justify-center font-bold text-sm z-10 relative">
+            <div className="w-[32px] h-[32px] rounded-full bg-white border-2 border-[#D1DFEC] text-[#D1DFEC] flex items-center justify-center font-bold text-[13px] z-10 relative">
               2
             </div>
-            <div className="w-[32px] h-[32px] rounded-full bg-white border border-[#D1DFEC] text-[#89AEDB] flex items-center justify-center font-bold text-sm z-10 relative">
+            <div className="w-[32px] h-[32px] rounded-full bg-white border-2 border-[#D1DFEC] text-[#D1DFEC] flex items-center justify-center font-bold text-[13px] z-10 relative">
               3
+            </div>
+            <div className="w-[32px] h-[32px] rounded-full bg-white border-2 border-[#D1DFEC] text-[#D1DFEC] flex items-center justify-center font-bold text-[13px] z-10 relative">
+              4
+            </div>
+            <div className="w-[32px] h-[32px] rounded-full bg-white border-2 border-[#D1DFEC] text-[#D1DFEC] flex items-center justify-center font-bold text-[13px] z-10 relative">
+              5
             </div>
           </div>
         </div>
@@ -233,7 +242,7 @@ export default function PatientForm({ onComplete, onBack }) {
             onClick={onBack}
             className="w-[120px] bg-white border border-[#D1DFEC] hover:border-[#A0B5CD] hover:bg-gray-50 text-[#365885] py-3 rounded-xl text-[15px] font-medium transition-all cursor-pointer flex items-center justify-center gap-1"
           >
-            &larr; Retour
+           &larr; Retour
           </button>
           
           <button
