@@ -1,8 +1,10 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
+from django.views.decorators.csrf import csrf_exempt
 from .forms import registerForm , loginForm
 from .models import CustomUser
 
+@csrf_exempt
 def register(request):
     if request.method == 'POST':
         form = registerForm(request.POST)
