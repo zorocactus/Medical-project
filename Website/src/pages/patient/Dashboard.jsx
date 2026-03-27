@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   LayoutDashboard,
   User,
@@ -1650,8 +1650,27 @@ function AppointmentsPage({ dk }) {
   ];
   const [selectedSlots, setSelectedSlots] = useState({});
   const [specFilter, setSpecFilter] = useState("All");
-  const [distFilter, setDistFilter] = useState(10);
+  const [searchFocused, setSearchFocused] = useState(false);
   const [starFilter, setStarFilter] = useState(1);
+  const [selectedDate, setSelectedDate] = useState("");
+  const [genderOpen, setGenderOpen] = useState(false);
+  const [selectedGender, setSelectedGender] = useState("Any Gender");
+  const dateInputRef = useRef(null);
+  const [locationOpen, setLocationOpen] = useState(false);
+  const [selectedCity, setSelectedCity] = useState("Alger");
+  const [specOpen, setSpecOpen] = useState(false);
+  const CITIES = ["Alger", "Oran", "Constantine", "Annaba", "Blida", "Sétif", "Tlemcen", "Batna"];
+  const SPECIALTIES = [
+    { label: "All" },
+    { label: "Cardiology" },
+    { label: "Dermatology" },
+    { label: "General" },
+    { label: "Neurology" },
+    { label: "Pediatrics" },
+    { label: "Dentistry" },
+    { label: "Ophthalmology" },
+    { label: "Orthopedics" },
+  ];
 
   return (
     <>
@@ -1668,143 +1687,279 @@ function AppointmentsPage({ dk }) {
           <Plus size={15} /> New Appointment
         </button>
       </div>
+
       {/* ── Search bar ── */}
-      <Card dk={dk} className="mb-4" style={{ padding: "12px 16px" }}>
-        <div className="flex items-center gap-3">
-          <Search size={16} style={{ color: c.txt3, flexShrink: 0 }} />
+      <div
+        className="relative flex items-center px-4 py-2 rounded-2xl border transition-all mb-4"
+        style={{
+          borderColor: searchFocused ? "#4A6FA5" : c.border,
+          background: c.card,
+          boxShadow: searchFocused ? "0 0 0 4px rgba(74,111,165,0.1)" : "none",
+          minHeight: 52,
+        }}
+      >
+        <div className="flex items-center gap-3 flex-1 min-w-0 pr-10 md:pr-40">
+          <Search size={18} style={{ color: searchFocused ? "#4A6FA5" : c.txt3 }} />
           <input
-            placeholder="Search doctor, specialty, or clinic…"
-            className="outline-none text-sm bg-transparent flex-1"
+            type="text"
+            placeholder="Search by doctor name, specialty, or clinic..."
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            className="w-full bg-transparent border-none outline-none text-[.87rem] font-medium placeholder:text-[#9AACBE]"
             style={{ color: c.txt }}
           />
-          <button
-            className="px-4 py-1.5 rounded-lg text-sm font-semibold text-white shrink-0"
-            style={{ background: c.blue }}
-          >
-            Search
-          </button>
         </div>
-      </Card>
 
-      {/* ── Specialty chips (from screenshot) ── */}
-      <Card dk={dk} className="mb-4" style={{ padding: "12px 16px" }}>
-        <div
-          className="flex items-center gap-3 overflow-x-auto"
-          style={{ scrollbarWidth: "none" }}
-        >
-          <span
-            className="text-xs font-bold shrink-0"
-            style={{ color: c.txt3 }}
-          >
-            Specialty:
-          </span>
-          {[
-            { label: "All", icon: "●", active: true },
-            { label: "Cardiology", icon: "🫀", active: false },
-            { label: "Dermatology", icon: "☀️", active: false },
-            { label: "General", icon: "⚡", active: false },
-            { label: "Neurology", icon: "🧠", active: false },
-            { label: "Pediatrics", icon: "👶", active: false },
-            { label: "Dentistry", icon: "🦷", active: false },
-            { label: "Ophthalmology", icon: "👁", active: false },
-            { label: "Orthopedics", icon: "🦴", active: false },
-          ].map((s, i) => (
+        {/* Center: location — functional dropdown (Centered) */}
+        <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center">
+          <div className="w-px h-5 mr-3" style={{ background: c.border }} />
+          <div className="relative">
             <button
-              key={s.label}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border whitespace-nowrap shrink-0 transition-all hover:opacity-80"
-              style={{
-                background: specFilter === s.label ? c.blue : "transparent",
-                color: specFilter === s.label ? "#fff" : c.txt2,
-                borderColor: specFilter === s.label ? c.blue : c.border,
-              }}
-              onClick={() => setSpecFilter(s.label)}
+              onClick={() => setLocationOpen((o) => !o)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all hover:bg-opacity-80"
+              style={{ background: "transparent" }}
             >
-              <span>{s.icon}</span> {s.label}
+              <MapPin size={16} style={{ color: locationOpen ? "#4A6FA5" : c.txt3 }} />
+              <span className="text-[.87rem] whitespace-nowrap font-medium" style={{ color: c.txt2 }}>
+                {selectedCity}, Algeria
+              </span>
+              <ChevronDown
+                size={13}
+                className="transition-transform duration-200"
+                style={{
+                  color: c.txt3,
+                  transform: locationOpen ? "rotate(180deg)" : "rotate(0deg)",
+                }}
+              />
+            </button>
+            {locationOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setLocationOpen(false)} />
+                <div
+                  className="absolute top-[calc(100%+8px)] left-1/2 -translate-x-1/2 z-20 rounded-2xl shadow-xl border overflow-hidden min-w-[160px]"
+                  style={{ background: c.card, borderColor: c.border }}
+                >
+                  <p className="text-[10px] font-bold uppercase tracking-wider px-4 pt-3 pb-1" style={{ color: c.txt3 }}>Wilaya</p>
+                  {CITIES.map((city) => (
+                    <button
+                      key={city}
+                      onClick={() => { setSelectedCity(city); setLocationOpen(false); }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-medium text-left transition-all hover:opacity-80"
+                      style={{
+                        background: selectedCity === city ? "#4A6FA518" : "transparent",
+                        color: selectedCity === city ? "#4A6FA5" : c.txt,
+                        fontWeight: selectedCity === city ? 700 : 400,
+                      }}
+                    >
+                      {selectedCity === city && <span className="text-[#4A6FA5]">✓</span>}
+                      {city}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        <button
+          className="hidden md:block shrink-0 px-8 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 z-10"
+          style={{ background: "#4A6FA5" }}
+        >
+          Search
+        </button>
+      </div>
+
+      {/* ── Secondary filters row ── */}
+      <div className="flex items-center gap-3 mb-6 flex-wrap">
+        {/* Date Filter */}
+        <div
+          onClick={() => dateInputRef.current?.showPicker?.()}
+          className="relative flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs cursor-pointer transition-all hover:border-[#4A6FA5]"
+          style={{ borderColor: c.border, background: c.card }}
+        >
+          <Calendar size={14} style={{ color: "#4A6FA5" }} />
+          <span
+            className="text-xs font-medium select-none"
+            style={{
+              color: selectedDate ? c.txt : c.txt3,
+              letterSpacing: selectedDate ? 0 : "0.5px",
+            }}
+          >
+            {selectedDate
+              ? new Date(selectedDate).toLocaleDateString("fr-FR")
+              : "JJ / MM / AAAA"}
+          </span>
+          {selectedDate && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedDate("");
+              }}
+              className="text-[10px] ml-1 leading-none hover:opacity-70"
+              style={{ color: c.txt3, position: "relative", zIndex: 2 }}
+            >
+              ✕
+            </button>
+          )}
+          <input
+            ref={dateInputRef}
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="absolute inset-0 opacity-0 w-full cursor-pointer"
+            style={{ zIndex: 1 }}
+          />
+        </div>
+
+        {/* Specialty Dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setSpecOpen((o) => !o)}
+            className="flex items-center gap-2 px-4 py-1.5 rounded-full border text-xs font-medium transition-all hover:border-[#4A6FA5]"
+            style={{
+              borderColor: specOpen ? "#4A6FA5" : c.border,
+              background: c.card,
+              color: specFilter === "All" ? c.txt3 : c.txt,
+            }}
+          >
+            <Zap size={14} style={{ color: "#4A6FA5" }} />
+            <span>{specFilter !== "All" ? specFilter : "Specialty"}</span>
+            <ChevronDown
+              size={13}
+              className="transition-transform duration-200"
+              style={{
+                transform: specOpen ? "rotate(180deg)" : "rotate(0deg)",
+                color: c.txt3,
+              }}
+            />
+          </button>
+          {specOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setSpecOpen(false)}
+              />
+              <div
+                className="absolute top-[calc(100%+6px)] left-0 z-20 rounded-2xl shadow-xl border overflow-hidden min-w-[160px]"
+                style={{ background: c.card, borderColor: c.border }}
+              >
+                <p
+                  className="text-[10px] font-bold uppercase tracking-wider px-4 pt-3 pb-1"
+                  style={{ color: c.txt3 }}
+                >
+                  Doctor Specialty
+                </p>
+                {SPECIALTIES.map((s) => (
+                    <button
+                      key={s.label}
+                      onClick={() => {
+                        setSpecFilter(s.label);
+                        setSpecOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-medium text-left transition-all hover:opacity-80"
+                      style={{
+                        background:
+                          specFilter === s.label ? "#4A6FA518" : "transparent",
+                        color: specFilter === s.label ? "#4A6FA5" : c.txt,
+                        fontWeight: specFilter === s.label ? 700 : 400,
+                      }}
+                    >
+                      <span className="flex-1">{s.label}</span>
+                      {specFilter === s.label && (
+                        <span className="text-[#4A6FA5]">✓</span>
+                      )}
+                    </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Gender Dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setGenderOpen((o) => !o)}
+            className="flex items-center gap-2 px-4 py-1.5 rounded-full border text-xs font-medium transition-all hover:border-[#4A6FA5]"
+            style={{
+              borderColor: genderOpen ? "#4A6FA5" : c.border,
+              background: c.card,
+              color: selectedGender === "Any Gender" ? c.txt3 : c.txt,
+            }}
+          >
+            <User size={14} style={{ color: "#4A6FA5" }} />
+            <span>{selectedGender}</span>
+            <ChevronDown
+              size={13}
+              className="transition-transform duration-200"
+              style={{
+                transform: genderOpen ? "rotate(180deg)" : "rotate(0deg)",
+                color: c.txt3,
+              }}
+            />
+          </button>
+          {genderOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setGenderOpen(false)}
+              />
+              <div
+                className="absolute top-[calc(100%+6px)] left-0 z-20 rounded-2xl shadow-xl border overflow-hidden min-w-[140px]"
+                style={{ background: c.card, borderColor: c.border }}
+              >
+                {["Any Gender", "Male", "Female"].map((opt) => (
+                  <button
+                    key={opt}
+                    onClick={() => {
+                      setSelectedGender(opt);
+                      setGenderOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-medium text-left transition-all hover:opacity-80"
+                    style={{
+                      background:
+                        selectedGender === opt ? "#4A6FA518" : "transparent",
+                      color: selectedGender === opt ? "#4A6FA5" : c.txt,
+                      fontWeight: selectedGender === opt ? 700 : 400,
+                    }}
+                  >
+                    {selectedGender === opt && (
+                      <span className="text-[#4A6FA5]">✓</span>
+                    )}
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Rating Filter */}
+        <div
+          className="flex items-center gap-1.5 px-4 py-1.5 rounded-full border"
+          style={{ borderColor: c.border, background: c.card }}
+        >
+          <span className="text-xs font-medium mr-1" style={{ color: c.txt3 }}>
+            Rating:
+          </span>
+          {[1, 2, 3, 4, 5].map((star) => (
+            <button
+              key={star}
+              onClick={() => setStarFilter(star)}
+              className="text-base leading-none transition-colors"
+              style={{ color: star <= starFilter ? "#E8A838" : c.border }}
+            >
+              ★
             </button>
           ))}
         </div>
+      </div>
 
-        {/* ── Row 2: secondary filters ── */}
-        <div className="flex items-center gap-3 mt-3 flex-wrap">
-          {/* Date picker */}
-          <div
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs"
-            style={{ borderColor: c.border, background: c.card, color: c.txt }}
-          >
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              style={{ color: c.txt3 }}
-            >
-              <rect x="3" y="4" width="18" height="18" rx="2" />
-              <line x1="16" y1="2" x2="16" y2="6" />
-              <line x1="8" y1="2" x2="8" y2="6" />
-              <line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
-            <input
-              type="date"
-              defaultValue="2024-10-24"
-              className="outline-none text-xs bg-transparent"
-              style={{ color: c.txt }}
-            />
-          </div>
-
-          {/* Gender */}
-          <div
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs"
-            style={{ borderColor: c.border, background: c.card, color: c.txt }}
-          >
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              style={{ color: c.txt3 }}
-            >
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
-            <select
-              className="outline-none text-xs bg-transparent"
-              style={{ color: c.txt }}
-            >
-              <option>Any Gender</option>
-              <option>Male</option>
-              <option>Female</option>
-            </select>
-          </div>
-
-          {/* Star rating */}
-          <div
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border"
-            style={{ borderColor: c.border, background: c.card }}
-          >
-            <span className="text-xs" style={{ color: c.txt3 }}>
-              Min:
-            </span>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <button
-                key={star}
-                onClick={() => setStarFilter(star)}
-                className="text-base leading-none transition-colors"
-                style={{ color: star <= starFilter ? "#E8A838" : c.border }}
-              >
-                ★
-              </button>
-            ))}
-          </div>
-        </div>
-      </Card>
       <p className="text-sm font-bold mb-4" style={{ color: c.txt2 }}>
         24 results found
       </p>
-      <div className="space-y-4 mb-6">
+
+      {/* ── Results list ── */}
+      <div className="space-y-4 mb-10">
         {doctors.map((doc) => (
           <Card key={doc.name} dk={dk} style={{ padding: "18px" }}>
             <div className="flex gap-4 flex-wrap">
@@ -1818,35 +1973,39 @@ function AppointmentsPage({ dk }) {
                 <h3 className="font-bold" style={{ color: c.txt }}>
                   {doc.name}
                 </h3>
-                <p className="text-sm" style={{ color: c.blue }}>
+                <p className="text-sm font-semibold" style={{ color: c.blue }}>
                   {doc.spec}
                 </p>
                 <p
-                  className="text-xs flex items-center gap-1 mt-0.5"
+                  className="text-xs flex items-center gap-1 mt-1"
                   style={{ color: c.txt2 }}
                 >
-                  <MapPin size={11} />
-                  {doc.loc}
+                  <MapPin size={12} /> {doc.loc}
                 </p>
-                <p className="text-xs mt-1" style={{ color: c.txt2 }}>
-                  ⭐ {doc.rating} · {doc.exp} yrs exp.
-                </p>
+                <div className="flex items-center gap-3 mt-2">
+                  <span className="text-xs font-bold" style={{ color: "#E8A838" }}>
+                    ⭐ {doc.rating}
+                  </span>
+                  <span className="text-xs font-medium" style={{ color: c.txt3 }}>
+                    {doc.exp} yrs exp.
+                  </span>
+                </div>
               </div>
-              <div className="shrink-0">
+              <div className="shrink-0 flex flex-col items-end">
                 <p
-                  className="text-xs font-bold uppercase mb-2"
+                  className="text-[10px] font-bold uppercase tracking-wider mb-2"
                   style={{ color: c.txt3 }}
                 >
-                  Today
+                  Available Today
                 </p>
-                <div className="flex gap-2 flex-wrap">
+                <div className="flex gap-2 mb-3">
                   {doc.slots.map((slot) => (
                     <button
                       key={slot}
                       onClick={() =>
                         setSelectedSlots((s) => ({ ...s, [doc.name]: slot }))
                       }
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold border transition-all"
                       style={{
                         background:
                           selectedSlots[doc.name] === slot
@@ -1854,7 +2013,10 @@ function AppointmentsPage({ dk }) {
                             : c.blueLight,
                         color:
                           selectedSlots[doc.name] === slot ? "#fff" : c.blue,
-                        borderColor: c.blue + "44",
+                        borderColor:
+                          selectedSlots[doc.name] === slot
+                            ? c.blue
+                            : c.blue + "33",
                       }}
                     >
                       {slot}
@@ -1862,7 +2024,7 @@ function AppointmentsPage({ dk }) {
                   ))}
                 </div>
                 <button
-                  className="mt-3 w-full py-2 rounded-xl text-sm font-semibold text-white transition-colors hover:opacity-80"
+                  className="px-6 py-2 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95"
                   style={{ background: c.blue }}
                 >
                   Book Now
@@ -1872,8 +2034,9 @@ function AppointmentsPage({ dk }) {
           </Card>
         ))}
       </div>
-      {/* Upcoming */}
-      <h2 className="font-bold text-base mb-3" style={{ color: c.txt }}>
+
+      {/* ── Upcoming section ── */}
+      <h2 className="font-bold text-lg mb-4" style={{ color: c.txt }}>
         Upcoming Appointments
       </h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1901,7 +2064,7 @@ function AppointmentsPage({ dk }) {
               <Calendar size={18} style={{ color: c.blue }} />
             </div>
             <div className="flex-1">
-              <p className="font-semibold text-sm" style={{ color: c.txt }}>
+              <p className="font-bold text-sm" style={{ color: c.txt }}>
                 {a.name}
               </p>
               <p className="text-xs" style={{ color: c.txt2 }}>
@@ -2083,7 +2246,11 @@ function PharmacyPage({ dk }) {
           </Card>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {PHARMACY_ITEMS.map((item) => (
-              <Card key={item.id} dk={dk} style={{ padding: 16, marginTop: "15px" }}>
+              <Card
+                key={item.id}
+                dk={dk}
+                style={{ padding: 16, marginTop: "15px" }}
+              >
                 <p
                   className="font-bold text-sm mb-0.5"
                   style={{ color: c.txt }}

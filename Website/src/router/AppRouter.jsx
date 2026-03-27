@@ -3,30 +3,35 @@ import { useAuth } from "../context/AuthContext";
 import AuthTransition from "../components/Auth/AuthTransition";
 import PatientDashboard from "../pages/patient/Dashboard";
 import DoctorDashboard from "../pages/medical/DoctorDashboard";
+import PharmacistDashboard from "../pages/pharmacist/PharmacistDashboard";
 import LandingPage from "../pages/LandingPage";
 
 // ─── Role → Dashboard map ─────────────────────────────────────────────────────
 //
 //  accountType (après normalisation lowercase) :
 //    "patient"           → PatientDashboard
-//    "personnel médical" → DoctorDashboard  (médecin / garde-malade / pharmacien)
-//
-// Quand tu auras des dashboards séparés par sous-rôle (Médecin / Pharmacien / Garde-malade)
-// tu peux utiliser userData.role pour affiner ici.
+//    "personnel médical" → selon userData.role :
+//                           "Pharmacien"   → PharmacistDashboard
+//                           "Médecin"      → DoctorDashboard
+//                           "Garde-malade" → DoctorDashboard (à créer)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function RoleRouter() {
   const { accountType, userData, logout } = useAuth();
 
   const type = accountType?.toLowerCase()?.trim();
+  const role = userData?.role; // "Médecin" | "Pharmacien" | "Garde-malade"
 
   if (type === "patient") {
     return <PatientDashboard onLogout={logout} />;
   }
 
   if (type === "personnel médical") {
-    // userData.role peut être "Médecin" | "Garde-malade" | "Pharmacien"
-    return <DoctorDashboard role={userData?.role} onLogout={logout} />;
+    if (role === "Pharmacien") {
+      return <PharmacistDashboard onLogout={logout} />;
+    }
+    // Médecin ou Garde-malade
+    return <DoctorDashboard role={role} onLogout={logout} />;
   }
 
   // Fallback — type inconnu
@@ -48,6 +53,9 @@ function RoleRouter() {
 
 // ─── Main Router ──────────────────────────────────────────────────────────────
 export default function AppRouter() {
+  // 🔽 LIGNE DE DÉVELOPPEMENT : décommentez pour revenir au mode normal
+  return <PharmacistDashboard onLogout={() => {}} />;
+
   const { isAuthenticated, login } = useAuth();
 
   const [showAuth, setShowAuth] = useState(false);
