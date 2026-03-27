@@ -1,38 +1,43 @@
-import { createContext, useContext, useState } from "react"
+import { createContext, useContext, useState } from "react";
 
-const AuthContext = createContext()
+// ─── Context ──────────────────────────────────────────────────────────────────
+const AuthContext = createContext(null);
 
+// ─── Provider ─────────────────────────────────────────────────────────────────
 export function AuthProvider({ children }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [accountType, setAccountType]         = useState("")
-  const [user, setUser]                       = useState(null)
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [accountType, setAccountType] = useState(null); // "patient" | "personnel médical" | ...
+  const [userData, setUserData] = useState(null);
 
-  function login(type, userData) {
-    setAccountType(type)
-    setUser(userData)
-    setIsAuthenticated(true)
-  }
+  /**
+   * Appelé après login ou après la fin du flow register
+   * @param {string} type  - "patient" | "personnel médical"
+   * @param {object} data  - données utilisateur (optionnel)
+   */
+  const login = (type, data = {}) => {
+    // Normalise le type pour être cohérent
+    const normalized = type?.toLowerCase()?.trim();
+    setAccountType(normalized);
+    setUserData(data);
+    setIsAuthenticated(true);
+  };
 
-  function logout() {
-    setIsAuthenticated(false)
-    setAccountType("")
-    setUser(null)
-  }
+  const logout = () => {
+    setIsAuthenticated(false);
+    setAccountType(null);
+    setUserData(null);
+  };
 
   return (
-    <AuthContext.Provider value={{
-      isAuthenticated,
-      accountType,
-      user,
-      login,
-      logout
-    }}>
+    <AuthContext.Provider value={{ isAuthenticated, accountType, userData, login, logout }}>
       {children}
     </AuthContext.Provider>
-  )
+  );
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
+// ─── Hook ─────────────────────────────────────────────────────────────────────
 export function useAuth() {
-  return useContext(AuthContext)
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used inside <AuthProvider>");
+  return ctx;
 }

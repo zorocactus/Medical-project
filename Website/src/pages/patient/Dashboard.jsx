@@ -409,22 +409,8 @@ function DashboardPage({ onNav, dk }) {
           <h1 className="text-2xl font-bold" style={{ color: c.txt }}>
             Welcome back, <span style={{ color: c.blue }}>Alex</span>
           </h1>
-          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
-            Here's your health summary for today, October 24.
-          </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          <div
-            className="flex items-center gap-2 rounded-xl px-4 py-2.5 shadow-sm border"
-            style={{ background: c.card, borderColor: c.border }}
-          >
-            <Search size={15} style={{ color: c.txt3 }} />
-            <input
-              placeholder="Search records..."
-              className="outline-none text-sm w-44 bg-transparent"
-              style={{ color: c.txt }}
-            />
-          </div>
           <button
             onClick={() => setEmergency(true)}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all hover:opacity-90 active:scale-95"
@@ -763,14 +749,6 @@ function MedicalProfilePage({ dk }) {
 
   return (
     <>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: c.txt }}>
-          Medical Profile
-        </h1>
-        <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
-          Your complete health record
-        </p>
-      </div>
       {/* Profile header */}
       <div
         className="rounded-2xl p-6 mb-6 flex items-start gap-5 flex-wrap border"
@@ -1101,15 +1079,7 @@ function AIDiagnosisPage({ dk }) {
   return (
     <>
       <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: c.txt }}>
-            AI Diagnosis
-          </h1>
-          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
-            Powered by MedSmart IA v2.1
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-end justify-end w-full gap-2">
           {/* History button */}
           <div className="relative">
             <button
@@ -1257,57 +1227,15 @@ function AIDiagnosisPage({ dk }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Chat */}
-        <div className="lg:col-span-2 flex flex-col gap-4">
+        <div
+          className="lg:col-span-2 flex flex-col gap-4"
+          style={{ marginTop: "-60px" }}
+        >
           <Card dk={dk} style={{ padding: 0, overflow: "hidden" }}>
-            {/* Chat header */}
-            <div
-              className="flex items-center gap-3 p-4 border-b"
-              style={{ borderColor: c.border }}
-            >
-              <div
-                className="w-9 h-9 rounded-xl flex items-center justify-center"
-                style={{
-                  background: "linear-gradient(135deg, #4A6FA5, #304B71)",
-                }}
-              >
-                <Brain size={17} className="text-white" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-bold" style={{ color: c.txt }}>
-                  MedSmart IA — Diagnostic
-                </p>
-                <p
-                  className="text-xs flex items-center gap-1.5"
-                  style={{ color: "#2D8C6F" }}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
-                  En ligne · Analyse activée
-                </p>
-              </div>
-              <button
-                onClick={() =>
-                  setMessages([
-                    {
-                      role: "ai",
-                      text: "Conversation effacée. Nouvelle session prête.",
-                    },
-                  ])
-                }
-                className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors hover:opacity-70"
-                style={{
-                  borderColor: c.border,
-                  color: c.txt3,
-                  cursor: "pointer",
-                }}
-              >
-                <X size={14} />
-              </button>
-            </div>
-
             {/* Messages */}
             <div
               className="p-4 space-y-4 overflow-y-auto"
-              style={{ minHeight: 300, maxHeight: 420 }}
+              style={{ minHeight: 450, maxHeight: 600 }}
             >
               {messages.map((m, i) => (
                 <div
@@ -1732,9 +1660,6 @@ function AppointmentsPage({ dk }) {
           <h1 className="text-2xl font-bold" style={{ color: c.txt }}>
             Book Appointment
           </h1>
-          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
-            Find the best healthcare experts
-          </p>
         </div>
         <button
           className="flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl text-white"
@@ -2029,16 +1954,6 @@ function PrescriptionsPage({ dk }) {
   ];
   return (
     <>
-      <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: c.txt }}>
-            My Prescriptions
-          </h1>
-          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
-            Manage and scan your digital prescriptions
-          </p>
-        </div>
-      </div>
       {/* QR scan zone */}
       <Card dk={dk} className="mb-6">
         <div
@@ -2138,20 +2053,10 @@ function PharmacyPage({ dk }) {
 
   return (
     <>
-      <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: c.txt }}>
-            Connected Pharmacy
-          </h1>
-          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
-            Order medications online — CNAS & SHIFA integrated
-          </p>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start mt-4">
         {/* Medications grid */}
         <div className="lg:col-span-2">
-          <Card dk={dk} className="mb-4" style={{ padding: "14px 18px" }}>
+          <Card dk={dk} className="mb-4" style={{ padding: "15px 18px" }}>
             <div className="flex items-center gap-2">
               <Search size={15} style={{ color: c.txt3 }} />
               <input
@@ -2178,7 +2083,7 @@ function PharmacyPage({ dk }) {
           </Card>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {PHARMACY_ITEMS.map((item) => (
-              <Card key={item.id} dk={dk} style={{ padding: 16 }}>
+              <Card key={item.id} dk={dk} style={{ padding: 16, marginTop: "15px" }}>
                 <p
                   className="font-bold text-sm mb-0.5"
                   style={{ color: c.txt }}
@@ -2994,35 +2899,6 @@ export default function PatientDashboard() {
 
           {/* ── Right section ── */}
           <div className="flex items-center gap-3 ml-auto shrink-0">
-            {/* iOS-style dark mode toggle — sun + moon icons outside the pill */}
-            <div className="flex items-center gap-1.5">
-              <Sun size={14} style={{ color: dk ? c.txt3 : "#E8A838" }} />
-              <button
-                onClick={() => setDk(!dk)}
-                className="relative rounded-full transition-all duration-300"
-                style={{
-                  width: 42,
-                  height: 24,
-                  background: dk
-                    ? "linear-gradient(135deg, #304B71, #4A6FA5)"
-                    : "#D5DEEF",
-                  border: `1.5px solid ${dk ? c.blue + "80" : "#BBC8DC"}`,
-                  padding: 0,
-                }}
-              >
-                <div
-                  className="absolute top-0.5 rounded-full bg-white shadow-md transition-all duration-300"
-                  style={{
-                    width: 18,
-                    height: 18,
-                    left: dk ? 20 : 2,
-                    boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
-                  }}
-                />
-              </button>
-              <Moon size={13} style={{ color: dk ? c.blue : c.txt3 }} />
-            </div>
-
             {/* Profile button — red dot on border corner for notifications */}
             <div className="relative">
               {/* Red dot on the outer corner of the whole button container */}
@@ -3155,7 +3031,32 @@ export default function PatientDashboard() {
                       />
                       Settings
                     </button>
-
+                    {/* Dark mode */}
+                    <button className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer">
+                      <Sun
+                        size={14}
+                        style={{ color: dk ? c.txt3 : "#E8A838" }}
+                      />
+                      <button
+                        onClick={() => setDk(!dk)}
+                        className="relative rounded-full transition-all duration-300  "
+                        style={{
+                          width: 42,
+                          height: 24,
+                          background: dk
+                            ? "linear-gradient(135deg, #304B71, #4A6FA5)"
+                            : "#D5DEEF",
+                          border: `1.5px solid ${dk ? c.blue + "80" : "#BBC8DC"}`,
+                          padding: 0,
+                        }}
+                      >
+                        <div
+                          className="absolute top-0.5 rounded-full bg-white shadow-md transition-all duration-300"
+                          style={{ width: 18, height: 18, left: dk ? 20 : 2 }}
+                        />
+                      </button>
+                      <Moon size={13} style={{ color: dk ? c.blue : c.txt3 }} />
+                    </button>
                     {/* Divider */}
                     <div
                       className="h-px my-1 mx-2"

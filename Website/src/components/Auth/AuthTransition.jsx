@@ -11,7 +11,7 @@ import MedicalInfoForm from "./RegisterStep2/MedicalInfoForm";
 import MedicalSuccess from "./RegisterStep2/MedicalSuccess";
 
 export default function AuthTransition({ onLogin }) {
-  console.log("onLogin reçu :", onLogin) // ← ajoute cette ligne
+  console.log("onLogin reçu :", onLogin); // ← ajoute cette ligne
   const [isActive, setIsActive] = useState(false);
   const [step, setStep] = useState(1);
   const [tempUser, setTempUser] = useState(null);
@@ -43,10 +43,20 @@ export default function AuthTransition({ onLogin }) {
 
   if (step === 2) {
     if (tempUser?.accountType === "patient") {
-      return <PatientForm onComplete={handleCompletedStep2} onBack={() => setStep(1)} />;
+      return (
+        <PatientForm
+          onComplete={handleCompletedStep2}
+          onBack={() => setStep(1)}
+        />
+      );
     }
     if (tempUser?.accountType === "personnel médical") {
-      return <MedicalForm onComplete={handleCompletedStep2} onBack={() => setStep(1)} />;
+      return (
+        <MedicalForm
+          onComplete={handleCompletedStep2}
+          onBack={() => setStep(1)}
+        />
+      );
     }
     // For other account types, we log them in immediately since no step 2 is provided yet
     onLogin(tempUser?.accountType || "patient");
@@ -55,10 +65,20 @@ export default function AuthTransition({ onLogin }) {
 
   if (step === 3) {
     if (tempUser?.accountType === "patient") {
-      return <PatientIdentityForm onComplete={handleCompletedStep3} onBack={() => setStep(2)} />;
+      return (
+        <PatientIdentityForm
+          onComplete={handleCompletedStep3}
+          onBack={() => setStep(2)}
+        />
+      );
     }
     if (tempUser?.accountType === "personnel médical") {
-      return <MedicalIdentityForm onComplete={handleCompletedStep3} onBack={() => setStep(2)} />;
+      return (
+        <MedicalIdentityForm
+          onComplete={handleCompletedStep3}
+          onBack={() => setStep(2)}
+        />
+      );
     }
   }
 
@@ -67,26 +87,36 @@ export default function AuthTransition({ onLogin }) {
       return <PatientSuccess onComplete={() => onLogin("patient")} />;
     }
     if (tempUser?.accountType === "personnel médical") {
-      return <MedicalRoleForm onComplete={handleCompletedStep4} onBack={() => setStep(3)} />;
+      return (
+        <MedicalRoleForm
+          onComplete={handleCompletedStep4}
+          onBack={() => setStep(3)}
+        />
+      );
     }
   }
 
   if (step === 5) {
     if (tempUser?.accountType === "personnel médical") {
-      return <MedicalInfoForm onComplete={handleCompletedStep5} onBack={() => setStep(4)} />;
+      return (
+        <MedicalInfoForm
+          onComplete={handleCompletedStep5}
+          onBack={() => setStep(4)}
+        />
+      );
     }
   }
 
   if (step === 6) {
     if (tempUser?.accountType === "personnel médical") {
-      return <MedicalSuccess onComplete={() => onLogin("personnel médical")} />
+      return <MedicalSuccess onComplete={() => onLogin("personnel médical")} />;
     }
   }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-[#D1DFEC] font-sans">
-      <div className="bg-white w-[1200px] h-[650px] shadow-2xl relative rounded-xl border border-[#D1DFEC] overflow-hidden">  
-      <style>{`
+      <div className="bg-white w-[1200px] h-[650px] shadow-2xl relative rounded-xl border border-[#D1DFEC] overflow-hidden">
+        <style>{`
         .auth-container {
           position: relative;
           width: 100%;
@@ -185,55 +215,68 @@ export default function AuthTransition({ onLogin }) {
         }
       `}</style>
 
-      <div className={`auth-container${isActive ? " active" : ""}`}>
+        <div className={`auth-container${isActive ? " active" : ""}`}>
+          <div className="form-box login">
+            <LoginForm key="login" onLogin={onLogin} />
+          </div>
 
-        <div className="form-box login">
-  <LoginForm key="login" onLogin={onLogin} />
-</div>
+          <div className="form-box register">
+            <RegisterForm
+              key="register"
+              onLogin={onLogin}
+              onNextStep={handleNextStep}
+            />
+          </div>
 
-<div className="form-box register">
-  <RegisterForm key="register" onLogin={onLogin} onNextStep={handleNextStep} />
-</div>
-
-        <div className="toggle-box">
-
-          <div className="toggle-panel toggle-left">
-            <div className="text-center flex flex-col items-center px-12 -space-y-16">
-              <div className="max-w-[380px] xl:max-w-[450px]">
-                <img src="/Doctor_new.png" alt="Doctor" className="w-full h-auto object-contain" />
+          <div className="toggle-box">
+            <div className="toggle-panel toggle-left">
+              <div className="text-center flex flex-col items-center px-12 -space-y-16">
+                <div className="max-w-[380px] xl:max-w-[450px]">
+                  <img
+                    src="/Doctor_new.png"
+                    alt="Doctor"
+                    className="w-full h-auto object-contain"
+                  />
+                </div>
+                <div className="mt-8 space-y-4">
+                  <p className="text-white text-base font-medium opacity-80">
+                    Already have an account?
+                  </p>
+                  <button
+                    onClick={() => setIsActive(false)}
+                    className="px-16 py-3 border-[1.5px] border-white/60 rounded-2xl text-white text-lg font-semibold hover:bg-white/10 transition-all cursor-pointer uppercase tracking-wide"
+                  >
+                    LOGIN
+                  </button>
+                </div>
               </div>
-              <div className="mt-8 space-y-4">
-                <p className="text-white text-base font-medium opacity-80">Already have an account?</p>
-                <button
-                  onClick={() => setIsActive(false)}
-                  className="px-16 py-3 border-[1.5px] border-white/60 rounded-2xl text-white text-lg font-semibold hover:bg-white/10 transition-all cursor-pointer uppercase tracking-wide"
-                >
-                  LOGIN
-                </button>
+            </div>
+
+            <div className="toggle-panel toggle-right">
+              <div className="text-center flex flex-col items-center px-12 -space-y-10  ">
+                <div className="max-w-[480px]">
+                  <img
+                    src="/Doctor_new.png"
+                    alt="Doctor"
+                    className="w-full h-auto object-contain"
+                  />
+                </div>
+                <div className="space-y-4">
+                  <p className="text-white text-base font-medium opacity-80">
+                    Don't have an account?
+                  </p>
+                  <button
+                    onClick={() => setIsActive(true)}
+                    className="px-16 py-3 border-[1.5px] border-white/60 rounded-2xl text-white text-lg font-semibold hover:bg-white/10 transition-all cursor-pointer uppercase tracking-wide"
+                  >
+                    REGISTER
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-
-          <div className="toggle-panel toggle-right">
-            <div className="text-center flex flex-col items-center px-12 -space-y-10  ">
-              <div className="max-w-[480px]">
-                <img src="/Doctor_new.png" alt="Doctor" className="w-full h-auto object-contain" />
-              </div>
-              <div className="space-y-4">
-                <p className="text-white text-base font-medium opacity-80">Don't have an account?</p>
-                <button
-                  onClick={() => setIsActive(true)}
-                  className="px-16 py-3 border-[1.5px] border-white/60 rounded-2xl text-white text-lg font-semibold hover:bg-white/10 transition-all cursor-pointer uppercase tracking-wide"
-                >
-                  REGISTER
-                </button>
-              </div>
-            </div>
-          </div>
-
         </div>
       </div>
-    </div> 
-   </div>
+    </div>
   );
 }
