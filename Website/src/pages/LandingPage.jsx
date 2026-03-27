@@ -35,7 +35,7 @@ export default function LandingPage({ onLogin, onRegister }) {
   return (
     <div id="landing-root" className="min-h-screen bg-[#F5F7FB]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       <Navbar onLogin={onLogin} onRegister={onRegister} />
-      <Hero onStart={onLogin} />
+      <Hero onStart={onRegister} />
       <AIFeatures />
       <Doctors />
       <Booking />

@@ -10,9 +10,8 @@ import MedicalRoleForm from "./RegisterStep2/MedicalRoleForm";
 import MedicalInfoForm from "./RegisterStep2/MedicalInfoForm";
 import MedicalSuccess from "./RegisterStep2/MedicalSuccess";
 
-export default function AuthTransition({ onLogin }) {
-  console.log("onLogin reçu :", onLogin); // ← ajoute cette ligne
-  const [isActive, setIsActive] = useState(false);
+export default function AuthTransition({ onLogin, initialMode }) {
+  const [isActive, setIsActive] = useState(initialMode === "register");
   const [step, setStep] = useState(1);
   const [tempUser, setTempUser] = useState(null);
 
