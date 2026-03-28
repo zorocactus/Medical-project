@@ -4,6 +4,7 @@ import AuthTransition from "../components/Auth/AuthTransition";
 import PatientDashboard from "../pages/patient/Dashboard";
 import DoctorDashboard from "../pages/medical/DoctorDashboard";
 import PharmacistDashboard from "../pages/pharmacist/PharmacistDashboard";
+import AdminDashboard from "../pages/admin/Admindashboard";
 import LandingPage from "../pages/LandingPage";
 
 // ─── Role → Dashboard map ─────────────────────────────────────────────────────
@@ -34,6 +35,10 @@ function RoleRouter() {
     return <DoctorDashboard role={role} onLogout={logout} />;
   }
 
+  if (type === "admin") {
+    return <AdminDashboard onLogout={logout} />;
+  }
+
   // Fallback — type inconnu
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-[#D1DFEC]">
@@ -53,13 +58,17 @@ function RoleRouter() {
 
 // ─── Main Router ──────────────────────────────────────────────────────────────
 export default function AppRouter() {
-  // 🔽 LIGNE DE DÉVELOPPEMENT : décommentez pour revenir au mode normal
-  return <PharmacistDashboard onLogout={() => {}} />;
-
-  const { isAuthenticated, login } = useAuth();
-
+  const { isAuthenticated, login, logout } = useAuth();
   const [showAuth, setShowAuth] = useState(false);
-  const [authMode, setAuthMode] = useState("login"); // "login" or "register"
+  const [authMode, setAuthMode] = useState("login");
+
+  // 🚀 ZONE DE TEST RAPIDE : Décommentez UNE ligne ci-dessous pour tester un dashboard en direct !
+  // (N'oubliez pas de re-commenter pour revenir au mode normal de connexion)
+  //
+  // return <AdminDashboard onLogout={logout} />;
+  // return <DoctorDashboard role="Médecin" onLogout={logout} />;
+   // return <PharmacistDashboard onLogout={logout} />;
+    return <PatientDashboard onLogout={logout} />;
 
   // Pas encore authentifié
   if (!isAuthenticated) {
