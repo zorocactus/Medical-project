@@ -11,13 +11,29 @@ export default function MedicalRoleForm({ onComplete, onBack }) {
     role: "Médecin",
   });
 
+  const [errors, setErrors] = useState({});
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const handleRoleSelect = (role) => {
     setFormData((prev) => ({ ...prev, role }));
+  };
+
+  const handleSubmit = () => {
+    const newErrors = {};
+    if (!formData.qualifications.trim()) newErrors.qualifications = "Ce champ est obligatoire";
+    if (!formData.establishmentName.trim()) newErrors.establishmentName = "Ce champ est obligatoire";
+    if (!formData.establishmentAddress.trim()) newErrors.establishmentAddress = "Ce champ est obligatoire";
+    if (!formData.experience) newErrors.experience = "Ce champ est obligatoire";
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    onComplete(formData);
   };
 
   return (
@@ -77,7 +93,7 @@ export default function MedicalRoleForm({ onComplete, onBack }) {
                   placeholder="Ajouter vos qualifications"
                   value={formData.qualifications}
                   onChange={handleChange}
-                  className="w-full pl-4 pr-16 py-3 rounded-xl border border-[#D1DFEC] hover:border-[#89AEDB] focus:border-[#6492C9] focus:ring-0 outline-none text-gray-700 text-sm transition-colors placeholder:text-[#A0B5CD]"
+                  className={`w-full pl-4 pr-16 py-3 rounded-xl border ${errors.qualifications ? 'border-red-400' : 'border-[#D1DFEC] hover:border-[#89AEDB] focus:border-[#6492C9]'} focus:ring-0 outline-none text-gray-700 text-sm transition-colors placeholder:text-[#A0B5CD]`}
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                   <Eye size={18} className="text-[#89AEDB] cursor-pointer hover:text-[#6492C9] transition-colors" />
@@ -118,9 +134,10 @@ export default function MedicalRoleForm({ onComplete, onBack }) {
                   placeholder="Clinique, Hôpital..."
                   value={formData.establishmentName}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl border border-[#D1DFEC] hover:border-[#89AEDB] focus:border-[#6492C9] focus:ring-0 outline-none text-gray-700 text-sm transition-colors placeholder:text-[#A0B5CD]"
+                  className={`w-full px-4 py-3 rounded-xl border ${errors.establishmentName ? 'border-red-400' : 'border-[#D1DFEC] hover:border-[#89AEDB] focus:border-[#6492C9]'} focus:ring-0 outline-none text-gray-700 text-sm transition-colors placeholder:text-[#A0B5CD]`}
                 />
               </div>
+              {errors.establishmentName && <p className="text-red-500 text-[12px] mt-1 ml-1">{errors.establishmentName}</p>}
             </div>
 
             <div className="relative group md:col-span-1">
@@ -134,9 +151,10 @@ export default function MedicalRoleForm({ onComplete, onBack }) {
                   placeholder="Adresse complète"
                   value={formData.establishmentAddress}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl border border-[#D1DFEC] hover:border-[#89AEDB] focus:border-[#6492C9] focus:ring-0 outline-none text-gray-700 text-sm transition-colors placeholder:text-[#A0B5CD]"
+                  className={`w-full px-4 py-3 rounded-xl border ${errors.establishmentAddress ? 'border-red-400' : 'border-[#D1DFEC] hover:border-[#89AEDB] focus:border-[#6492C9]'} focus:ring-0 outline-none text-gray-700 text-sm transition-colors placeholder:text-[#A0B5CD]`}
                 />
               </div>
+              {errors.establishmentAddress && <p className="text-red-500 text-[12px] mt-1 ml-1">{errors.establishmentAddress}</p>}
             </div>
 
             <div className="relative group md:col-span-1">
@@ -148,7 +166,7 @@ export default function MedicalRoleForm({ onComplete, onBack }) {
                   name="experience"
                   value={formData.experience}
                   onChange={handleChange}
-                  className="w-full pl-4 pr-10 py-3 rounded-xl border border-[#D1DFEC] hover:border-[#89AEDB] focus:border-[#6492C9] focus:ring-0 outline-none ${formData.experience ? 'text-gray-700' : 'text-[#A0B5CD]'} text-sm appearance-none transition-colors"
+                  className={`w-full pl-4 pr-10 py-3 rounded-xl border ${errors.experience ? 'border-red-400' : 'border-[#D1DFEC] hover:border-[#89AEDB] focus:border-[#6492C9]'} focus:ring-0 outline-none ${formData.experience ? 'text-gray-700' : 'text-[#A0B5CD]'} text-sm appearance-none transition-colors`}
                 >
                   <option value="" disabled hidden>Sélectionner</option>
                   <option value="< 1 an">Moins d'un an</option>
@@ -161,6 +179,7 @@ export default function MedicalRoleForm({ onComplete, onBack }) {
                   <ChevronDown size={18} strokeWidth={1.5} />
                 </div>
               </div>
+              {errors.experience && <p className="text-red-500 text-[12px] mt-1 ml-1">{errors.experience}</p>}
             </div>
           </div>
         </div>
@@ -253,7 +272,7 @@ export default function MedicalRoleForm({ onComplete, onBack }) {
           </button>
           
           <button
-            onClick={() => onComplete(formData)}
+            onClick={handleSubmit}
             className="flex-1 bg-[#6492C9] hover:bg-[#304B71] text-white py-3 rounded-xl text-[15px] font-medium transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1"
           >
             Suivant &rarr;

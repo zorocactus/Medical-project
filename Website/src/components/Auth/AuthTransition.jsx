@@ -64,7 +64,7 @@ export default function AuthTransition({ onLogin }) {
 
   if (step === 4) {
     if (tempUser?.accountType === "patient") {
-      return <PatientSuccess onComplete={() => onLogin("patient")} />;
+      return <PatientSuccess onComplete={() => onLogin(tempUser)} />;
     }
     if (tempUser?.accountType === "personnel médical") {
       return <MedicalRoleForm onComplete={handleCompletedStep4} onBack={() => setStep(3)} />;
@@ -79,7 +79,7 @@ export default function AuthTransition({ onLogin }) {
 
   if (step === 6) {
     if (tempUser?.accountType === "personnel médical") {
-      return <MedicalSuccess onComplete={() => onLogin("personnel médical")} />
+      return <MedicalSuccess onComplete={() => onLogin(tempUser)} />
     }
   }
 

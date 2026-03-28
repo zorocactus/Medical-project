@@ -1,5 +1,35 @@
 @import "tailwindcss";
 
+:root {
+  --background: #F8FAFC;
+  --surface: #FFFFFF;
+  --text-main: #0D2644;
+  --text-secondary: #5C738A;
+  --text-muted: #A0B5CD;
+  --border: #F1F5F9;
+  --primary: #6492C9;
+  --primary-hover: #304B71;
+  --accent: #1E90FF;
+}
+
+.dark {
+  --background: #0B1120;
+  --surface: #172133;
+  --text-main: #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+  --border: #1E293B;
+  --primary: #6492C9;
+  --primary-hover: #8AB4E6;
+  --accent: #38BDF8;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--text-main);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
 @layer utilities {
   .animate-in {
     animation-fill-mode: both;

@@ -67,7 +67,7 @@ export default function GardeMSidebar() {
             onClick={() => setActive(item.name)}
             className={`w-full flex items-center gap-4 px-5 py-3.5 rounded-[22px] transition-all duration-300 group cursor-pointer hover:scale-105 ${
               active === item.name
-                ? "bg-gradient-to-r from-[#F59E0B] to-[#D97706] text-white shadow-lg shadow-[#F59E0B]/30"
+                ? "bg-linear-to-r from-[#F59E0B] to-[#D97706] text-white shadow-lg shadow-[#F59E0B]/30"
                 : "text-[#64748B] hover:bg-[#FFFBEB] hover:text-[#F59E0B]"
             }`}
           >

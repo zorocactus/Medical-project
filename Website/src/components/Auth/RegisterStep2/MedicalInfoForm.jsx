@@ -10,13 +10,29 @@ export default function MedicalInfoForm({ onComplete, onBack }) {
     cnas: "Oui",
   });
 
+  const [errors, setErrors] = useState({});
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const handleFileChange = (e) => {
     setFormData((prev) => ({ ...prev, autorisationFile: e.target.files[0] }));
+    if (errors.autorisationFile) setErrors((prev) => ({ ...prev, autorisationFile: "" }));
+  };
+
+  const handleSubmit = () => {
+    const newErrors = {};
+    if (!formData.licence.trim()) newErrors.licence = "Ce champ est obligatoire";
+    if (!formData.nInscription.trim()) newErrors.nInscription = "Ce champ est obligatoire";
+    if (!formData.autorisationFile) newErrors.autorisationFile = "Ce champ est obligatoire";
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    onComplete(formData);
   };
 
   return (
@@ -100,9 +116,10 @@ export default function MedicalInfoForm({ onComplete, onBack }) {
                     placeholder="Numéro de licence"
                     value={formData.licence}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 rounded-xl border border-[#D1DFEC] hover:border-[#89AEDB] focus:border-[#6492C9] focus:ring-0 outline-none text-gray-700 text-sm transition-colors placeholder:text-[#A0B5CD]"
+                    className={`w-full px-4 py-3 rounded-xl border ${errors.licence ? 'border-red-400' : 'border-[#D1DFEC] hover:border-[#89AEDB] focus:border-[#6492C9]'} focus:ring-0 outline-none text-gray-700 text-sm transition-colors placeholder:text-[#A0B5CD]`}
                   />
                 </div>
+                {errors.licence && <p className="text-red-500 text-[12px] mt-1 ml-1">{errors.licence}</p>}
               </div>
             </div>
 
@@ -119,9 +136,10 @@ export default function MedicalInfoForm({ onComplete, onBack }) {
                     placeholder="Ex: 16-XXXX-XX"
                     value={formData.nInscription}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 rounded-xl border border-[#D1DFEC] hover:border-[#89AEDB] focus:border-[#6492C9] focus:ring-0 outline-none text-gray-700 text-sm transition-colors placeholder:text-[#A0B5CD]"
+                    className={`w-full px-4 py-3 rounded-xl border ${errors.nInscription ? 'border-red-400' : 'border-[#D1DFEC] hover:border-[#89AEDB] focus:border-[#6492C9]'} focus:ring-0 outline-none text-gray-700 text-sm transition-colors placeholder:text-[#A0B5CD]`}
                   />
                 </div>
+                {errors.nInscription && <p className="text-red-500 text-[12px] mt-1 ml-1">{errors.nInscription}</p>}
               </div>
 
               <div className="relative group flex-1">
@@ -138,7 +156,7 @@ export default function MedicalInfoForm({ onComplete, onBack }) {
                   />
                   <label
                     htmlFor="autorisationFile"
-                    className={`flex flex-col items-center justify-center w-full min-h-[120px] rounded-2xl border-2 border-dashed ${formData.autorisationFile ? 'border-[#6492C9] bg-[#F4F8FB]' : 'border-[#D1DFEC] hover:border-[#89AEDB]'} cursor-pointer transition-colors group`}
+                    className={`flex flex-col items-center justify-center w-full min-h-[120px] rounded-2xl border-2 border-dashed ${errors.autorisationFile ? 'border-red-400' : formData.autorisationFile ? 'border-[#6492C9] bg-[#F4F8FB]' : 'border-[#D1DFEC] hover:border-[#89AEDB]'} cursor-pointer transition-colors group`}
                   >
                     <div className="w-8 h-8 rounded border border-[#D1DFEC] flex items-center justify-center mb-2 bg-white">
                       <span className="text-[#89AEDB] font-bold text-lg">+</span>
@@ -150,6 +168,7 @@ export default function MedicalInfoForm({ onComplete, onBack }) {
                       PDF, JPG - 5MB max
                     </span>
                   </label>
+                  {errors.autorisationFile && <p className="text-red-500 text-[12px] mt-1 text-center">{errors.autorisationFile}</p>}
                 </div>
               </div>
             </div>
@@ -190,7 +209,7 @@ export default function MedicalInfoForm({ onComplete, onBack }) {
           </button>
           
           <button
-            onClick={() => onComplete(formData)}
+            onClick={handleSubmit}
             className="flex-1 bg-[#6492C9] hover:bg-[#304B71] text-white py-3 rounded-xl text-[15px] font-medium transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1"
           >
             Soumettre l'inscription &rarr;
