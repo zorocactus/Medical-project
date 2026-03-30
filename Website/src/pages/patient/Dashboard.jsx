@@ -1,4 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useAuth } from "../../context/AuthContext";
+import * as api from "../../services/api";
 import {
   LayoutDashboard,
   User,
@@ -294,6 +296,38 @@ function Badge({ color, bg, children }) {
   );
 }
 
+// ─── Empty State component ───────────────────────────────────────────────────
+function EmptyState({ dk, icon: Icon = FileText, title, message, compact = false }) {
+  const c = dk ? T.dark : T.light;
+  return (
+    <Card
+      dk={dk}
+      className={`text-center w-full ${compact ? "py-6 px-4" : "py-10 px-6"}`}
+    >
+      <div
+        className={`${
+          compact ? "w-12 h-12 mb-3" : "w-16 h-16 mb-5"
+        } rounded-[20px] flex items-center justify-center mx-auto shadow-sm`}
+        style={{ background: c.blueLight }}
+      >
+        <Icon size={compact ? 24 : 30} style={{ color: c.blue }} />
+      </div>
+      <h3
+        className={`${compact ? "font-semibold text-base mb-1" : "font-bold text-lg mb-2"}`}
+        style={{ color: c.txt }}
+      >
+        {title}
+      </h3>
+      <p
+        className={`${compact ? "text-xs" : "text-sm"} max-w-[280px] mx-auto leading-relaxed`}
+        style={{ color: c.txt2 }}
+      >
+        {message}
+      </p>
+    </Card>
+  );
+}
+
 // ─── Emergency Modal ──────────────────────────────────────────────────────────
 function EmergencyModal({ onClose, dk }) {
   const c = dk ? T.dark : T.light;
@@ -391,11 +425,25 @@ function EmergencyModal({ onClose, dk }) {
 }
 
 // ─── DASHBOARD PAGE ───────────────────────────────────────────────────────────
-function DashboardPage({ onNav, dk }) {
+function DashboardPage({
+  onNav,
+  dk,
+  userData,
+  appointments,
+  notifications,
+  setNotifications,
+}) {
   const [meds, setMeds] = useState(MEDICATIONS);
   const [symptom, setSymptom] = useState("");
   const [emergency, setEmergency] = useState(false);
   const c = dk ? T.dark : T.light;
+
+  const firstName = userData?.first_name || "Guest";
+  const safeAppts = Array.isArray(appointments) ? appointments : [];
+  const upcomingAppts =
+    safeAppts.filter(
+      (a) => a.status === "confirmed" || a.status === "pending",
+    ) || [];
 
   return (
     <>
@@ -407,28 +455,27 @@ function DashboardPage({ onNav, dk }) {
       <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: c.txt }}>
-            Welcome back, <span style={{ color: c.blue }}>Alex</span>
+            Bonjour, <span style={{ color: c.blue }}>{firstName}</span> 👋
           </h1>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <button
             onClick={() => setEmergency(true)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all hover:opacity-90 active:scale-95"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all hover:opacity-90 active:scale-95 shadow-lg"
             style={{
               background: "linear-gradient(135deg, #E05555, #c93535)",
               color: "#fff",
-              boxShadow: "0 4px 16px rgba(224,85,85,0.45)",
             }}
           >
-            <Star size={13} fill="white" strokeWidth={0} />
-            EMERGENCY ALERT
+            <AlertTriangle size={15} />
+            URGENCE
           </button>
         </div>
       </div>
 
       {/* AI Checker */}
       <div
-        className="rounded-2xl p-6 mb-6 relative overflow-hidden"
+        className="rounded-2xl p-6 mb-6 relative overflow-hidden shadow-sm"
         style={{
           background: "linear-gradient(135deg, #304B71 0%, #6492C9 100%)",
         }}
@@ -436,31 +483,29 @@ function DashboardPage({ onNav, dk }) {
         <div className="absolute right-6 top-1/2 -translate-y-1/2 w-36 h-36 rounded-full opacity-10 bg-white pointer-events-none" />
         <div className="absolute right-20 top-1/2 -translate-y-1/2 w-20 h-20 rounded-full opacity-8 bg-white pointer-events-none" />
         <div className="flex items-center gap-2 mb-1 relative z-10">
-          <div className="w-5 h-5 rounded-full border-2 border-white/70 flex items-center justify-center">
-            <Activity size={10} className="text-white" />
-          </div>
+          <Activity size={18} className="text-white" />
           <h2 className="text-white font-semibold text-base">
-            AI Symptom Checker
+            Analyse de symptômes IA
           </h2>
         </div>
-        <p className="text-white/75 text-sm mb-4 relative z-10">
-          Feeling unwell? Describe your symptoms and get instant AI-guided
-          advice from our medical knowledge base.
+        <p className="text-white/75 text-sm mb-4 relative z-10 max-w-md">
+          Décrivez vos symptômes pour obtenir un avis orienter par notre
+          intelligence médicale.
         </p>
-        <div className="flex gap-3 relative z-10">
+        <div className="flex gap-3 relative z-10 flex-wrap sm:flex-nowrap">
           <input
             value={symptom}
             onChange={(e) => setSymptom(e.target.value)}
-            placeholder="e.g. Mild headache and fatigue..."
-            className="flex-1 px-4 py-3 rounded-xl outline-none text-sm"
+            placeholder="Ex: Maux de tête légers et fatigue..."
+            className="flex-1 px-4 py-3 rounded-xl outline-none text-sm min-w-[200px]"
             style={{ background: "rgba(255,255,255,0.92)", color: "#0D1B2E" }}
           />
           <button
             onClick={() => onNav("ai-diagnosis")}
-            className="px-7 py-3 rounded-xl font-bold text-sm transition-all hover:shadow-lg"
+            className="px-8 py-3 rounded-xl font-bold text-sm transition-all hover:shadow-lg whitespace-nowrap"
             style={{ background: "#ffffff", color: "#304B71" }}
           >
-            Analyze
+            Analyser
           </button>
         </div>
       </div>
@@ -469,14 +514,18 @@ function DashboardPage({ onNav, dk }) {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
         <div className="xl:col-span-2 flex flex-col gap-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Prochains RDV (Upcoming Appointments) */}
+            {/* Prochains RDV */}
             <Card dk={dk}>
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-2">
                   <h3 className="font-bold text-base" style={{ color: c.txt }}>
                     Prochains RDV
                   </h3>
-                  <Badge color={c.blue} bg={`${c.blue}11`}>2 actifs</Badge>
+                  {upcomingAppts.length > 0 && (
+                    <Badge color={c.blue} bg={`${c.blue}11`}>
+                      {upcomingAppts.length} actifs
+                    </Badge>
+                  )}
                 </div>
                 <button
                   onClick={() => onNav("appointments")}
@@ -487,40 +536,66 @@ function DashboardPage({ onNav, dk }) {
                 </button>
               </div>
               <div className="space-y-4">
-                {APPOINTMENTS.map((a) => (
-                  <div
-                    key={a.id}
-                    onClick={() => onNav("appointments")}
-                    className="group flex items-center gap-4 p-3 rounded-2xl border transition-all hover:shadow-md cursor-pointer"
-                    style={{ borderColor: c.border, background: dk ? `${c.blue}05` : "#fff" }}
-                  >
+                {upcomingAppts.length === 0 ? (
+                  <EmptyState
+                    dk={dk}
+                    icon={Calendar}
+                    title="Aucun rendez-vous"
+                    message="Vous n'avez pas de consultations prévues pour le moment."
+                  />
+                ) : (
+                  upcomingAppts.slice(0, 2).map((a) => (
                     <div
-                      className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 shadow-sm"
-                      style={{ background: c.blueLight }}
+                      key={a.id}
+                      onClick={() => onNav("appointments")}
+                      className="group flex items-center gap-4 p-3 rounded-2xl border transition-all hover:shadow-md cursor-pointer"
+                      style={{
+                        borderColor: c.border,
+                        background: dk ? `${c.blue}05` : "#fff",
+                      }}
                     >
-                      <Calendar size={20} style={{ color: c.blue }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold truncate" style={{ color: c.txt }}>
-                        {a.name}
-                      </p>
-                      <p className="text-xs font-medium opacity-70" style={{ color: c.txt2 }}>
-                        {a.role}
-                      </p>
-                      <div className="mt-2 flex items-center gap-2">
-                         <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-dashed"
-                           style={{ borderColor: c.blue + "33", background: c.blue + "08" }}>
-                           <Clock size={11} style={{ color: c.blue }} />
-                           <span className="text-[10px] font-bold" style={{ color: c.blue }}>{a.date}</span>
-                         </div>
+                      <div
+                        className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 shadow-sm"
+                        style={{ background: c.blueLight }}
+                      >
+                        <Calendar size={20} style={{ color: c.blue }} />
                       </div>
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className="text-sm font-bold truncate"
+                          style={{ color: c.txt }}
+                        >
+                          {a.doctor_name || "Médecin Inconnu"}
+                        </p>
+                        <p
+                          className="text-xs font-medium opacity-70"
+                          style={{ color: c.txt2 }}
+                        >
+                          {a.doctor_specialty || "Généraliste"}
+                        </p>
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <div
+                            className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg border border-dashed"
+                            style={{
+                              borderColor: c.blue + "33",
+                              background: c.blue + "08",
+                            }}
+                          >
+                            <Clock size={10} style={{ color: c.blue }} />
+                            <span
+                              className="text-[10px] font-bold"
+                              style={{ color: c.blue }}
+                            >
+                              {a.slot_date} ·{" "}
+                              {a.slot_start_time?.substring(0, 5)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <ChevronRight size={14} style={{ color: c.txt3 }} />
                     </div>
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center transition-all group-hover:bg-blue-50"
-                      style={{ background: c.blueLight }}>
-                      <ChevronRight size={14} style={{ color: c.blue }} />
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </Card>
             {/* Medications */}
@@ -663,41 +738,100 @@ function DashboardPage({ onNav, dk }) {
               <h3 className="font-semibold" style={{ color: c.txt }}>
                 Notifications
               </h3>
-              <span className="w-6 h-6 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
-                3
-              </span>
+              {notifications?.filter((n) => !n.is_read && n.unread !== false)
+                .length > 0 && (
+                <span className="w-6 h-6 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
+                  {
+                    notifications.filter(
+                      (n) => !n.is_read && n.unread !== false,
+                    ).length
+                  }
+                </span>
+              )}
             </div>
             <div className="space-y-3">
-              {NOTIFICATIONS_DATA.slice(0, 3).map((n) => (
-                <div
-                  key={n.id}
-                  className="flex items-start gap-3 p-3 rounded-xl"
-                  style={{ background: dk ? n.bgDark : n.bg }}
-                >
+              {(notifications || []).slice(0, 3).map((n) => {
+                const isUnread = !n.is_read && n.unread !== false;
+                return (
                   <div
-                    className="w-1 self-stretch rounded-full shrink-0"
-                    style={{ background: n.color }}
-                  />
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-                    style={{ background: n.color + "22" }}
+                    key={n.id}
+                    onClick={() => {
+                      if (isUnread) {
+                        api.markNotificationRead(n.id).catch(() => null);
+                        if (setNotifications) {
+                          setNotifications((prev) =>
+                            prev.map((x) =>
+                              x.id === n.id
+                                ? { ...x, is_read: true, unread: false }
+                                : x,
+                            ),
+                          );
+                        }
+                      }
+                    }}
+                    className="flex items-start gap-3 p-3 rounded-xl cursor-pointer hover:opacity-80 transition-opacity"
+                    style={{
+                      background: isUnread ? c.blueLight : "transparent",
+                      border: `1px solid ${c.border}`,
+                    }}
                   >
-                    <n.icon size={14} style={{ color: n.color }} />
-                  </div>
-                  <div>
-                    <p
-                      className="text-sm font-semibold"
-                      style={{ color: c.txt }}
+                    <div
+                      className="w-1 self-stretch rounded-full shrink-0"
+                      style={{ background: isUnread ? c.blue : "transparent" }}
+                    />
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                      style={{ background: c.blueLight }}
                     >
-                      {n.title}
-                    </p>
-                    <p className="text-xs" style={{ color: c.txt3 }}>
-                      {n.sub}
-                    </p>
+                      <Bell size={14} style={{ color: c.blue }} />
+                    </div>
+                    <div>
+                      <p
+                        className="text-sm font-semibold"
+                        style={{ color: c.txt }}
+                      >
+                        {n.title || n.message || "Notification"}
+                      </p>
+                      <p className="text-xs" style={{ color: c.txt3 }}>
+                        {n.created_at || n.sub || "Récemment"}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
+              {(!notifications || notifications.length === 0) && (
+                <p
+                  className="text-xs text-center py-4"
+                  style={{ color: c.txt3 }}
+                >
+                  Aucune notification
+                </p>
+              )}
             </div>
+
+            {notifications && notifications.length > 3 && (
+              <button
+                onClick={() => onNav("notifications")}
+                className="w-full mt-4 py-2.5 rounded-xl text-xs font-bold transition-colors hover:opacity-80"
+                style={{
+                  background: c.blueLight,
+                  color: c.blue,
+                }}
+              >
+                View All
+              </button>
+            )}
+            {notifications &&
+              notifications.length > 0 &&
+              notifications.length <= 3 && (
+                <button
+                  onClick={() => onNav("notifications")}
+                  className="w-full mt-4 py-2 text-xs font-semibold rounded-xl transition-colors hover:opacity-80 border"
+                  style={{ borderColor: c.border, color: c.txt2 }}
+                >
+                  Gérer les notifications
+                </button>
+              )}
           </Card>
           <Card dk={dk}>
             <h3 className="font-semibold mb-5" style={{ color: c.txt }}>
@@ -740,9 +874,44 @@ function DashboardPage({ onNav, dk }) {
 }
 
 // ─── MEDICAL PROFILE PAGE ─────────────────────────────────────────────────────
-function MedicalProfilePage({ dk }) {
+function MedicalProfilePage({ dk, profile, userId }) {
   const c = dk ? T.dark : T.light;
   const [tab, setTab] = useState("antecedents");
+  const [data, setData] = useState({
+    antecedents: [],
+    treatments: [],
+    diagnostics: [],
+    prescriptions: [],
+    analyses: [],
+  });
+  const [loading, setLoading] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const [status, setStatus] = useState({ type: "", msg: "" }); // { type: "success"|"error", msg: "" }
+
+  useEffect(() => {
+    async function fetchTabData() {
+      setLoading(true);
+      try {
+        if (tab === "antecedents") {
+          const res = await api.getAntecedents().catch(() => []);
+          setData((d) => ({
+            ...d,
+            antecedents: Array.isArray(res) ? res : [],
+          }));
+        } else if (tab === "treatments") {
+          const res = await api.getTreatments().catch(() => []);
+          setData((d) => ({ ...d, treatments: Array.isArray(res) ? res : [] }));
+        } else if (tab === "analyses") {
+          const res = await api.getLabResults().catch(() => []);
+          setData((d) => ({ ...d, analyses: Array.isArray(res) ? res : [] }));
+        }
+      } catch (err) {}
+      setLoading(false);
+    }
+    fetchTabData();
+  }, [tab]);
+
   const tabs = [
     "antecedents",
     "diagnostics",
@@ -750,63 +919,198 @@ function MedicalProfilePage({ dk }) {
     "analyses",
     "treatments",
   ];
+  const safeProfile = profile || {};
+
+  const handleSaveProfile = async () => {
+    try {
+      setLoading(true);
+      await api.updateMedicalProfile(editForm);
+      setStatus({ type: "success", msg: "Profil mis à jour avec succès ✅" });
+      setEditMode(false);
+      setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
+    } catch (err) {
+      setStatus({ type: "error", msg: "Erreur lors de la mise à jour ❌" });
+      setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <>
-      {/* Profile header */}
-      <div
-        className="rounded-2xl p-6 mb-6 flex items-start gap-5 flex-wrap border"
-        style={{ background: c.blueLight, borderColor: c.border }}
-      >
+      {/* Status Banner */}
+      {status.msg && (
         <div
-          className="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-bold text-xl"
-          style={{ background: "linear-gradient(135deg, #4A6FA5, #304B71)" }}
-        >
-          AJ
-        </div>
-        <div className="flex-1">
-          <h2 className="text-xl font-bold" style={{ color: c.txt }}>
-            Alex Johnson
-          </h2>
-          <p className="text-sm mt-1 mb-3" style={{ color: c.txt2 }}>
-            DOB: March 14, 1988 · Male · Alger, Algeria
-          </p>
-          <div className="flex flex-wrap gap-2 mb-3">
-            <span
-              className="text-xs font-bold px-3 py-1 rounded-full"
-              style={{
-                background: "rgba(224,85,85,0.12)",
-                color: "#E05555",
-                border: "1px solid rgba(224,85,85,0.25)",
-              }}
-            >
-              Blood Type: A+
-            </span>
-            {["Penicillin", "Pollen"].map((a) => (
-              <span
-                key={a}
-                className="text-xs font-bold px-3 py-1 rounded-full"
-                style={{
-                  background: "rgba(224,85,85,0.1)",
-                  color: "#E05555",
-                  border: "1px solid rgba(224,85,85,0.2)",
-                }}
-              >
-                ⚠ {a}
-              </span>
-            ))}
-          </div>
-        </div>
-        <button
-          className="text-sm font-semibold px-4 py-2 rounded-xl border transition-colors hover:opacity-80"
+          className="mb-4 p-3 rounded-xl text-sm font-semibold flex items-center gap-2"
           style={{
-            color: c.blue,
-            borderColor: c.blue,
-            background: c.blueLight,
+            background:
+              status.type === "success"
+                ? "rgba(45, 140, 111, 0.15)"
+                : "rgba(224, 85, 85, 0.15)",
+            color: status.type === "success" ? "#2D8C6F" : "#E05555",
+            border: `1px solid ${status.type === "success" ? "rgba(45, 140, 111, 0.3)" : "rgba(224, 85, 85, 0.3)"}`,
           }}
         >
-          Edit Profile
-        </button>
+          {status.msg}
+        </div>
+      )}
+
+      {/* Profile header */}
+      <div
+        className="rounded-2xl p-6 mb-6 border"
+        style={{ background: c.blueLight, borderColor: c.border }}
+      >
+        <div className="flex items-start gap-5 flex-wrap">
+          <div
+            className="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-bold text-xl shrink-0"
+            style={{ background: "linear-gradient(135deg, #4A6FA5, #304B71)" }}
+          >
+            {profile?.user_initials || "PJ"}
+          </div>
+          <div className="flex-1 min-w-[250px]">
+            {editMode ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                <input
+                  type="text"
+                  placeholder="Nom complet"
+                  value={editForm.name || safeProfile.name || ""}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, name: e.target.value })
+                  }
+                  className="px-3 py-2 border rounded-lg text-sm bg-transparent w-full"
+                  style={{ borderColor: c.border, color: c.txt }}
+                />
+                <input
+                  type="date"
+                  placeholder="Date de naissance (DOB)"
+                  value={editForm.dob || safeProfile.dob || ""}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, dob: e.target.value })
+                  }
+                  className="px-3 py-2 border rounded-lg text-sm bg-transparent w-full"
+                  style={{ borderColor: c.border, color: c.txt }}
+                />
+                <input
+                  type="tel"
+                  placeholder="Téléphone"
+                  value={editForm.phone || safeProfile.phone || ""}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, phone: e.target.value })
+                  }
+                  className="px-3 py-2 border rounded-lg text-sm bg-transparent w-full"
+                  style={{ borderColor: c.border, color: c.txt }}
+                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Ville"
+                    value={editForm.city || safeProfile.city || ""}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, city: e.target.value })
+                    }
+                    className="px-3 py-2 border rounded-lg text-sm bg-transparent w-full"
+                    style={{ borderColor: c.border, color: c.txt }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Wilaya"
+                    value={editForm.wilaya || safeProfile.wilaya || ""}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, wilaya: e.target.value })
+                    }
+                    className="px-3 py-2 border rounded-lg text-sm bg-transparent w-full"
+                    style={{ borderColor: c.border, color: c.txt }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <>
+                <h2 className="text-xl font-bold" style={{ color: c.txt }}>
+                  {safeProfile.name || "Mon Profil Médical"}
+                </h2>
+                <p className="text-sm mt-1 mb-3" style={{ color: c.txt2 }}>
+                  ID Patient: #{userId || "---"}
+                  {safeProfile.dob && ` · Né(e) le: ${safeProfile.dob}`}
+                  {safeProfile.city &&
+                    ` · ${safeProfile.city}, ${safeProfile.wilaya || ""}`}
+                  {safeProfile.phone && ` · 📞 ${safeProfile.phone}`}
+                </p>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  <span
+                    className="text-xs font-bold px-3 py-1 rounded-full"
+                    style={{
+                      background: "rgba(224,85,85,0.12)",
+                      color: "#E05555",
+                      border: "1px solid rgba(224,85,85,0.25)",
+                    }}
+                  >
+                    Groupe Sanguin: {safeProfile.blood_type || "Non spécifié"}
+                  </span>
+                  {(safeProfile.allergies
+                    ? safeProfile.allergies.split(",")
+                    : []
+                  )
+                    .filter((v) => v.trim())
+                    .map((a, i) => (
+                      <span
+                        key={i}
+                        className="text-xs font-bold px-3 py-1 rounded-full"
+                        style={{
+                          background: "rgba(224,85,85,0.1)",
+                          color: "#E05555",
+                          border: "1px solid rgba(224,85,85,0.2)",
+                        }}
+                      >
+                        ⚠ {a.trim()}
+                      </span>
+                    ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2 shrink-0 flex-wrap">
+            {editMode ? (
+              <>
+                <button
+                  onClick={() => setEditMode(false)}
+                  className="text-sm font-semibold px-4 py-2 rounded-xl border transition-colors hover:opacity-80"
+                  style={{
+                    color: c.txt2,
+                    borderColor: c.border,
+                    background: "transparent",
+                  }}
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleSaveProfile}
+                  disabled={loading}
+                  className="text-sm font-semibold px-4 py-2 rounded-xl transition-colors hover:opacity-80 text-white"
+                  style={{ background: c.blue, opacity: loading ? 0.7 : 1 }}
+                >
+                  {loading ? "En cours..." : "Sauvegarder"}
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => {
+                  setEditForm({ ...safeProfile });
+                  setEditMode(true);
+                }}
+                className="text-sm font-semibold px-4 py-2 rounded-xl border transition-colors hover:opacity-80"
+                style={{
+                  color: c.blue,
+                  borderColor: c.blue,
+                  background: c.blueLight,
+                }}
+              >
+                Edit Profile
+              </button>
+            )}
+          </div>
+        </div>
       </div>
       {/* Tabs */}
       <div
@@ -830,126 +1134,143 @@ function MedicalProfilePage({ dk }) {
         ))}
       </div>
       {/* Tab content */}
-      {tab === "antecedents" && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[
-            {
-              icon: "🫀",
-              name: "Hypertension",
-              year: 2018,
-              type: "Chronic",
-              color: "#E8A838",
-            },
-            {
-              icon: "🩸",
-              name: "Type 2 Diabetes",
-              year: 2020,
-              type: "Chronic",
-              color: "#E8A838",
-            },
-            {
-              icon: "🦴",
-              name: "Lower Back Strain",
-              year: 2022,
-              type: "Resolved",
-              color: "#2D8C6F",
-            },
-          ].map((item) => (
-            <Card key={item.name} dk={dk}>
-              <div className="text-3xl mb-3">{item.icon}</div>
-              <p className="font-bold text-sm mb-1" style={{ color: c.txt }}>
-                {item.name}
-              </p>
-              <p className="text-xs mb-3" style={{ color: c.txt2 }}>
-                Diagnosed {item.year}
-              </p>
-              <Badge color={item.color} bg={item.color + "18"}>
-                {item.type}
-              </Badge>
-            </Card>
-          ))}
-        </div>
-      )}
-      {tab === "analyses" && (
-        <div className="space-y-4">
-          {[
-            {
-              name: "Complete Blood Count (CBC)",
-              lab: "Center Pasteur",
-              date: "Oct 18, 2023",
-              note: "Hemoglobin slightly below normal. Consider iron-rich foods. Follow-up in 3 months recommended.",
-            },
-            {
-              name: "Lipid Profile",
-              lab: "City Diagnostics",
-              date: "Oct 12, 2023",
-              note: "LDL elevated at 142 mg/dL. Reduce saturated fats, exercise 30min/day, consider statin therapy.",
-            },
-          ].map((item) => (
-            <Card key={item.name} dk={dk}>
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <p className="font-bold" style={{ color: c.txt }}>
-                    {item.name}
-                  </p>
-                  <p className="text-xs mt-1" style={{ color: c.txt2 }}>
-                    Lab: {item.lab} · {item.date}
-                  </p>
-                </div>
-                <button
-                  className="text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors hover:opacity-80"
-                  style={{ color: c.blue, borderColor: c.border }}
-                >
-                  View Report
-                </button>
-              </div>
-              <div className="flex items-end gap-1 h-16 mb-3">
-                {[55, 70, 60, 80, 65, 75, 85, 60, 70, 80].map((h, i) => (
-                  <div
-                    key={i}
-                    className="flex-1 rounded-t"
-                    style={{
-                      height: `${h}%`,
-                      background: c.blue,
-                      opacity: 0.6,
-                    }}
-                  />
-                ))}
-              </div>
-              <div
-                className="flex items-start gap-2 p-3 rounded-xl"
-                style={{
-                  background: c.blueLight,
-                  borderLeft: `3px solid ${c.blue}`,
-                }}
-              >
-                <Activity
-                  size={14}
-                  style={{ color: c.blue, marginTop: 2, flexShrink: 0 }}
-                />
-                <p className="text-xs" style={{ color: c.txt2 }}>
-                  {item.note}
-                </p>
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
-      {["diagnostics", "prescriptions", "treatments"].includes(tab) && (
-        <Card dk={dk} className="text-center" style={{ padding: 48 }}>
+      {loading ? (
+        <div className="py-12 flex justify-center">
           <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-            style={{ background: c.blueLight }}
-          >
-            <FileText size={28} style={{ color: c.blue }} />
-          </div>
-          <p className="font-semibold mb-1" style={{ color: c.txt }}>
-            No {tab} yet
-          </p>
-          <p className="text-sm" style={{ color: c.txt2 }}>
-            Records will appear here after consultations.
-          </p>
-        </Card>
+            className="w-8 h-8 rounded-full border-4 animate-spin"
+            style={{ borderColor: `${c.blue}40`, borderTopColor: c.blue }}
+          />
+        </div>
+      ) : (
+        <>
+          {tab === "antecedents" && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {data.antecedents.length === 0 ? (
+                <div className="col-span-full">
+                  <EmptyState
+                    dk={dk}
+                    icon={Activity}
+                    title="Aucun antécédent enregistré"
+                    message="Votre historique médical apparaîtra ici une fois complété par votre médecin."
+                  />
+                </div>
+              ) : (
+                data.antecedents.map((item, i) => (
+                  <Card key={item.id || i} dk={dk}>
+                    <div className="text-3xl mb-3">🩺</div>
+                    <p
+                      className="font-bold text-sm mb-1"
+                      style={{ color: c.txt }}
+                    >
+                      {item.name || item.description}
+                    </p>
+                    <p className="text-xs mb-3" style={{ color: c.txt2 }}>
+                      Diagnostiqué: {item.diagnosis_date || "Inconnu"}
+                    </p>
+                    <Badge color="#4A6FA5" bg="#4A6FA518">
+                      {item.type || "Général"}
+                    </Badge>
+                  </Card>
+                ))
+              )}
+            </div>
+          )}
+          {tab === "analyses" && (
+            <div className="space-y-4">
+              {data.analyses.length === 0 ? (
+                <EmptyState
+                  dk={dk}
+                  icon={FileSearch}
+                  title="Aucune analyse trouvée"
+                  message="Vos rapports de laboratoire et résultats d'examens seront listés ici."
+                />
+              ) : (
+                data.analyses.map((item, i) => (
+                  <Card key={item.id || i} dk={dk}>
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <p className="font-bold" style={{ color: c.txt }}>
+                          {item.test_name || "Analyse médicale"}
+                        </p>
+                        <p className="text-xs mt-1" style={{ color: c.txt2 }}>
+                          Labo: {item.lab_name || "Non spécifié"} · Date:{" "}
+                          {item.test_date}
+                        </p>
+                      </div>
+                      {item.document_url && (
+                        <button
+                          onClick={() =>
+                            window.open(item.document_url, "_blank")
+                          }
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors hover:opacity-80"
+                          style={{ color: c.blue, borderColor: c.border }}
+                        >
+                          Voir le document
+                        </button>
+                      )}
+                    </div>
+                    {item.notes && (
+                      <div
+                        className="flex items-start gap-2 p-3 rounded-xl"
+                        style={{
+                          background: c.blueLight,
+                          borderLeft: `3px solid ${c.blue}`,
+                        }}
+                      >
+                        <Activity
+                          size={14}
+                          style={{ color: c.blue, marginTop: 2, flexShrink: 0 }}
+                        />
+                        <p className="text-xs" style={{ color: c.txt2 }}>
+                          {item.notes}
+                        </p>
+                      </div>
+                    )}
+                  </Card>
+                ))
+              )}
+            </div>
+          )}
+
+          {tab === "treatments" && (
+            <div className="space-y-4">
+              {data.treatments.length === 0 ? (
+                <EmptyState
+                  dk={dk}
+                  icon={Pill}
+                  title="Aucun traitement actif"
+                  message="Vous n'avez pas de prescriptions ou de traitements en cours enregistrés."
+                />
+              ) : (
+                data.treatments.map((item, i) => (
+                  <Card key={item.id || i} dk={dk}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-bold" style={{ color: c.txt }}>
+                          {item.medication_name || "Médicament"}
+                        </p>
+                        <p className="text-xs mt-1" style={{ color: c.txt2 }}>
+                          {item.dosage} · {item.frequency}
+                        </p>
+                      </div>
+                      <Badge color="#2D8C6F" bg="#2D8C6F18">
+                        Actif
+                      </Badge>
+                    </div>
+                  </Card>
+                ))
+              )}
+            </div>
+          )}
+          {["diagnostics", "prescriptions"].includes(tab) && (
+            <EmptyState
+              dk={dk}
+              icon={FileText}
+              title={`Aucun ${tab === "diagnostics" ? "diagnostic" : "prescription"} enregistré`}
+              message="Les dossiers apparaîtront ici suite à vos consultations avec un spécialiste."
+            />
+          )}
+        </>
       )}
     </>
   );
@@ -1012,10 +1333,14 @@ function AIDiagnosisPage({ dk }) {
     },
   ]);
   const [loading, setLoading] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
+  const [showFullHistory, setShowFullHistory] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState([]);
-  const fileInputRef = useState(null);
+  const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
 
   const quickSymptoms = [
     "Maux de tête",
@@ -1087,12 +1412,12 @@ function AIDiagnosisPage({ dk }) {
           {/* History button */}
           <div className="relative">
             <button
-              onClick={() => setShowHistory(!showHistory)}
+              onClick={() => setShowFullHistory(true)}
               className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl border transition-all hover:opacity-80"
               style={{
-                color: showHistory ? "#fff" : c.blue,
+                color: showFullHistory ? "#fff" : c.blue,
                 borderColor: c.blue,
-                background: showHistory ? c.blue : c.card,
+                background: showFullHistory ? c.blue : c.card,
                 cursor: "pointer",
               }}
             >
@@ -1107,95 +1432,8 @@ function AIDiagnosisPage({ dk }) {
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />
               </svg>
-              Historique
+              Voir tout l'historique
             </button>
-            {/* History dropdown */}
-            {showHistory && (
-              <div
-                className="absolute right-0 top-11 w-80 rounded-2xl shadow-2xl border z-40 overflow-hidden"
-                style={{ background: c.card, borderColor: c.border }}
-              >
-                <div
-                  className="px-4 py-3 border-b flex items-center justify-between"
-                  style={{ borderColor: c.border }}
-                >
-                  <p className="text-sm font-bold" style={{ color: c.txt }}>
-                    Historique des diagnostics
-                  </p>
-                  <button
-                    onClick={() => setShowHistory(false)}
-                    className="w-6 h-6 flex items-center justify-center rounded-full hover:opacity-70"
-                    style={{ color: c.txt3, cursor: "pointer" }}
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-                <div className="overflow-y-auto" style={{ maxHeight: 320 }}>
-                  {HISTORY_SESSIONS.map((s) => (
-                    <button
-                      key={s.id}
-                      onClick={() => {
-                        setShowHistory(false);
-                        setMessages([
-                          {
-                            role: "ai",
-                            text: `Session chargée : "${s.title}"`,
-                          },
-                        ]);
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-3 border-b text-left transition-colors hover:opacity-80"
-                      style={{
-                        borderColor: c.border,
-                        background: "transparent",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                        style={{ background: BADGE_COLORS[s.badge] + "18" }}
-                      >
-                        <Brain
-                          size={14}
-                          style={{ color: BADGE_COLORS[s.badge] }}
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className="text-sm font-semibold truncate"
-                          style={{ color: c.txt }}
-                        >
-                          {s.title}
-                        </p>
-                        <p className="text-xs" style={{ color: c.txt3 }}>
-                          {s.date}
-                        </p>
-                      </div>
-                      <span
-                        className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0"
-                        style={{
-                          color: BADGE_COLORS[s.badge],
-                          background: BADGE_COLORS[s.badge] + "18",
-                        }}
-                      >
-                        {s.badgeLabel}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                <div className="p-3 border-t" style={{ borderColor: c.border }}>
-                  <button
-                    className="w-full py-2 text-xs font-semibold rounded-xl transition-colors hover:opacity-80"
-                    style={{
-                      color: c.blue,
-                      background: c.blueLight,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Voir tout l'historique
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
           {/* New chat button */}
           <button
@@ -1206,7 +1444,6 @@ function AIDiagnosisPage({ dk }) {
                   text: "Nouvelle session. Décrivez vos symptômes.",
                 },
               ]);
-              setShowHistory(false);
             }}
             className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl border transition-all hover:opacity-80"
             style={{
@@ -1221,12 +1458,114 @@ function AIDiagnosisPage({ dk }) {
         </div>
       </div>
 
-      {/* Close history on outside click */}
-      {showHistory && (
-        <div
-          className="fixed inset-0 z-30"
-          onClick={() => setShowHistory(false)}
-        />
+      {/* Full History Sidebar (Slide-in from left) */}
+      {showFullHistory && (
+        <>
+          {/* Overlay */}
+          <div
+            className="fixed inset-0 z-40 transition-opacity"
+            style={{ background: "rgba(0,0,0,0.5)" }}
+            onClick={() => setShowFullHistory(false)}
+            aria-hidden="true"
+          />
+          {/* Sidebar Panel */}
+          <div
+            className="fixed top-0 left-0 w-[280px] h-full z-50 flex flex-col shadow-2xl"
+            style={{
+              background: c.card,
+              borderRight: `1px solid ${c.border}`,
+              animation: "slideInLeft 0.3s ease forwards",
+            }}
+          >
+            <style>{`
+              @keyframes slideInLeft {
+                from { transform: translateX(-100%); }
+                to { transform: translateX(0); }
+              }
+            `}</style>
+
+            <div
+              className="px-4 py-4 flex items-center justify-between border-b"
+              style={{ borderColor: c.border }}
+            >
+              <p
+                className="font-bold whitespace-nowrap"
+                style={{ color: c.txt }}
+              >
+                Historique COMPLET
+              </p>
+              <button
+                onClick={() => setShowFullHistory(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:opacity-70 transition-all font-bold"
+                style={{ color: c.txt3, background: c.bg }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto w-full">
+              {HISTORY_SESSIONS.length === 0 ? (
+                <div className="p-8 text-center" style={{ color: c.txt3 }}>
+                  <Brain size={24} className="mx-auto mb-2 opacity-50" />
+                  <p className="text-xs">Aucun historique disponible.</p>
+                </div>
+              ) : (
+                HISTORY_SESSIONS.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => {
+                      setShowFullHistory(false);
+                      setMessages([
+                        {
+                          role: "ai",
+                          text: `Session chargée : "${s.title}"`,
+                        },
+                      ]);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-4 border-b text-left transition-colors hover:opacity-80"
+                    style={{
+                      borderColor: c.border,
+                      background: "transparent",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                      style={{ background: BADGE_COLORS[s.badge] + "18" }}
+                    >
+                      <Brain
+                        size={16}
+                        style={{ color: BADGE_COLORS[s.badge] }}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0 pr-2">
+                      <p
+                        className="text-sm font-semibold truncate leading-tight mb-1"
+                        style={{ color: c.txt }}
+                      >
+                        {s.title}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs" style={{ color: c.txt3 }}>
+                          {s.date}
+                        </p>
+                      </div>
+                    </div>
+                    <span
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
+                      style={{
+                        color: BADGE_COLORS[s.badge],
+                        background: BADGE_COLORS[s.badge] + "18",
+                      }}
+                    >
+                      {s.badgeLabel}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -1355,6 +1694,7 @@ function AIDiagnosisPage({ dk }) {
                   </div>
                 </div>
               )}
+              <div ref={messagesEndRef} />
             </div>
 
             {/* Input area */}
@@ -1618,159 +1958,314 @@ function AIDiagnosisPage({ dk }) {
 }
 
 // ─── APPOINTMENTS PAGE ────────────────────────────────────────────────────────
-function AppointmentsPage({ dk }) {
+function AppointmentsPage({
+  dk,
+  appointments: rawAppointments,
+  loading: shellLoading,
+  refreshAppointments,
+}) {
   const c = dk ? T.dark : T.light;
 
-  const DOCTORS = [
-    {
-      id: 1, name: "Dr. Sarah Smith", spec: "Cardiologist", loc: "Clinique El Rahma",
-      rating: 4.9, exp: 12, initials: "SS", color: "#4A6FA5",
-      phone: "+213 21 63 44 17", lang: ["Français", "Arabe", "Anglais"],
-      bio: "Cardiologue spécialisée en cardiologie interventionnelle avec 12 ans d'expérience. Elle prend en charge les maladies coronariennes, l'insuffisance cardiaque et les arythmies.",
-      edu: "CHU Alger · Faculté de Médecine d'Alger · Fellowship Cardiologie — Paris (2014)",
-      reviews: 128,
-      calendarSlots: {
-        "2026-03-19": ["09:00","10:30","11:00","15:30"],
-        "2026-03-20": ["08:00","09:30","14:00"],
-        "2026-03-24": ["10:00","11:30","16:00"],
-        "2026-03-26": ["09:00","10:00","14:00","15:00"],
-      },
-    },
-    {
-      id: 2, name: "Dr. Karim Benali", spec: "Cardiologue", loc: "CHU Alger Central",
-      rating: 4.7, exp: 15, initials: "KB", color: "#2D8C6F",
-      phone: "+213 21 74 22 88", lang: ["Français", "Arabe"],
-      bio: "Cardiologue avec 15 ans d'expérience clinique et chirurgicale. Expert en échocardiographie et en gestion des facteurs de risque cardiovasculaire.",
-      edu: "CHU Annaba · Spécialisation CHU Mustapha Pacha · DES Cardiologie (2011)",
-      reviews: 214,
-      calendarSlots: {
-        "2026-03-19": ["14:00","16:30"],
-        "2026-03-21": ["09:00","10:30","11:30"],
-        "2026-03-25": ["08:30","10:00","14:30"],
-        "2026-03-27": ["09:00","11:00","15:00"],
-      },
-    },
-    {
-      id: 3, name: "Dr. Amira Boudali", spec: "Gynécologue", loc: "Clinique El Azhar",
-      rating: 4.9, exp: 10, initials: "AB", color: "#7B5EA7",
-      phone: "+213 21 55 11 30", lang: ["Français", "Arabe", "Anglais"],
-      bio: "Gynécologue-obstétricienne spécialisée dans le suivi de grossesse, l'infertilité et les pathologies gynécologiques. Approche douce et bienveillante.",
-      edu: "Faculté de Médecine d'Alger · DES Gynécologie-Obstétrique (2016)",
-      reviews: 97,
-      calendarSlots: {
-        "2026-03-18": ["09:00","10:00","11:00"],
-        "2026-03-20": ["09:00","10:30","14:00","15:30"],
-        "2026-03-23": ["08:30","10:00"],
-        "2026-03-26": ["09:00","10:00","11:00","14:00"],
-      },
-    },
-  ];
-
-  const HISTORY = [
-    { id: 1, doctor: "Dr. Sarah Smith", spec: "Cardiologie", date: "15 Mars 2026 · 10:00", status: "Terminé",   statusColor: "#2D8C6F" },
-    { id: 2, doctor: "Dr. Karim Benali", spec: "Cardiologie", date: "02 Fév 2026 · 14:30",  status: "Terminé",   statusColor: "#2D8C6F" },
-    { id: 3, doctor: "Dr. Amira Boudali",spec: "Gynécologie", date: "18 Jan 2026 · 09:00",  status: "Annulé",    statusColor: "#E05555" },
-    { id: 4, doctor: "Dr. Nabil Cherif",  spec: "Neurologie",  date: "05 Déc 2025 · 11:30",  status: "Terminé",   statusColor: "#2D8C6F" },
-  ];
-
+  const [doctors, setDoctors] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [success, setSuccess] = useState("");
+  const [err, setErr] = useState("");
   const [tab, setTab] = useState("book"); // "book" | "history"
   const [selectedDoctor, setSelectedDoctor] = useState(null); // for calendar panel
-  const [profileDoctor, setProfileDoctor] = useState(null);   // for profile modal
+  const [profileDoctor, setProfileDoctor] = useState(null); // for profile modal
+
   const [calMonth, setCalMonth] = useState(new Date(2026, 2, 1)); // March 2026
   const [calDay, setCalDay] = useState(null);
   const [calSlot, setCalSlot] = useState(null);
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+
   const [confirmed, setConfirmed] = useState(false);
   const [specFilter, setSpecFilter] = useState("All");
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [locationOpen, setLocationOpen] = useState(false);
+  const [searchAppt, setSearchAppt] = useState(""); // BUG 6
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCity, setSelectedCity] = useState("Alger");
   const [selectedDate, setSelectedDate] = useState("");
-  const [genderOpen, setGenderOpen] = useState(false);
   const [selectedGender, setSelectedGender] = useState("Any Gender");
   const [starFilter, setStarFilter] = useState(1);
   const [specOpen, setSpecOpen] = useState(false);
+  const [locationOpen, setLocationOpen] = useState(false);
+  const [genderOpen, setGenderOpen] = useState(false);
   const dateInputRef = useRef(null);
+  const docListRef = useRef(null);
+  const isFirstRender = useRef(true);
 
-  const CITIES = ["Alger", "Oran", "Constantine", "Annaba", "Blida", "Sétif", "Tlemcen", "Batna"];
+  // Removed auto-scroll downward block as requested.
+
+  const CITIES = [
+    "Alger",
+    "Oran",
+    "Constantine",
+    "Annaba",
+    "Blida",
+    "Sétif",
+    "Tlemcen",
+    "Batna",
+  ];
   const SPECIALTIES = [
-    "All", "Généraliste", "Cardiologie", "Gynécologie", "Neurologie", 
-    "Dermatologie", "Pédiatrie", "Dentiste", "Ophtalmologie", 
-    "Orthopédie", "Psychiatrie", "Urologie", "Gastrologie"
+    "All",
+    "Généraliste",
+    "Cardiologie",
+    "Gynécologie",
+    "Neurologie",
+    "Dermatologie",
+    "Pédiatrie",
+    "Dentiste",
+    "Ophtalmologie",
+    "Orthopédie",
+    "Psychiatrie",
+    "Urologie",
+    "Gastrologie",
   ];
 
-  const filteredDoctors = DOCTORS.filter(d => {
-    const matchesSpec = specFilter === "All" || d.spec.toLowerCase().includes(specFilter.toLowerCase());
-    const matchesSearch = d.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          d.spec.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          d.loc.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesGender = selectedGender === "Any Gender" || 
-                          (selectedGender === "Masculin" && d.gender === "M") || 
-                          (selectedGender === "Féminin" && d.gender === "F");
-    const matchesRating = d.rating >= starFilter;
-    
-    return matchesSpec && matchesSearch && matchesGender && matchesRating;
-  });
+  // Debounce search term
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
 
-  // Calendar helpers
+  // Fetch doctors on mount and when filters change
+  useEffect(() => {
+    async function fetchDoctors() {
+      try {
+        setLoading(true);
+        const filters = {};
+        if (specFilter !== "All") filters.specialty = specFilter;
+        if (selectedCity && selectedCity !== "Toutes")
+          filters.city = selectedCity;
+        if (debouncedSearch) filters.q = debouncedSearch;
+
+        const data = await api.getDoctors(filters).catch(() => []);
+        // Normalize backend Doctor data to UI expectations
+        const normalized = (Array.isArray(data) ? data : []).map((d) => ({
+          id: d.id,
+          name: d.user
+            ? `Dr. ${d.user.first_name} ${d.user.last_name}`
+            : "Dr. Inconnu",
+          spec: d.specialty_display || d.specialty || "Généraliste",
+          loc:
+            d.clinic_name || (d.user && d.user.city) || selectedCity || "Alger",
+          rating: parseFloat(d.rating) || 4.5,
+          exp: d.experience_years || 5,
+          initials: d.user
+            ? `${d.user.first_name?.[0] || ""}${d.user.last_name?.[0] || ""}`.toUpperCase()
+            : "DR",
+          color: (d.specialty || "").toLowerCase().includes("cardio")
+            ? "#4A6FA5"
+            : "#2D8C6F",
+          phone: (d.user && d.user.phone) || "+213 -- -- --",
+          lang: d.languages ? d.languages.split(",") : ["Français", "Arabe"],
+          bio: d.bio || "Le docteur n'a pas rédigé de biographie.",
+          edu: "Faculté de Médecine.",
+          reviews: d.total_reviews || 0,
+        }));
+        setDoctors(normalized);
+      } catch (err) {
+        console.error("Error fetching doctors:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchDoctors();
+  }, [specFilter, selectedCity, debouncedSearch]);
+
+  // Fetch slots when a doctor and day are selected
+  useEffect(() => {
+    if (selectedDoctor && calDay) {
+      async function fetchSlots() {
+        try {
+          setSlotsLoading(true);
+          const dateStr = formatDate(
+            calMonth.getFullYear(),
+            calMonth.getMonth(),
+            calDay,
+          );
+          const rawSlots = await api.getDoctorSlots(selectedDoctor.id, dateStr);
+          const slots = (rawSlots || [])
+            .filter((s) => !s.is_booked)
+            .map((s) => ({
+              id: s.id,
+              time: s.start_time ? s.start_time.substring(0, 5) : s.time,
+            }));
+          setAvailableSlots(slots);
+        } catch (err) {
+          console.error("Error fetching slots:", err);
+        } finally {
+          setSlotsLoading(false);
+        }
+      }
+      fetchSlots();
+    }
+  }, [selectedDoctor, calDay, calMonth]);
+
+  const upcomingAppts =
+    rawAppointments?.filter((a) => a.status === "confirmed") || [];
+  const historyAppts =
+    rawAppointments?.filter((a) =>
+      ["completed", "cancelled", "refused"].includes(a.status),
+    ) || [];
+  const filteredUpcoming = upcomingAppts.filter(
+    (a) =>
+      (a.doctor_name || "").toLowerCase().includes(searchAppt.toLowerCase()) ||
+      (a.specialty || "").toLowerCase().includes(searchAppt.toLowerCase()),
+  );
+
   const year = calMonth.getFullYear();
   const month = calMonth.getMonth();
   const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const today = new Date(2026, 2, 16); // simulated today
+  const today = new Date();
 
-  const monthNames = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
-  const dayNames = ["Di","Lu","Ma","Me","Je","Ve","Sa"];
+  const monthNames = [
+    "Janvier",
+    "Février",
+    "Mars",
+    "Avril",
+    "Mai",
+    "Juin",
+    "Juillet",
+    "Août",
+    "Septembre",
+    "Octobre",
+    "Novembre",
+    "Décembre",
+  ];
+  const dayNames = ["Di", "Lu", "Ma", "Me", "Je", "Ve", "Sa"];
 
-  const formatDate = (y, m, d) => `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+  const formatDate = (y, m, d) =>
+    `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 
-  const slotsForDay = (doc, day) => {
-    if (!doc || !day) return [];
-    const key = formatDate(year, month, day);
-    return doc.calendarSlots[key] || [];
-  };
-
-  const hasSlots = (doc, day) => slotsForDay(doc, day).length > 0;
-
-  const handleBook = () => {
+  const handleBook = async () => {
     if (!calSlot) return;
-    setConfirmed(true);
-    setTimeout(() => setConfirmed(false), 3000);
-    setCalSlot(null);
-    setCalDay(null);
-    setSelectedDoctor(null);
+
+    const slotObj = availableSlots.find(
+      (s) => s.time === calSlot || s.id === calSlot,
+    );
+    if (!slotObj) return;
+
+    setIsSubmitting(true);
+    setErr("");
+    setSuccess("");
+    try {
+      await api.bookAppointment({
+        doctor_id: selectedDoctor.id,
+        slot_id: slotObj.id,
+        motif: "Consultation",
+      });
+      setSuccess("Rendez-vous réservé avec succès !");
+      setTimeout(() => setSuccess(""), 4000);
+      setCalSlot(null);
+      setCalDay(null);
+      setSelectedDoctor(null);
+      if (refreshAppointments) refreshAppointments();
+    } catch (e) {
+      setErr(e.message || "Erreur lors de la réservation.");
+      setTimeout(() => setErr(""), 4000);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  // Open calendar panel for a doctor
   const openCalendar = (doc) => {
     setSelectedDoctor(doc);
     setCalDay(null);
     setCalSlot(null);
+    setAvailableSlots([]);
+  };
+
+  const filteredDoctors = doctors.filter((d) => {
+    const matchesSpec =
+      specFilter === "All" ||
+      d.spec.toLowerCase().includes(specFilter.toLowerCase());
+    const matchesSearch =
+      d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      d.spec.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      d.loc.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesGender =
+      selectedGender === "Any Gender" ||
+      (selectedGender === "Masculin" && d.gender === "M") ||
+      (selectedGender === "Féminin" && d.gender === "F");
+    const matchesRating = d.rating >= starFilter;
+
+    return matchesSpec && matchesSearch && matchesGender && matchesRating;
+  });
+
+  const slotsForDay = (day) => {
+    if (!day) return [];
+    // Map objects to time strings for the UI grid
+    return availableSlots.map((s) => s.time);
+  };
+
+  const hasSlots = (day) => {
+    // This is more complex since we fetch slots ONLY for the selected day.
+    // For now, we'll mark all days as potentially having slots, or we'd need a separate 'has_slots' API check.
+    return true;
   };
 
   return (
     <>
       {/* ─ Profile Modal ─ */}
       {profileDoctor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}>
-          <div className="rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl border"
-            style={{ background: c.card, borderColor: c.border }}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{
+            background: "rgba(0,0,0,0.55)",
+            backdropFilter: "blur(4px)",
+          }}
+        >
+          <div
+            className="rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl border"
+            style={{ background: c.card, borderColor: c.border }}
+          >
             {/* Header */}
             <div className="p-6 border-b" style={{ borderColor: c.border }}>
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-bold text-lg shrink-0"
-                  style={{ background: profileDoctor.color }}>{profileDoctor.initials}</div>
+                <div
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-bold text-lg shrink-0"
+                  style={{ background: profileDoctor.color }}
+                >
+                  {profileDoctor.initials}
+                </div>
                 <div className="flex-1">
-                  <h2 className="text-lg font-bold" style={{ color: c.txt }}>{profileDoctor.name}</h2>
-                  <p className="text-sm font-semibold" style={{ color: c.blue }}>{profileDoctor.spec}</p>
+                  <h2 className="text-lg font-bold" style={{ color: c.txt }}>
+                    {profileDoctor.name}
+                  </h2>
+                  <p
+                    className="text-sm font-semibold"
+                    style={{ color: c.blue }}
+                  >
+                    {profileDoctor.spec}
+                  </p>
                   <div className="flex items-center gap-3 mt-1 flex-wrap">
-                    <span className="text-xs font-bold" style={{ color: "#E8A838" }}>⭐ {profileDoctor.rating}</span>
-                    <span className="text-xs" style={{ color: c.txt3 }}>{profileDoctor.reviews} avis</span>
-                    <span className="text-xs" style={{ color: c.txt3 }}>{profileDoctor.exp} ans exp.</span>
+                    <span
+                      className="text-xs font-bold"
+                      style={{ color: "#E8A838" }}
+                    >
+                      ⭐ {profileDoctor.rating}
+                    </span>
+                    <span className="text-xs" style={{ color: c.txt3 }}>
+                      {profileDoctor.reviews} avis
+                    </span>
+                    <span className="text-xs" style={{ color: c.txt3 }}>
+                      {profileDoctor.exp} ans exp.
+                    </span>
                   </div>
                 </div>
-                <button onClick={() => setProfileDoctor(null)} className="w-8 h-8 rounded-full flex items-center justify-center hover:opacity-70"
-                  style={{ background: c.blueLight }}>
+                <button
+                  onClick={() => setProfileDoctor(null)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center hover:opacity-70"
+                  style={{ background: c.blueLight }}
+                >
                   <X size={15} style={{ color: c.txt3 }} />
                 </button>
               </div>
@@ -1778,42 +2273,90 @@ function AppointmentsPage({ dk }) {
             {/* Body */}
             <div className="p-6 space-y-4 max-h-96 overflow-y-auto">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt3 }}>À propos</p>
-                <p className="text-sm" style={{ color: c.txt2 }}>{profileDoctor.bio}</p>
+                <p
+                  className="text-xs font-bold uppercase tracking-wide mb-1.5"
+                  style={{ color: c.txt3 }}
+                >
+                  À propos
+                </p>
+                <p className="text-sm" style={{ color: c.txt2 }}>
+                  {profileDoctor.bio}
+                </p>
               </div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt3 }}>Formation</p>
-                <p className="text-sm" style={{ color: c.txt2 }}>{profileDoctor.edu}</p>
+                <p
+                  className="text-xs font-bold uppercase tracking-wide mb-1.5"
+                  style={{ color: c.txt3 }}
+                >
+                  Formation
+                </p>
+                <p className="text-sm" style={{ color: c.txt2 }}>
+                  {profileDoctor.edu}
+                </p>
               </div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt3 }}>Langues parlées</p>
+                <p
+                  className="text-xs font-bold uppercase tracking-wide mb-1.5"
+                  style={{ color: c.txt3 }}
+                >
+                  Langues parlées
+                </p>
                 <div className="flex gap-2 flex-wrap">
-                  {profileDoctor.lang.map(l => (
-                    <span key={l} className="text-xs px-3 py-1 rounded-full font-semibold border"
-                      style={{ background: c.blueLight, borderColor: c.blue + "33", color: c.blue }}>{l}</span>
+                  {profileDoctor.lang.map((l) => (
+                    <span
+                      key={l}
+                      className="text-xs px-3 py-1 rounded-full font-semibold border"
+                      style={{
+                        background: c.blueLight,
+                        borderColor: c.blue + "33",
+                        color: c.blue,
+                      }}
+                    >
+                      {l}
+                    </span>
                   ))}
                 </div>
               </div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt3 }}>Contact</p>
-                <p className="text-sm font-medium flex items-center gap-2" style={{ color: c.txt }}>
-                  <Phone size={13} style={{ color: c.blue }} /> {profileDoctor.phone}
+                <p
+                  className="text-xs font-bold uppercase tracking-wide mb-1.5"
+                  style={{ color: c.txt3 }}
+                >
+                  Contact
                 </p>
-                <p className="text-xs mt-1 flex items-center gap-2" style={{ color: c.txt2 }}>
-                  <MapPin size={12} style={{ color: c.txt3 }} /> {profileDoctor.loc}
+                <p
+                  className="text-sm font-medium flex items-center gap-2"
+                  style={{ color: c.txt }}
+                >
+                  <Phone size={13} style={{ color: c.blue }} />{" "}
+                  {profileDoctor.phone}
+                </p>
+                <p
+                  className="text-xs mt-1 flex items-center gap-2"
+                  style={{ color: c.txt2 }}
+                >
+                  <MapPin size={12} style={{ color: c.txt3 }} />{" "}
+                  {profileDoctor.loc}
                 </p>
               </div>
             </div>
             {/* Footer */}
             <div className="px-6 pb-5 flex gap-3">
-              <button onClick={() => { setProfileDoctor(null); openCalendar(profileDoctor); }}
+              <button
+                onClick={() => {
+                  setProfileDoctor(null);
+                  openCalendar(profileDoctor);
+                }}
                 className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
-                style={{ background: c.blue }}>
+                style={{ background: c.blue }}
+              >
                 Voir disponibilités
               </button>
-              <button onClick={() => setProfileDoctor(null)}
+              <button
+                onClick={() => setProfileDoctor(null)}
                 className="px-5 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:opacity-80"
-                style={{ borderColor: c.border, color: c.txt2 }}>
+                style={{ borderColor: c.border, color: c.txt2 }}
+              >
                 Fermer
               </button>
             </div>
@@ -1823,28 +2366,50 @@ function AppointmentsPage({ dk }) {
 
       {/* ─ Tabs ─ */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-        <h1 className="text-2xl font-bold" style={{ color: c.txt }}>Prochains rendez-vous</h1>
-        <div className="flex gap-1 p-1.5 rounded-2xl border transition-all" style={{ borderColor: c.border, background: c.card, boxShadow: "0 4px 12px rgba(0,0,0,0.03)" }}>
+        <h1 className="text-2xl font-bold" style={{ color: c.txt }}>
+          Prochains rendez-vous
+        </h1>
+        <div
+          className="flex gap-1 p-1.5 rounded-2xl border transition-all"
+          style={{
+            borderColor: c.border,
+            background: c.card,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.03)",
+          }}
+        >
           {/* Prendre RDV Tab */}
-          <button onClick={() => setTab("book")}
+          <button
+            onClick={() => setTab("book")}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black transition-all"
             style={{
               background: tab === "book" ? c.blue : "transparent",
               color: tab === "book" ? "#fff" : c.txt2,
-              boxShadow: tab === "book" ? `0 8px 16px ${c.blue}33` : "none"
-            }}>
+              boxShadow: tab === "book" ? `0 8px 16px ${c.blue}33` : "none",
+            }}
+          >
             Prendre RDV
           </button>
-          
+
           {/* Historique Tab (with AI Diagnosis style icon) */}
-          <button onClick={() => setTab("history")}
+          <button
+            onClick={() => setTab("history")}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black transition-all"
             style={{
               background: tab === "history" ? c.blue : "transparent",
               color: tab === "history" ? "#fff" : c.txt2,
-              boxShadow: tab === "history" ? `0 8px 16px ${c.blue}33` : "none"
-            }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              boxShadow: tab === "history" ? `0 8px 16px ${c.blue}33` : "none",
+            }}
+          >
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 16 14" />
             </svg>
@@ -1856,69 +2421,188 @@ function AppointmentsPage({ dk }) {
       {/* ──── TAB: BOOK ──── */}
       {tab === "book" && (
         <>
-          {/* Confirmation banner */}
-          {confirmed && (
-            <div className="mb-6 p-4 rounded-2xl border flex items-center gap-3 animate-in slide-in-from-top-2 duration-300"
-              style={{ background: "#2D8C6F12", borderColor: "#2D8C6F44" }}>
+          {/* Success Banner */}
+          {success && (
+            <div
+              className="mb-6 p-4 rounded-2xl border flex items-center gap-3 animate-in fade-in duration-300"
+              style={{ background: "#2D8C6F12", borderColor: "#2D8C6F44" }}
+            >
               <CheckCircle size={20} style={{ color: "#2D8C6F" }} />
-              <p className="font-semibold text-sm" style={{ color: "#2D8C6F" }}>Rendez-vous confirmé avec succès ! 🎉</p>
+              <p className="font-semibold text-sm" style={{ color: "#2D8C6F" }}>
+                {success}
+              </p>
             </div>
           )}
 
-          {/* ────── Upcoming Appointments Section (MOVED HERE) ────── */}
-          <div className="mb-10">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-bold text-lg" style={{ color: c.txt }}>Vos rendez-vous à venir</h2>
-              <span className="text-xs font-bold px-3 py-1 rounded-full" 
-                style={{ background: c.blue + "11", color: c.blue }}>2 actifs</span>
+          {/* Error Banner */}
+          {err && (
+            <div
+              className="mb-6 p-4 rounded-2xl border flex items-center gap-3 animate-in fade-in duration-300"
+              style={{ background: "#E0555512", borderColor: "#E0555544" }}
+            >
+              <X size={20} style={{ color: "#E05555" }} />
+              <p className="font-semibold text-sm" style={{ color: "#E05555" }}>
+                {err}
+              </p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[
-                { name: "Dr. Sarah Smith",   spec: "Cardiologie",  date: "04 Avr 2026 · 10:30", color: "#4A6FA5" },
-                { name: "Dr. Amira Boudali", spec: "Gynécologie",  date: "22 Avr 2026 · 09:00", color: "#E05555" },
-              ].map(a => (
-                <Card key={a.name} dk={dk} style={{ padding: "16px", border: `1px solid ${c.border}`, borderRadius: "20px" }}>
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm"
-                      style={{ background: c.blueLight }}>
-                      <Calendar size={20} style={{ color: c.blue }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-sm truncate" style={{ color: c.txt }}>{a.name}</p>
-                      <p className="text-xs font-medium opacity-70" style={{ color: c.txt2 }}>{a.spec}</p>
-                      <div className="mt-3 flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-dashed"
-                        style={{ borderColor: c.blue + "33", background: c.blue + "08" }}>
-                        <Clock size={12} style={{ color: c.blue }} />
-                        <p className="text-[11px] font-bold" style={{ color: c.blue }}>{a.date}</p>
+          )}
+
+          {/* ────── Upcoming Appointments Section ────── */}
+          <div className="mb-10">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+              <h2 className="font-bold text-lg" style={{ color: c.txt }}>
+                Vos rendez-vous à venir
+              </h2>
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Search
+                    size={14}
+                    className="absolute left-3 top-1/2 -translate-y-1/2"
+                    style={{ color: c.txt3 }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Chercher un RDV..."
+                    value={searchAppt}
+                    onChange={(e) => setSearchAppt(e.target.value)}
+                    className="pl-9 pr-4 py-1.5 rounded-full text-xs font-medium border focus:outline-none transition-all"
+                    style={{
+                      background: c.card,
+                      borderColor: c.border,
+                      color: c.txt,
+                      width: "180px",
+                    }}
+                  />
+                </div>
+                <span
+                  className="text-xs font-bold px-3 py-1 rounded-full"
+                  style={{ background: c.blue + "11", color: c.blue }}
+                >
+                  {upcomingAppts.length} actif
+                  {upcomingAppts.length > 1 ? "s" : ""}
+                </span>
+              </div>
+            </div>
+
+            <div className="max-h-[400px] overflow-y-auto custom-scrollbar pr-2 pb-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredUpcoming.length === 0 ? (
+                  <div className="col-span-full">
+                    <EmptyState
+                      dk={dk}
+                      icon={Calendar}
+                      compact={true}
+                      title={
+                        upcomingAppts.length === 0
+                          ? "Aucun rendez-vous à venir"
+                          : "Aucun résultat"
+                      }
+                      message={
+                        upcomingAppts.length === 0
+                          ? "Vous n'avez pas encore de réservations confirmées."
+                          : "Aucun RDV ne correspond à votre recherche."
+                      }
+                    />
+                  </div>
+                ) : (
+                  filteredUpcoming.map((a, i) => (
+                    <Card
+                      key={a.id || i}
+                      dk={dk}
+                      style={{
+                        padding: "16px",
+                        border: `1px solid ${c.border}`,
+                        borderRadius: "20px",
+                      }}
+                    >
+                      <div className="flex items-start gap-4">
+                        <div
+                          className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm"
+                          style={{ background: c.blueLight }}
+                        >
+                          <Calendar size={20} style={{ color: c.blue }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className="font-bold text-sm truncate"
+                            style={{ color: c.txt }}
+                          >
+                            {a.doctor_name || "Médecin"}
+                          </p>
+                          <p
+                            className="text-xs font-medium opacity-70"
+                            style={{ color: c.txt2 }}
+                          >
+                            {a.specialty || "Spécialité"}
+                          </p>
+                          <div
+                            className="mt-3 flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-dashed"
+                            style={{
+                              borderColor: c.blue + "33",
+                              background: c.blue + "08",
+                            }}
+                          >
+                            <Clock size={12} style={{ color: c.blue }} />
+                            <p
+                              className="text-[11px] font-bold"
+                              style={{ color: c.blue }}
+                            >
+                              {a.date_display || a.date} ·{" "}
+                              {a.time_display ||
+                                (a.time ? a.time.substring(0, 5) : "")}
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 mt-4 pt-4 border-t" style={{ borderColor: c.border }}>
-                    <button className="flex-1 py-1.5 rounded-lg text-[11px] font-bold transition-all hover:bg-opacity-80"
-                      style={{ background: c.blueLight, color: c.blue }}>Modifier</button>
-                    <button className="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all hover:bg-red-50"
-                      style={{ color: "#E05555" }}>Annuler</button>
-                  </div>
-                </Card>
-              ))}
+                      <div
+                        className="flex gap-2 mt-4 pt-4 border-t"
+                        style={{ borderColor: c.border }}
+                      >
+                        <button
+                          className="flex-1 py-1.5 rounded-lg text-[11px] font-bold transition-all hover:bg-opacity-80"
+                          style={{ background: c.blueLight, color: c.blue }}
+                        >
+                          Modifier
+                        </button>
+                        <button
+                          className="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all hover:bg-red-50"
+                          style={{ color: "#E05555" }}
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    </Card>
+                  ))
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="h-px w-full mb-8" style={{ background: c.border, opacity: 0.6 }} />
-          <h2 className="font-bold text-lg mb-4" style={{ color: c.txt }}>Trouver un nouveau médecin</h2>
+          <div
+            className="h-px w-full mb-8"
+            style={{ background: c.border, opacity: 0.6 }}
+          />
+          <h2 className="font-bold text-lg mb-4" style={{ color: c.txt }}>
+            Trouver un nouveau médecin
+          </h2>
 
           {/* ── Search bar (Restored) ── */}
           <div
-            className="relative flex items-center px-4 py-2 rounded-2xl border transition-all mb-4"
+            className="relative z-20 flex items-center px-4 py-2 rounded-2xl border transition-all mb-4"
             style={{
               borderColor: searchFocused ? "#4A6FA5" : c.border,
               background: c.card,
-              boxShadow: searchFocused ? "0 0 0 4px rgba(74,111,165,0.1)" : "none",
+              boxShadow: searchFocused
+                ? "0 0 0 4px rgba(74,111,165,0.1)"
+                : "none",
               minHeight: 52,
             }}
           >
             <div className="flex items-center gap-3 flex-1 min-w-0 pr-10 md:pr-40">
-              <Search size={18} style={{ color: searchFocused ? "#4A6FA5" : c.txt3 }} />
+              <Search
+                size={18}
+                style={{ color: searchFocused ? "#4A6FA5" : c.txt3 }}
+              />
               <input
                 type="text"
                 placeholder="Rechercher un médecin, une spécialité..."
@@ -1940,8 +2624,14 @@ function AppointmentsPage({ dk }) {
                   className="flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all hover:bg-opacity-80"
                   style={{ background: "transparent" }}
                 >
-                  <MapPin size={16} style={{ color: locationOpen ? "#4A6FA5" : c.txt3 }} />
-                  <span className="text-[.87rem] whitespace-nowrap font-medium" style={{ color: c.txt2 }}>
+                  <MapPin
+                    size={16}
+                    style={{ color: locationOpen ? "#4A6FA5" : c.txt3 }}
+                  />
+                  <span
+                    className="text-[.87rem] whitespace-nowrap font-medium"
+                    style={{ color: c.txt2 }}
+                  >
                     {selectedCity}, Algérie
                   </span>
                   <ChevronDown
@@ -1949,25 +2639,47 @@ function AppointmentsPage({ dk }) {
                     className="transition-transform duration-200"
                     style={{
                       color: c.txt3,
-                      transform: locationOpen ? "rotate(180deg)" : "rotate(0deg)",
+                      transform: locationOpen
+                        ? "rotate(180deg)"
+                        : "rotate(0deg)",
                     }}
                   />
                 </button>
                 {locationOpen && (
                   <>
-                    <div className="fixed inset-0 z-10" onClick={() => setLocationOpen(false)} />
                     <div
-                      className="absolute top-[calc(100%+8px)] left-1/2 -translate-x-1/2 z-20 rounded-2xl shadow-xl border overflow-hidden min-w-[160px]"
-                      style={{ background: c.card, borderColor: c.border }}
+                      className="fixed inset-0 z-10"
+                      onClick={() => setLocationOpen(false)}
+                    />
+                    <div
+                      className="absolute top-[calc(100%+8px)] left-1/2 -translate-x-1/2 z-50 rounded-2xl shadow-xl border overflow-x-hidden min-w-[160px]"
+                      style={{
+                        background: c.card,
+                        borderColor: c.border,
+                        maxHeight: "260px",
+                        overflowY: "auto",
+                        scrollbarWidth: "none",
+                      }}
                     >
-                      <p className="text-[10px] font-bold uppercase tracking-wider px-4 pt-3 pb-1" style={{ color: c.txt3 }}>Wilaya</p>
+                      <p
+                        className="text-[10px] font-bold uppercase tracking-wider px-4 pt-3 pb-1"
+                        style={{ color: c.txt3 }}
+                      >
+                        Wilaya
+                      </p>
                       {CITIES.map((city) => (
                         <button
                           key={city}
-                          onClick={() => { setSelectedCity(city); setLocationOpen(false); }}
+                          onClick={() => {
+                            setSelectedCity(city);
+                            setLocationOpen(false);
+                          }}
                           className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-medium text-left transition-all hover:opacity-80"
                           style={{
-                            background: selectedCity === city ? "#4A6FA518" : "transparent",
+                            background:
+                              selectedCity === city
+                                ? "#4A6FA518"
+                                : "transparent",
                             color: selectedCity === city ? "#4A6FA5" : c.txt,
                             fontWeight: selectedCity === city ? 700 : 400,
                           }}
@@ -2055,20 +2767,45 @@ function AppointmentsPage({ dk }) {
               </button>
               {specOpen && (
                 <>
-                  <div className="fixed inset-0 z-10" onClick={() => setSpecOpen(false)} />
-                  <div className="absolute top-[calc(100%+6px)] left-0 z-20 rounded-2xl shadow-xl border overflow-hidden min-w-[160px]"
-                    style={{ background: c.card, borderColor: c.border }}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider px-4 pt-3 pb-1" style={{ color: c.txt3 }}>Spécialité</p>
-                    {SPECIALTIES.map(s => (
-                      <button key={s} onClick={() => { setSpecFilter(s); setSpecOpen(false); }}
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setSpecOpen(false)}
+                  />
+                  <div
+                    className="absolute top-[calc(100%+6px)] left-0 z-50 rounded-2xl shadow-xl border overflow-x-hidden min-w-[160px]"
+                    style={{
+                      background: c.card,
+                      borderColor: c.border,
+                      maxHeight: "260px",
+                      overflowY: "auto",
+                      scrollbarWidth: "thin",
+                    }}
+                  >
+                    <p
+                      className="text-[10px] font-bold uppercase tracking-wider px-4 pt-3 pb-1"
+                      style={{ color: c.txt3 }}
+                    >
+                      Spécialité
+                    </p>
+                    {SPECIALTIES.map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => {
+                          setSpecFilter(s);
+                          setSpecOpen(false);
+                        }}
                         className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-medium text-left transition-all hover:opacity-80"
                         style={{
-                          background: specFilter === s ? "#4A6FA518" : "transparent",
+                          background:
+                            specFilter === s ? "#4A6FA518" : "transparent",
                           color: specFilter === s ? "#4A6FA5" : c.txt,
                           fontWeight: specFilter === s ? 700 : 400,
-                        }}>
+                        }}
+                      >
                         <span className="flex-1">{s}</span>
-                        {specFilter === s && <span className="text-[#4A6FA5]">✓</span>}
+                        {specFilter === s && (
+                          <span className="text-[#4A6FA5]">✓</span>
+                        )}
                       </button>
                     ))}
                   </div>
@@ -2100,18 +2837,40 @@ function AppointmentsPage({ dk }) {
               </button>
               {genderOpen && (
                 <>
-                  <div className="fixed inset-0 z-10" onClick={() => setGenderOpen(false)} />
-                  <div className="absolute top-[calc(100%+6px)] left-0 z-20 rounded-2xl shadow-xl border overflow-hidden min-w-[140px]"
-                    style={{ background: c.card, borderColor: c.border }}>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setGenderOpen(false)}
+                  />
+                  <div
+                    className="absolute top-[calc(100%+6px)] left-0 z-50 rounded-2xl shadow-xl border overflow-x-hidden min-w-[140px]"
+                    style={{
+                      background: c.card,
+                      borderColor: c.border,
+                      maxHeight: "260px",
+                      overflowY: "auto",
+                      scrollbarWidth: "thin",
+                    }}
+                  >
                     {["Any Gender", "Masculin", "Féminin"].map((opt) => (
-                      <button key={opt} onClick={() => { setSelectedGender(opt); setGenderOpen(false); }}
+                      <button
+                        key={opt}
+                        onClick={() => {
+                          setSelectedGender(opt);
+                          setGenderOpen(false);
+                        }}
                         className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-medium text-left transition-all hover:opacity-80"
                         style={{
-                          background: selectedGender === opt ? "#4A6FA518" : "transparent",
+                          background:
+                            selectedGender === opt
+                              ? "#4A6FA518"
+                              : "transparent",
                           color: selectedGender === opt ? "#4A6FA5" : c.txt,
                           fontWeight: selectedGender === opt ? 700 : 400,
-                        }}>
-                        {selectedGender === opt && <span className="text-[#4A6FA5]">✓</span>}
+                        }}
+                      >
+                        {selectedGender === opt && (
+                          <span className="text-[#4A6FA5]">✓</span>
+                        )}
                         {opt}
                       </button>
                     ))}
@@ -2125,7 +2884,10 @@ function AppointmentsPage({ dk }) {
               className="flex items-center gap-1.5 px-4 py-1.5 rounded-full border"
               style={{ borderColor: c.border, background: c.card }}
             >
-              <span className="text-xs font-medium mr-1" style={{ color: c.txt3 }}>
+              <span
+                className="text-xs font-medium mr-1"
+                style={{ color: c.txt3 }}
+              >
                 Note min:
               </span>
               {[1, 2, 3, 4, 5].map((star) => (
@@ -2142,36 +2904,69 @@ function AppointmentsPage({ dk }) {
           </div>
 
           {/* Subtle separator instead of specialty buttons */}
-          <div className="h-px w-full mb-8" style={{ background: c.border, opacity: 0.6 }} />
+          <div
+            className="h-px w-full mb-8"
+            style={{ background: c.border, opacity: 0.6 }}
+          />
 
           {/* Calendar panel — Enhanced two-column layout */}
           {selectedDoctor && (
-            <div className="mb-6 rounded-3xl border overflow-hidden shadow-xl transition-all duration-500 animate-in fade-in slide-in-from-top-4"
-              style={{ background: c.card, borderColor: c.border }}>
+            <div
+              className="mb-6 rounded-3xl border overflow-hidden shadow-xl transition-all duration-500 animate-in fade-in slide-in-from-top-4"
+              style={{ background: c.card, borderColor: c.border }}
+            >
               {/* Doctor header (Premium) */}
-              <div className="p-6 border-b flex items-center justify-between gap-4 bg-opacity-50 backdrop-blur-md" 
-                style={{ borderColor: c.border, background: `linear-gradient(to right, ${c.card}, ${c.blue}08)` }}>
+              <div
+                className="p-6 border-b flex items-center justify-between gap-4 bg-opacity-50 backdrop-blur-md"
+                style={{
+                  borderColor: c.border,
+                  background: `linear-gradient(to right, ${c.card}, ${c.blue}08)`,
+                }}
+              >
                 <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-lg shrink-0"
-                    style={{ background: `linear-gradient(135deg, ${selectedDoctor.color}, ${selectedDoctor.color}dd)` }}>
+                  <div
+                    className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-lg shrink-0"
+                    style={{
+                      background: `linear-gradient(135deg, ${selectedDoctor.color}, ${selectedDoctor.color}dd)`,
+                    }}
+                  >
                     {selectedDoctor.initials}
                   </div>
                   <div>
-                    <h3 className="font-bold text-lg" style={{ color: c.txt }}>{selectedDoctor.name}</h3>
-                    <p className="text-sm font-medium flex items-center gap-1.5" style={{ color: c.blue }}>
-                      <Zap size={13} /> {selectedDoctor.spec} • <MapPin size={13} className="opacity-70" /> {selectedDoctor.loc}
+                    <h3 className="font-bold text-lg" style={{ color: c.txt }}>
+                      {selectedDoctor.name}
+                    </h3>
+                    <p
+                      className="text-sm font-medium flex items-center gap-1.5"
+                      style={{ color: c.blue }}
+                    >
+                      <Zap size={13} /> {selectedDoctor.spec} •{" "}
+                      <MapPin size={13} className="opacity-70" />{" "}
+                      {selectedDoctor.loc}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => setProfileDoctor(selectedDoctor)}
+                  <button
+                    onClick={() => setProfileDoctor(selectedDoctor)}
                     className="text-xs font-bold px-4 py-2 rounded-xl border transition-all hover:bg-opacity-80 hidden sm:block shadow-sm"
-                    style={{ borderColor: c.border, color: c.txt2, background: c.card }}>
+                    style={{
+                      borderColor: c.border,
+                      color: c.txt2,
+                      background: c.card,
+                    }}
+                  >
                     Voir profil
                   </button>
-                  <button onClick={() => { setSelectedDoctor(null); setCalDay(null); setCalSlot(null); }}
+                  <button
+                    onClick={() => {
+                      setSelectedDoctor(null);
+                      setCalDay(null);
+                      setCalSlot(null);
+                    }}
                     className="w-10 h-10 rounded-full flex items-center justify-center transition-all hover:rotate-90 hover:bg-opacity-80 shadow-sm"
-                    style={{ background: c.blueLight }}>
+                    style={{ background: c.blueLight }}
+                  >
                     <X size={18} style={{ color: c.txt3 }} />
                   </button>
                 </div>
@@ -2179,97 +2974,194 @@ function AppointmentsPage({ dk }) {
 
               <div className="grid grid-cols-1 lg:grid-cols-12">
                 {/* Left Column: Calendar (7 cols) */}
-                <div className="lg:col-span-7 p-6 border-r" style={{ borderColor: c.border }}>
+                <div
+                  className="lg:col-span-7 p-6 border-r"
+                  style={{ borderColor: c.border }}
+                >
                   <div className="flex items-center justify-between mb-6">
-                    <h4 className="font-bold text-base" style={{ color: c.txt }}>Sélectionnez une date</h4>
+                    <h4
+                      className="font-bold text-base"
+                      style={{ color: c.txt }}
+                    >
+                      Sélectionnez une date
+                    </h4>
                     <div className="flex items-center gap-1">
-                      <button onClick={() => setCalMonth(new Date(year, month - 1, 1))}
+                      <button
+                        onClick={() =>
+                          setCalMonth(new Date(year, month - 1, 1))
+                        }
                         className="w-9 h-9 rounded-xl flex items-center justify-center border transition-all hover:bg-opacity-80"
-                        style={{ borderColor: c.border, background: c.card }}>
-                        <ChevronRight size={16} style={{ color: c.txt2, transform: "rotate(180deg)" }} />
+                        style={{ borderColor: c.border, background: c.card }}
+                      >
+                        <ChevronRight
+                          size={16}
+                          style={{ color: c.txt2, transform: "rotate(180deg)" }}
+                        />
                       </button>
-                      <div className="px-4 py-1.5 rounded-xl border font-bold text-sm min-w-[140px] text-center"
-                        style={{ borderColor: c.border, background: c.card, color: c.txt }}>
+                      <div
+                        className="px-4 py-1.5 rounded-xl border font-bold text-sm min-w-[140px] text-center"
+                        style={{
+                          borderColor: c.border,
+                          background: c.card,
+                          color: c.txt,
+                        }}
+                      >
                         {monthNames[month]} {year}
                       </div>
-                      <button onClick={() => setCalMonth(new Date(year, month + 1, 1))}
+                      <button
+                        onClick={() =>
+                          setCalMonth(new Date(year, month + 1, 1))
+                        }
                         className="w-9 h-9 rounded-xl flex items-center justify-center border transition-all hover:bg-opacity-80"
-                        style={{ borderColor: c.border, background: c.card }}>
+                        style={{ borderColor: c.border, background: c.card }}
+                      >
                         <ChevronRight size={16} style={{ color: c.txt2 }} />
                       </button>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-7 mb-3">
-                    {dayNames.map(d => (
-                      <div key={d} className="text-center text-xs font-black py-1 uppercase tracking-widest" style={{ color: c.txt3 }}>{d}</div>
+                    {dayNames.map((d) => (
+                      <div
+                        key={d}
+                        className="text-center text-xs font-black py-1 uppercase tracking-widest"
+                        style={{ color: c.txt3 }}
+                      >
+                        {d}
+                      </div>
                     ))}
                   </div>
 
                   <div className="grid grid-cols-7 gap-1.5">
-                    {Array.from({ length: (firstDay === 0 ? 6 : firstDay - 1) }).map((_, i) => (
+                    {Array.from({
+                      length: firstDay === 0 ? 6 : firstDay - 1,
+                    }).map((_, i) => (
                       <div key={`e${i}`} className="h-11" />
                     ))}
                     {Array.from({ length: daysInMonth }).map((_, i) => {
                       const day = i + 1;
                       const avail = hasSlots(selectedDoctor, day);
-                      const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+                      const isToday =
+                        day === today.getDate() &&
+                        month === today.getMonth() &&
+                        year === today.getFullYear();
                       const isSelected = calDay === day;
                       const isPast = new Date(year, month, day) < today;
-                      
+
                       return (
                         <button
                           key={day}
                           disabled={!avail || isPast}
-                          onClick={() => { setCalDay(day); setCalSlot(null); }}
+                          onClick={() => {
+                            setCalDay(day);
+                            setCalSlot(null);
+                          }}
                           className="relative h-11 rounded-2xl flex items-center justify-center text-sm font-bold transition-all group"
                           style={{
-                            background: isSelected ? c.blue : isToday ? `${c.blue}11` : "transparent",
-                            color: isSelected ? "#fff" : isPast ? c.txt3 : avail ? c.txt : c.txt3,
-                            border: isToday && !isSelected ? `2px solid ${c.blue}44` : "2px solid transparent",
+                            background: isSelected
+                              ? c.blue
+                              : isToday
+                                ? `${c.blue}11`
+                                : "transparent",
+                            color: isSelected
+                              ? "#fff"
+                              : isPast
+                                ? c.txt3
+                                : avail
+                                  ? c.txt
+                                  : c.txt3,
+                            border:
+                              isToday && !isSelected
+                                ? `2px solid ${c.blue}44`
+                                : "2px solid transparent",
                             opacity: !avail && !isPast ? 0.3 : 1,
                             cursor: avail && !isPast ? "pointer" : "default",
-                            boxShadow: isSelected ? `0 8px 15px ${c.blue}44` : "none"
-                          }}>
+                            boxShadow: isSelected
+                              ? `0 8px 15px ${c.blue}44`
+                              : "none",
+                          }}
+                        >
                           {day}
                           {avail && !isPast && !isSelected && (
-                            <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full transition-all group-hover:scale-150"
-                              style={{ background: c.blue }} />
+                            <span
+                              className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full transition-all group-hover:scale-150"
+                              style={{ background: c.blue }}
+                            />
                           )}
                         </button>
                       );
                     })}
                   </div>
-                  
-                  <div className="mt-8 flex items-center gap-6 p-4 rounded-2xl bg-opacity-30" style={{ background: c.blueLight }}>
+
+                  <div
+                    className="mt-8 flex items-center gap-6 p-4 rounded-2xl bg-opacity-30"
+                    style={{ background: c.blueLight }}
+                  >
                     <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ background: c.blue }} />
-                      <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: c.txt3 }}>Disponible</span>
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ background: c.blue }}
+                      />
+                      <span
+                        className="text-[10px] font-bold uppercase tracking-wider"
+                        style={{ color: c.txt3 }}
+                      >
+                        Disponible
+                      </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full border-2" style={{ borderColor: c.blue + "44" }} />
-                      <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: c.txt3 }}>Aujourd'hui</span>
+                      <div
+                        className="w-3 h-3 rounded-full border-2"
+                        style={{ borderColor: c.blue + "44" }}
+                      />
+                      <span
+                        className="text-[10px] font-bold uppercase tracking-wider"
+                        style={{ color: c.txt3 }}
+                      >
+                        Aujourd'hui
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Right Column: Slots & Summary (5 cols) */}
-                <div className="lg:col-span-5 p-6 bg-opacity-10" style={{ background: `${c.blue}05` }}>
+                <div
+                  className="lg:col-span-5 p-6 bg-opacity-10"
+                  style={{ background: `${c.blue}05` }}
+                >
                   {!calDay ? (
                     <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-4">
-                      <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: c.blueLight }}>
-                        <Calendar size={28} className="animate-bounce" style={{ color: c.blue }} />
+                      <div
+                        className="w-16 h-16 rounded-full flex items-center justify-center"
+                        style={{ background: c.blueLight }}
+                      >
+                        <Calendar
+                          size={28}
+                          className="animate-bounce"
+                          style={{ color: c.blue }}
+                        />
                       </div>
-                      <p className="font-bold text-sm" style={{ color: c.txt2 }}>
-                        Veuillez choisir une date dans le calendrier pour voir les créneaux.
+                      <p
+                        className="font-bold text-sm"
+                        style={{ color: c.txt2 }}
+                      >
+                        Veuillez choisir une date dans le calendrier pour voir
+                        les créneaux.
                       </p>
                     </div>
                   ) : (
                     <div className="h-full flex flex-col">
                       <div className="flex items-center justify-between mb-6">
-                        <h4 className="font-bold text-base" style={{ color: c.txt }}>Créneaux disponibles</h4>
-                        <span className="text-xs font-bold px-3 py-1 rounded-full" 
-                          style={{ background: c.blue + "11", color: c.blue }}>
+                        <h4
+                          className="font-bold text-base"
+                          style={{ color: c.txt }}
+                        >
+                          Créneaux disponibles
+                        </h4>
+                        <span
+                          className="text-xs font-bold px-3 py-1 rounded-full"
+                          style={{ background: c.blue + "11", color: c.blue }}
+                        >
                           {calDay} {monthNames[month]}
                         </span>
                       </div>
@@ -2279,25 +3171,59 @@ function AppointmentsPage({ dk }) {
                         <div>
                           <div className="flex items-center gap-2 mb-3">
                             <Sun size={14} style={{ color: "#E8A838" }} />
-                            <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: c.txt3 }}>Matin</span>
+                            <span
+                              className="text-[10px] font-black uppercase tracking-widest"
+                              style={{ color: c.txt3 }}
+                            >
+                              Matin
+                            </span>
                           </div>
                           <div className="grid grid-cols-3 gap-2">
                             {(() => {
-                              const morningHours = ["08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30"];
-                              const available = slotsForDay(selectedDoctor, calDay);
-                              return morningHours.map(slot => {
+                              const morningHours = [
+                                "08:00",
+                                "08:30",
+                                "09:00",
+                                "09:30",
+                                "10:00",
+                                "10:30",
+                                "11:00",
+                                "11:30",
+                              ];
+                              const available = slotsForDay(
+                                selectedDoctor,
+                                calDay,
+                              );
+                              return morningHours.map((slot) => {
                                 const isAvail = available.includes(slot);
                                 const isSel = calSlot === slot;
                                 return (
-                                  <button key={slot} disabled={!isAvail}
+                                  <button
+                                    key={slot}
+                                    disabled={!isAvail}
                                     onClick={() => setCalSlot(slot)}
                                     className="py-2.5 rounded-xl text-xs font-bold border transition-all active:scale-95"
                                     style={{
-                                      background: isSel ? c.blue : isAvail ? c.card : "transparent",
-                                      color: isSel ? "#fff" : isAvail ? c.txt : c.txt3,
-                                      borderColor: isSel ? c.blue : isAvail ? c.border : c.border + "33",
+                                      background: isSel
+                                        ? c.blue
+                                        : isAvail
+                                          ? c.card
+                                          : "transparent",
+                                      color: isSel
+                                        ? "#fff"
+                                        : isAvail
+                                          ? c.txt
+                                          : c.txt3,
+                                      borderColor: isSel
+                                        ? c.blue
+                                        : isAvail
+                                          ? c.border
+                                          : c.border + "33",
                                       opacity: isAvail ? 1 : 0.4,
-                                    }}>{slot}</button>
+                                    }}
+                                  >
+                                    {slot}
+                                  </button>
                                 );
                               });
                             })()}
@@ -2308,25 +3234,58 @@ function AppointmentsPage({ dk }) {
                         <div>
                           <div className="flex items-center gap-2 mb-3">
                             <Moon size={14} style={{ color: c.blue }} />
-                            <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: c.txt3 }}>Après-midi</span>
+                            <span
+                              className="text-[10px] font-black uppercase tracking-widest"
+                              style={{ color: c.txt3 }}
+                            >
+                              Après-midi
+                            </span>
                           </div>
                           <div className="grid grid-cols-3 gap-2">
                             {(() => {
-                              const afternoonHours = ["14:00","14:30","15:00","15:30","16:00","16:30","17:00"];
-                              const available = slotsForDay(selectedDoctor, calDay);
-                              return afternoonHours.map(slot => {
+                              const afternoonHours = [
+                                "14:00",
+                                "14:30",
+                                "15:00",
+                                "15:30",
+                                "16:00",
+                                "16:30",
+                                "17:00",
+                              ];
+                              const available = slotsForDay(
+                                selectedDoctor,
+                                calDay,
+                              );
+                              return afternoonHours.map((slot) => {
                                 const isAvail = available.includes(slot);
                                 const isSel = calSlot === slot;
                                 return (
-                                  <button key={slot} disabled={!isAvail}
+                                  <button
+                                    key={slot}
+                                    disabled={!isAvail}
                                     onClick={() => setCalSlot(slot)}
                                     className="py-2.5 rounded-xl text-xs font-bold border transition-all active:scale-95"
                                     style={{
-                                      background: isSel ? c.blue : isAvail ? c.card : "transparent",
-                                      color: isSel ? "#fff" : isAvail ? c.txt : c.txt3,
-                                      borderColor: isSel ? c.blue : isAvail ? c.border : c.border + "33",
+                                      background: isSel
+                                        ? c.blue
+                                        : isAvail
+                                          ? c.card
+                                          : "transparent",
+                                      color: isSel
+                                        ? "#fff"
+                                        : isAvail
+                                          ? c.txt
+                                          : c.txt3,
+                                      borderColor: isSel
+                                        ? c.blue
+                                        : isAvail
+                                          ? c.border
+                                          : c.border + "33",
                                       opacity: isAvail ? 1 : 0.4,
-                                    }}>{slot}</button>
+                                    }}
+                                  >
+                                    {slot}
+                                  </button>
                                 );
                               });
                             })()}
@@ -2335,33 +3294,71 @@ function AppointmentsPage({ dk }) {
                       </div>
 
                       {/* Booking Summary & Action */}
-                      <div className="mt-6 pt-6 border-t space-y-4" style={{ borderColor: c.border }}>
+                      <div
+                        className="mt-6 pt-6 border-t space-y-4"
+                        style={{ borderColor: c.border }}
+                      >
                         {calSlot && (
-                          <div className="p-4 rounded-2xl border border-dashed animate-in zoom-in-95 duration-300"
-                            style={{ background: `${c.blue}08`, borderColor: `${c.blue}44` }}>
-                            <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: c.blue }}>Résumé du RDV</p>
+                          <div
+                            className="p-4 rounded-2xl border border-dashed animate-in zoom-in-95 duration-300"
+                            style={{
+                              background: `${c.blue}08`,
+                              borderColor: `${c.blue}44`,
+                            }}
+                          >
+                            <p
+                              className="text-[10px] font-black uppercase tracking-widest mb-2"
+                              style={{ color: c.blue }}
+                            >
+                              Résumé du RDV
+                            </p>
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: c.blue }}>
+                              <div
+                                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                                style={{ background: c.blue }}
+                              >
                                 <Clock size={20} className="text-white" />
                               </div>
                               <div>
-                                <p className="text-xs font-bold" style={{ color: c.txt }}>{calDay} {monthNames[month]} {year}</p>
-                                <p className="text-sm font-black" style={{ color: c.blue }}>à {calSlot}</p>
+                                <p
+                                  className="text-xs font-bold"
+                                  style={{ color: c.txt }}
+                                >
+                                  {calDay} {monthNames[month]} {year}
+                                </p>
+                                <p
+                                  className="text-sm font-black"
+                                  style={{ color: c.blue }}
+                                >
+                                  à {calSlot}
+                                </p>
                               </div>
                             </div>
                           </div>
                         )}
-                        
+
                         <button
                           onClick={handleBook}
-                          disabled={!calSlot}
-                          className="w-full py-3.5 rounded-2xl text-sm font-black text-white transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                          disabled={!calSlot || isSubmitting}
+                          className="w-full py-3.5 rounded-2xl text-sm font-black text-white transition-all shadow-lg active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
                           style={{
-                            background: calSlot ? `linear-gradient(135deg, ${selectedDoctor.color}, ${c.blue})` : c.border,
-                            boxShadow: calSlot ? `0 10px 20px -5px ${c.blue}66` : "none",
-                            cursor: calSlot ? "pointer" : "default",
-                          }}>
-                          {calSlot ? "Confirmer la réservation" : "Choisissez un horaire"}
+                            background: calSlot
+                              ? `linear-gradient(135deg, ${selectedDoctor.color}, ${c.blue})`
+                              : c.border,
+                            boxShadow: calSlot
+                              ? `0 10px 20px -5px ${c.blue}66`
+                              : "none",
+                            cursor:
+                              calSlot && !isSubmitting ? "pointer" : "default",
+                          }}
+                        >
+                          {isSubmitting ? (
+                            <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                          ) : calSlot ? (
+                            "Confirmer la réservation"
+                          ) : (
+                            "Choisissez un horaire"
+                          )}
                         </button>
                       </div>
                     </div>
@@ -2372,52 +3369,95 @@ function AppointmentsPage({ dk }) {
           )}
 
           {/* Doctor list */}
-          <div className="space-y-4 mb-10">
-            {filteredDoctors.map(doc => (
+          <div className="space-y-4 mb-10 pt-4" ref={docListRef}>
+            {filteredDoctors.map((doc) => (
               <Card key={doc.id} dk={dk} style={{ padding: "18px" }}>
                 <div className="flex gap-4 flex-wrap">
-                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-base shrink-0"
-                    style={{ background: doc.color }}>{doc.initials}</div>
+                  <div
+                    className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-base shrink-0"
+                    style={{ background: doc.color }}
+                  >
+                    {doc.initials}
+                  </div>
                   <div className="flex-1 min-w-48">
-                    <h3 className="font-bold" style={{ color: c.txt }}>{doc.name}</h3>
-                    <p className="text-sm font-semibold" style={{ color: c.blue }}>{doc.spec}</p>
-                    <p className="text-xs flex items-center gap-1 mt-1" style={{ color: c.txt2 }}>
+                    <h3 className="font-bold" style={{ color: c.txt }}>
+                      {doc.name}
+                    </h3>
+                    <p
+                      className="text-sm font-semibold"
+                      style={{ color: c.blue }}
+                    >
+                      {doc.spec}
+                    </p>
+                    <p
+                      className="text-xs flex items-center gap-1 mt-1"
+                      style={{ color: c.txt2 }}
+                    >
                       <MapPin size={12} /> {doc.loc}
                     </p>
                     <div className="flex items-center gap-3 mt-2">
-                      <span className="text-xs font-bold" style={{ color: "#E8A838" }}>⭐ {doc.rating}</span>
-                      <span className="text-xs font-medium" style={{ color: c.txt3 }}>{doc.exp} ans exp.</span>
-                      <span className="text-xs" style={{ color: c.txt3 }}>{doc.reviews} avis</span>
+                      <span
+                        className="text-xs font-bold"
+                        style={{ color: "#E8A838" }}
+                      >
+                        ⭐ {doc.rating}
+                      </span>
+                      <span
+                        className="text-xs font-medium"
+                        style={{ color: c.txt3 }}
+                      >
+                        {doc.exp} ans exp.
+                      </span>
+                      <span className="text-xs" style={{ color: c.txt3 }}>
+                        {doc.reviews} avis
+                      </span>
                     </div>
                     {/* Languages */}
                     <div className="flex gap-1.5 mt-2 flex-wrap">
-                      {doc.lang.map(l => (
-                        <span key={l} className="text-[10px] px-2 py-0.5 rounded-full border"
-                          style={{ borderColor: c.border, color: c.txt3 }}>{l}</span>
+                      {doc.lang.map((l) => (
+                        <span
+                          key={l}
+                          className="text-[10px] px-2 py-0.5 rounded-full border"
+                          style={{ borderColor: c.border, color: c.txt3 }}
+                        >
+                          {l}
+                        </span>
                       ))}
                     </div>
                   </div>
                   <div className="shrink-0 flex flex-col items-end gap-2">
-                    <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: c.txt3 }}>
+                    <p
+                      className="text-[10px] font-bold uppercase tracking-wider"
+                      style={{ color: c.txt3 }}
+                    >
                       Prochains créneaux
                     </p>
                     <div className="flex gap-2 flex-wrap justify-end">
-                      {Object.values(doc.calendarSlots)[0]?.slice(0, 2).map(slot => (
-                        <span key={slot} className="px-3 py-1.5 rounded-xl text-xs font-bold border"
-                          style={{ borderColor: c.blue + "33", color: c.blue, background: c.blueLight }}>
-                          {slot}
-                        </span>
-                      ))}
+                      {/* For now we leave placeholders or empty if slots are not loaded individually for all doctors */}
+                      <span
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold border"
+                        style={{
+                          borderColor: c.blue + "33",
+                          color: c.blue,
+                          background: c.blueLight,
+                        }}
+                      >
+                        Sur RDV
+                      </span>
                     </div>
                     <div className="flex gap-2 mt-1">
-                      <button onClick={() => setProfileDoctor(doc)}
+                      <button
+                        onClick={() => setProfileDoctor(doc)}
                         className="px-3 py-2 rounded-xl text-xs font-semibold border transition-all hover:opacity-80"
-                        style={{ borderColor: c.border, color: c.txt2 }}>
+                        style={{ borderColor: c.border, color: c.txt2 }}
+                      >
                         Profil
                       </button>
-                      <button onClick={() => openCalendar(doc)}
+                      <button
+                        onClick={() => openCalendar(doc)}
                         className="px-5 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95"
-                        style={{ background: c.blue }}>
+                        style={{ background: c.blue }}
+                      >
                         Prendre RDV
                       </button>
                     </div>
@@ -2426,43 +3466,70 @@ function AppointmentsPage({ dk }) {
               </Card>
             ))}
           </div>
+          {/* Spacer to prevent absolute dropdowns from cutting into the page background bottom */}
+          <div className="h-[260px] w-full pointer-events-none" />
         </>
       )}
 
       {/* ──── TAB: HISTORY ──── */}
       {tab === "history" && (
         <>
-          <h2 className="font-bold text-lg mb-4" style={{ color: c.txt }}>Historique des rendez-vous</h2>
+          <h2 className="font-bold text-lg mb-4" style={{ color: c.txt }}>
+            Historique des rendez-vous
+          </h2>
           <div className="space-y-3">
-            {HISTORY.map(h => (
-              <Card key={h.id} dk={dk} style={{ padding: "14px 18px" }}>
-                <div className="flex items-center gap-4 flex-wrap">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: h.statusColor + "18" }}>
-                    {h.status === "Terminé"
-                      ? <CheckCircle size={18} style={{ color: h.statusColor }} />
-                      : <X size={18} style={{ color: h.statusColor }} />
-                    }
+            {historyAppts.length === 0 ? (
+              <EmptyState
+                dk={dk}
+                icon={Clock}
+                title="Aucun historique"
+                message="Vous n'avez pas encore de rendez-vous passés ou annulés à afficher."
+              />
+            ) : (
+              historyAppts.map((h, i) => (
+                <Card key={h.id || i} dk={dk} style={{ padding: "14px 18px" }}>
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                      style={{
+                        background:
+                          (h.status === "completed" ? "#2D8C6F" : "#E05555") +
+                          "18",
+                      }}
+                    >
+                      {h.status === "completed" ? (
+                        <CheckCircle size={18} style={{ color: "#2D8C6F" }} />
+                      ) : (
+                        <X size={18} style={{ color: "#E05555" }} />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-48">
+                      <p className="font-bold text-sm" style={{ color: c.txt }}>
+                        {h.doctor_name || "Médecin"}
+                      </p>
+                      <p className="text-xs" style={{ color: c.txt2 }}>
+                        {h.specialty || "Spécialité"} ·{" "}
+                        {h.date_display || h.date}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="text-xs font-bold px-2.5 py-1 rounded-full uppercase"
+                        style={{
+                          background:
+                            (h.status === "completed" ? "#2D8C6F" : "#E05555") +
+                            "18",
+                          color:
+                            h.status === "completed" ? "#2D8C6F" : "#E05555",
+                        }}
+                      >
+                        {h.status}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-48">
-                    <p className="font-bold text-sm" style={{ color: c.txt }}>{h.doctor}</p>
-                    <p className="text-xs" style={{ color: c.txt2 }}>{h.spec} · {h.date}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold px-2.5 py-1 rounded-full"
-                      style={{ background: h.statusColor + "18", color: h.statusColor }}>
-                      {h.status}
-                    </span>
-                    {h.status === "Terminé" && (
-                      <button className="text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all hover:opacity-80"
-                        style={{ borderColor: c.border, color: c.blue }}>
-                        Reprendre RDV
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              ))
+            )}
           </div>
         </>
       )}
@@ -2473,6 +3540,9 @@ function AppointmentsPage({ dk }) {
 // ─── PRESCRIPTIONS PAGE ───────────────────────────────────────────────────────
 function PrescriptionsPage({ dk }) {
   const c = dk ? T.dark : T.light;
+  const [filter, setFilter] = useState("All");
+  const [selectedQr, setSelectedQr] = useState(null);
+  const [downloading, setDownloading] = useState(null);
   const rxList = [
     {
       id: "RX-2023-0847",
@@ -2497,33 +3567,30 @@ function PrescriptionsPage({ dk }) {
       ],
     },
   ];
+
+  const filteredRxList = rxList.filter(
+    (rx) => filter === "All" || rx.status === filter.toUpperCase(),
+  );
+
+  const handleDownload = (id) => {
+    setDownloading(id);
+    setTimeout(() => {
+      setDownloading(null);
+    }, 2500);
+  };
+
   return (
     <>
-      {/* QR scan zone */}
-      <Card dk={dk} className="mb-6">
-        <div
-          className="border-2 border-dashed rounded-xl p-8 flex flex-col items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
-          style={{ borderColor: c.border }}
-        >
-          <QrCode size={40} style={{ color: c.txt3 }} />
-          <p className="font-semibold" style={{ color: c.txt2 }}>
-            Scan a Prescription QR Code
-          </p>
-          <p className="text-sm" style={{ color: c.txt3 }}>
-            Position the QR code in front of camera · or ·{" "}
-            <span style={{ color: c.blue, fontWeight: 600 }}>Upload image</span>
-          </p>
-        </div>
-      </Card>
       <div className="flex gap-2 mb-5 flex-wrap">
         {["All", "Active", "Expired", "Pending"].map((label, i) => (
           <button
             key={label}
+            onClick={() => setFilter(label)}
             className="px-4 py-2 rounded-full text-sm font-semibold border transition-all"
             style={{
-              background: i === 0 ? c.blue : "transparent",
-              color: i === 0 ? "#fff" : c.txt2,
-              borderColor: i === 0 ? c.blue : c.border,
+              background: filter === label ? c.blue : "transparent",
+              color: filter === label ? "#fff" : c.txt2,
+              borderColor: filter === label ? c.blue : c.border,
             }}
           >
             {label}
@@ -2531,55 +3598,115 @@ function PrescriptionsPage({ dk }) {
         ))}
       </div>
       <div className="space-y-4">
-        {rxList.map((rx) => (
-          <Card key={rx.id} dk={dk}>
-            <div className="flex gap-4 flex-wrap">
-              <div
-                className="w-16 h-16 rounded-xl flex items-center justify-center shrink-0"
-                style={{ background: "#000" }}
-              >
-                <QrCode size={36} className="text-white" />
-              </div>
-              <div className="flex-1 min-w-48">
-                <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-                  <div>
-                    <p className="font-bold" style={{ color: c.txt }}>
-                      Prescription #{rx.id}
-                    </p>
-                    <p className="text-xs" style={{ color: c.txt2 }}>
-                      Issued by {rx.doctor} · {rx.date}
-                    </p>
+        {filteredRxList.length === 0 ? (
+          <EmptyState
+            dk={dk}
+            icon={FileText}
+            title="Aucune prescription"
+            message={`Aucune ordonnance trouvée pour le filtre "${filter}".`}
+          />
+        ) : (
+          filteredRxList.map((rx) => (
+            <Card key={rx.id} dk={dk}>
+              <div className="flex gap-4 flex-wrap">
+                <button
+                  onClick={() => setSelectedQr(rx)}
+                  className="w-16 h-16 rounded-xl flex items-center justify-center shrink-0 transition-transform hover:scale-105 shadow-md active:scale-95"
+                  style={{ background: "#000" }}
+                >
+                  <QrCode size={36} className="text-white" />
+                </button>
+                <div className="flex-1 min-w-48">
+                  <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                    <div>
+                      <p className="font-bold" style={{ color: c.txt }}>
+                        Prescription #{rx.id}
+                      </p>
+                      <p className="text-xs" style={{ color: c.txt2 }}>
+                        Issued by {rx.doctor} · {rx.date}
+                      </p>
+                    </div>
+                    <Badge color={rx.statusColor} bg={rx.statusColor + "18"}>
+                      {rx.status}
+                    </Badge>
                   </div>
-                  <Badge color={rx.statusColor} bg={rx.statusColor + "18"}>
-                    {rx.status}
-                  </Badge>
+                  <div className="space-y-1">
+                    {rx.meds.map((m) => (
+                      <p key={m} className="text-sm" style={{ color: c.txt }}>
+                        • {m}
+                      </p>
+                    ))}
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  {rx.meds.map((m) => (
-                    <p key={m} className="text-sm" style={{ color: c.txt }}>
-                      • {m}
-                    </p>
-                  ))}
+                <div className="flex flex-col gap-2 shrink-0">
+                  <button
+                    onClick={() => handleDownload(rx.id)}
+                    disabled={downloading === rx.id}
+                    className="text-xs font-semibold px-3 py-2 rounded-lg border transition-colors hover:opacity-80 disabled:opacity-50 flex items-center gap-2 justify-center"
+                    style={{ color: c.txt2, borderColor: c.border }}
+                  >
+                    {downloading === rx.id ? (
+                      <span
+                        className="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin"
+                        style={{ borderColor: c.txt2 }}
+                      ></span>
+                    ) : (
+                      "⬇ PDF"
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setSelectedQr(rx)}
+                    className="flex items-center gap-2 justify-center text-xs font-semibold px-3 py-2 rounded-lg text-white transition-colors hover:opacity-80 active:scale-95"
+                    style={{ background: c.blue }}
+                  >
+                    <QrCode size={14} /> Show QR
+                  </button>
                 </div>
               </div>
-              <div className="flex flex-col gap-2 shrink-0">
-                <button
-                  className="text-xs font-semibold px-3 py-2 rounded-lg border transition-colors hover:opacity-80"
-                  style={{ color: c.txt2, borderColor: c.border }}
-                >
-                  ⬇ PDF
-                </button>
-                <button
-                  className="text-xs font-semibold px-3 py-2 rounded-lg text-white transition-colors hover:opacity-80"
-                  style={{ background: c.blue }}
-                >
-                  Show QR
-                </button>
-              </div>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          ))
+        )}
       </div>
+
+      {/* QR Modal Overlay */}
+      {selectedQr && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white p-8 rounded-3xl max-w-sm w-full shadow-2xl relative flex flex-col items-center animate-in zoom-in-95 duration-300">
+            <button
+              onClick={() => setSelectedQr(null)}
+              className="absolute top-5 right-5 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+            >
+              <X size={20} className="text-gray-600" />
+            </button>
+            <h3 className="font-black text-xl mb-1 text-gray-900">
+              Prescription {selectedQr.id}
+            </h3>
+            <p className="text-xs font-bold text-gray-500 mb-8 uppercase tracking-widest">
+              {selectedQr.doctor} • {selectedQr.date}
+            </p>
+            <div className="p-4 rounded-[32px] mb-8 bg-gray-50 border border-gray-100 shadow-inner">
+              <QrCode size={200} className="text-gray-900" />
+            </div>
+            <p className="text-[13px] text-center font-bold text-gray-600 mb-2 px-4 leading-relaxed">
+              Présentez ce QR Code à votre pharmacien pour récupérer vos
+              médicaments.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {downloading && (
+        <div
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-6 py-3.5 rounded-full shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5"
+          style={{ background: c.blue, color: "#fff" }}
+        >
+          <span className="w-5 h-5 border-2 border-white border-t-transparent flex-shrink-0 rounded-full animate-spin"></span>
+          <span className="font-bold text-sm">
+            Téléchargement du PDF en cours...
+          </span>
+        </div>
+      )}
     </>
   );
 }
@@ -3004,10 +4131,24 @@ function CareTakerPage({ dk }) {
 }
 
 // ─── NOTIFICATIONS PAGE ───────────────────────────────────────────────────────
-function NotificationsPage({ dk }) {
+function NotificationsPage({ dk, notifications, setNotifications }) {
   const c = dk ? T.dark : T.light;
-  const [notifs, setNotifs] = useState(NOTIFICATIONS_DATA);
-  const dismiss = (id) => setNotifs((n) => n.filter((x) => x.id !== id));
+
+  const dismiss = async (id) => {
+    try {
+      await api.markNotificationRead(id).catch(() => {});
+    } catch (e) {}
+    setNotifications((n) => n.filter((x) => x.id !== id));
+  };
+
+  const markAllRead = async () => {
+    try {
+      // Loop or bulk API if available, locally we just mark them read
+      setNotifications((n) =>
+        n.map((x) => ({ ...x, is_read: true, unread: false })),
+      );
+    } catch (e) {}
+  };
 
   return (
     <>
@@ -3021,9 +4162,7 @@ function NotificationsPage({ dk }) {
           </p>
         </div>
         <button
-          onClick={() =>
-            setNotifs((n) => n.map((x) => ({ ...x, unread: false })))
-          }
+          onClick={markAllRead}
           className="text-sm font-semibold px-4 py-2 rounded-xl border"
           style={{ color: c.blue, borderColor: c.border }}
         >
@@ -3048,46 +4187,58 @@ function NotificationsPage({ dk }) {
         )}
       </div>
       <div className="space-y-3">
-        {notifs.map((n) => (
-          <div
-            key={n.id}
-            className="flex items-start gap-3 p-4 rounded-2xl border transition-all"
-            style={{
-              background: dk ? n.bgDark : n.bg,
-              borderColor: n.unread ? n.color + "44" : c.border,
-              borderLeft: n.unread ? `3px solid ${n.color}` : undefined,
-            }}
-          >
+        {(notifications || []).map((n) => {
+          const isUnread = !n.is_read && n.unread !== false;
+          const typeColor =
+            n.type === "emergency"
+              ? "#E05555"
+              : n.type === "appointment"
+                ? "#4A6FA5"
+                : n.type === "medication"
+                  ? "#2D8C6F"
+                  : "#4A6FA5";
+
+          return (
             <div
-              className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-              style={{ background: n.color + "22" }}
+              key={n.id}
+              className="flex items-start gap-3 p-4 rounded-2xl border transition-all"
+              style={{
+                background: c.card,
+                borderColor: isUnread ? typeColor + "44" : c.border,
+                borderLeft: isUnread ? `3px solid ${typeColor}` : undefined,
+              }}
             >
-              <n.icon size={18} style={{ color: n.color }} />
-            </div>
-            <div className="flex-1">
-              <p className="font-semibold text-sm" style={{ color: c.txt }}>
-                {n.title}
-              </p>
-              <p className="text-xs mt-0.5" style={{ color: c.txt2 }}>
-                {n.sub}
-              </p>
-            </div>
-            {n.unread && (
               <div
-                className="w-2 h-2 rounded-full mt-1.5 shrink-0"
-                style={{ background: n.color }}
-              />
-            )}
-            <button
-              onClick={() => dismiss(n.id)}
-              className="shrink-0 text-xs hover:opacity-70 transition-opacity"
-              style={{ color: c.txt3 }}
-            >
-              ✕
-            </button>
-          </div>
-        ))}
-        {notifs.length === 0 && (
+                className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                style={{ background: typeColor + "22" }}
+              >
+                <Bell size={18} style={{ color: typeColor }} />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-sm" style={{ color: c.txt }}>
+                  {n.title || n.message || "Notification"}
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: c.txt2 }}>
+                  {n.sub || n.created_at || "Récemment"}
+                </p>
+              </div>
+              {isUnread && (
+                <div
+                  className="w-2 h-2 rounded-full mt-1.5 shrink-0"
+                  style={{ background: typeColor }}
+                />
+              )}
+              <button
+                onClick={() => dismiss(n.id)}
+                className="shrink-0 text-xs hover:opacity-70 transition-opacity"
+                style={{ color: c.txt3 }}
+              >
+                ✕
+              </button>
+            </div>
+          );
+        })}
+        {(!notifications || notifications.length === 0) && (
           <Card dk={dk} className="text-center" style={{ padding: 48 }}>
             <Bell
               size={36}
@@ -3103,15 +4254,101 @@ function NotificationsPage({ dk }) {
 }
 
 // ─── SETTINGS PAGE ────────────────────────────────────────────────────────────
-function SettingsPage({ dk, onToggleDark }) {
+function SettingsPage({ dk, onToggleDark, userData }) {
   const c = dk ? T.dark : T.light;
   const [showPwd, setShowPwd] = useState(false);
+  
   const [form, setForm] = useState({
-    name: "Alex Johnson",
-    email: "alex@example.com",
-    phone: "+213 555 123 456",
+    name: "",
+    email: "",
+    phone: "",
     city: "Alger",
   });
+  const [isSaving, setIsSaving] = useState(false);
+  const [status, setStatus] = useState({ type: "", msg: "" });
+
+  const [pwdForm, setPwdForm] = useState({ currentPassword: "", newPassword: "" });
+  const [pwdStatus, setPwdStatus] = useState({ type: "", msg: "" });
+  const [isSavingPwd, setIsSavingPwd] = useState(false);
+
+  // Load preferences from localStorage or default
+  const [prefs, setPrefs] = useState(() => {
+    const saved = localStorage.getItem("medsmart_prefs");
+    if (saved) return JSON.parse(saved);
+    return {
+      medicationReminders: true,
+      appointmentConfirmations: true,
+      analysisResults: true,
+      emergencyAlerts: true,
+      emailNotifications: false,
+    };
+  });
+
+  useEffect(() => {
+    if (userData) {
+      setForm({
+        name: `${userData.first_name || ""} ${userData.last_name || ""}`.trim(),
+        email: userData.email || "",
+        phone: userData.phone || "",
+        city: "Alger", // Or userData.city if backend had it
+      });
+    }
+  }, [userData]);
+
+  const handleSaveProfile = async () => {
+    try {
+      setIsSaving(true);
+      setStatus({ type: "", msg: "" });
+      
+      const names = form.name.split(" ");
+      const first_name = names[0] || "";
+      const last_name = names.slice(1).join(" ") || "";
+      
+      await api.updateMe({
+        first_name,
+        last_name,
+        phone: form.phone,
+      });
+      setStatus({ type: "success", msg: "Profil mis à jour avec succès ✅" });
+      setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
+    } catch (err) {
+      setStatus({ type: "error", msg: "Erreur lors de la mise à jour ❌" });
+      setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSavePwd = async () => {
+    try {
+      setIsSavingPwd(true);
+      setPwdStatus({ type: "", msg: "" });
+      const token = localStorage.getItem("access_token");
+      const res = await fetch("http://localhost:8000/api/auth/password/change/", {
+        method: "POST", // usually POST or PUT
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify(pwdForm),
+      });
+      if (!res.ok) throw new Error("Erreur");
+      setPwdStatus({ type: "success", msg: "Mot de passe modifié ✅" });
+      setPwdForm({ currentPassword: "", newPassword: "" });
+      setTimeout(() => setPwdStatus({ type: "", msg: "" }), 4000);
+    } catch (err) {
+      setPwdStatus({ type: "error", msg: "Erreur lors du changement ❌" });
+      setTimeout(() => setPwdStatus({ type: "", msg: "" }), 4000);
+    } finally {
+      setIsSavingPwd(false);
+    }
+  };
+
+  const togglePref = (key) => {
+    const newPrefs = { ...prefs, [key]: !prefs[key] };
+    setPrefs(newPrefs);
+    localStorage.setItem("medsmart_prefs", JSON.stringify(newPrefs));
+  };
 
   return (
     <>
@@ -3129,6 +4366,18 @@ function SettingsPage({ dk, onToggleDark }) {
             <p className="font-semibold mb-5" style={{ color: c.txt }}>
               Profile Settings
             </p>
+            {status.msg && (
+              <div
+                className="mb-4 p-3 rounded-xl text-xs font-semibold"
+                style={{
+                  background: status.type === "success" ? "#2D8C6F12" : "#E0555512",
+                  color: status.type === "success" ? "#2D8C6F" : "#E05555",
+                  border: `1px solid ${status.type === "success" ? "#2D8C6F44" : "#E0555544"}`,
+                }}
+              >
+                {status.msg}
+              </div>
+            )}
             {[
               { label: "Full Name", key: "name", type: "text" },
               { label: "Email", key: "email", type: "email" },
@@ -3147,11 +4396,12 @@ function SettingsPage({ dk, onToggleDark }) {
                   onChange={(e) =>
                     setForm((f) => ({ ...f, [field.key]: e.target.value }))
                   }
+                  disabled={field.key === "email"}
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
                   style={{
                     background: dk ? "#1A2333" : "#F8FAFC",
                     borderColor: c.border,
-                    color: c.txt,
+                    color: field.key === "email" ? c.txt3 : c.txt,
                   }}
                 />
               </div>
@@ -3164,6 +4414,8 @@ function SettingsPage({ dk, onToggleDark }) {
                 City
               </label>
               <select
+                value={form.city}
+                onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
                 className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
                 style={{
                   background: dk ? "#1A2333" : "#F8FAFC",
@@ -3171,33 +4423,52 @@ function SettingsPage({ dk, onToggleDark }) {
                   color: c.txt,
                 }}
               >
-                <option>Alger</option>
-                <option>Oran</option>
-                <option>Constantine</option>
+                <option value="Alger">Alger</option>
+                <option value="Oran">Oran</option>
+                <option value="Constantine">Constantine</option>
               </select>
             </div>
             <button
-              className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white"
-              style={{ background: c.blue }}
+              onClick={handleSaveProfile}
+              disabled={isSaving}
+              className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
+              style={{ background: c.blue, opacity: isSaving ? 0.7 : 1 }}
             >
-              Save Changes
+              {isSaving ? "Saving..." : "Save Changes"}
             </button>
           </Card>
           <Card dk={dk}>
             <p className="font-semibold mb-5" style={{ color: c.txt }}>
               Security
             </p>
-            {["Current Password", "New Password"].map((label) => (
-              <div key={label} className="mb-4 relative">
+            {pwdStatus.msg && (
+              <div
+                className="mb-4 p-3 rounded-xl text-xs font-semibold"
+                style={{
+                  background: pwdStatus.type === "success" ? "#2D8C6F12" : "#E0555512",
+                  color: pwdStatus.type === "success" ? "#2D8C6F" : "#E05555",
+                  border: `1px solid ${pwdStatus.type === "success" ? "#2D8C6F44" : "#E0555544"}`,
+                }}
+              >
+                {pwdStatus.msg}
+              </div>
+            )}
+            {[
+              { label: "Current Password", key: "currentPassword" },
+              { label: "New Password", key: "newPassword" },
+            ].map((field) => (
+              <div key={field.key} className="mb-4 relative">
                 <label
                   className="block text-xs font-bold uppercase tracking-wide mb-1.5"
                   style={{ color: c.txt2 }}
                 >
-                  {label}
+                  {field.label}
                 </label>
                 <input
                   type={showPwd ? "text" : "password"}
                   placeholder="••••••••"
+                  value={pwdForm[field.key]}
+                  onChange={(e) => setPwdForm({ ...pwdForm, [field.key]: e.target.value })}
                   className="w-full px-4 py-2.5 pr-12 rounded-xl text-sm outline-none border"
                   style={{
                     background: dk ? "#1A2333" : "#F8FAFC",
@@ -3215,62 +4486,17 @@ function SettingsPage({ dk, onToggleDark }) {
               </div>
             ))}
             <button
+              onClick={handleSavePwd}
+              disabled={isSavingPwd}
               className="px-6 py-2.5 rounded-xl text-sm font-semibold border transition-colors hover:opacity-80"
-              style={{ color: c.blue, borderColor: c.border }}
+              style={{ color: c.blue, borderColor: c.border, opacity: isSavingPwd ? 0.7 : 1 }}
             >
-              Update Password
+              {isSavingPwd ? "Updating..." : "Update Password"}
             </button>
           </Card>
         </div>
         <div className="space-y-5">
-          <Card dk={dk}>
-            <p className="font-semibold mb-5" style={{ color: c.txt }}>
-              Preferences
-            </p>
-            <div className="space-y-4">
-              {[
-                { label: "Medication reminders", checked: true },
-                { label: "Appointment confirmations", checked: true },
-                { label: "Analysis results ready", checked: true },
-                { label: "Emergency alerts", checked: true },
-                { label: "Email notifications", checked: false },
-              ].map((item) => (
-                <div
-                  key={item.label}
-                  className="flex items-center justify-between"
-                >
-                  <span className="text-sm" style={{ color: c.txt }}>
-                    {item.label}
-                  </span>
-                  <div
-                    className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer ${item.checked ? "" : ""}`}
-                    style={{ background: item.checked ? c.blue : c.border }}
-                  >
-                    <div
-                      className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all"
-                      style={{ left: item.checked ? "22px" : "2px" }}
-                    />
-                  </div>
-                </div>
-              ))}
-              {/* Dark mode toggle */}
-              <div className="flex items-center justify-between">
-                <span className="text-sm" style={{ color: c.txt }}>
-                  Dark mode
-                </span>
-                <button
-                  onClick={onToggleDark}
-                  className="relative w-10 h-5 rounded-full transition-colors cursor-pointer"
-                  style={{ background: dk ? c.blue : c.border }}
-                >
-                  <div
-                    className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all"
-                    style={{ left: dk ? "22px" : "2px" }}
-                  />
-                </button>
-              </div>
-            </div>
-          </Card>
+
           <Card dk={dk}>
             <p className="font-semibold mb-4" style={{ color: c.txt }}>
               Language
@@ -3309,13 +4535,73 @@ function SettingsPage({ dk, onToggleDark }) {
 }
 
 // ─── MAIN SHELL ───────────────────────────────────────────────────────────────
-export default function PatientDashboard() {
+export default function PatientDashboard({ onLogout }) {
+  const { userData } = useAuth();
   const [page, setPage] = useState("dashboard");
   const [dk, setDk] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [emergency, setEmergency] = useState(false);
+
+  const [appointments, setAppointments] = useState([]);
+  const [medicalProfile, setMedicalProfile] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   const c = dk ? T.dark : T.light;
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true);
+        // On récupère les deux, mais si le profil médical n'existe pas encore (404),
+        // on ne bloque pas tout le dashboard.
+        const [appts, profile, notifs] = await Promise.all([
+          api.getMyAppointments().catch((err) => {
+            console.warn("Appointments fetch failed:", err);
+            return [];
+          }),
+          api.getMedicalProfile().catch((err) => {
+            console.warn("Medical Profile not found or error:", err);
+            return null;
+          }),
+          api.getNotifications().catch((err) => {
+            console.warn("Notifications fetch failed:", err);
+            return [];
+          }),
+        ]);
+        setAppointments(Array.isArray(appts) ? appts : []);
+        setMedicalProfile(profile);
+        setNotifications(Array.isArray(notifs) ? notifs : []);
+      } catch (err) {
+        console.error("Critical error in PatientDashboard fetchData:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
+
+  // Ensure scroll is at the top when navigating between dashboard tabs
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [page]);
+
+  const refreshAppointments = async () => {
+    try {
+      const fresh = await api.getMyAppointments().catch(() => []);
+      setAppointments(Array.isArray(fresh) ? fresh : []);
+    } catch (err) {}
+  };
+
+  const userInitials =
+    userData && (userData.first_name || userData.last_name)
+      ? `${userData.first_name?.[0] || ""}${userData.last_name?.[0] || ""}`.toUpperCase()
+      : "MC";
+  const fullName =
+    userData && (userData.first_name || userData.last_name)
+      ? `${userData.first_name || ""} ${userData.last_name || ""}`.trim()
+      : "Mon Compte";
 
   const NAV = [
     { id: "dashboard", label: "Dashboard" },
@@ -3328,16 +4614,32 @@ export default function PatientDashboard() {
   ];
 
   const renderPage = () => {
-    const props = { onNav: setPage, dk };
+    const props = {
+      onNav: setPage,
+      dk,
+      appointments,
+      medicalProfile,
+      loading,
+      userData,
+      refreshAppointments,
+      notifications,
+      setNotifications,
+    };
     switch (page) {
       case "dashboard":
         return <DashboardPage {...props} />;
       case "medical-profile":
-        return <MedicalProfilePage dk={dk} />;
+        return (
+          <MedicalProfilePage
+            dk={dk}
+            profile={medicalProfile}
+            userId={userData?.id}
+          />
+        );
       case "ai-diagnosis":
         return <AIDiagnosisPage dk={dk} />;
       case "appointments":
-        return <AppointmentsPage dk={dk} />;
+        return <AppointmentsPage {...props} />;
       case "prescriptions":
         return <PrescriptionsPage dk={dk} />;
       case "pharmacy":
@@ -3345,9 +4647,15 @@ export default function PatientDashboard() {
       case "care-taker":
         return <CareTakerPage dk={dk} />;
       case "notifications":
-        return <NotificationsPage dk={dk} />;
+        return (
+          <NotificationsPage
+            dk={dk}
+            notifications={notifications}
+            setNotifications={setNotifications}
+          />
+        );
       case "settings":
-        return <SettingsPage dk={dk} onToggleDark={() => setDk(!dk)} />;
+        return <SettingsPage dk={dk} onToggleDark={() => setDk(!dk)} userData={userData} />;
       default:
         return <DashboardPage {...props} />;
     }
@@ -3451,18 +4759,25 @@ export default function PatientDashboard() {
             {/* Profile button — red dot on border corner for notifications */}
             <div className="relative">
               {/* Red dot on the outer corner of the whole button container */}
-              <div
-                className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 border-2 z-10 flex items-center justify-center"
-                style={{
-                  borderColor: c.nav,
-                  fontSize: 7,
-                  color: "#fff",
-                  fontWeight: 800,
-                  pointerEvents: "none",
-                }}
-              >
-                3
-              </div>
+              {notifications.filter((n) => !n.is_read && n.unread !== false)
+                .length > 0 && (
+                <div
+                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 border-2 z-10 flex items-center justify-center"
+                  style={{
+                    borderColor: c.nav,
+                    fontSize: 7,
+                    color: "#fff",
+                    fontWeight: 800,
+                    pointerEvents: "none",
+                  }}
+                >
+                  {
+                    notifications.filter(
+                      (n) => !n.is_read && n.unread !== false,
+                    ).length
+                  }
+                </div>
+              )}
               <button
                 onClick={() => setProfileOpen(!profileOpen)}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all hover:opacity-80"
@@ -3477,17 +4792,17 @@ export default function PatientDashboard() {
                     background: "linear-gradient(135deg, #304B71, #6492C9)",
                   }}
                 >
-                  AJ
+                  {userInitials}
                 </div>
                 <div className="hidden sm:block text-left">
                   <p
                     className="text-sm font-semibold leading-tight"
                     style={{ color: c.txt }}
                   >
-                    Alex Johnson
+                    {fullName}
                   </p>
                   <p className="text-xs" style={{ color: c.txt3 }}>
-                    ID: #8821
+                    ID: #{userData?.id || "----"}
                   </p>
                 </div>
                 <ChevronDown size={13} style={{ color: c.txt3 }} />
@@ -3528,17 +4843,17 @@ export default function PatientDashboard() {
                             "linear-gradient(135deg, #304B71, #6492C9)",
                         }}
                       >
-                        AJ
+                        {userInitials}
                       </div>
                       <div>
                         <p
                           className="text-sm font-bold"
                           style={{ color: c.txt }}
                         >
-                          Alex Johnson
+                          {fullName}
                         </p>
                         <p className="text-xs" style={{ color: c.txt3 }}>
-                          Patient · ID #8821
+                          Patient · ID #{userData?.id || "----"}
                         </p>
                       </div>
                     </div>
@@ -3558,12 +4873,20 @@ export default function PatientDashboard() {
                         className="hover:rotate-45 transition-transform"
                       />
                       Notifications
-                      <span
-                        className="ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full"
-                        style={{ background: "#E05555", color: "#fff" }}
-                      >
-                        3
-                      </span>
+                      {notifications.filter(
+                        (n) => !n.is_read && n.unread !== false,
+                      ).length > 0 && (
+                        <span
+                          className="ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full"
+                          style={{ background: "#E05555", color: "#fff" }}
+                        >
+                          {
+                            notifications.filter(
+                              (n) => !n.is_read && n.unread !== false,
+                            ).length
+                          }
+                        </span>
+                      )}
                     </button>
 
                     {/* Settings */}
@@ -3613,7 +4936,10 @@ export default function PatientDashboard() {
                     />
 
                     {/* Logout */}
-                    <button className="pd-item-danger w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-xl cursor-pointer">
+                    <button
+                      onClick={onLogout}
+                      className="pd-item-danger w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-xl cursor-pointer"
+                    >
                       <LogOut
                         size={16}
                         className="hover:translate-x-1 transition-transform"

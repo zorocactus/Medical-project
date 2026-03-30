@@ -1036,7 +1036,7 @@ function AdminSettingsPage({ dk, onToggleDark }) {
 // ─── MAIN ADMIN SHELL ─────────────────────────────────────────────────────────
 export default function AdminDashboard({ onLogout }) {
   const [page, setPage] = useState("overview");
-  const [dk, setDk] = useState(true); // Admin starts in dark mode
+  const [dk, setDk] = useState(false); // Admin starts in light mode as requested
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [alertCount] = useState(4);
@@ -1077,8 +1077,8 @@ export default function AdminDashboard({ onLogout }) {
           from { opacity:0; transform:translateY(-8px) scale(0.97); }
           to   { opacity:1; transform:translateY(0) scale(1); }
         }
-        .pd-item { color:#64748B; background:transparent; transition:background 0.15s,color 0.15s; }
-        .pd-item:hover { background:rgba(255,255,255,0.05); color:#E8F0FA; }
+        .pd-item { color:${c.txt2}; background:transparent; transition:background 0.15s,color 0.15s; }
+        .pd-item:hover { background:${dk ? "rgba(255,255,255,0.05)" : "rgba(90,135,197,0.08)"}; color:${dk ? "#E8F0FA" : c.blue}; }
         .pd-item-danger { color:#EF4444; background:transparent; transition:background 0.15s; }
         .pd-item-danger:hover { background:rgba(239,68,68,0.1); }
         ::-webkit-scrollbar { width: 4px; height: 4px; }

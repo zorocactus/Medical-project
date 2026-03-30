@@ -1,43 +1,105 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
+import { login as apiLogin, logout as apiLogout, getMe, isAuthenticated } from "../services/api";
 
-// ─── Context ──────────────────────────────────────────────────────────────────
 const AuthContext = createContext(null);
 
-// ─── Provider ─────────────────────────────────────────────────────────────────
 export function AuthProvider({ children }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [accountType, setAccountType] = useState(null); // "patient" | "personnel médical" | ...
-  const [userData, setUserData] = useState(null);
+  const [isLoggedIn, setIsLoggedIn]   = useState(false);
+  const [accountType, setAccountType] = useState(null);
+  const [userData, setUserData]       = useState(null);
+  const [loading, setLoading]         = useState(true);
 
-  /**
-   * Appelé après login ou après la fin du flow register
-   * @param {string} type  - "patient" | "personnel médical"
-   * @param {object} data  - données utilisateur (optionnel)
-   */
-  const login = (type, data = {}) => {
-    // Normalise le type pour être cohérent
-    const normalized = type?.toLowerCase()?.trim();
-    setAccountType(normalized);
+  useEffect(() => {
+    async function checkAuth() {
+      if (isAuthenticated()) {
+        try {
+          const me = await getMe();
+          if (me) {
+            setUserData(me);
+            setAccountType(normalizeRole(me.role));
+            setIsLoggedIn(true);
+          }
+        } catch {
+          apiLogout();
+        }
+      }
+      setLoading(false);
+    }
+    checkAuth();
+  }, []);
+
+  function normalizeRole(role) {
+    const map = {
+      patient:             "patient",
+      doctor:              "personnel médical",
+      pharmacist:          "personnel médical",
+      caretaker:           "personnel médical",
+      admin:               "admin",
+      "personnel médical": "personnel médical",
+    };
+    return map[role?.toLowerCase()] || role?.toLowerCase() || "patient";
+  }
+
+  async function login(email, password) {
+    const data = await apiLogin(email, password);
+    if (!data?.access) throw new Error("Identifiants incorrects");
+    
+    // Après login on récupère le profil complet
+    const me = await getMe();
+    setUserData({ ...data, ...me });
+    setAccountType(normalizeRole(me?.role || data?.role));
+    setIsLoggedIn(true);
+    return me;
+  }
+
+  function loginWithData(type, data = {}) {
+    setAccountType(normalizeRole(type));
     setUserData(data);
-    setIsAuthenticated(true);
-  };
+    setIsLoggedIn(true);
+  }
 
-  const logout = () => {
-    setIsAuthenticated(false);
+  function logout() {
+    apiLogout();
+    setIsLoggedIn(false);
     setAccountType(null);
     setUserData(null);
-  };
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#D1DFEC]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center"
+            style={{ background: "linear-gradient(135deg, #304B71, #6492C9)" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <rect x="9" y="2" width="6" height="20" rx="2" fill="white" opacity="0.95"/>
+              <rect x="2" y="9" width="20" height="6" rx="2" fill="white" opacity="0.95"/>
+            </svg>
+          </div>
+          <div className="flex gap-1">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="w-2 h-2 rounded-full bg-[#6492C9] animate-bounce"
+                style={{ animationDelay: `${i * 0.15}s` }}
+              />
+            ))}
+          </div>
+          <p className="text-sm font-semibold text-[#5A6E8A]">Chargement…</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, accountType, userData, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated: isLoggedIn, accountType, userData, login, loginWithData, logout }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-// ─── Hook ─────────────────────────────────────────────────────────────────────
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used inside <AuthProvider>");
+  if (!ctx) throw new Error("useAuth doit être utilisé dans <AuthProvider>");
   return ctx;
 }

@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuth } from "../../context/AuthContext";
+import * as api from "../../services/api";
 import {
   LayoutDashboard, Calendar, Users, FileText, Bell,
   Settings, LogOut, Menu, ChevronDown, Sun, Moon,
   Clock, CheckCircle, AlertCircle, Search, Plus,
   Activity, Stethoscope, Pill, Heart, X, ChevronRight,
-  User, Shield
+  User, Shield, Clipboard, Check, Trash
 } from "lucide-react";
 
 // ─── Theme tokens ─────────────────────────────────────────────────────────────
@@ -30,15 +32,7 @@ const ROLE_META = {
   "Garde-malade":  { label: "Garde-malade", icon: Heart,        color: "#7B5EA7" },
 };
 
-// ─── Fake patients ────────────────────────────────────────────────────────────
-const PATIENTS = [
-  { id: 1, name: "Alex Johnson",    age: 35, condition: "Hypertension · Diabète T2",  time: "10:30", status: "confirmed", initials: "AJ", color: "#4A6FA5" },
-  { id: 2, name: "Samira Meziane",  age: 28, condition: "Consultation générale",       time: "11:00", status: "waiting",   initials: "SM", color: "#2D8C6F" },
-  { id: 3, name: "Karim Boudali",   age: 52, condition: "Suivi cardiologique",         time: "11:30", status: "confirmed", initials: "KB", color: "#E8A838" },
-  { id: 4, name: "Fatima Benali",   age: 44, condition: "Renouvellement ordonnance",   time: "14:00", status: "confirmed", initials: "FB", color: "#7B5EA7" },
-];
-
-// ─── Small Card ───────────────────────────────────────────────────────────────
+// ─── UI Components ────────────────────────────────────────────────────────────
 function Card({ children, className = "", style = {}, dk }) {
   const c = dk ? T.dark : T.light;
   return (
@@ -58,41 +52,30 @@ function Badge({ color, bg, children }) {
   );
 }
 
-// ─── DASHBOARD PAGE (médecin) ─────────────────────────────────────────────────
-function DoctorHomePage({ dk, role }) {
+// ─── PAGE COMPONENTS ──────────────────────────────────────────────────────────
+
+function DoctorHomePage({ dk, role, userData, stats, schedule, requests }) {
   const c = dk ? T.dark : T.light;
   const meta = ROLE_META[role] || ROLE_META["Médecin"];
   const RoleIcon = meta.icon;
-
-  const stats = [
-    { label: "Patients today",    value: "12",  icon: Users,         color: "#4A6FA5" },
-    { label: "Appointments",      value: "8",   icon: Calendar,      color: "#2D8C6F" },
-    { label: "Pending reports",   value: "3",   icon: FileText,      color: "#E8A838" },
-    { label: "Urgent alerts",     value: "1",   icon: AlertCircle,   color: "#E05555" },
-  ];
+  const fullName = userData ? `Dr. ${userData.last_name || ""}` : "Dr. Utilisateur";
 
   return (
     <>
-      {/* Header */}
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: c.txt }}>
-            Bonjour, <span style={{ color: c.blue }}>Dr. Benali</span> 👋
+            Bonjour, <span style={{ color: c.blue }}>{fullName}</span> 👋
           </h1>
           <p className="text-sm mt-0.5 flex items-center gap-2" style={{ color: c.txt2 }}>
             <RoleIcon size={14} style={{ color: meta.color }} />
-            {meta.label} · Mercredi 26 Mars 2026
+            {meta.label} · {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90"
-          style={{ background: `linear-gradient(135deg, ${meta.color}, ${meta.color}cc)` }}>
-          <Plus size={15} /> Nouveau patient
-        </button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {stats.map(s => (
+        {(stats || []).map(s => (
           <Card key={s.label} dk={dk} style={{ padding: 16 }}>
             <div className="flex items-center gap-3 mb-2">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center"
@@ -106,89 +89,39 @@ function DoctorHomePage({ dk, role }) {
         ))}
       </div>
 
-      {/* Main grid */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        {/* Patients du jour */}
         <div className="xl:col-span-2">
           <Card dk={dk}>
             <div className="flex items-center justify-between mb-5">
-              <h3 className="font-bold" style={{ color: c.txt }}>Patients du jour</h3>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm"
-                style={{ borderColor: c.border, background: c.blueLight }}>
-                <Search size={13} style={{ color: c.txt3 }} />
-                <input placeholder="Rechercher…" className="outline-none bg-transparent text-sm w-32"
-                  style={{ color: c.txt }} />
-              </div>
+              <h3 className="font-bold" style={{ color: c.txt }}>Rendez-vous à venir</h3>
             </div>
             <div className="space-y-3">
-              {PATIENTS.map(p => (
-                <div key={p.id} className="flex items-center gap-4 p-4 rounded-xl border transition-all hover:opacity-80"
+              {(schedule || []).length === 0 ? (
+                <p className="text-sm text-center py-8" style={{ color: c.txt2 }}>Aucun rendez-vous prévu pour aujourd'hui.</p>
+              ) : schedule.map(a => (
+                <div key={a.id} className="flex items-center gap-4 p-4 rounded-xl border transition-all hover:opacity-80"
                   style={{ borderColor: c.border }}>
                   <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white text-sm font-bold shrink-0"
-                    style={{ background: p.color }}>{p.initials}</div>
+                    style={{ background: "#4A6FA5" }}>{a.patient_name?.[0] || "P"}</div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm" style={{ color: c.txt }}>{p.name}</p>
-                    <p className="text-xs truncate" style={{ color: c.txt2 }}>{p.condition}</p>
+                    <p className="font-semibold text-sm" style={{ color: c.txt }}>{a.patient_name}</p>
+                    <p className="text-xs truncate" style={{ color: c.txt2 }}>{a.motif}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-sm font-bold" style={{ color: c.blue }}>{p.time}</p>
-                    <Badge
-                      color={p.status === "confirmed" ? c.green : c.amber}
-                      bg={(p.status === "confirmed" ? c.green : c.amber) + "18"}>
-                      {p.status === "confirmed" ? "Confirmé" : "En attente"}
-                    </Badge>
+                    <p className="text-sm font-bold" style={{ color: c.blue }}>{a.slot_start_time?.substring(0, 5) || "--:--"}</p>
+                    <Badge color={c.green} bg={c.green + "18"}>Confirmé</Badge>
                   </div>
-                  <button className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white shrink-0 hover:opacity-80"
-                    style={{ background: c.blue }}>
-                    Voir
-                  </button>
                 </div>
               ))}
             </div>
           </Card>
         </div>
-
-        {/* Right col */}
         <div className="space-y-4">
-          {/* Quick stats */}
           <Card dk={dk}>
-            <p className="text-xs font-bold uppercase tracking-wide mb-4" style={{ color: c.txt3 }}>
-              Agenda — Aujourd'hui
-            </p>
+            <p className="text-xs font-bold uppercase tracking-wide mb-4" style={{ color: c.txt3 }}>Action Requise</p>
             <div className="space-y-3">
-              {[
-                { time: "10:30", name: "Alex Johnson",   type: "Suivi" },
-                { time: "11:00", name: "Samira Meziane", type: "Consultation" },
-                { time: "11:30", name: "Karim Boudali",  type: "Cardiologie" },
-                { time: "14:00", name: "Fatima Benali",  type: "Ordonnance" },
-              ].map(a => (
-                <div key={a.time} className="flex items-center gap-3">
-                  <span className="text-xs font-bold w-12 shrink-0" style={{ color: c.blue }}>{a.time}</span>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold" style={{ color: c.txt }}>{a.name}</p>
-                    <p className="text-xs" style={{ color: c.txt2 }}>{a.type}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          {/* Notifications */}
-          <Card dk={dk}>
-            <p className="text-xs font-bold uppercase tracking-wide mb-4" style={{ color: c.txt3 }}>
-              Alertes
-            </p>
-            <div className="space-y-3">
-              {[
-                { txt: "Résultat d'analyse — Alex Johnson",  color: "#E8A838", icon: FileText  },
-                { txt: "Urgence signalée par Karim Boudali", color: "#E05555", icon: AlertCircle },
-              ].map((n, i) => (
-                <div key={i} className="flex items-start gap-3 p-3 rounded-xl"
-                  style={{ background: n.color + "12" }}>
-                  <n.icon size={14} style={{ color: n.color, marginTop: 2 }} />
-                  <p className="text-xs font-medium" style={{ color: c.txt }}>{n.txt}</p>
-                </div>
-              ))}
+              <p className="text-sm" style={{ color: c.txt2 }}>Vous avez <strong>{(requests || []).length}</strong> demandes en attente.</p>
+              <button className="w-full py-2.5 rounded-xl text-xs font-bold text-white px-4" style={{ background: c.blue }}>Voir les demandes</button>
             </div>
           </Card>
         </div>
@@ -197,24 +130,197 @@ function DoctorHomePage({ dk, role }) {
   );
 }
 
+function AgendaPage({ dk, schedule, onAction }) {
+  const c = dk ? T.dark : T.light;
+  const safeData = Array.isArray(schedule) ? [...schedule] : [];
+  return (
+    <Card dk={dk}>
+      <h2 className="text-xl font-bold mb-6" style={{ color: c.txt }}>Planning du Jour</h2>
+      <div className="space-y-4">
+        {safeData.length === 0 ? (
+          <p className="text-center py-10" style={{ color: c.txt2 }}>Votre agenda est vide.</p>
+        ) : safeData.sort((a,b) => (a.slot_start_time || "").localeCompare(b.slot_start_time || "")).map(a => (
+          <div key={a.id} className="flex gap-4 p-4 rounded-2xl border" style={{ borderColor: c.border }}>
+            <div className="w-16 text-center shrink-0">
+              <p className="text-sm font-bold" style={{ color: c.blue }}>{a.slot_start_time?.substring(0,5) || "--:--"}</p>
+              <div className="h-full w-px bg-slate-200 mx-auto my-1" />
+            </div>
+            <div className="flex-1 flex items-start justify-between">
+              <div>
+                <p className="font-bold" style={{ color: c.txt }}>{a.patient_name}</p>
+                <p className="text-xs" style={{ color: c.txt2 }}>Motif: {a.motif}</p>
+                <div className="mt-2"><Badge color={c.blue} bg={c.blue + "11"}>RDV Médical</Badge></div>
+              </div>
+              <button 
+                onClick={() => onAction && onAction(a.id, 'complete')}
+                className="px-3 py-1.5 rounded-xl text-xs font-bold text-white transition-all hover:opacity-80"
+                style={{ background: c.green }}>
+                Terminer le RDV
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function PatientsPage({ dk, appointments }) {
+  const c = dk ? T.dark : T.light;
+  const safeAppts = Array.isArray(appointments) ? appointments : [];
+  const uniquePatients = Array.from(new Set(safeAppts.map(a => a.patient))).map(id => {
+    return safeAppts.find(a => a.patient === id);
+  }).filter(Boolean);
+
+  return (
+    <Card dk={dk}>
+      <h2 className="text-xl font-bold mb-6" style={{ color: c.txt }}>Mes Patients</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {uniquePatients.length === 0 ? (
+          <p className="col-span-full text-center py-10" style={{ color: c.txt2 }}>Aucun patient trouvé.</p>
+        ) : uniquePatients.map(p => (
+          <div key={p.id} className="p-4 rounded-2xl border flex flex-col items-center text-center" style={{ borderColor: c.border }}>
+            <div className="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl mb-3"
+              style={{ background: "#4A6FA5" }}>{p.patient_name?.[0] || "P"}</div>
+            <p className="font-bold" style={{ color: c.txt }}>{p.patient_name}</p>
+            <p className="text-xs mb-4" style={{ color: c.txt2 }}>Patient MedSmart</p>
+            <button className="w-full py-2 rounded-xl text-xs font-bold" style={{ background: c.blueLight, color: c.blue }}>Voir Dossier</button>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function RequestsPage({ dk, requests, onAction }) {
+  const c = dk ? T.dark : T.light;
+  const safeReqs = Array.isArray(requests) ? requests : [];
+  return (
+    <Card dk={dk}>
+      <h2 className="text-xl font-bold mb-6" style={{ color: c.txt }}>Demandes de Rendez-vous</h2>
+      <div className="space-y-4">
+        {safeReqs.length === 0 ? (
+          <p className="text-center py-10" style={{ color: c.txt2 }}>Aucune demande en attente.</p>
+        ) : safeReqs.map(r => (
+          <div key={r.id} className="flex items-center gap-4 p-5 rounded-2xl border transition-all" style={{ borderColor: c.border }}>
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-slate-100 shrink-0">
+               <User size={20} className="text-slate-400" />
+            </div>
+            <div className="flex-1">
+              <p className="font-bold" style={{ color: c.txt }}>{r.patient_name}</p>
+              <p className="text-xs" style={{ color: c.txt2 }}>{r.slot_date || "Date inconnue"} à {r.slot_start_time?.substring(0,5) || "--:--"}</p>
+              <p className="text-xs mt-1" style={{ color: c.txt3 }}>Motif: {r.motif}</p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => onAction(r.id, 'confirm')} className="px-4 py-2 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 transition-all">Confirmer</button>
+              <button onClick={() => onAction(r.id, 'refuse')} className="px-4 py-2 rounded-xl bg-rose-500 text-white text-xs font-bold hover:bg-rose-600 transition-all">Refuser</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 // ─── MAIN DOCTOR DASHBOARD ────────────────────────────────────────────────────
 export default function DoctorDashboard({ role = "Médecin", onLogout }) {
+  const { userData } = useAuth();
   const [dk, setDk] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [page, setPage] = useState("dashboard");
+  
+  const [schedule, setSchedule] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   const c = dk ? T.dark : T.light;
-  const meta = ROLE_META[role] || ROLE_META["Médecin"];
+  
+  // Normalisation du rôle pour l'affichage (interne)
+  const displayRole = (role?.toLowerCase() === "doctor" || role === "Médecin") ? "Médecin" : 
+                      (role?.toLowerCase() === "pharmacist" || role === "Pharmacien") ? "Pharmacien" :
+                      (role?.toLowerCase() === "caretaker" || role === "Garde-malade") ? "Garde-malade" : "Médecin";
+
+  const meta = ROLE_META[displayRole] || ROLE_META["Médecin"];
+
+  const userInitials = userData ? `${userData.first_name?.[0] || ""}${userData.last_name?.[0] || ""}`.toUpperCase() : "DOC";
+  const fullName = userData ? `Dr. ${userData.first_name || ""} ${userData.last_name || ""}` : "Dr. Utilisateur";
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true);
+        const [today, pending, all] = await Promise.all([
+          api.getTodaySchedule().catch(err => { console.warn("Schedule fetch failed", err); return []; }),
+          api.getPendingAppointments().catch(err => { console.warn("Pending fetch failed", err); return []; }),
+          api.getDoctorAppointments().catch(err => { console.warn("All appointments fetch failed", err); return [] })
+        ]);
+        setSchedule(Array.isArray(today) ? today : []);
+        setPendingRequests(Array.isArray(pending) ? pending : []);
+        setAppointments(Array.isArray(all) ? all : []);
+      } catch (err) {
+        console.error("Critical error in fetchData:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
+
+  const handleRequestAction = async (id, action) => {
+    try {
+      if (action === 'confirm') await api.confirmAppointment(id);
+      else if (action === 'refuse') await api.refuseAppointment(id);
+      else if (action === 'complete') await api.completeAppointment(id);
+
+      const [pending, today] = await Promise.all([
+        api.getPendingAppointments().catch(() => []),
+        api.getTodaySchedule().catch(() => [])
+      ]);
+      setPendingRequests(Array.isArray(pending) ? pending : []);
+      setSchedule(Array.isArray(today) ? today : []);
+    } catch (err) {
+      alert("Action échouée: " + err.message);
+    }
+  };
 
   const NAV = [
     { id: "dashboard",    label: "Dashboard"   },
     { id: "patients",     label: "Patients"    },
     { id: "agenda",       label: "Agenda"      },
-    { id: "ordonnances",  label: "Ordonnances" },
-    { id: "messages",     label: "Messages"    },
+    { id: "requests",     label: "Requests"    },
   ];
 
+  const stats = [
+    { label: "Aujourd'hui", value: (schedule || []).length, icon: Calendar, color: "#4A6FA5" },
+    { label: "En attente", value: (pendingRequests || []).length, icon: Bell, color: "#E8A838" },
+    { label: "Total Patients", value: new Set((appointments || []).map(a => a.patient)).size, icon: Users, color: "#2D8C6F" },
+    { label: "Alertes", value: 0, icon: AlertCircle, color: "#E05555" },
+  ];
+
+  const renderPage = () => {
+    const props = { 
+      dk, 
+      role: displayRole, 
+      userData, 
+      stats, 
+      schedule: Array.isArray(schedule) ? schedule : [], 
+      appointments: Array.isArray(appointments) ? appointments : [], 
+      requests: Array.isArray(pendingRequests) ? pendingRequests : [], 
+      onAction: handleRequestAction 
+    };
+
+    switch (page) {
+      case "dashboard": return <DoctorHomePage {...props} />;
+      case "agenda":    return <AgendaPage {...props} />;
+      case "patients":  return <PatientsPage {...props} />;
+      case "requests":  return <RequestsPage {...props} />;
+      default: return <DoctorHomePage {...props} />;
+    }
+  };
+
   return (
-    <div className="min-h-screen" style={{ background: c.bg, fontFamily: "'Plus Jakarta Sans', sans-serif", color: c.txt }}>
+    <div className="min-h-screen transition-colors duration-300" style={{ background: c.bg, fontFamily: "'Plus Jakarta Sans', sans-serif", color: c.txt }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         * { transition: background-color 0.2s, border-color 0.2s; }
@@ -222,16 +328,13 @@ export default function DoctorDashboard({ role = "Médecin", onLogout }) {
         .dnav-link:not(.active-nav):hover { background: rgba(100,146,201,0.15) !important; color: #6492C9 !important; }
         @keyframes dropdownIn { from{opacity:0;transform:translateY(-8px) scale(0.97)} to{opacity:1;transform:none} }
         .pd-item { color:#64748B; background:transparent; transition:background 0.15s,color 0.15s; }
-        .pd-item:hover { background:#F8FAFC; color:#1E293B; }
+        .pd-item:hover { background:${dk ? "rgba(255,255,255,0.05)" : "rgba(100,146,201,0.08)"}; color:${dk ? "#F0F3FA" : "#1E293B"}; }
         .pd-item-danger { color:#EF4444; background:transparent; transition:background 0.15s; }
         .pd-item-danger:hover { background:rgba(239,68,68,0.08); }
       `}</style>
 
-      {/* ── NAVBAR ── */}
       <nav className="sticky top-0 z-30 border-b shadow-sm" style={{ background: c.nav, borderColor: c.border }}>
         <div className="w-full px-6 h-[60px] flex items-center gap-3">
-
-          {/* Logo */}
           <div className="flex items-center gap-2 shrink-0 mr-2">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
               style={{ background: "linear-gradient(135deg, #304B71, #6492C9)" }}>
@@ -239,7 +342,7 @@ export default function DoctorDashboard({ role = "Médecin", onLogout }) {
                 <rect x="9" y="2" width="6" height="20" rx="2" fill="white" opacity="0.95"/>
                 <rect x="2" y="9" width="20" height="6" rx="2" fill="white" opacity="0.95"/>
                 <path d="M4 14 L6 10 L8 13 L10 7 L12 15 L14 11 L16 13 L18 11"
-                  stroke="#6492C9" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                  stroke="#FFFFFF" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
               </svg>
             </div>
             <div>
@@ -251,7 +354,6 @@ export default function DoctorDashboard({ role = "Médecin", onLogout }) {
             </div>
           </div>
 
-          {/* Nav links */}
           <div className="hidden lg:flex items-center justify-center gap-1 flex-1 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
             {NAV.map(item => (
               <button key={item.id} onClick={() => setPage(item.id)}
@@ -262,9 +364,7 @@ export default function DoctorDashboard({ role = "Médecin", onLogout }) {
             ))}
           </div>
 
-          {/* Right */}
           <div className="flex items-center gap-3 ml-auto shrink-0">
-            {/* Dark mode */}
             <div className="flex items-center gap-1.5">
               <Sun size={14} style={{ color: dk ? c.txt3 : "#E8A838" }} />
               <button onClick={() => setDk(!dk)} className="relative rounded-full transition-all duration-300"
@@ -276,58 +376,52 @@ export default function DoctorDashboard({ role = "Médecin", onLogout }) {
               <Moon size={13} style={{ color: dk ? c.blue : c.txt3 }} />
             </div>
 
-            {/* Notification bell */}
             <div className="relative">
               <button className="w-9 h-9 rounded-xl border flex items-center justify-center transition-all hover:opacity-80"
                 style={{ borderColor: c.border, background: "transparent" }}>
                 <Bell size={16} style={{ color: c.txt2 }} />
               </button>
               <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 border-2 flex items-center justify-center"
-                style={{ borderColor: c.nav, fontSize: 7, color: "#fff", fontWeight: 800 }}>2</div>
+                style={{ borderColor: c.nav, fontSize: 7, color: "#fff", fontWeight: 800 }}>{pendingRequests.length}</div>
             </div>
 
-            {/* Profile */}
             <div className="relative">
-              <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 border-2 z-10 flex items-center justify-center"
-                style={{ borderColor: c.nav, fontSize: 7, color: "#fff", fontWeight: 800, pointerEvents: "none" }}>2</div>
               <button onClick={() => setProfileOpen(!profileOpen)}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all hover:opacity-80"
                 style={{ border: `1px solid ${c.border}`, background: "transparent" }}>
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"
-                  style={{ background: `linear-gradient(135deg, ${meta.color}, ${meta.color}bb)` }}>KB</div>
+                  style={{ background: `linear-gradient(135deg, ${meta.color}, ${meta.color}bb)` }}>{userInitials}</div>
                 <div className="hidden sm:block text-left">
-                  <p className="text-sm font-semibold leading-tight" style={{ color: c.txt }}>Dr. Karim Benali</p>
+                  <p className="text-sm font-semibold leading-tight" style={{ color: c.txt }}>{fullName}</p>
                   <p className="text-xs" style={{ color: c.txt3 }}>{meta.label}</p>
                 </div>
                 <ChevronDown size={13} style={{ color: c.txt3 }} />
               </button>
 
               {profileOpen && (
-                <div className="absolute right-0 top-12 w-60 rounded-[20px] overflow-hidden z-50"
+                <div className="absolute right-0 top-12 w-60 rounded-[20px] overflow-hidden z-50 transition-all"
                   style={{ background: dk ? c.card : "#ffffff", border: `1px solid ${dk ? c.border : "#F1F5F9"}`,
                     boxShadow: "0 12px 40px rgba(0,0,0,0.12)", animation: "dropdownIn 0.2s ease forwards" }}>
-
                   <div className="px-4 py-3 border-b" style={{ borderColor: dk ? c.border : "#F1F5F9" }}>
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold shrink-0"
-                        style={{ background: `linear-gradient(135deg, ${meta.color}, ${meta.color}bb)` }}>KB</div>
+                        style={{ background: `linear-gradient(135deg, ${meta.color}, ${meta.color}bb)` }}>{userInitials}</div>
                       <div>
-                        <p className="text-sm font-bold" style={{ color: c.txt }}>Dr. Karim Benali</p>
+                        <p className="text-sm font-bold" style={{ color: c.txt }}>{fullName}</p>
                         <p className="text-xs" style={{ color: c.txt3 }}>{meta.label}</p>
                       </div>
                     </div>
                   </div>
-
                   <div className="p-2 flex flex-col gap-1">
-                    <button className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer">
+                    <button className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer shadow-none">
                       <User size={16} /> Mon profil
                     </button>
-                    <button className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer">
+                    <button className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer shadow-none">
                       <Settings size={16} /> Paramètres
                     </button>
                     <div className="h-px my-1 mx-2" style={{ background: dk ? c.border : "#F1F5F9" }} />
                     <button onClick={onLogout}
-                      className="pd-item-danger w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-xl cursor-pointer">
+                      className="pd-item-danger w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-xl cursor-pointer shadow-none">
                       <LogOut size={16} /> Se déconnecter
                     </button>
                   </div>
@@ -338,23 +432,13 @@ export default function DoctorDashboard({ role = "Médecin", onLogout }) {
         </div>
       </nav>
 
-      {/* Page content */}
       <main className="w-full px-6 py-6">
-        {page === "dashboard" && <DoctorHomePage dk={dk} role={role} />}
-        {page !== "dashboard" && (
-          <div className="flex flex-col items-center justify-center py-24">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
-              style={{ background: c.blueLight }}>
-              <Activity size={28} style={{ color: c.blue }} />
-            </div>
-            <p className="text-xl font-bold mb-2" style={{ color: c.txt }}>
-              Page "{page}" — En construction
-            </p>
-            <p className="text-sm" style={{ color: c.txt2 }}>
-              Cette section sera disponible prochainement.
-            </p>
-          </div>
-        )}
+        {loading ? (
+           <div className="flex flex-col items-center justify-center py-32">
+             <div className="w-10 h-10 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mb-4" />
+             <p className="text-sm font-medium" style={{ color: c.txt2 }}>Chargement des données...</p>
+           </div>
+        ) : renderPage()}
       </main>
 
       {profileOpen && <div className="fixed inset-0 z-20" onClick={() => setProfileOpen(false)} />}

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import * as api from "../../services/api";
 import LoginForm from "./Login";
 import RegisterForm from "./Register";
 import PatientForm from "./RegisterStep2/PatientForm";
@@ -10,10 +11,12 @@ import MedicalRoleForm from "./RegisterStep2/MedicalRoleForm";
 import MedicalInfoForm from "./RegisterStep2/MedicalInfoForm";
 import MedicalSuccess from "./RegisterStep2/MedicalSuccess";
 
-export default function AuthTransition({ onLogin, initialMode }) {
-  const [isActive, setIsActive] = useState(initialMode === "register");
+export default function AuthTransition({ onLogin, initialActive = false, onBack }) {
+  console.log("onLogin reçu :", onLogin);
+  const [isActive, setIsActive] = useState(initialActive);
   const [step, setStep] = useState(1);
   const [tempUser, setTempUser] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleNextStep = (userData) => {
     setTempUser(userData);
@@ -25,9 +28,32 @@ export default function AuthTransition({ onLogin, initialMode }) {
     setStep(3);
   };
 
-  const handleCompletedStep3 = (additionalData) => {
-    setTempUser((prev) => ({ ...prev, ...additionalData }));
-    setStep(4);
+  const handleCompletedStep3 = async (additionalData) => {
+    const data = { ...tempUser, ...additionalData };
+    setTempUser(data);
+    
+    if (data.accountType === "patient") {
+      try {
+        setIsSubmitting(true);
+        await api.registerPatient({
+          email: data.email,
+          password: data.password,
+          first_name: data.firstName,
+          last_name: data.lastName,
+          phone: data.phone,
+          birth_date: data.birthDate || "1990-01-01",
+          gender: data.sex === "Masculin" ? "M" : "F",
+          address: data.address || "",
+        });
+        setStep(4);
+      } catch (err) {
+        alert("Erreur lors de l'inscription : " + err.message);
+      } finally {
+        setIsSubmitting(false);
+      }
+    } else {
+      setStep(4);
+    }
   };
 
   const handleCompletedStep4 = (additionalData) => {
@@ -35,27 +61,47 @@ export default function AuthTransition({ onLogin, initialMode }) {
     setStep(5);
   };
 
-  const handleCompletedStep5 = (additionalData) => {
-    setTempUser((prev) => ({ ...prev, ...additionalData }));
-    setStep(6);
+  const handleCompletedStep5 = async (additionalData) => {
+    const data = { ...tempUser, ...additionalData };
+    setTempUser(data);
+    
+    if (data.accountType === "personnel médical") {
+      try {
+        setIsSubmitting(true);
+        // Mapping role value properly based on UI selection
+        const roleMap = {
+          "Médecin": "doctor",
+          "Pharmacien": "pharmacist",
+          "Garde-malade": "caretaker"
+        };
+        await api.registerDoctor({
+          email: data.email,
+          password: data.password,
+          first_name: data.firstName,
+          last_name: data.lastName,
+          phone: data.phone,
+          gender: data.sex === "Masculin" ? "M" : "F",
+          role: roleMap[data.role] || "doctor",
+          specialty: data.specialty || "Généraliste",
+          experience_years: parseInt(data.experience) || 0,
+        });
+        setStep(6);
+      } catch (err) {
+        alert("Erreur lors de l'inscription médicale : " + err.message);
+      } finally {
+        setIsSubmitting(false);
+      }
+    } else {
+      setStep(6);
+    }
   };
 
   if (step === 2) {
     if (tempUser?.accountType === "patient") {
-      return (
-        <PatientForm
-          onComplete={handleCompletedStep2}
-          onBack={() => setStep(1)}
-        />
-      );
+      return <PatientForm onComplete={handleCompletedStep2} onBack={() => setStep(1)} />;
     }
     if (tempUser?.accountType === "personnel médical") {
-      return (
-        <MedicalForm
-          onComplete={handleCompletedStep2}
-          onBack={() => setStep(1)}
-        />
-      );
+      return <MedicalForm onComplete={handleCompletedStep2} onBack={() => setStep(1)} />;
     }
     // For other account types, we log them in immediately since no step 2 is provided yet
     onLogin(tempUser?.accountType || "patient");
@@ -64,58 +110,67 @@ export default function AuthTransition({ onLogin, initialMode }) {
 
   if (step === 3) {
     if (tempUser?.accountType === "patient") {
-      return (
-        <PatientIdentityForm
-          onComplete={handleCompletedStep3}
-          onBack={() => setStep(2)}
-        />
-      );
+      return <PatientIdentityForm onComplete={handleCompletedStep3} onBack={() => setStep(2)} />;
     }
     if (tempUser?.accountType === "personnel médical") {
-      return (
-        <MedicalIdentityForm
-          onComplete={handleCompletedStep3}
-          onBack={() => setStep(2)}
-        />
-      );
+      return <MedicalIdentityForm onComplete={handleCompletedStep3} onBack={() => setStep(2)} />;
     }
   }
 
   if (step === 4) {
     if (tempUser?.accountType === "patient") {
-      return <PatientSuccess onComplete={() => onLogin("patient")} />;
+      return <PatientSuccess onComplete={() => {
+        // Automatically login the user using the api.login after successful registration
+        api.login(tempUser.email, tempUser.password)
+          .then((res) => onLogin(res.role || "patient"))
+          .catch(() => onLogin("patient")); // Fallback if auto-login fails
+      }} />;
     }
     if (tempUser?.accountType === "personnel médical") {
-      return (
-        <MedicalRoleForm
-          onComplete={handleCompletedStep4}
-          onBack={() => setStep(3)}
-        />
-      );
+      return <MedicalRoleForm onComplete={handleCompletedStep4} onBack={() => setStep(3)} />;
     }
   }
 
   if (step === 5) {
     if (tempUser?.accountType === "personnel médical") {
-      return (
-        <MedicalInfoForm
-          onComplete={handleCompletedStep5}
-          onBack={() => setStep(4)}
-        />
-      );
+      return <MedicalInfoForm onComplete={handleCompletedStep5} onBack={() => setStep(4)} />;
     }
   }
 
   if (step === 6) {
     if (tempUser?.accountType === "personnel médical") {
-      return <MedicalSuccess onComplete={() => onLogin("personnel médical")} />;
+      return <MedicalSuccess onComplete={() => {
+        // Automatically login the user using the api.login after successful registration
+        api.login(tempUser.email, tempUser.password)
+          .then((res) => onLogin(res.role || "doctor"))
+          .catch(() => onLogin("doctor")); // Fallback if auto-login fails
+      }} />
     }
   }
 
+  // Loading overlay wrapper if submitting
   return (
-    <div className="flex items-center justify-center min-h-screen bg-[#D1DFEC] font-sans">
-      <div className="bg-white w-[1200px] h-[650px] shadow-2xl relative rounded-xl border border-[#D1DFEC] overflow-hidden">
-        <style>{`
+    <div className="relative">
+      {isSubmitting && (
+        <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-[9999] flex flex-col items-center justify-center">
+          <div className="w-12 h-12 border-4 border-[#6492C9]/30 border-t-[#6492C9] rounded-full animate-spin"></div>
+          <p className="mt-4 font-bold text-[#365885]">Création de votre compte...</p>
+        </div>
+      )}
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#D1DFEC] font-sans relative">
+        {onBack && (
+          <button 
+            onClick={onBack}
+            className="absolute top-6 left-6 flex items-center gap-2 px-4 py-2 bg-white/50 hover:bg-white/80 backdrop-blur-sm rounded-xl text-[#304B71] font-semibold shadow-sm transition-all z-50"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Retour à l'accueil
+          </button>
+        )}
+      <div className="bg-white w-[1200px] h-[650px] shadow-2xl relative rounded-xl border border-[#D1DFEC] overflow-hidden">  
+      <style>{`
         .auth-container {
           position: relative;
           width: 100%;
@@ -214,68 +269,56 @@ export default function AuthTransition({ onLogin, initialMode }) {
         }
       `}</style>
 
-        <div className={`auth-container${isActive ? " active" : ""}`}>
-          <div className="form-box login">
-            <LoginForm key="login" onLogin={onLogin} />
-          </div>
+      <div className={`auth-container${isActive ? " active" : ""}`}>
 
-          <div className="form-box register">
-            <RegisterForm
-              key="register"
-              onLogin={onLogin}
-              onNextStep={handleNextStep}
-            />
-          </div>
+        <div className="form-box login">
+  <LoginForm key="login" onLogin={onLogin} />
+</div>
 
-          <div className="toggle-box">
-            <div className="toggle-panel toggle-left">
-              <div className="text-center flex flex-col items-center px-12 -space-y-16">
-                <div className="max-w-[380px] xl:max-w-[450px]">
-                  <img
-                    src="/Doctor_new.png"
-                    alt="Doctor"
-                    className="w-full h-auto object-contain"
-                  />
-                </div>
-                <div className="mt-8 space-y-4">
-                  <p className="text-white text-base font-medium opacity-80">
-                    Already have an account?
-                  </p>
-                  <button
-                    onClick={() => setIsActive(false)}
-                    className="px-16 py-3 border-[1.5px] border-white/60 rounded-2xl text-white text-lg font-semibold hover:bg-white/10 transition-all cursor-pointer uppercase tracking-wide"
-                  >
-                    LOGIN
-                  </button>
-                </div>
+<div className="form-box register">
+  <RegisterForm key="register" onLogin={onLogin} onNextStep={handleNextStep} />
+</div>
+
+        <div className="toggle-box">
+
+          <div className="toggle-panel toggle-left">
+            <div className="text-center flex flex-col items-center px-12 -space-y-16">
+              <div className="max-w-[380px] xl:max-w-[450px]">
+                <img src="/Doctor_new.png" alt="Doctor" className="w-full h-auto object-contain" />
               </div>
-            </div>
-
-            <div className="toggle-panel toggle-right">
-              <div className="text-center flex flex-col items-center px-12 -space-y-10  ">
-                <div className="max-w-[480px]">
-                  <img
-                    src="/Doctor_new.png"
-                    alt="Doctor"
-                    className="w-full h-auto object-contain"
-                  />
-                </div>
-                <div className="space-y-4">
-                  <p className="text-white text-base font-medium opacity-80">
-                    Don't have an account?
-                  </p>
-                  <button
-                    onClick={() => setIsActive(true)}
-                    className="px-16 py-3 border-[1.5px] border-white/60 rounded-2xl text-white text-lg font-semibold hover:bg-white/10 transition-all cursor-pointer uppercase tracking-wide"
-                  >
-                    REGISTER
-                  </button>
-                </div>
+              <div className="mt-8 space-y-4">
+                <p className="text-white text-base font-medium opacity-80">Already have an account?</p>
+                <button
+                  onClick={() => setIsActive(false)}
+                  className="px-16 py-3 border-[1.5px] border-white/60 rounded-2xl text-white text-lg font-semibold hover:bg-white/10 transition-all cursor-pointer uppercase tracking-wide"
+                >
+                  LOGIN
+                </button>
               </div>
             </div>
           </div>
+
+          <div className="toggle-panel toggle-right">
+            <div className="text-center flex flex-col items-center px-12 -space-y-10  ">
+              <div className="max-w-[480px]">
+                <img src="/Doctor_new.png" alt="Doctor" className="w-full h-auto object-contain" />
+              </div>
+              <div className="space-y-4">
+                <p className="text-white text-base font-medium opacity-80">Don't have an account?</p>
+                <button
+                  onClick={() => setIsActive(true)}
+                  className="px-16 py-3 border-[1.5px] border-white/60 rounded-2xl text-white text-lg font-semibold hover:bg-white/10 transition-all cursor-pointer uppercase tracking-wide"
+                >
+                  REGISTER
+                </button>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
-    </div>
+    </div> 
+   </div>
+  </div>
   );
 }
