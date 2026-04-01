@@ -78,8 +78,24 @@ function RoleRouter() {
 
 // ─── Main Router ──────────────────────────────────────────────────────────────
 export default function AppRouter() {
-  const { isAuthenticated, loginWithData } = useAuth();
+  const { isAuthenticated, loginWithData, logout } = useAuth();
   const [authMode, setAuthMode] = useState(null); // null = landing, "login" | "register"
+
+  // =========================================================================
+  // ⚡ BYPASS RAPIDE POUR TESTS (Décommenter pour utiliser) ⚡
+  // =========================================================================
+ 
+  const FORCE_TEST = true;           // Mettre à true pour activer le bypass
+  const FORCE_ROLE = "doctor";       // Choix: "patient", "doctor", "pharmacist", "admin"
+  
+  if (FORCE_TEST) {
+    if (FORCE_ROLE === "patient")    return <PatientDashboard onLogout={() => console.log("Logout!")} />;
+    if (FORCE_ROLE === "doctor")     return <DoctorDashboard onLogout={() => console.log("Logout!")} />;
+    if (FORCE_ROLE === "pharmacist") return <PharmacistDashboard onLogout={() => console.log("Logout!")} />;
+    if (FORCE_ROLE === "admin")      return <AdminDashboard onLogout={() => console.log("Logout!")} />;
+  }
+  
+  // =========================================================================
 
   // Non connecté → Landing Page (par défaut) ou Auth flow
   if (!isAuthenticated) {
