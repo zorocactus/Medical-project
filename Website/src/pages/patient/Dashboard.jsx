@@ -82,19 +82,23 @@ const T = {
 const APPOINTMENTS = [
   {
     id: 1,
-    name: "Dr. Sarah Smith",
-    role: "Cardiologist",
-    date: "Oct 24, 10:30 AM",
+    doctor_name: "Dr. Sarah Smith",
+    doctor_specialty: "Cardiologist",
+    slot_date: "Oct 24, 2023",
+    slot_start_time: "10:30:00",
     initials: "SS",
     color: "#4A6FA5",
+    status: "confirmed",
   },
   {
     id: 2,
-    name: "Dr. Michael Chen",
-    role: "Dermatologist",
-    date: "Nov 02, 2:15 PM",
+    doctor_name: "Dr. Michael Chen",
+    doctor_specialty: "Dermatologist",
+    slot_date: "Nov 02, 2023",
+    slot_start_time: "14:15:00",
     initials: "MC",
     color: "#2D8C6F",
+    status: "pending",
   },
 ];
 const MEDICATIONS = [
@@ -110,6 +114,25 @@ const MEDICATIONS = [
     name: "Metformin (500mg)",
     time: "8:00 PM · 1 Tablet",
     taken: false,
+  },
+];
+
+const VISIT_SUMMARIES = [
+  {
+    id: 1,
+    date: "Oct 12, 2023",
+    doctor: "Dr. Sarah Smith",
+    reason: "Cardiology Follow-up",
+    notes: "Patient reports stable glucose levels. Reduced Metformin dosage.",
+    recommendations: "Continue daily walking, monitor heart rate.",
+  },
+  {
+    id: 2,
+    date: "Sep 28, 2023",
+    doctor: "Dr. Benali Karim",
+    reason: "General Consultation",
+    notes: "Seasonal allergies symptoms observed.",
+    recommendations: "Prescribed antihistamines for 10 days.",
   },
 ];
 const NOTIFICATIONS_DATA = [
@@ -439,7 +462,7 @@ function DashboardPage({
   const c = dk ? T.dark : T.light;
 
   const firstName = userData?.first_name || "Guest";
-  const safeAppts = Array.isArray(appointments) ? appointments : [];
+  const safeAppts = (Array.isArray(appointments) && appointments.length > 0) ? appointments : APPOINTMENTS;
   const upcomingAppts =
     safeAppts.filter(
       (a) => a.status === "confirmed" || a.status === "pending",
@@ -561,12 +584,24 @@ function DashboardPage({
                         <Calendar size={20} style={{ color: c.blue }} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p
-                          className="text-sm font-bold truncate"
-                          style={{ color: c.txt }}
-                        >
-                          {a.doctor_name || "Médecin Inconnu"}
-                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p
+                            className="text-sm font-bold truncate"
+                            style={{ color: c.txt }}
+                          >
+                            {a.doctor_name || "Médecin Inconnu"}
+                          </p>
+                          {a.status === "pending" && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30">
+                              En attente
+                            </span>
+                          )}
+                          {a.status === "confirmed" && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/30">
+                              Confirmé
+                            </span>
+                          )}
+                        </div>
                         <p
                           className="text-xs font-medium opacity-70"
                           style={{ color: c.txt2 }}
@@ -918,6 +953,7 @@ function MedicalProfilePage({ dk, profile, userId }) {
     "prescriptions",
     "analyses",
     "treatments",
+    "visits",
   ];
   const safeProfile = profile || {};
 
@@ -1177,6 +1213,24 @@ function MedicalProfilePage({ dk, profile, userId }) {
           )}
           {tab === "analyses" && (
             <div className="space-y-4">
+              <Card
+                dk={dk}
+                className="border-dashed border-2 flex flex-col items-center justify-center py-10 cursor-pointer hover:bg-opacity-50 transition-all"
+                style={{ borderColor: c.blue + "66", background: "transparent" }}
+              >
+                <div
+                  className="w-12 h-12 rounded-full flex items-center justify-center mb-3"
+                  style={{ background: c.blue + "15" }}
+                >
+                  <Plus size={24} style={{ color: c.blue }} />
+                </div>
+                <p className="font-bold text-sm" style={{ color: c.txt }}>
+                  Upload Lab Results or X-Ray
+                </p>
+                <p className="text-xs mt-1" style={{ color: c.txt2 }}>
+                  PDF, JPG or PNG (max 10MB)
+                </p>
+              </Card>
               {data.analyses.length === 0 ? (
                 <EmptyState
                   dk={dk}
@@ -1260,6 +1314,71 @@ function MedicalProfilePage({ dk, profile, userId }) {
                   </Card>
                 ))
               )}
+            </div>
+          )}
+          {tab === "visits" && (
+            <div className="space-y-5">
+              {VISIT_SUMMARIES.map((v) => (
+                <Card key={v.id} dk={dk} className="relative overflow-hidden">
+                  <div
+                    className="absolute top-0 left-0 w-1 h-full"
+                    style={{ background: c.blue }}
+                  />
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center"
+                        style={{ background: c.blue + "12" }}
+                      >
+                        <FileText size={18} style={{ color: c.blue }} />
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm" style={{ color: c.txt }}>
+                          {v.reason}
+                        </p>
+                        <p className="text-xs" style={{ color: c.txt2 }}>
+                          {v.date} · {v.doctor}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge color={c.blue} bg={c.blue + "12"}>
+                      Report
+                    </Badge>
+                  </div>
+                  <div className="space-y-3">
+                    <div>
+                      <p
+                        className="text-[10px] font-bold uppercase tracking-wider mb-1"
+                        style={{ color: c.txt3 }}
+                      >
+                        Clinical Notes
+                      </p>
+                      <p className="text-xs leading-relaxed" style={{ color: c.txt2 }}>
+                        {v.notes}
+                      </p>
+                    </div>
+                    <div>
+                      <p
+                        className="text-[10px] font-bold uppercase tracking-wider mb-1"
+                        style={{ color: c.txt3 }}
+                      >
+                        Recommendations
+                      </p>
+                      <div
+                        className="p-3 rounded-xl border border-dashed"
+                        style={{ borderColor: c.border, background: c.bg }}
+                      >
+                        <p
+                          className="text-xs italic"
+                          style={{ color: c.blue }}
+                        >
+                          " {v.recommendations} "
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
             </div>
           )}
           {["diagnostics", "prescriptions"].includes(tab) && (
@@ -2108,10 +2227,11 @@ function AppointmentsPage({
     }
   }, [selectedDoctor, calDay, calMonth]);
 
+  const safeAppts = (Array.isArray(rawAppointments) && rawAppointments.length > 0) ? rawAppointments : APPOINTMENTS;
   const upcomingAppts =
-    rawAppointments?.filter((a) => a.status === "confirmed") || [];
+    safeAppts.filter((a) => a.status === "confirmed" || a.status === "pending") || [];
   const historyAppts =
-    rawAppointments?.filter((a) =>
+    safeAppts.filter((a) =>
       ["completed", "cancelled", "refused"].includes(a.status),
     ) || [];
   const filteredUpcoming = upcomingAppts.filter(
@@ -2523,12 +2643,24 @@ function AppointmentsPage({
                           <Calendar size={20} style={{ color: c.blue }} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p
-                            className="font-bold text-sm truncate"
-                            style={{ color: c.txt }}
-                          >
-                            {a.doctor_name || "Médecin"}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p
+                              className="font-bold text-sm truncate"
+                              style={{ color: c.txt }}
+                            >
+                              {a.doctor_name || "Médecin"}
+                            </p>
+                            {a.status === "pending" && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 whitespace-nowrap">
+                                En attente
+                              </span>
+                            )}
+                            {a.status === "confirmed" && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/30 whitespace-nowrap">
+                                Confirmé
+                              </span>
+                            )}
+                          </div>
                           <p
                             className="text-xs font-medium opacity-70"
                             style={{ color: c.txt2 }}

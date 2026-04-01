@@ -21,6 +21,8 @@ import {
   Clock,
   Eye,
   EyeOff,
+  ArrowLeft,
+  Send,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useData } from "../../context/DataContext";
@@ -613,7 +615,7 @@ function ScheduleView() {
 // SUB-VIEW : PATIENTS
 // ============================================================================
 
-function PatientsView() {
+function PatientsView({ onSelectPatient }) {
   const { theme } = useTheme();
   const dk = theme === "dark";
   const c = dk ? T.dark : T.light;
@@ -623,7 +625,16 @@ function PatientsView() {
   const [page, setPage] = useState(1);
   const [searchFocused, setSearchFocused] = useState(false);
 
-  const safe = Array.isArray(patients) ? patients : [];
+  const fallbackPatients = [
+    { firstName: "Ahmed", lastName: "Meziane", age: 45, condition: "Diabetes Type 2", lastVisit: "2023-11-12", nextAppt: "Today at 10:00" },
+    { firstName: "Nadia", lastName: "Khelifa", age: 32, condition: "Hypertension", lastVisit: "2023-10-05", nextAppt: "Tomorrow at 14:30" },
+    { firstName: "Alex", lastName: "Johnson", age: 58, condition: "Stable", lastVisit: "2023-12-01", nextAppt: "In 2 days" },
+    { firstName: "Youcef", lastName: "Belaid", age: 29, condition: "Recovering", lastVisit: "2023-11-20", nextAppt: "Next Monday" },
+    { firstName: "Sara", lastName: "Ait", age: 39, condition: "Checkup", lastVisit: "2023-11-15", nextAppt: "Today at 11:30" },
+    { firstName: "Meriem", lastName: "Kaci", age: 50, condition: "Critical", lastVisit: "2023-12-05", nextAppt: "Immediate" }
+  ];
+
+  const safe = (Array.isArray(patients) && patients.length > 0) ? patients : fallbackPatients;
   const filtered = safe.filter((p) =>
     `${p.firstName || ""} ${p.lastName || ""} ${p.condition || ""}`
       .toLowerCase()
@@ -800,6 +811,7 @@ function PatientsView() {
                       </Badge>
                     </div>
                     <button
+                      onClick={() => onSelectPatient?.(p)}
                       className="px-4 py-1.5 rounded-xl border text-[13px] font-bold transition-all hover:bg-opacity-10"
                       style={{ color: c.blue, borderColor: c.blue }}
                     >
@@ -1262,6 +1274,319 @@ function PrescriptionsView() {
 }
 
 // ============================================================================
+// SUB-VIEW : PATIENT DETAIL (DOSSIER MÉDICAL)
+// ============================================================================
+
+function PatientDetailView({ patient, onBack }) {
+  const { theme } = useTheme();
+  const dk = theme === "dark";
+  const c = dk ? T.dark : T.light;
+
+  const [activeTab, setActiveTab] = useState("history");
+
+  if (!patient) return null;
+
+  const name = patient.name || patient.patient || 
+    (patient.firstName && patient.lastName ? `${patient.firstName} ${patient.lastName}` : null) || 
+    patient.firstName || 
+    patient.lastName || 
+    "Unknown Patient";
+  const age = patient.age || "—";
+
+  return (
+    <div className="animate-in fade-in duration-500 space-y-6 pb-10">
+      {/* Header with Back Button */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={onBack}
+            className="w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:bg-opacity-10"
+            style={{ background: c.blue + "22", color: c.blue }}
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <h1 className="text-2xl font-black" style={{ color: c.txt }}>
+              {name}
+            </h1>
+            <div className="flex items-center gap-2 mt-1">
+              <Badge color={c.txt3} bg={c.bg + "44"}>
+                {age} years old
+              </Badge>
+              <Badge color="#EF4444" bg="#EF444415">
+                O+ Positive
+              </Badge>
+              <Badge color="#8B5CF6" bg="#8B5CF615">
+                Penicillin Allergy
+              </Badge>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column: History & Labs */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card dk={dk} className="p-0 overflow-hidden">
+            <div className="flex border-b" style={{ borderColor: c.border }}>
+              {["history", "lab", "prescriptions"].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-6 py-4 text-sm font-bold transition-all relative ${
+                    activeTab === tab ? "" : "opacity-50"
+                  }`}
+                  style={{ color: activeTab === tab ? c.blue : c.txt }}
+                >
+                  {tab === "history" && "Medical History"}
+                  {tab === "lab" && "Lab Results"}
+                  {tab === "prescriptions" && "Past Prescriptions"}
+                  {activeTab === tab && (
+                    <div
+                      className="absolute bottom-0 left-0 right-0 h-1 rounded-t-full"
+                      style={{ background: c.blue }}
+                    />
+                  )}
+                </button>
+              ))}
+            </div>
+
+            <div className="p-6">
+              {activeTab === "history" && (
+                <div className="space-y-6">
+                  {[
+                    {
+                      date: "Oct 12, 2023",
+                      title: "Type 2 Diabetes Checkup",
+                      doc: "Dr. Benali",
+                      note: "Patient reports stable glucose levels. Reduced Metformin dosage.",
+                    },
+                    {
+                      date: "Aug 05, 2023",
+                      title: "Annual Physical Exam",
+                      doc: "Dr. Kaci",
+                      note: "All vitals normal. Recommended increased physical activity.",
+                    },
+                  ].map((h, i) => (
+                    <div
+                      key={i}
+                      className="relative pl-6 border-l-2"
+                      style={{ borderColor: c.border }}
+                    >
+                      <div
+                        className="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 bg-white"
+                        style={{ borderColor: c.blue }}
+                      />
+                      <p
+                        className="text-[11px] font-bold uppercase tracking-wider"
+                        style={{ color: c.txt3 }}
+                      >
+                        {h.date}
+                      </p>
+                      <h3
+                        className="text-sm font-black mt-1"
+                        style={{ color: c.txt }}
+                      >
+                        {h.title}
+                      </h3>
+                      <p
+                        className="text-xs font-bold mt-1"
+                        style={{ color: c.blue }}
+                      >
+                        {h.doc}
+                      </p>
+                      <p
+                        className="text-sm mt-2 leading-relaxed opacity-70"
+                        style={{ color: c.txt }}
+                      >
+                        {h.note}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === "lab" && (
+                <div className="space-y-4">
+                  {[
+                    {
+                      test: "Blood Glucose (HbA1c)",
+                      result: "6.4%",
+                      ref: "4.0 - 5.6%",
+                      status: "High",
+                    },
+                    {
+                      test: "Total Cholesterol",
+                      result: "185 mg/dL",
+                      ref: "< 200 mg/dL",
+                      status: "Normal",
+                    },
+                    {
+                      test: "LDL Cholesterol",
+                      result: "110 mg/dL",
+                      ref: "< 100 mg/dL",
+                      status: "Borderline",
+                    },
+                  ].map((l, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between p-4 rounded-xl border"
+                      style={{
+                        borderColor: c.border,
+                        background: c.bg + "11",
+                      }}
+                    >
+                      <div>
+                        <p
+                          className="text-sm font-black"
+                          style={{ color: c.txt }}
+                        >
+                          {l.test}
+                        </p>
+                        <p
+                          className="text-xs opacity-50 font-bold"
+                          style={{ color: c.txt }}
+                        >
+                          Ref: {l.ref}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p
+                          className="text-sm font-black"
+                          style={{
+                            color: l.status === "Normal" ? c.green : "#EF4444",
+                          }}
+                        >
+                          {l.result}
+                        </p>
+                        <p
+                          className="text-[10px] font-black uppercase tracking-tighter"
+                          style={{
+                            color: l.status === "Normal" ? c.green : "#EF4444",
+                          }}
+                        >
+                          {l.status}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === "prescriptions" && (
+                <div className="space-y-4">
+                  {[
+                    {
+                      med: "Metformin 500mg",
+                      freq: "Twice daily",
+                      dur: "3 months",
+                      date: "Sep 2023",
+                    },
+                    {
+                      med: "Lisinopril 10mg",
+                      freq: "Once daily",
+                      dur: "6 months",
+                      date: "Jun 2023",
+                    },
+                  ].map((p, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-4 p-4 rounded-xl border"
+                      style={{ borderColor: c.border }}
+                    >
+                      <div
+                        className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                        style={{ background: c.blue + "15", color: c.blue }}
+                      >
+                        <FileText size={20} />
+                      </div>
+                      <div className="flex-1">
+                        <p
+                          className="text-sm font-black"
+                          style={{ color: c.txt }}
+                        >
+                          {p.med}
+                        </p>
+                        <p
+                          className="text-xs opacity-60 font-bold"
+                          style={{ color: c.txt }}
+                        >
+                          {p.freq} · {p.dur}
+                        </p>
+                      </div>
+                      <p
+                        className="text-xs font-black"
+                        style={{ color: c.txt3 }}
+                      >
+                        {p.date}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+
+        {/* Right Column: Quick Notes & Action */}
+        <div className="space-y-6">
+          <Card dk={dk} className="p-6">
+            <h2 className="text-lg font-black mb-6" style={{ color: c.txt }}>
+              Consultation Notes
+            </h2>
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <label
+                  className="text-[11px] font-black uppercase tracking-widest ml-1"
+                  style={{ color: c.txt3 }}
+                >
+                  Current Symptoms
+                </label>
+                <textarea
+                  className="w-full rounded-2xl p-4 text-sm font-medium border outline-none transition-all focus:border-blue-400 min-h-[100px]"
+                  style={{
+                    background: dk ? c.bg + "22" : "#F8FAFC",
+                    borderColor: c.border,
+                    color: c.txt,
+                  }}
+                  placeholder="Type symptoms here..."
+                />
+              </div>
+              <div className="space-y-2">
+                <label
+                  className="text-[11px] font-black uppercase tracking-widest ml-1"
+                  style={{ color: c.txt3 }}
+                >
+                  Diagnosis
+                </label>
+                <input
+                  className="w-full rounded-xl px-4 py-3 text-sm font-medium border outline-none focus:border-blue-400"
+                  style={{
+                    background: dk ? c.bg + "22" : "#F8FAFC",
+                    borderColor: c.border,
+                    color: c.txt,
+                  }}
+                  placeholder="Preliminary diagnosis..."
+                />
+              </div>
+              <button
+                className="w-full py-4 rounded-xl text-white font-black text-sm shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2"
+                style={{
+                  background: c.blue,
+                  boxShadow: `0 4px 15px ${c.blue}44`,
+                }}
+              >
+                <Send size={18} /> Save consultation
+              </button>
+            </div>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // SUB-VIEW : STATISTICS
 // ============================================================================
 
@@ -1660,8 +1985,9 @@ export default function DoctorDashboard({ onLogout }) {
   const { userData: user } = useAuth();
   const { patients = [], appointments = [], patientRequests = [] } = useData();
 
-  const [currentPage, setCurrentPage] = useState("Dashboard");
+  const [currentPage, setCurrentPage] = useState("dashboard");
   const [profileOpen, setProfileOpen] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState(null);
   const [mobileMenu, setMobileMenu] = useState(false);
 
   const firstName = user?.first_name || user?.firstName || "";
@@ -1691,13 +2017,30 @@ export default function DoctorDashboard({ onLogout }) {
       case "schedule":
         return <ScheduleView />;
       case "patients":
-        return <PatientsView />;
+        return (
+          <PatientsView
+            onSelectPatient={(p) => {
+              setSelectedPatient(p);
+              setCurrentPage("patient-detail");
+            }}
+          />
+        );
       case "prescriptions":
         return <PrescriptionsView />;
       case "statistics":
         return <StatisticsView />;
       case "settings":
         return <SettingsView onLogout={onLogout} />;
+      case "patient-detail":
+        return (
+          <PatientDetailView
+            patient={selectedPatient}
+            onBack={() => {
+              setSelectedPatient(null);
+              setCurrentPage("patients");
+            }}
+          />
+        );
       default:
         return (
           <DashboardHome
