@@ -109,7 +109,7 @@ export default function AppRouter() {
   // =========================================================================
 
   const FORCE_TEST = true; // Mettre à true pour activer le bypass
-  const FORCE_ROLE = "patient"; // Choix: "patient", "doctor", "pharmacist", "admin"
+  const FORCE_ROLE = ""; // Choix: "patient", "doctor", "pharmacist", "admin"
 
   if (FORCE_TEST) {
     if (FORCE_ROLE === "patient")

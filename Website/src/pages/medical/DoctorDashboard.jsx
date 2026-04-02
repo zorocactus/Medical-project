@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   Users,
   User,
@@ -626,7 +626,35 @@ function PatientsView({ onSelectPatient }) {
   const [page, setPage] = useState(1);
   const [searchFocused, setSearchFocused] = useState(false);
 
-  const fallbackPatients = [
+  // ── Add Patient Modal state ──
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [conditionOpen, setConditionOpen] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [newPatient, setNewPatient] = useState({
+    firstName: "", lastName: "", age: "", condition: "", status: "",
+  });
+  const [addedPatients, setAddedPatients] = useState([]);
+
+  const CONDITION_OPTIONS = ["Diabetes", "Hypertension", "Stable", "Recovering", "Critical", "Checkup"];
+  const STATUS_OPTIONS = ["Active", "Pending", "Critical"];
+
+
+  const handleSavePatient = () => {
+    if (!newPatient.firstName.trim() || !newPatient.lastName.trim()) return;
+    const p = {
+      ...newPatient,
+      age: parseInt(newPatient.age) || 0,
+      lastVisit: new Date().toISOString().slice(0, 10),
+      nextAppt: "—",
+      status: newPatient.status || "Active",
+    };
+    setAddedPatients((prev) => [p, ...prev]);
+    setNewPatient({ firstName: "", lastName: "", age: "", condition: "", status: "" });
+    setShowAddModal(false);
+    setPage(1);
+  };
+
+  const defaultFallback = [
     { firstName: "Ahmed", lastName: "Meziane", age: 45, condition: "Diabetes Type 2", lastVisit: "2023-11-12", nextAppt: "Today at 10:00" },
     { firstName: "Nadia", lastName: "Khelifa", age: 32, condition: "Hypertension", lastVisit: "2023-10-05", nextAppt: "Tomorrow at 14:30" },
     { firstName: "Alex", lastName: "Johnson", age: 58, condition: "Stable", lastVisit: "2023-12-01", nextAppt: "In 2 days" },
@@ -635,7 +663,8 @@ function PatientsView({ onSelectPatient }) {
     { firstName: "Meriem", lastName: "Kaci", age: 50, condition: "Critical", lastVisit: "2023-12-05", nextAppt: "Immediate" }
   ];
 
-  const safe = (Array.isArray(patients) && patients.length > 0) ? patients : fallbackPatients;
+  const base = (Array.isArray(patients) && patients.length > 0) ? patients : defaultFallback;
+  const safe = [...addedPatients, ...base];
   const filtered = safe.filter((p) =>
     `${p.firstName || ""} ${p.lastName || ""} ${p.condition || ""}`
       .toLowerCase()
@@ -657,6 +686,192 @@ function PatientsView({ onSelectPatient }) {
 
   return (
     <div className="animate-in fade-in duration-500">
+
+      {/* ── Add Patient Modal ── */}
+      {showAddModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.50)", backdropFilter: "blur(4px)" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowAddModal(false); }}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl shadow-2xl border overflow-hidden"
+            style={{ background: dk ? "#141B27" : "#fff", borderColor: c.border }}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b" style={{ borderColor: c.border }}>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: c.blue + "18" }}>
+                  <Plus size={18} style={{ color: c.blue }} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base" style={{ color: c.txt }}>Nouveau Patient</h3>
+                  <p className="text-xs" style={{ color: c.txt3 }}>Remplissez les informations du patient</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:opacity-70"
+                style={{ background: c.bg }}
+              >
+                <X size={16} style={{ color: c.txt3 }} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                {/* Prénom */}
+                <div className="relative">
+                  <span className="absolute -top-2.5 left-3 px-1 text-[11px] font-medium" style={{ color: c.txt3, background: dk ? "#141B27" : "#fff" }}>Prénom</span>
+                  <input
+                    type="text"
+                    value={newPatient.firstName}
+                    onChange={(e) => setNewPatient((p) => ({ ...p, firstName: e.target.value }))}
+                    placeholder="Ahmed"
+                    className="w-full px-3 py-3 rounded-xl border text-sm outline-none transition-all"
+                    style={{ borderColor: c.border, background: dk ? "#0D1117" : "#fff", color: c.txt }}
+                  />
+                </div>
+                {/* Nom */}
+                <div className="relative">
+                  <span className="absolute -top-2.5 left-3 px-1 text-[11px] font-medium" style={{ color: c.txt3, background: dk ? "#141B27" : "#fff" }}>Nom</span>
+                  <input
+                    type="text"
+                    value={newPatient.lastName}
+                    onChange={(e) => setNewPatient((p) => ({ ...p, lastName: e.target.value }))}
+                    placeholder="Meziane"
+                    className="w-full px-3 py-3 rounded-xl border text-sm outline-none transition-all"
+                    style={{ borderColor: c.border, background: dk ? "#0D1117" : "#fff", color: c.txt }}
+                  />
+                </div>
+              </div>
+
+              {/* Âge — chiffres UNIQUEMENT, max 3 digits */}
+              <div className="relative">
+                <span className="absolute -top-2.5 left-3 px-1 text-[11px] font-medium" style={{ color: c.txt3, background: dk ? "#141B27" : "#fff" }}>Âge</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={newPatient.age}
+                  onKeyDown={(e) => {
+                    const allowed = ["Backspace","Delete","Tab","ArrowLeft","ArrowRight","Home","End"];
+                    if (!allowed.includes(e.key) && !/^\d$/.test(e.key)) e.preventDefault();
+                  }}
+                  onChange={(e) => {
+                    const onlyNumbers = e.target.value.replace(/\D/g, "");
+                    if (onlyNumbers.length <= 3) {
+                      setNewPatient((p) => ({ ...p, age: onlyNumbers }));
+                    }
+                  }}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 3);
+                    setNewPatient((p) => ({ ...p, age: pasted }));
+                  }}
+                  placeholder="35"
+                  className="w-full px-3 py-3 rounded-xl border text-sm outline-none transition-all"
+                  style={{ borderColor: c.border, background: dk ? "#0D1117" : "#fff", color: c.txt }}
+                />
+              </div>
+
+
+
+              {/* Condition — RÈGLE 1 : dropdown exact template */}
+              <div className="relative">
+                <span className="absolute -top-2.5 left-3 px-1 text-[11px] font-medium z-10" style={{ color: c.txt3, background: dk ? "#141B27" : "#fff" }}>Condition</span>
+                <button
+                  type="button"
+                  onClick={() => { setConditionOpen(!conditionOpen); setStatusOpen(false); }}
+                  className="w-full flex items-center justify-between px-3 py-3 rounded-xl border text-sm text-left outline-none transition-all"
+                  style={{ borderColor: conditionOpen ? c.blue : c.border, background: dk ? "#0D1117" : "#fff", color: newPatient.condition ? c.txt : c.txt3 }}
+                >
+                  <span>{newPatient.condition || "Sélectionner..."}</span>
+                  <ChevronDown size={18} className={`transition-transform shrink-0 ${conditionOpen ? "rotate-180" : ""}`} style={{ color: c.txt3 }} />
+                </button>
+                {conditionOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setConditionOpen(false)} />
+                    <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl border shadow-xl z-50 py-2 max-h-60 overflow-y-auto" style={{ background: dk ? "#141B27" : "#fff", borderColor: c.border }}>
+                      {CONDITION_OPTIONS.map((opt) => (
+                        <button
+                          key={opt} type="button"
+                          onClick={() => { setNewPatient((p) => ({ ...p, condition: opt })); setConditionOpen(false); }}
+                          className="w-full flex items-center px-5 py-3 text-sm font-medium transition-all text-left"
+                          style={{
+                            color: newPatient.condition === opt ? c.blue : c.txt,
+                            background: newPatient.condition === opt ? c.blue + "15" : "transparent",
+                          }}
+                          onMouseEnter={(e) => { if (newPatient.condition !== opt) e.currentTarget.style.background = c.blue + "10"; }}
+                          onMouseLeave={(e) => { if (newPatient.condition !== opt) e.currentTarget.style.background = "transparent"; }}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Statut — RÈGLE 1 : dropdown exact template */}
+              <div className="relative">
+                <span className="absolute -top-2.5 left-3 px-1 text-[11px] font-medium z-10" style={{ color: c.txt3, background: dk ? "#141B27" : "#fff" }}>Statut</span>
+                <button
+                  type="button"
+                  onClick={() => { setStatusOpen(!statusOpen); setConditionOpen(false); }}
+                  className="w-full flex items-center justify-between px-3 py-3 rounded-xl border text-sm text-left outline-none transition-all"
+                  style={{ borderColor: statusOpen ? c.blue : c.border, background: dk ? "#0D1117" : "#fff", color: newPatient.status ? c.txt : c.txt3 }}
+                >
+                  <span>{newPatient.status || "Sélectionner..."}</span>
+                  <ChevronDown size={18} className={`transition-transform shrink-0 ${statusOpen ? "rotate-180" : ""}`} style={{ color: c.txt3 }} />
+                </button>
+                {statusOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setStatusOpen(false)} />
+                    <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl border shadow-xl z-50 py-2 max-h-60 overflow-y-auto" style={{ background: dk ? "#141B27" : "#fff", borderColor: c.border }}>
+                      {STATUS_OPTIONS.map((opt) => (
+                        <button
+                          key={opt} type="button"
+                          onClick={() => { setNewPatient((p) => ({ ...p, status: opt })); setStatusOpen(false); }}
+                          className="w-full flex items-center px-5 py-3 text-sm font-medium transition-all text-left"
+                          style={{
+                            color: newPatient.status === opt ? c.blue : c.txt,
+                            background: newPatient.status === opt ? c.blue + "15" : "transparent",
+                          }}
+                          onMouseEnter={(e) => { if (newPatient.status !== opt) e.currentTarget.style.background = c.blue + "10"; }}
+                          onMouseLeave={(e) => { if (newPatient.status !== opt) e.currentTarget.style.background = "transparent"; }}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 pb-6 flex gap-3">
+              <button
+                onClick={handleSavePatient}
+                disabled={!newPatient.firstName.trim() || !newPatient.lastName.trim()}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                style={{ background: `linear-gradient(135deg, ${c.blue}, #304B71)` }}
+              >
+                <Check size={16} /> Enregistrer
+              </button>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="px-5 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:opacity-80"
+                style={{ borderColor: c.border, color: c.txt2 }}
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-4 mb-10">
         <div
           className="relative flex-1 flex items-center px-5 py-2 rounded-2xl border transition-all duration-300"
@@ -689,6 +904,7 @@ function PatientsView({ onSelectPatient }) {
           />
         </div>
         <button
+          onClick={() => setShowAddModal(true)}
           className="px-6 py-2.5 rounded-2xl text-white text-[15px] font-bold flex items-center gap-2 transition-transform hover:scale-105 shrink-0"
           style={{ background: c.blue, boxShadow: `0 4px 12px ${c.blue}44`, minHeight: 56 }}
         >
