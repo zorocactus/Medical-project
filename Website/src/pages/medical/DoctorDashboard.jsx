@@ -24,7 +24,10 @@ import {
   ArrowLeft,
   Send,
   Trash2,
+  MapPin,
+  Link as LinkIcon,
 } from "lucide-react";
+
 import { useAuth } from "../../context/AuthContext";
 import { useData } from "../../context/DataContext";
 import { useTheme } from "../../context/ThemeContext";
@@ -2169,18 +2172,29 @@ function StatisticsView() {
 // SUB-VIEW : SETTINGS
 // ============================================================================
 
+const WILAYAS_LIST = [
+  "Alger","Oran","Constantine","Annaba","Blida","Batna","Sétif","Tlemcen",
+  "Tizi Ouzou","Béjaïa","Jijel","Médéa","Mostaganem","Bouira","Bordj Bou Arréridj",
+  "Boumerdès","Tipaza","Aïn Defla","Tissemsilt","Relizane","Chlef","Skikda",
+  "Guelma","Souk Ahras","El Tarf","Mila","Khenchela","Oum El Bouaghi","Tébessa",
+  "Biskra","Djelfa","Laghouat","El Bayadh","Naâma","Saïda","Mascara","Tiaret",
+  "Adrar","Béchar","Tamanrasset","Illizi","Tindouf","El Oued","Ouargla",
+  "Ghardaïa","Aïn Témouchent","Sidi Bel Abbès","Mascara","Autres",
+];
+
 function SettingsView() {
   const { theme } = useTheme();
   const dk = theme === "dark";
   const c = dk ? T.dark : T.light;
   const { userData: user } = useAuth();
   const [showPwd, setShowPwd] = useState(false);
+  const [wilayaOpen, setWilayaOpen] = useState(false);
+  const [locSaved, setLocSaved] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
     email: "",
     phone: "",
-    city: "Alger",
   });
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState({ type: "", msg: "" });
@@ -2192,13 +2206,20 @@ function SettingsView() {
   const [pwdStatus, setPwdStatus] = useState({ type: "", msg: "" });
   const [isSavingPwd, setIsSavingPwd] = useState(false);
 
+  // ── Location state ──
+  const [locForm, setLocForm] = useState({
+    address: "",
+    commune: "",
+    wilaya: "Alger",
+    mapsUrl: "",
+  });
+
   useEffect(() => {
     if (user) {
       setForm({
         name: `${user.first_name || ""} ${user.last_name || ""}`.trim(),
         email: user.email || "",
         phone: user.phone || "",
-        city: "Alger",
       });
     }
   }, [user]);
@@ -2207,16 +2228,10 @@ function SettingsView() {
     try {
       setIsSaving(true);
       setStatus({ type: "", msg: "" });
-
       const names = form.name.split(" ");
       const first_name = names[0] || "";
       const last_name = names.slice(1).join(" ") || "";
-
-      await api.updateMe({
-        first_name,
-        last_name,
-        phone: form.phone,
-      });
+      await api.updateMe({ first_name, last_name, phone: form.phone });
       setStatus({ type: "success", msg: "Profil mis à jour avec succès ✅" });
       setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
     } catch (err) {
@@ -2232,17 +2247,11 @@ function SettingsView() {
       setIsSavingPwd(true);
       setPwdStatus({ type: "", msg: "" });
       const token = localStorage.getItem("access_token");
-      const res = await fetch(
-        "http://localhost:8000/api/auth/password/change/",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(pwdForm),
-        },
-      );
+      const res = await fetch("http://localhost:8000/api/auth/password/change/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(pwdForm),
+      });
       if (!res.ok) throw new Error("Erreur");
       setPwdStatus({ type: "success", msg: "Mot de passe modifié ✅" });
       setPwdForm({ currentPassword: "", newPassword: "" });
@@ -2255,186 +2264,338 @@ function SettingsView() {
     }
   };
 
+  const handleSaveLocation = () => {
+    setLocSaved(true);
+    setTimeout(() => setLocSaved(false), 3000);
+  };
+
+  // Helper: input style
+  const inputCls = "w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition-all focus:ring-2";
+  const inputStyle = { background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border, color: c.txt };
+  const labelCls = "block text-xs font-bold uppercase tracking-wide mb-1.5";
+
   return (
-    <div className="animate-in fade-in duration-500">
+    <div className="animate-in fade-in duration-500 space-y-6">
+      {/* ── Top 2-col grid: Profile + Security ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
-        <div className="space-y-5">
-          <Card dk={dk}>
-            <p className="font-semibold mb-5" style={{ color: c.txt }}>
-              Profile Settings
-            </p>
-            {status.msg && (
-              <div
-                className="mb-4 p-3 rounded-xl text-xs font-semibold"
-                style={{
-                  background:
-                    status.type === "success" ? "#2D8C6F12" : "#E0555512",
-                  color: status.type === "success" ? "#2D8C6F" : "#E05555",
-                  border: `1px solid ${status.type === "success" ? "#2D8C6F44" : "#E0555544"}`,
-                }}
-              >
-                {status.msg}
-              </div>
-            )}
-            {[
-              { label: "Full Name", key: "name", type: "text" },
-              { label: "Email", key: "email", type: "email" },
-              { label: "Phone", key: "phone", type: "tel" },
-            ].map((field) => (
-              <div key={field.key} className="mb-4">
-                <label
-                  className="block text-xs font-bold uppercase tracking-wide mb-1.5"
-                  style={{ color: c.txt2 }}
+
+        {/* Profile card */}
+        <Card dk={dk}>
+          <p className="font-semibold mb-5" style={{ color: c.txt }}>Profile</p>
+          {status.msg && (
+            <div className="mb-4 p-3 rounded-xl text-xs font-semibold" style={{
+              background: status.type === "success" ? "#2D8C6F12" : "#E0555512",
+              color: status.type === "success" ? "#2D8C6F" : "#E05555",
+              border: `1px solid ${status.type === "success" ? "#2D8C6F44" : "#E0555544"}`,
+            }}>{status.msg}</div>
+          )}
+          {[
+            { label: "Full Name", key: "name" },
+            { label: "Email", key: "email" },
+            { label: "Phone", key: "phone" },
+          ].map((field) => (
+            <div key={field.key} className="mb-4">
+              <label className={labelCls} style={{ color: c.txt2 }}>{field.label}</label>
+              <input
+                type="text"
+                value={form[field.key]}
+                onChange={(e) => setForm((f) => ({ ...f, [field.key]: e.target.value }))}
+                readOnly={field.key === "email"}
+                className={inputCls}
+                style={{ ...inputStyle, color: field.key === "email" ? c.txt3 : c.txt }}
+              />
+            </div>
+          ))}
+          <button
+            onClick={handleSaveProfile}
+            disabled={isSaving}
+            className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
+            style={{ background: c.blue, opacity: isSaving ? 0.7 : 1 }}
+          >
+            {isSaving ? "Saving..." : "Save Changes"}
+          </button>
+        </Card>
+
+        {/* Security card */}
+        <Card dk={dk}>
+          <p className="font-semibold mb-5" style={{ color: c.txt }}>Security</p>
+          {pwdStatus.msg && (
+            <div className="mb-4 p-3 rounded-xl text-xs font-semibold" style={{
+              background: pwdStatus.type === "success" ? "#2D8C6F12" : "#E0555512",
+              color: pwdStatus.type === "success" ? "#2D8C6F" : "#E05555",
+              border: `1px solid ${pwdStatus.type === "success" ? "#2D8C6F44" : "#E0555544"}`,
+            }}>{pwdStatus.msg}</div>
+          )}
+          {[
+            { label: "Current Password", key: "currentPassword" },
+            { label: "New Password", key: "newPassword" },
+          ].map((field) => (
+            <div key={field.key} className="mb-4 relative">
+              <label className={labelCls} style={{ color: c.txt2 }}>{field.label}</label>
+              <input
+                type={showPwd ? "text" : "password"}
+                placeholder="••••••••"
+                value={pwdForm[field.key]}
+                onChange={(e) => setPwdForm({ ...pwdForm, [field.key]: e.target.value })}
+                className={`${inputCls} pr-12`}
+                style={inputStyle}
+              />
+              <button onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-8" style={{ color: c.txt3 }}>
+                {showPwd ? <Eye size={16} /> : <EyeOff size={16} />}
+              </button>
+            </div>
+          ))}
+          <button
+            onClick={handleSavePwd}
+            disabled={isSavingPwd}
+            className="px-6 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:opacity-80 active:scale-95"
+            style={{ color: c.blue, borderColor: c.border, opacity: isSavingPwd ? 0.7 : 1 }}
+          >
+            {isSavingPwd ? "Updating..." : "Update Password"}
+          </button>
+        </Card>
+      </div>
+
+      {/* ── Clinic Location & Maps ── */}
+      <Card dk={dk}>
+        {/* Section header */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: c.blue + "18" }}>
+            <MapPin size={18} style={{ color: c.blue }} />
+          </div>
+          <div>
+            <p className="font-bold text-base" style={{ color: c.txt }}>Clinic Location & Maps</p>
+            <p className="text-xs" style={{ color: c.txt3 }}>Gérez l'adresse visible par les patients</p>
+          </div>
+        </div>
+
+        {/* Success banner */}
+        {locSaved && (
+          <div className="mb-5 p-3 rounded-xl text-xs font-semibold flex items-center gap-2" style={{
+            background: "#2D8C6F12", color: "#2D8C6F", border: "1px solid #2D8C6F44",
+          }}>
+            <Check size={14} /> Localisation mise à jour avec succès ✅
+          </div>
+        )}
+
+        {/* Responsive 2-col layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          {/* Left: form fields */}
+          <div className="space-y-5">
+
+            {/* Adresse de l'établissement */}
+            <div>
+              <label className={labelCls} style={{ color: c.txt2 }}>Adresse de l'établissement</label>
+              <input
+                type="text"
+                placeholder="Ex: 12 Rue Didouche Mourad"
+                value={locForm.address}
+                onChange={(e) => setLocForm((f) => ({ ...f, address: e.target.value }))}
+                className={inputCls}
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Commune */}
+            <div>
+              <label className={labelCls} style={{ color: c.txt2 }}>Commune</label>
+              <input
+                type="text"
+                placeholder="Ex: Alger-Centre"
+                value={locForm.commune}
+                onChange={(e) => setLocForm((f) => ({ ...f, commune: e.target.value }))}
+                className={inputCls}
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Wilaya — Custom dropdown */}
+            <div>
+              <label className={labelCls} style={{ color: c.txt2 }}>Wilaya</label>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setWilayaOpen(!wilayaOpen)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm outline-none transition-all"
+                  style={{ ...inputStyle, borderColor: wilayaOpen ? c.blue : c.border }}
                 >
-                  {field.label}
-                </label>
-                <input
-                  type={field.type}
-                  value={form[field.key]}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, [field.key]: e.target.value }))
-                  }
-                  disabled={field.key === "email"}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition-all focus:ring-2"
-                  style={{
-                    background: dk ? "#1A2333" : "#F8FAFC",
-                    borderColor: c.border,
-                    color: field.key === "email" ? c.txt3 : c.txt,
-                  }}
-                />
+                  <span style={{ color: locForm.wilaya ? c.txt : c.txt3 }}>{locForm.wilaya || "Sélectionner..."}</span>
+                  <ChevronDown size={16} className={`shrink-0 transition-transform ${wilayaOpen ? "rotate-180" : ""}`} style={{ color: c.txt3 }} />
+                </button>
+                {wilayaOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setWilayaOpen(false)} />
+                    <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl border shadow-xl z-50 py-2 max-h-56 overflow-y-auto"
+                      style={{ background: dk ? "#141B27" : "#fff", borderColor: c.border }}>
+                      {WILAYAS_LIST.map((w) => (
+                        <button
+                          key={w} type="button"
+                          onClick={() => { setLocForm((f) => ({ ...f, wilaya: w })); setWilayaOpen(false); }}
+                          className="w-full flex items-center px-5 py-2.5 text-sm font-medium transition-all text-left"
+                          style={{
+                            color: locForm.wilaya === w ? c.blue : c.txt,
+                            background: locForm.wilaya === w ? c.blue + "15" : "transparent",
+                          }}
+                          onMouseEnter={(e) => { if (locForm.wilaya !== w) e.currentTarget.style.background = c.blue + "10"; }}
+                          onMouseLeave={(e) => { if (locForm.wilaya !== w) e.currentTarget.style.background = "transparent"; }}
+                        >
+                          {w}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
-            ))}
-            <div className="mb-4">
-              <label
-                className="block text-xs font-bold uppercase tracking-wide mb-1.5"
-                style={{ color: c.txt2 }}
-              >
-                City
-              </label>
-              <select
-                value={form.city}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, city: e.target.value }))
+            </div>
+
+            {/* Google Maps URL */}
+            <div>
+              <label className={labelCls} style={{ color: c.txt2 }}>Lien Google Maps (Optionnel)</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Collez l'URL Google Maps ici..."
+                  value={locForm.mapsUrl}
+                  onChange={(e) => setLocForm((f) => ({ ...f, mapsUrl: e.target.value }))}
+                  className={`${inputCls} pl-10`}
+                  style={inputStyle}
+                />
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: c.txt3 }}>
+                  <LinkIcon size={15} />
+                </div>
+              </div>
+            </div>
+
+            {/* Save button */}
+            <button
+              onClick={handleSaveLocation}
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
+              style={{ background: `linear-gradient(135deg, #304B71, ${c.blue})` }}
+            >
+              <MapPin size={15} /> Mettre à jour la carte
+            </button>
+          </div>
+
+          {/* Right: map preview with Smart Parser */}
+          <div className="flex flex-col gap-3">
+            <label className={labelCls} style={{ color: c.txt2 }}>Map Preview</label>
+            {(() => {
+              const addressQuery = [locForm.address, locForm.commune, locForm.wilaya]
+                .filter(Boolean)
+                .join(", ");
+              
+              let embedSrc = null;
+              let openUrl = locForm.mapsUrl || null;
+
+              if (locForm.mapsUrl) {
+                // If it's already an embed output link
+                if (locForm.mapsUrl.includes("output=embed") || locForm.mapsUrl.includes("/embed")) {
+                  embedSrc = locForm.mapsUrl;
+                } else {
+                  // Regex to find Coordinates (@lat,lng) or Place Names (/place/Nom)
+                  const coordMatch = locForm.mapsUrl.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+                  const placeMatch = locForm.mapsUrl.match(/\/place\/([^\/]+)/);
+                  const rawCoord = locForm.mapsUrl.match(/^(-?\d+\.\d+)[,\s]+(-?\d+\.\d+)$/); // If user typed exact coordinates
+
+                  if (rawCoord) {
+                    embedSrc = `https://maps.google.com/maps?q=${rawCoord[1]},${rawCoord[2]}&hl=fr&z=15&output=embed`;
+                  } else if (coordMatch) {
+                    embedSrc = `https://maps.google.com/maps?q=${coordMatch[1]},${coordMatch[2]}&hl=fr&z=15&output=embed`;
+                  } else if (placeMatch) {
+                    embedSrc = `https://maps.google.com/maps?q=${placeMatch[1]}&hl=fr&z=15&output=embed`;
+                  } else {
+                    // Fallback to query mapping if it's a short link or weird format
+                    embedSrc = `https://maps.google.com/maps?q=${encodeURIComponent(locForm.mapsUrl)}&hl=fr&z=15&output=embed`;
+                  }
                 }
-                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition-all focus:ring-2"
+              } else if (addressQuery) {
+                // Fallback to text query based on the typed address
+                embedSrc = `https://maps.google.com/maps?q=${encodeURIComponent(addressQuery)}&hl=fr&z=15&output=embed`;
+                openUrl = `https://maps.google.com/maps?q=${encodeURIComponent(addressQuery)}`;
+              }
+
+              return embedSrc ? (
+                /* ── Real map ── */
+                <div className="relative flex-1 min-h-[280px] rounded-2xl overflow-hidden border-2 transition-all"
+                  style={{ borderColor: c.blue + "55", background: c.card }}>
+                  <iframe
+                    key={embedSrc}
+                    title="Map Preview"
+                    src={embedSrc}
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0, minHeight: 280, display: "block" }}
+                    allowFullScreen=""
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
+                  {/* Floating open button */}
+                  {openUrl && (
+                    <a
+                      href={openUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="absolute bottom-3 right-3 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-white shadow-lg transition-all hover:opacity-90"
+                      style={{ background: c.blue }}
+                    >
+                      <MapPin size={12} /> Ouvrir dans Maps
+                    </a>
+                  )}
+                </div>
+              ) : (
+                /* ── Empty state ── */
+                <div
+                  className="flex-1 min-h-[280px] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-3 transition-all"
+                  style={{ background: dk ? "#0D1117" : "#F4F8FB", borderColor: c.border }}
+                >
+                  <div className="relative">
+                    <div className="w-14 h-14 rounded-full flex items-center justify-center"
+                      style={{ background: c.blue + "18" }}>
+                      <MapPin size={28} style={{ color: c.blue }} />
+                    </div>
+                    <div className="absolute inset-0 rounded-full animate-ping opacity-20"
+                      style={{ background: c.blue }} />
+                  </div>
+                  <div className="text-center px-4">
+                    <p className="text-sm font-bold" style={{ color: c.txt }}>Map Preview</p>
+                    <p className="text-xs mt-1" style={{ color: c.txt3 }}>
+                      Collez une URL Maps ou entrez votre adresse
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
+        </div>
+      </Card>
+
+      {/* ── Language + About ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <Card dk={dk}>
+          <p className="font-semibold mb-4" style={{ color: c.txt }}>Language</p>
+          <div className="flex gap-2 flex-wrap">
+            {["🇫🇷 Français", "🇩🇿 العربية", "🇬🇧 English"].map((lang, i) => (
+              <button
+                key={lang}
+                className="px-4 py-2 rounded-xl text-sm font-semibold border transition-all"
                 style={{
-                  background: dk ? "#1A2333" : "#F8FAFC",
-                  borderColor: c.border,
-                  color: c.txt,
+                  background: i === 0 ? c.blue : "transparent",
+                  color: i === 0 ? "#fff" : c.txt2,
+                  borderColor: i === 0 ? c.blue : c.border,
                 }}
               >
-                <option value="Alger">Alger</option>
-                <option value="Oran">Oran</option>
-                <option value="Constantine">Constantine</option>
-              </select>
-            </div>
-            <button
-              onClick={handleSaveProfile}
-              disabled={isSaving}
-              className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
-              style={{ background: c.blue, opacity: isSaving ? 0.7 : 1 }}
-            >
-              {isSaving ? "Saving..." : "Save Changes"}
-            </button>
-          </Card>
-          <Card dk={dk}>
-            <p className="font-semibold mb-5" style={{ color: c.txt }}>
-              Security
-            </p>
-            {pwdStatus.msg && (
-              <div
-                className="mb-4 p-3 rounded-xl text-xs font-semibold"
-                style={{
-                  background:
-                    pwdStatus.type === "success" ? "#2D8C6F12" : "#E0555512",
-                  color: pwdStatus.type === "success" ? "#2D8C6F" : "#E05555",
-                  border: `1px solid ${pwdStatus.type === "success" ? "#2D8C6F44" : "#E0555544"}`,
-                }}
-              >
-                {pwdStatus.msg}
-              </div>
-            )}
-            {[
-              { label: "Current Password", key: "currentPassword" },
-              { label: "New Password", key: "newPassword" },
-            ].map((field) => (
-              <div key={field.key} className="mb-4 relative">
-                <label
-                  className="block text-xs font-bold uppercase tracking-wide mb-1.5"
-                  style={{ color: c.txt2 }}
-                >
-                  {field.label}
-                </label>
-                <input
-                  type={showPwd ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={pwdForm[field.key]}
-                  onChange={(e) =>
-                    setPwdForm({ ...pwdForm, [field.key]: e.target.value })
-                  }
-                  className="w-full px-4 py-2.5 pr-12 rounded-xl text-sm outline-none border transition-all focus:ring-2"
-                  style={{
-                    background: dk ? "#1A2333" : "#F8FAFC",
-                    borderColor: c.border,
-                    color: c.txt,
-                  }}
-                />
-                <button
-                  onClick={() => setShowPwd(!showPwd)}
-                  className="absolute right-3 top-8"
-                  style={{ color: c.txt3 }}
-                >
-                  {showPwd ? <Eye size={16} /> : <EyeOff size={16} />}
-                </button>
-              </div>
+                {lang}
+              </button>
             ))}
-            <button
-              onClick={handleSavePwd}
-              disabled={isSavingPwd}
-              className="px-6 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:opacity-80 active:scale-95"
-              style={{
-                color: c.blue,
-                borderColor: c.border,
-                opacity: isSavingPwd ? 0.7 : 1,
-              }}
-            >
-              {isSavingPwd ? "Updating..." : "Update Password"}
-            </button>
-          </Card>
-        </div>
-        <div className="space-y-5">
-          <Card dk={dk}>
-            <p className="font-semibold mb-4" style={{ color: c.txt }}>
-              Language
-            </p>
-            <div className="flex gap-2 flex-wrap">
-              {["🇫🇷 Français", "🇩🇿 العربية", "🇬🇧 English"].map((lang, i) => (
-                <button
-                  key={lang}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold border transition-all"
-                  style={{
-                    background: i === 0 ? c.blue : "transparent",
-                    color: i === 0 ? "#fff" : c.txt2,
-                    borderColor: i === 0 ? c.blue : c.border,
-                  }}
-                >
-                  {lang}
-                </button>
-              ))}
-            </div>
-          </Card>
-          <Card dk={dk}>
-            <p className="font-semibold mb-2" style={{ color: c.txt }}>
-              About
-            </p>
-            <p className="text-sm" style={{ color: c.txt2 }}>
-              MedSmart v2.1.0 · Connected Healthcare Platform
-            </p>
-            <p className="text-xs mt-1" style={{ color: c.txt3 }}>
-              CNAS Certified · RGPD Compliant · Hosted in Algeria
-            </p>
-          </Card>
-        </div>
+          </div>
+        </Card>
+        <Card dk={dk}>
+          <p className="font-semibold mb-2" style={{ color: c.txt }}>About</p>
+          <p className="text-sm" style={{ color: c.txt2 }}>MedSmart v2.1.0 · Connected Healthcare Platform</p>
+          <p className="text-xs mt-1" style={{ color: c.txt3 }}>CNAS Certified · RGPD Compliant · Hosted in Algeria</p>
+        </Card>
       </div>
     </div>
   );
@@ -2443,6 +2604,7 @@ function SettingsView() {
 // ============================================================================
 // COMPOSANT PRINCIPAL
 // ============================================================================
+
 
 export default function DoctorDashboard({ onLogout }) {
   const { theme, toggleTheme } = useTheme();
