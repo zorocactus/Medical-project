@@ -299,6 +299,203 @@ function Badge({ color, bg, children }) {
   );
 }
 
+// ─── DashSelect (CustomSelect thémé) ─────────────────────────────────────────
+function DashSelect({ label, value, options, onSelect, dk, c, placeholder = "Sélectionner..." }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      {label && (
+        <label className="block text-xs font-bold uppercase tracking-wide mb-1.5"
+          style={{ color: c.txt2 }}>{label}</label>
+      )}
+      <div className="relative">
+        <button type="button" onClick={() => setOpen(!open)}
+          className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm outline-none transition-all"
+          style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: open ? c.blue : c.border, color: value ? c.txt : c.txt3 }}>
+          <span>{value || placeholder}</span>
+          <ChevronDown size={16} className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+            style={{ color: c.txt3 }} />
+        </button>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+            <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl border shadow-xl z-50 py-2 max-h-56 overflow-y-auto"
+              style={{ background: dk ? "#141B27" : "#fff", borderColor: c.border }}>
+              {options.map(opt => (
+                <button key={opt} type="button"
+                  onClick={() => { onSelect(opt); setOpen(false); }}
+                  className="w-full flex items-center px-5 py-2.5 text-sm font-medium transition-all text-left"
+                  style={{ color: value === opt ? c.blue : c.txt, background: value === opt ? c.blue + "15" : "transparent" }}
+                  onMouseEnter={e => { if (value !== opt) e.currentTarget.style.background = c.blue + "10"; }}
+                  onMouseLeave={e => { if (value !== opt) e.currentTarget.style.background = "transparent"; }}>
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Modal : Transmettre ordonnance à une pharmacie ───────────────────────────
+const PHARMACIES_LIST = [
+  "Pharmacie El Shifa",
+  "Pharmacie Centrale",
+  "Pharmacie de Garde",
+  "Pharmacie Bab Ezzouar",
+  "Pharmacie El Hakim",
+];
+
+function SendToPharmacyModal({ rx, onClose, onConfirm, dk }) {
+  const c = dk ? T.dark : T.light;
+  const [selectedPharmacy, setSelectedPharmacy] = useState("");
+  const [notes, setNotes] = useState("");
+
+  const handleConfirm = () => {
+    if (!selectedPharmacy) return;
+    onConfirm({ pharmacy: selectedPharmacy, notes });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}>
+      <div className="rounded-2xl p-6 w-full max-w-md shadow-2xl border"
+        style={{ background: c.card, borderColor: c.border }}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ background: c.blue + "18" }}>
+              <Send size={18} style={{ color: c.blue }} />
+            </div>
+            <div>
+              <h3 className="font-bold text-base" style={{ color: c.txt }}>Transmettre l'ordonnance</h3>
+              <p className="text-xs" style={{ color: c.txt3 }}>{rx.id}</p>
+            </div>
+          </div>
+          <button onClick={onClose}
+            className="w-8 h-8 rounded-xl flex items-center justify-center border transition-colors hover:opacity-70"
+            style={{ borderColor: c.border, color: c.txt3 }}>
+            <X size={15} />
+          </button>
+        </div>
+
+        {/* Résumé ordonnance */}
+        <div className="p-3 rounded-xl mb-4 border"
+          style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border }}>
+          <p className="text-xs font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>
+            Prescrit par {rx.doctor}
+          </p>
+          <div className="space-y-0.5 mt-1">
+            {rx.meds.map((m, i) => (
+              <p key={i} className="text-xs" style={{ color: c.txt2 }}>• {m}</p>
+            ))}
+          </div>
+        </div>
+
+        {/* Choix pharmacie */}
+        <div className="mb-4">
+          <DashSelect
+            label="Choisir une pharmacie"
+            value={selectedPharmacy}
+            options={PHARMACIES_LIST}
+            onSelect={setSelectedPharmacy}
+            dk={dk} c={c}
+            placeholder="Sélectionner une pharmacie..."
+          />
+        </div>
+
+        {/* Notes */}
+        <div className="mb-5">
+          <label className="block text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt2 }}>
+            Notes pour le pharmacien{" "}
+            <span className="font-normal normal-case" style={{ color: c.txt3 }}>(Optionnel)</span>
+          </label>
+          <textarea
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            rows={3}
+            placeholder="Ex: allergie connue à la pénicilline, prendre avec de la nourriture..."
+            className="w-full px-4 py-3 rounded-xl text-sm outline-none border resize-none"
+            style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border, color: c.txt }}
+          />
+        </div>
+
+        {/* Boutons */}
+        <div className="flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:opacity-80"
+            style={{ borderColor: c.border, color: c.txt2 }}>
+            Annuler
+          </button>
+          <button onClick={handleConfirm} disabled={!selectedPharmacy}
+            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 flex items-center justify-center gap-2"
+            style={{ background: selectedPharmacy ? c.blue : c.txt3 }}>
+            <Send size={14} /> Confirmer l'envoi
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Tracker Click & Collect ──────────────────────────────────────────────────
+function ClickCollectTracker({ ccStatus, pharmacy, dk }) {
+  const c = dk ? T.dark : T.light;
+  const steps = [
+    { key: "sent",      label: "Envoyé",           icon: Send          },
+    { key: "preparing", label: "En préparation",    icon: Clock         },
+    { key: "ready",     label: "Prêt pour retrait", icon: CheckCircle   },
+  ];
+  const currentIdx = steps.findIndex(s => s.key === ccStatus);
+
+  return (
+    <div className="mt-4 pt-4 border-t" style={{ borderColor: c.border }}>
+      <div className="flex items-center gap-2 mb-4">
+        <ShoppingBag size={13} style={{ color: c.blue }} />
+        <p className="text-xs font-bold" style={{ color: c.txt }}>{pharmacy}</p>
+        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full ml-auto"
+          style={{ background: c.blue + "18", color: c.blue }}>
+          Click & Collect
+        </span>
+      </div>
+
+      {/* Steps */}
+      <div className="flex items-start">
+        {steps.map((step, i) => {
+          const done   = i <= currentIdx;
+          const active = i === currentIdx;
+          return (
+            <div key={step.key} className="flex items-center flex-1 last:flex-none">
+              <div className="flex flex-col items-center gap-1.5 min-w-0">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all"
+                  style={{
+                    background: done ? c.blue : dk ? "#1E2A3A" : "#E4EAF5",
+                    boxShadow: active ? `0 0 0 3px ${c.blue}33` : "none",
+                  }}>
+                  <step.icon size={14} style={{ color: done ? "#fff" : c.txt3 }} />
+                </div>
+                <p className="text-[10px] font-semibold text-center leading-tight px-0.5"
+                  style={{ color: done ? c.blue : c.txt3 }}>
+                  {step.label}
+                </p>
+              </div>
+              {i < steps.length - 1 && (
+                <div className="flex-1 h-0.5 mx-2 mb-5 rounded-full transition-all"
+                  style={{ background: i < currentIdx ? c.blue : dk ? "#1E2A3A" : "#E4EAF5" }} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Empty State component ───────────────────────────────────────────────────
 function EmptyState({
   dk,
@@ -3558,6 +3755,14 @@ function PrescriptionsPage({ dk }) {
   const [filter, setFilter] = useState("All");
   const [selectedQr, setSelectedQr] = useState(null);
   const [downloading, setDownloading] = useState(null);
+  // Click & Collect state
+  const [sendingRx, setSendingRx] = useState(null);   // rx en cours d'envoi
+  const [ccStatuses, setCcStatuses] = useState({});   // { [rxId]: { ccStatus, pharmacy, notes } }
+
+  const handleSendConfirm = (rxId, data) => {
+    setCcStatuses(prev => ({ ...prev, [rxId]: { ccStatus: "sent", ...data } }));
+  };
+
   const rxList = [
     {
       id: "RX-2023-0847",
@@ -3621,67 +3826,114 @@ function PrescriptionsPage({ dk }) {
             message={`Aucune ordonnance trouvée pour le filtre "${filter}".`}
           />
         ) : (
-          filteredRxList.map((rx) => (
-            <Card key={rx.id} dk={dk}>
-              <div className="flex gap-4 flex-wrap">
-                <button
-                  onClick={() => setSelectedQr(rx)}
-                  className="w-16 h-16 rounded-xl flex items-center justify-center shrink-0 transition-transform hover:scale-105 shadow-md active:scale-95"
-                  style={{ background: "#000" }}
-                >
-                  <QrCode size={36} className="text-white" />
-                </button>
-                <div className="flex-1 min-w-48">
-                  <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-                    <div>
-                      <p className="font-bold" style={{ color: c.txt }}>
-                        Prescription #{rx.id}
-                      </p>
-                      <p className="text-xs" style={{ color: c.txt2 }}>
-                        Issued by {rx.doctor} · {rx.date}
-                      </p>
-                    </div>
-                    <Badge color={rx.statusColor} bg={rx.statusColor + "18"}>
-                      {rx.status}
-                    </Badge>
-                  </div>
-                  <div className="space-y-1">
-                    {rx.meds.map((m) => (
-                      <p key={m} className="text-sm" style={{ color: c.txt }}>
-                        • {m}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2 shrink-0">
-                  <button
-                    onClick={() => handleDownload(rx.id)}
-                    disabled={downloading === rx.id}
-                    className="text-xs font-semibold px-3 py-2 rounded-lg border transition-colors hover:opacity-80 disabled:opacity-50 flex items-center gap-2 justify-center"
-                    style={{ color: c.txt2, borderColor: c.border }}
-                  >
-                    {downloading === rx.id ? (
-                      <span
-                        className="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin"
-                        style={{ borderColor: c.txt2 }}
-                      ></span>
-                    ) : (
-                      "⬇ PDF"
-                    )}
-                  </button>
+          filteredRxList.map((rx) => {
+            const cc = ccStatuses[rx.id];
+            return (
+              <Card key={rx.id} dk={dk}>
+                <div className="flex gap-4 flex-wrap">
+                  {/* QR button */}
                   <button
                     onClick={() => setSelectedQr(rx)}
-                    className="flex items-center gap-2 justify-center text-xs font-semibold px-3 py-2 rounded-lg text-white transition-colors hover:opacity-80 active:scale-95"
-                    style={{ background: c.blue }}
+                    className="w-16 h-16 rounded-xl flex items-center justify-center shrink-0 transition-transform hover:scale-105 shadow-md active:scale-95"
+                    style={{ background: "#000" }}
                   >
-                    <QrCode size={14} /> Show QR
+                    <QrCode size={36} className="text-white" />
                   </button>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-48">
+                    <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                      <div>
+                        <p className="font-bold" style={{ color: c.txt }}>
+                          Prescription #{rx.id}
+                        </p>
+                        <p className="text-xs" style={{ color: c.txt2 }}>
+                          Issued by {rx.doctor} · {rx.date}
+                        </p>
+                      </div>
+                      <Badge color={rx.statusColor} bg={rx.statusColor + "18"}>
+                        {rx.status}
+                      </Badge>
+                    </div>
+                    <div className="space-y-1">
+                      {rx.meds.map((m) => (
+                        <p key={m} className="text-sm" style={{ color: c.txt }}>
+                          • {m}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex flex-col gap-2 shrink-0">
+                    <button
+                      onClick={() => handleDownload(rx.id)}
+                      disabled={downloading === rx.id}
+                      className="text-xs font-semibold px-3 py-2 rounded-lg border transition-colors hover:opacity-80 disabled:opacity-50 flex items-center gap-2 justify-center"
+                      style={{ color: c.txt2, borderColor: c.border }}
+                    >
+                      {downloading === rx.id ? (
+                        <span
+                          className="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin"
+                          style={{ borderColor: c.txt2 }}
+                        />
+                      ) : (
+                        "⬇ PDF"
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setSelectedQr(rx)}
+                      className="flex items-center gap-2 justify-center text-xs font-semibold px-3 py-2 rounded-lg text-white transition-colors hover:opacity-80 active:scale-95"
+                      style={{ background: c.blue }}
+                    >
+                      <QrCode size={14} /> Show QR
+                    </button>
+
+                    {/* Bouton envoi — visible si ACTIVE et pas encore envoyé */}
+                    {rx.status === "ACTIVE" && !cc && (
+                      <button
+                        onClick={() => setSendingRx(rx)}
+                        className="flex items-center gap-1.5 justify-center text-xs font-bold px-3 py-2 rounded-lg text-white transition-all hover:opacity-90 active:scale-95"
+                        style={{ background: "linear-gradient(135deg, #304B71, #6492C9)" }}
+                      >
+                        <Send size={12} /> Envoyer
+                      </button>
+                    )}
+
+                    {/* Badge "Envoyé" si déjà transmis */}
+                    {cc && (
+                      <div className="flex items-center gap-1.5 justify-center text-[10px] font-bold px-3 py-1.5 rounded-lg"
+                        style={{ background: c.blue + "15", color: c.blue }}>
+                        <CheckCircle size={11} />
+                        {cc.ccStatus === "ready" ? "Prêt !" : "Transmis"}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </Card>
-          ))
+
+                {/* Tracker Click & Collect */}
+                {cc && (
+                  <ClickCollectTracker
+                    ccStatus={cc.ccStatus}
+                    pharmacy={cc.pharmacy}
+                    dk={dk}
+                  />
+                )}
+              </Card>
+            );
+          })
         )}
       </div>
+
+      {/* Modal Transmettre à une pharmacie */}
+      {sendingRx && (
+        <SendToPharmacyModal
+          rx={sendingRx}
+          dk={dk}
+          onClose={() => setSendingRx(null)}
+          onConfirm={(data) => handleSendConfirm(sendingRx.id, data)}
+        />
+      )}
 
       {/* QR Modal Overlay */}
       {selectedQr && (

@@ -5,7 +5,7 @@ import {
   X, Plus, Minus, QrCode, TrendingUp, TrendingDown, AlertCircle,
   Clock, CheckCircle, Eye, Download, Filter, RefreshCw, Truck,
   BarChart2, Users, DollarSign, Archive, User, ChevronRight,
-  Zap, Shield, Activity, Send, Phone
+  Zap, Shield, Activity, Send, Phone, MapPin, Link2
 } from "lucide-react";
 
 // ─── Theme tokens (identique au patient dashboard) ────────────────────────────
@@ -39,11 +39,11 @@ const STOCK = [
 ];
 
 const ORDERS = [
-  { id: "ORD-2026-0481", patient: "Alex Johnson",   doctor: "Dr. Sarah Smith",  date: "Auj. 10:24",  status: "ready",      items: ["Lisinopril 10mg ×30", "Metformin 500mg ×60"], total: 19800, cnas: true  },
-  { id: "ORD-2026-0480", patient: "Samira Meziane", doctor: "Dr. Benali Karim", date: "Auj. 09:51",  status: "processing", items: ["Amoxicillin 500mg ×21"],                      total: 5040,  cnas: true  },
-  { id: "ORD-2026-0479", patient: "Karim Boudali",  doctor: "Dr. Amira Boudali",date: "Hier 16:30",  status: "delivered",  items: ["Aspirin 100mg ×90", "Atorvastatin 20mg ×30"], total: 23700, cnas: false },
-  { id: "ORD-2026-0478", patient: "Fatima Benali",  doctor: "Dr. Sarah Smith",  date: "Hier 14:15",  status: "ready",      items: ["Vitamin D3 2000IU ×60"],                      total: 27000, cnas: false },
-  { id: "ORD-2026-0477", patient: "Omar Meziani",   doctor: "Dr. Karim Benali", date: "Hier 11:00",  status: "delivered",  items: ["Omeprazole 20mg ×30", "Paracetamol 1g ×20"],  total: 9900,  cnas: true  },
+  { id: "ORD-2026-0482", patient: "Alex Johnson",   doctor: "Dr. Sarah Smith",  date: "Auj. 11:05",  status: "new",        items: ["Lisinopril 10mg ×30", "Metformin 500mg ×60"], total: 19800, cnas: true,  source: "click_collect" },
+  { id: "ORD-2026-0481", patient: "Samira Meziane", doctor: "Dr. Benali Karim", date: "Auj. 10:24",  status: "new",        items: ["Amoxicillin 500mg ×21"],                      total: 5040,  cnas: true,  source: "click_collect" },
+  { id: "ORD-2026-0480", patient: "Karim Boudali",  doctor: "Dr. Amira Boudali",date: "Auj. 09:51",  status: "processing", items: ["Aspirin 100mg ×90", "Atorvastatin 20mg ×30"], total: 23700, cnas: false, source: "click_collect" },
+  { id: "ORD-2026-0479", patient: "Fatima Benali",  doctor: "Dr. Sarah Smith",  date: "Hier 16:30",  status: "ready",      items: ["Vitamin D3 2000IU ×60"],                      total: 27000, cnas: false, source: "click_collect" },
+  { id: "ORD-2026-0478", patient: "Omar Meziani",   doctor: "Dr. Karim Benali", date: "Hier 14:15",  status: "delivered",  items: ["Omeprazole 20mg ×30", "Paracetamol 1g ×20"],  total: 9900,  cnas: true,  source: "scan"          },
 ];
 
 const ALERTS = [
@@ -61,11 +61,27 @@ const NOTIFICATIONS = [
 ];
 
 const STATUS_META = {
+  new:        { label: "Nouvelle",   color: "#4A6FA5", bg: "#4A6FA518" },
+  processing: { label: "En prépa.",  color: "#E8A838", bg: "#E8A83818" },
   ready:      { label: "Prêt",       color: "#2D8C6F", bg: "#2D8C6F18" },
-  processing: { label: "En cours",   color: "#E8A838", bg: "#E8A83818" },
-  delivered:  { label: "Livré",      color: "#9AACBE", bg: "#9AACBE18" },
+  delivered:  { label: "Récupéré",   color: "#9AACBE", bg: "#9AACBE18" },
   cancelled:  { label: "Annulé",     color: "#E05555", bg: "#E0555518" },
 };
+
+const WILAYAS_LIST = [
+  "Alger","Oran","Constantine","Annaba","Blida","Batna","Sétif","Tlemcen",
+  "Tizi Ouzou","Béjaïa","Jijel","Médéa","Mostaganem","Bouira","Bordj Bou Arréridj",
+  "Boumerdès","Tipaza","Aïn Defla","Tissemsilt","Relizane","Chlef","Skikda",
+  "Guelma","Souk Ahras","El Tarf","Mila","Khenchela","Oum El Bouaghi","Tébessa",
+  "Biskra","Djelfa","Laghouat","El Bayadh","Naâma","Saïda","Mascara","Tiaret",
+  "Adrar","Béchar","Tamanrasset","Illizi","Tindouf","El Oued","Ouargla",
+  "Ghardaïa","Aïn Témouchent","Sidi Bel Abbès","Autres",
+];
+
+const STOCK_CATEGORIES = [
+  "Cardiologie","Diabétologie","Antibiotiques","Antalgiques",
+  "Gastro","Vitamines","Neurologie","Dermatologie","Pédiatrie","Autres",
+];
 
 // ─── Reusable components ──────────────────────────────────────────────────────
 function Card({ children, className = "", style = {}, dk }) {
@@ -84,6 +100,46 @@ function Badge({ color, bg, children }) {
       style={{ color, background: bg, borderColor: color + "44" }}>
       {children}
     </span>
+  );
+}
+
+// ─── CustomSelect thémé (dark/light) ─────────────────────────────────────────
+function DashSelect({ label, value, options, onSelect, dk, c, placeholder = "Sélectionner..." }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      {label && (
+        <label className="block text-xs font-bold uppercase tracking-wide mb-1.5"
+          style={{ color: c.txt2 }}>{label}</label>
+      )}
+      <div className="relative">
+        <button type="button" onClick={() => setOpen(!open)}
+          className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm outline-none transition-all"
+          style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: open ? c.blue : c.border, color: value ? c.txt : c.txt3 }}>
+          <span>{value || placeholder}</span>
+          <ChevronDown size={16} className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+            style={{ color: c.txt3 }} />
+        </button>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+            <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl border shadow-xl z-50 py-2 max-h-56 overflow-y-auto"
+              style={{ background: dk ? "#141B27" : "#fff", borderColor: c.border }}>
+              {options.map(opt => (
+                <button key={opt} type="button"
+                  onClick={() => { onSelect(opt); setOpen(false); }}
+                  className="w-full flex items-center px-5 py-2.5 text-sm font-medium transition-all text-left"
+                  style={{ color: value === opt ? c.blue : c.txt, background: value === opt ? c.blue + "15" : "transparent" }}
+                  onMouseEnter={e => { if (value !== opt) e.currentTarget.style.background = c.blue + "10"; }}
+                  onMouseLeave={e => { if (value !== opt) e.currentTarget.style.background = "transparent"; }}>
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -184,6 +240,199 @@ function QrModal({ onClose, dk, onScan }) {
         </div>
       </div>
       <style>{`@keyframes scanLine { 0%,100%{top:20%} 50%{top:80%} }`}</style>
+    </div>
+  );
+}
+
+// ─── MODAL: DÉTAILS COMMANDE ──────────────────────────────────────────────────
+function OrderDetailModal({ order, onClose, dk }) {
+  const c = dk ? T.dark : T.light;
+  const st = STATUS_META[order.status];
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}>
+      <div className="rounded-2xl p-6 w-full max-w-md shadow-2xl border"
+        style={{ background: c.card, borderColor: c.border }}>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-bold" style={{ color: c.txt }}>Détails de la commande</h3>
+          <button onClick={onClose}
+            className="w-8 h-8 rounded-xl flex items-center justify-center border transition-colors hover:opacity-70"
+            style={{ borderColor: c.border, color: c.txt3 }}>
+            <X size={15} />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {/* ID + Statut */}
+          <div className="flex items-center justify-between p-4 rounded-xl"
+            style={{ background: dk ? "#1A2333" : "#F8FAFC" }}>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide mb-0.5" style={{ color: c.txt3 }}>Référence</p>
+              <p className="font-bold text-sm" style={{ color: c.txt }}>{order.id}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              {order.cnas && <Badge color={c.blue} bg={c.blueLight}>CNAS</Badge>}
+              <Badge color={st.color} bg={st.bg}>{st.label}</Badge>
+            </div>
+          </div>
+
+          {/* Patient & Médecin */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 rounded-xl" style={{ background: dk ? "#1A2333" : "#F8FAFC" }}>
+              <p className="text-xs font-bold uppercase tracking-wide mb-0.5" style={{ color: c.txt3 }}>Patient</p>
+              <p className="text-sm font-semibold" style={{ color: c.txt }}>{order.patient}</p>
+            </div>
+            <div className="p-3 rounded-xl" style={{ background: dk ? "#1A2333" : "#F8FAFC" }}>
+              <p className="text-xs font-bold uppercase tracking-wide mb-0.5" style={{ color: c.txt3 }}>Médecin</p>
+              <p className="text-sm font-semibold" style={{ color: c.txt }}>{order.doctor}</p>
+            </div>
+          </div>
+
+          {/* Médicaments */}
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>Médicaments prescrits</p>
+            <div className="space-y-2">
+              {order.items.map((item, i) => (
+                <div key={i} className="flex items-center gap-3 p-3 rounded-xl"
+                  style={{ background: dk ? "#1A2333" : "#F8FAFC" }}>
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ background: c.blueLight }}>
+                    <Pill size={13} style={{ color: c.blue }} />
+                  </div>
+                  <p className="text-sm" style={{ color: c.txt }}>{item}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Total */}
+          <div className="flex items-center justify-between p-4 rounded-xl border-2"
+            style={{ background: c.blueLight, borderColor: c.blue + "33" }}>
+            <p className="font-bold" style={{ color: c.txt }}>Total à payer</p>
+            <p className="text-xl font-bold" style={{ color: c.blue }}>
+              {order.total.toLocaleString()} DZD
+            </p>
+          </div>
+        </div>
+
+        <button onClick={onClose}
+          className="w-full mt-5 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:opacity-80"
+          style={{ borderColor: c.border, color: c.txt2 }}>
+          Fermer
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── MODAL: AJOUTER UN ARTICLE (STOCK) ───────────────────────────────────────
+function AddItemModal({ onClose, onAdd, dk }) {
+  const c = dk ? T.dark : T.light;
+  const [form, setForm] = useState({
+    name: "", molecule: "", category: "", expiry: "",
+    qty: "", min: "", price: "",
+  });
+
+  const inputStyle = { background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border, color: c.txt };
+  const labelCls = "block text-xs font-bold uppercase tracking-wide mb-1.5";
+
+  const handleAdd = () => {
+    if (!form.name.trim() || !form.category) return;
+    onAdd({
+      id: Date.now(),
+      name:     form.name,
+      molecule: form.molecule,
+      category: form.category,
+      expiry:   form.expiry || "2027-01-01",
+      qty:      parseInt(form.qty)   || 0,
+      min:      parseInt(form.min)   || 0,
+      price:    parseInt(form.price) || 0,
+      cnas:     false,
+    });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}>
+      <div className="rounded-2xl p-6 w-full max-w-md shadow-2xl border"
+        style={{ background: c.card, borderColor: c.border }}>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-bold" style={{ color: c.txt }}>Ajouter un article</h3>
+          <button onClick={onClose}
+            className="w-8 h-8 rounded-xl flex items-center justify-center border transition-colors hover:opacity-70"
+            style={{ borderColor: c.border, color: c.txt3 }}>
+            <X size={15} />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {/* Nom du médicament */}
+          <div>
+            <label className={labelCls} style={{ color: c.txt2 }}>Nom du médicament</label>
+            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+              placeholder="Ex: Paracetamol 500mg"
+              className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
+              style={inputStyle} />
+          </div>
+
+          {/* Molécule */}
+          <div>
+            <label className={labelCls} style={{ color: c.txt2 }}>Molécule</label>
+            <input value={form.molecule} onChange={e => setForm(f => ({ ...f, molecule: e.target.value }))}
+              placeholder="Ex: Acetaminophen"
+              className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
+              style={inputStyle} />
+          </div>
+
+          {/* Catégorie — DashSelect */}
+          <DashSelect
+            label="Catégorie" value={form.category} options={STOCK_CATEGORIES}
+            onSelect={v => setForm(f => ({ ...f, category: v }))}
+            dk={dk} c={c} placeholder="Choisir une catégorie..." />
+
+          {/* Date d'expiration */}
+          <div>
+            <label className={labelCls} style={{ color: c.txt2 }}>Date d'expiration</label>
+            <input type="date" value={form.expiry}
+              onChange={e => setForm(f => ({ ...f, expiry: e.target.value }))}
+              className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
+              style={inputStyle} />
+          </div>
+
+          {/* Champs numériques */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: "Qté en stock", key: "qty",   placeholder: "0" },
+              { label: "Qté min. alerte", key: "min",   placeholder: "0" },
+              { label: "Prix (DZD)",   key: "price", placeholder: "0" },
+            ].map(f => (
+              <div key={f.key}>
+                <label className={labelCls} style={{ color: c.txt2 }}>{f.label}</label>
+                <input
+                  value={form[f.key]}
+                  onChange={e => { const val = e.target.value.replace(/\D/g, ""); setForm(p => ({ ...p, [f.key]: val })); }}
+                  placeholder={f.placeholder}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
+                  style={inputStyle} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex gap-3 mt-6">
+          <button onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:opacity-80"
+            style={{ borderColor: c.border, color: c.txt2 }}>
+            Annuler
+          </button>
+          <button onClick={handleAdd}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
+            style={{ background: c.blue, opacity: !form.name || !form.category ? 0.5 : 1 }}>
+            Enregistrer
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -363,8 +612,12 @@ function StockPage({ dk }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all"); // all | critical | ok
   const [editQty, setEditQty] = useState(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addedItems, setAddedItems] = useState([]);
 
-  const filtered = STOCK.filter(s => {
+  const allStock = [...STOCK, ...addedItems];
+
+  const filtered = allStock.filter(s => {
     const matchSearch = s.name.toLowerCase().includes(search.toLowerCase()) ||
                         s.molecule.toLowerCase().includes(search.toLowerCase());
     if (filter === "critical") return matchSearch && s.qty < s.min;
@@ -381,12 +634,21 @@ function StockPage({ dk }) {
 
   return (
     <>
+      {showAddModal && (
+        <AddItemModal
+          dk={dk}
+          onClose={() => setShowAddModal(false)}
+          onAdd={item => setAddedItems(prev => [...prev, item])}
+        />
+      )}
+
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: c.txt }}>Gestion du Stock</h1>
-          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>{STOCK.length} références · {STOCK.filter(s => s.qty < s.min).length} en rupture</p>
+          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>{allStock.length} références · {allStock.filter(s => s.qty < s.min).length} en rupture</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90"
+        <button onClick={() => setShowAddModal(true)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90"
           style={{ background: c.blue }}>
           <Plus size={15} /> Ajouter un article
         </button>
@@ -499,29 +761,44 @@ function StockPage({ dk }) {
 // ─── PAGE: COMMANDES ──────────────────────────────────────────────────────────
 function CommandesPage({ dk }) {
   const c = dk ? T.dark : T.light;
-  const [tab, setTab] = useState("all");
-  const [showQr, setShowQr] = useState(false);
-  const [orders, setOrders] = useState(ORDERS);
+  const [tab, setTab]                   = useState("all");
+  const [showQr, setShowQr]             = useState(false);
+  const [orders, setOrders]             = useState(ORDERS);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+
+  const newCount = orders.filter(o => o.status === "new").length;
 
   const tabs = [
-    { id: "all",        label: "Toutes",    count: orders.length },
-    { id: "ready",      label: "Prêtes",    count: orders.filter(o => o.status === "ready").length },
-    { id: "processing", label: "En cours",  count: orders.filter(o => o.status === "processing").length },
-    { id: "delivered",  label: "Livrées",   count: orders.filter(o => o.status === "delivered").length },
+    { id: "all",        label: "Toutes",       count: orders.length },
+    { id: "new",        label: "Nouvelles",     count: newCount, accent: true },
+    { id: "processing", label: "En prépa.",     count: orders.filter(o => o.status === "processing").length },
+    { id: "ready",      label: "Prêtes",        count: orders.filter(o => o.status === "ready").length },
+    { id: "delivered",  label: "Récupérées",    count: orders.filter(o => o.status === "delivered").length },
   ];
 
   const displayed = tab === "all" ? orders : orders.filter(o => o.status === tab);
 
-  const markReady = (id) => setOrders(prev => prev.map(o => o.id === id ? { ...o, status: "ready" } : o));
-  const markDelivered = (id) => setOrders(prev => prev.map(o => o.id === id ? { ...o, status: "delivered" } : o));
+  const acceptOrder   = (id) => setOrders(prev => prev.map(o => o.id === id ? { ...o, status: "processing" } : o));
+  const markReady     = (id) => setOrders(prev => prev.map(o => o.id === id ? { ...o, status: "ready"      } : o));
+  const markDelivered = (id) => setOrders(prev => prev.map(o => o.id === id ? { ...o, status: "delivered"  } : o));
 
   return (
     <>
       {showQr && <QrModal dk={dk} onClose={() => setShowQr(false)} onScan={() => {}} />}
+      {selectedOrder && (
+        <OrderDetailModal order={selectedOrder} dk={dk} onClose={() => setSelectedOrder(null)} />
+      )}
+
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: c.txt }}>Commandes</h1>
-          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>Gérez les ordonnances et dispensations</p>
+          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
+            Gérez les ordonnances et dispensations
+            {newCount > 0 && (
+              <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full text-white"
+                style={{ background: c.blue }}>{newCount} nouvelle{newCount > 1 ? "s" : ""}</span>
+            )}
+          </p>
         </div>
         <button onClick={() => setShowQr(true)}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90"
@@ -531,14 +808,21 @@ function CommandesPage({ dk }) {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b mb-5" style={{ borderColor: c.border }}>
+      <div className="flex gap-1 border-b mb-5 overflow-x-auto" style={{ borderColor: c.border, scrollbarWidth: "none" }}>
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition-all"
-            style={{ color: tab === t.id ? c.blue : c.txt2, borderBottom: tab === t.id ? `2px solid ${c.blue}` : "2px solid transparent", marginBottom: -1 }}>
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition-all whitespace-nowrap shrink-0"
+            style={{
+              color: tab === t.id ? c.blue : c.txt2,
+              borderBottom: tab === t.id ? `2px solid ${c.blue}` : "2px solid transparent",
+              marginBottom: -1,
+            }}>
             {t.label}
             <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
-              style={{ background: tab === t.id ? c.blue : c.blueLight, color: tab === t.id ? "#fff" : c.txt3 }}>
+              style={{
+                background: tab === t.id ? c.blue : t.accent && t.count > 0 ? c.blue + "22" : c.blueLight,
+                color:      tab === t.id ? "#fff"   : t.accent && t.count > 0 ? c.blue       : c.txt3,
+              }}>
               {t.count}
             </span>
           </button>
@@ -547,23 +831,48 @@ function CommandesPage({ dk }) {
 
       {/* Orders list */}
       <div className="space-y-4">
+        {displayed.length === 0 && (
+          <div className="text-center py-12" style={{ color: c.txt3 }}>
+            <ShoppingCart size={32} className="mx-auto mb-3 opacity-40" />
+            <p className="text-sm font-semibold">Aucune commande dans cet onglet</p>
+          </div>
+        )}
         {displayed.map(o => {
           const st = STATUS_META[o.status];
+          const isNew        = o.status === "new";
+          const isProcessing = o.status === "processing";
+          const isReady      = o.status === "ready";
+          const isDelivered  = o.status === "delivered";
+
           return (
-            <Card key={o.id} dk={dk} style={{ padding: "16px 20px" }}>
+            <Card key={o.id} dk={dk} style={{
+              padding: "16px 20px",
+              borderColor: isNew ? c.blue + "44" : undefined,
+              boxShadow:   isNew ? `0 0 0 1px ${c.blue}22, 0 2px 12px ${c.blue}12` : undefined,
+            }}>
               <div className="flex items-start gap-4 flex-wrap">
-                {/* QR icon */}
-                <div className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0"
-                  style={{ background: "#000" }}>
-                  <QrCode size={28} className="text-white" />
+
+                {/* Icône source */}
+                <div className="w-14 h-14 rounded-xl flex flex-col items-center justify-center shrink-0 gap-1"
+                  style={{ background: isNew ? c.blue + "15" : "#000", border: isNew ? `1.5px solid ${c.blue}44` : "none" }}>
+                  {o.source === "click_collect"
+                    ? <Send size={22} style={{ color: isNew ? c.blue : "#fff" }} />
+                    : <QrCode size={28} className="text-white" />
+                  }
+                  {o.source === "click_collect" && (
+                    <span className="text-[8px] font-bold" style={{ color: isNew ? c.blue : "#fff9" }}>C&amp;C</span>
+                  )}
                 </div>
 
                 {/* Info */}
                 <div className="flex-1 min-w-48">
-                  <div className="flex items-center gap-3 flex-wrap mb-1">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
                     <p className="font-bold" style={{ color: c.txt }}>{o.id}</p>
                     <Badge color={st.color} bg={st.bg}>{st.label}</Badge>
                     {o.cnas && <Badge color={c.blue} bg={c.blueLight}>CNAS</Badge>}
+                    {o.source === "click_collect" && (
+                      <Badge color="#7B5EA7" bg="#7B5EA718">Click &amp; Collect</Badge>
+                    )}
                   </div>
                   <p className="text-sm font-semibold mb-0.5" style={{ color: c.txt }}>
                     👤 {o.patient}
@@ -576,35 +885,60 @@ function CommandesPage({ dk }) {
                   </div>
                 </div>
 
-                {/* Right */}
+                {/* Right — total + actions */}
                 <div className="text-right shrink-0">
                   <p className="text-lg font-bold mb-0.5" style={{ color: c.blue }}>
                     {o.total.toLocaleString()} DZD
                   </p>
                   <p className="text-xs mb-3" style={{ color: c.txt3 }}>{o.date}</p>
-                  {/* Actions */}
+
                   <div className="flex flex-col gap-2">
-                    {o.status === "processing" && (
+                    {/* Nouvelle → Accepter & Préparer (Bleu) */}
+                    {isNew && (
+                      <button onClick={() => acceptOrder(o.id)}
+                        className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95"
+                        style={{ background: "linear-gradient(135deg, #304B71, #6492C9)" }}>
+                        <Check size={13} strokeWidth={3} /> Accepter &amp; Préparer
+                      </button>
+                    )}
+
+                    {/* En préparation → Marquer Prêt (Vert) */}
+                    {isProcessing && (
                       <button onClick={() => markReady(o.id)}
-                        className="px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90"
+                        className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95"
                         style={{ background: c.green }}>
-                        ✓ Marquer prêt
+                        <CheckCircle size={13} /> Marquer Prêt
                       </button>
                     )}
-                    {o.status === "ready" && (
+
+                    {/* Prêt → Livré / Récupéré (Gris neutre) */}
+                    {isReady && (
                       <button onClick={() => markDelivered(o.id)}
-                        className="px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90"
-                        style={{ background: c.blue }}>
-                        🚚 Livré
+                        className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all hover:opacity-80 active:scale-95"
+                        style={{ background: c.blueLight, color: c.txt2, border: `1px solid ${c.border}` }}>
+                        <Truck size={13} /> Récupéré
                       </button>
                     )}
-                    <button className="px-4 py-2 rounded-xl text-xs font-semibold border transition-all hover:opacity-80"
+
+                    {/* Bouton Détails — toujours visible */}
+                    <button onClick={() => setSelectedOrder(o)}
+                      className="px-4 py-2 rounded-xl text-xs font-semibold border transition-all hover:opacity-80"
                       style={{ borderColor: c.border, color: c.txt2 }}>
                       👁 Détails
                     </button>
                   </div>
                 </div>
               </div>
+
+              {/* Barre de progression si "new" — attire l'attention */}
+              {isNew && (
+                <div className="mt-3 flex items-center gap-2 pt-3 border-t" style={{ borderColor: c.blue + "22" }}>
+                  <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: c.blue }} />
+                  <p className="text-xs font-semibold" style={{ color: c.blue }}>
+                    Ordonnance reçue — en attente d'acceptation
+                  </p>
+                </div>
+              )}
             </Card>
           );
         })}
@@ -743,12 +1077,23 @@ function StatistiquesPage({ dk }) {
 // ─── PAGE: PARAMÈTRES ─────────────────────────────────────────────────────────
 function ParametresPage({ dk, onToggleDark }) {
   const c = dk ? T.dark : T.light;
-  const [form, setForm] = useState({
-    name: "Pharmacie El Shifa",
-    address: "12 Rue Didouche Mourad, Alger Centre",
-    phone: "+213 21 63 44 17",
-    license: "PH-16-2018-0472",
+
+  const [locForm, setLocForm] = useState({
+    address: "12 Rue Didouche Mourad",
+    commune: "Alger-Centre",
+    wilaya:  "Alger",
+    mapsUrl: "",
   });
+  const [locSaved, setLocSaved] = useState(false);
+
+  const inputCls   = "w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition-all focus:ring-2";
+  const inputStyle = { background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border, color: c.txt };
+  const labelCls   = "block text-xs font-bold uppercase tracking-wide mb-1.5";
+
+  const handleSaveLocation = () => {
+    setLocSaved(true);
+    setTimeout(() => setLocSaved(false), 3000);
+  };
 
   return (
     <>
@@ -756,64 +1101,182 @@ function ParametresPage({ dk, onToggleDark }) {
         <h1 className="text-2xl font-bold" style={{ color: c.txt }}>Paramètres</h1>
         <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>Configuration de la pharmacie</p>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <Card dk={dk}>
-          <p className="font-semibold mb-5" style={{ color: c.txt }}>Informations pharmacie</p>
-          {[
-            { label: "Nom de la pharmacie", key: "name" },
-            { label: "Adresse", key: "address" },
-            { label: "Téléphone", key: "phone" },
-            { label: "N° Licence", key: "license" },
-          ].map(f => (
-            <div key={f.key} className="mb-4">
-              <label className="block text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt2 }}>{f.label}</label>
-              <input value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
-                style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border, color: c.txt }} />
+
+      {/* ── Clinic Location & Maps ── */}
+      <Card dk={dk} className="mb-5">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: c.blue + "18" }}>
+            <MapPin size={18} style={{ color: c.blue }} />
+          </div>
+          <div>
+            <p className="font-bold text-base" style={{ color: c.txt }}>Clinic Location & Maps</p>
+            <p className="text-xs" style={{ color: c.txt3 }}>Gérez l'adresse visible par les patients</p>
+          </div>
+        </div>
+
+        {locSaved && (
+          <div className="mb-5 p-3 rounded-xl text-xs font-semibold flex items-center gap-2"
+            style={{ background: "#2D8C6F12", color: "#2D8C6F", border: "1px solid #2D8C6F44" }}>
+            <Check size={14} /> Localisation mise à jour avec succès ✅
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left : formulaire */}
+          <div className="space-y-5">
+            <div>
+              <label className={labelCls} style={{ color: c.txt2 }}>Adresse de l'établissement</label>
+              <input type="text" placeholder="Ex: 12 Rue Didouche Mourad"
+                value={locForm.address}
+                onChange={e => setLocForm(f => ({ ...f, address: e.target.value }))}
+                className={inputCls} style={inputStyle} />
             </div>
-          ))}
-          <button className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ background: c.blue }}>
-            Enregistrer
-          </button>
+
+            <div>
+              <label className={labelCls} style={{ color: c.txt2 }}>Commune</label>
+              <input type="text" placeholder="Ex: Alger-Centre"
+                value={locForm.commune}
+                onChange={e => setLocForm(f => ({ ...f, commune: e.target.value }))}
+                className={inputCls} style={inputStyle} />
+            </div>
+
+            {/* Wilaya — DashSelect */}
+            <DashSelect
+              label="Wilaya" value={locForm.wilaya} options={WILAYAS_LIST}
+              onSelect={v => setLocForm(f => ({ ...f, wilaya: v }))}
+              dk={dk} c={c} />
+
+            {/* Lien Google Maps */}
+            <div>
+              <label className={labelCls} style={{ color: c.txt2 }}>Lien Google Maps (Optionnel)</label>
+              <div className="relative">
+                <input type="text" placeholder="Collez l'URL Google Maps ici..."
+                  value={locForm.mapsUrl}
+                  onChange={e => setLocForm(f => ({ ...f, mapsUrl: e.target.value }))}
+                  className={`${inputCls} pl-10`} style={inputStyle} />
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: c.txt3 }}>
+                  <Link2 size={15} />
+                </div>
+              </div>
+            </div>
+
+            <button onClick={handleSaveLocation}
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
+              style={{ background: `linear-gradient(135deg, #304B71, ${c.blue})` }}>
+              <MapPin size={15} /> Mettre à jour la carte
+            </button>
+          </div>
+
+          {/* Right : Map Preview avec Smart Parser */}
+          <div className="flex flex-col gap-3">
+            <label className={labelCls} style={{ color: c.txt2 }}>Map Preview</label>
+            {(() => {
+              const addressQuery = [locForm.address, locForm.commune, locForm.wilaya]
+                .filter(Boolean).join(", ");
+              let embedSrc = null;
+              let openUrl  = locForm.mapsUrl || null;
+
+              if (locForm.mapsUrl) {
+                if (locForm.mapsUrl.includes("output=embed") || locForm.mapsUrl.includes("/embed")) {
+                  embedSrc = locForm.mapsUrl;
+                } else {
+                  const rawCoord  = locForm.mapsUrl.match(/^(-?\d+\.\d+)[,\s]+(-?\d+\.\d+)$/);
+                  const coordMatch = locForm.mapsUrl.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+                  const placeMatch = locForm.mapsUrl.match(/\/place\/([^\/]+)/);
+                  if (rawCoord)
+                    embedSrc = `https://maps.google.com/maps?q=${rawCoord[1]},${rawCoord[2]}&hl=fr&z=15&output=embed`;
+                  else if (coordMatch)
+                    embedSrc = `https://maps.google.com/maps?q=${coordMatch[1]},${coordMatch[2]}&hl=fr&z=15&output=embed`;
+                  else if (placeMatch)
+                    embedSrc = `https://maps.google.com/maps?q=${placeMatch[1]}&hl=fr&z=15&output=embed`;
+                  else
+                    embedSrc = `https://maps.google.com/maps?q=${encodeURIComponent(locForm.mapsUrl)}&hl=fr&z=15&output=embed`;
+                }
+              } else if (addressQuery) {
+                embedSrc = `https://maps.google.com/maps?q=${encodeURIComponent(addressQuery)}&hl=fr&z=15&output=embed`;
+                openUrl  = `https://maps.google.com/maps?q=${encodeURIComponent(addressQuery)}`;
+              }
+
+              return embedSrc ? (
+                <div className="relative flex-1 min-h-[280px] rounded-2xl overflow-hidden border-2 transition-all"
+                  style={{ borderColor: c.blue + "55", background: c.card }}>
+                  <iframe
+                    key={embedSrc} title="Map Preview" src={embedSrc}
+                    width="100%" height="100%"
+                    style={{ border: 0, minHeight: 280, display: "block" }}
+                    allowFullScreen="" loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade" />
+                  {openUrl && (
+                    <a href={openUrl} target="_blank" rel="noopener noreferrer"
+                      className="absolute bottom-3 right-3 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-white shadow-lg transition-all hover:opacity-90"
+                      style={{ background: c.blue }}>
+                      <MapPin size={12} /> Ouvrir dans Maps
+                    </a>
+                  )}
+                </div>
+              ) : (
+                <div className="flex-1 min-h-[280px] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-3"
+                  style={{ background: dk ? "#0D1117" : "#F4F8FB", borderColor: c.border }}>
+                  <div className="relative">
+                    <div className="w-14 h-14 rounded-full flex items-center justify-center"
+                      style={{ background: c.blue + "18" }}>
+                      <MapPin size={28} style={{ color: c.blue }} />
+                    </div>
+                    <div className="absolute inset-0 rounded-full animate-ping opacity-20"
+                      style={{ background: c.blue }} />
+                  </div>
+                  <div className="text-center px-4">
+                    <p className="text-sm font-bold" style={{ color: c.txt }}>Map Preview</p>
+                    <p className="text-xs mt-1" style={{ color: c.txt3 }}>
+                      Collez une URL Maps ou entrez votre adresse
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      </Card>
+
+      {/* ── Préférences + CNAS + À propos ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <Card dk={dk}>
+          <p className="font-semibold mb-5" style={{ color: c.txt }}>Préférences</p>
+          <div className="space-y-4">
+            {[
+              { label: "Alertes stock critique", on: true  },
+              { label: "Notifications CNAS",      on: true  },
+              { label: "Rappels expiration",       on: true  },
+              { label: "Mode sombre",              on: dk, toggle: true },
+            ].map(item => (
+              <div key={item.label} className="flex items-center justify-between">
+                <span className="text-sm" style={{ color: c.txt }}>{item.label}</span>
+                <button onClick={item.toggle ? onToggleDark : undefined}
+                  className="relative w-10 h-5 rounded-full transition-colors"
+                  style={{ background: item.on ? c.blue : c.border }}>
+                  <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all"
+                    style={{ left: item.on ? "22px" : "2px" }} />
+                </button>
+              </div>
+            ))}
+          </div>
         </Card>
 
-        <div className="space-y-5">
-          <Card dk={dk}>
-            <p className="font-semibold mb-5" style={{ color: c.txt }}>Préférences</p>
-            <div className="space-y-4">
-              {[
-                { label: "Alertes stock critique",   on: true  },
-                { label: "Notifications CNAS",        on: true  },
-                { label: "Rappels expiration",        on: true  },
-                { label: "Mode sombre",               on: dk, toggle: true },
-              ].map((item, i) => (
-                <div key={item.label} className="flex items-center justify-between">
-                  <span className="text-sm" style={{ color: c.txt }}>{item.label}</span>
-                  <button onClick={item.toggle ? onToggleDark : undefined}
-                    className="relative w-10 h-5 rounded-full transition-colors"
-                    style={{ background: item.on ? c.blue : c.border }}>
-                    <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all"
-                      style={{ left: item.on ? "22px" : "2px" }} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </Card>
-          <Card dk={dk}>
-            <p className="font-semibold mb-3" style={{ color: c.txt }}>Connexion CNAS</p>
-            <div className="flex items-center gap-3 p-3 rounded-xl mb-3"
-              style={{ background: "#2D8C6F12", border: "1px solid #2D8C6F30" }}>
-              <CheckCircle size={18} style={{ color: c.green }} />
-              <p className="text-sm font-semibold" style={{ color: c.green }}>Connecté — Conventionné</p>
-            </div>
-            <p className="text-xs" style={{ color: c.txt3 }}>Dernière sync : Aujourd'hui 08:32</p>
-          </Card>
-          <Card dk={dk}>
-            <p className="font-semibold mb-2" style={{ color: c.txt }}>À propos</p>
-            <p className="text-sm" style={{ color: c.txt2 }}>MedSmart Pharmacie v2.1.0</p>
-            <p className="text-xs mt-1" style={{ color: c.txt3 }}>CNAS Certifié · Hébergé en Algérie</p>
-          </Card>
-        </div>
+        <Card dk={dk}>
+          <p className="font-semibold mb-3" style={{ color: c.txt }}>Connexion CNAS</p>
+          <div className="flex items-center gap-3 p-3 rounded-xl mb-3"
+            style={{ background: "#2D8C6F12", border: "1px solid #2D8C6F30" }}>
+            <CheckCircle size={18} style={{ color: c.green }} />
+            <p className="text-sm font-semibold" style={{ color: c.green }}>Connecté — Conventionné</p>
+          </div>
+          <p className="text-xs" style={{ color: c.txt3 }}>Dernière sync : Aujourd'hui 08:32</p>
+        </Card>
+
+        <Card dk={dk}>
+          <p className="font-semibold mb-2" style={{ color: c.txt }}>À propos</p>
+          <p className="text-sm" style={{ color: c.txt2 }}>MedSmart Pharmacie v2.1.0</p>
+          <p className="text-xs mt-1" style={{ color: c.txt3 }}>CNAS Certifié · Hébergé en Algérie</p>
+        </Card>
       </div>
     </>
   );

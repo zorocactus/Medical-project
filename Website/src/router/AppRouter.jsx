@@ -109,17 +109,34 @@ export default function AppRouter() {
   // =========================================================================
 
   const FORCE_TEST = true; // Mettre à true pour activer le bypass
-  const FORCE_ROLE = "doctor"; // Choix: "patient", "doctor", "pharmacist", "admin"
+  const [forcedRole, setForcedRole] = useState("pharmacist"); // Choix: "patient", "doctor", "pharmacist", "admin"
 
   if (FORCE_TEST) {
-    if (FORCE_ROLE === "patient")
-      return <PatientDashboard onLogout={() => console.log("Logout!")} />;
-    if (FORCE_ROLE === "doctor")
-      return <DoctorDashboard onLogout={() => console.log("Logout!")} />;
-    if (FORCE_ROLE === "pharmacist")
-      return <PharmacistDashboard onLogout={() => console.log("Logout!")} />;
-    if (FORCE_ROLE === "admin")
-      return <AdminDashboard onLogout={() => console.log("Logout!")} />;
+    const ROLE_MAP = {
+      patient:    <PatientDashboard    onLogout={() => console.log("Logout!")} />,
+      doctor:     <DoctorDashboard     onLogout={() => console.log("Logout!")} />,
+      pharmacist: <PharmacistDashboard onLogout={() => console.log("Logout!")} />,
+      admin:      <AdminDashboard      onLogout={() => console.log("Logout!")} />,
+    };
+    const devRoles = ["patient", "doctor", "pharmacist", "admin"];
+    return (
+      <>
+        {ROLE_MAP[forcedRole]}
+        {/* ⚡ Dev Menu Flottant */}
+        <div className="fixed bottom-4 right-4 z-[9999] flex gap-2 p-2 bg-[#0D2644] rounded-2xl shadow-2xl border border-white/10">
+          {devRoles.map(role => (
+            <button
+              key={role}
+              onClick={() => setForcedRole(role)}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold text-white capitalize transition-all hover:opacity-90"
+              style={{ background: forcedRole === role ? "#6492C9" : "transparent" }}
+            >
+              {role}
+            </button>
+          ))}
+        </div>
+      </>
+    );
   }
 
   // =========================================================================
