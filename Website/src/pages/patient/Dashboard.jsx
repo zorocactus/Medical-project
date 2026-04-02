@@ -42,6 +42,9 @@ import {
   Zap,
   Eye,
   EyeOff,
+  ArrowRight,
+  Maximize2,
+  MessageSquare,
 } from "lucide-react";
 
 // ─── Theme tokens ─────────────────────────────────────────────────────────────
@@ -82,23 +85,19 @@ const T = {
 const APPOINTMENTS = [
   {
     id: 1,
-    doctor_name: "Dr. Sarah Smith",
-    doctor_specialty: "Cardiologist",
-    slot_date: "Oct 24, 2023",
-    slot_start_time: "10:30:00",
+    name: "Dr. Sarah Smith",
+    role: "Cardiologist",
+    date: "Oct 24, 10:30 AM",
     initials: "SS",
     color: "#4A6FA5",
-    status: "confirmed",
   },
   {
     id: 2,
-    doctor_name: "Dr. Michael Chen",
-    doctor_specialty: "Dermatologist",
-    slot_date: "Nov 02, 2023",
-    slot_start_time: "14:15:00",
+    name: "Dr. Michael Chen",
+    role: "Dermatologist",
+    date: "Nov 02, 2:15 PM",
     initials: "MC",
     color: "#2D8C6F",
-    status: "pending",
   },
 ];
 const MEDICATIONS = [
@@ -114,25 +113,6 @@ const MEDICATIONS = [
     name: "Metformin (500mg)",
     time: "8:00 PM · 1 Tablet",
     taken: false,
-  },
-];
-
-const VISIT_SUMMARIES = [
-  {
-    id: 1,
-    date: "Oct 12, 2023",
-    doctor: "Dr. Sarah Smith",
-    reason: "Cardiology Follow-up",
-    notes: "Patient reports stable glucose levels. Reduced Metformin dosage.",
-    recommendations: "Continue daily walking, monitor heart rate.",
-  },
-  {
-    id: 2,
-    date: "Sep 28, 2023",
-    doctor: "Dr. Benali Karim",
-    reason: "General Consultation",
-    notes: "Seasonal allergies symptoms observed.",
-    recommendations: "Prescribed antihistamines for 10 days.",
   },
 ];
 const NOTIFICATIONS_DATA = [
@@ -320,7 +300,13 @@ function Badge({ color, bg, children }) {
 }
 
 // ─── Empty State component ───────────────────────────────────────────────────
-function EmptyState({ dk, icon: Icon = FileText, title, message, compact = false }) {
+function EmptyState({
+  dk,
+  icon: Icon = FileText,
+  title,
+  message,
+  compact = false,
+}) {
   const c = dk ? T.dark : T.light;
   return (
     <Card
@@ -462,7 +448,7 @@ function DashboardPage({
   const c = dk ? T.dark : T.light;
 
   const firstName = userData?.first_name || "Guest";
-  const safeAppts = (Array.isArray(appointments) && appointments.length > 0) ? appointments : APPOINTMENTS;
+  const safeAppts = Array.isArray(appointments) ? appointments : [];
   const upcomingAppts =
     safeAppts.filter(
       (a) => a.status === "confirmed" || a.status === "pending",
@@ -584,24 +570,12 @@ function DashboardPage({
                         <Calendar size={20} style={{ color: c.blue }} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mt-1">
-                          <p
-                            className="text-sm font-bold truncate"
-                            style={{ color: c.txt }}
-                          >
-                            {a.doctor_name || "Médecin Inconnu"}
-                          </p>
-                          {a.status === "pending" && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30">
-                              En attente
-                            </span>
-                          )}
-                          {a.status === "confirmed" && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/30">
-                              Confirmé
-                            </span>
-                          )}
-                        </div>
+                        <p
+                          className="text-sm font-bold truncate"
+                          style={{ color: c.txt }}
+                        >
+                          {a.doctor_name || "Médecin Inconnu"}
+                        </p>
                         <p
                           className="text-xs font-medium opacity-70"
                           style={{ color: c.txt2 }}
@@ -953,7 +927,6 @@ function MedicalProfilePage({ dk, profile, userId }) {
     "prescriptions",
     "analyses",
     "treatments",
-    "visits",
   ];
   const safeProfile = profile || {};
 
@@ -1213,24 +1186,6 @@ function MedicalProfilePage({ dk, profile, userId }) {
           )}
           {tab === "analyses" && (
             <div className="space-y-4">
-              <Card
-                dk={dk}
-                className="border-dashed border-2 flex flex-col items-center justify-center py-10 cursor-pointer hover:bg-opacity-50 transition-all"
-                style={{ borderColor: c.blue + "66", background: "transparent" }}
-              >
-                <div
-                  className="w-12 h-12 rounded-full flex items-center justify-center mb-3"
-                  style={{ background: c.blue + "15" }}
-                >
-                  <Plus size={24} style={{ color: c.blue }} />
-                </div>
-                <p className="font-bold text-sm" style={{ color: c.txt }}>
-                  Upload Lab Results or X-Ray
-                </p>
-                <p className="text-xs mt-1" style={{ color: c.txt2 }}>
-                  PDF, JPG or PNG (max 10MB)
-                </p>
-              </Card>
               {data.analyses.length === 0 ? (
                 <EmptyState
                   dk={dk}
@@ -1314,71 +1269,6 @@ function MedicalProfilePage({ dk, profile, userId }) {
                   </Card>
                 ))
               )}
-            </div>
-          )}
-          {tab === "visits" && (
-            <div className="space-y-5">
-              {VISIT_SUMMARIES.map((v) => (
-                <Card key={v.id} dk={dk} className="relative overflow-hidden">
-                  <div
-                    className="absolute top-0 left-0 w-1 h-full"
-                    style={{ background: c.blue }}
-                  />
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-10 h-10 rounded-xl flex items-center justify-center"
-                        style={{ background: c.blue + "12" }}
-                      >
-                        <FileText size={18} style={{ color: c.blue }} />
-                      </div>
-                      <div>
-                        <p className="font-bold text-sm" style={{ color: c.txt }}>
-                          {v.reason}
-                        </p>
-                        <p className="text-xs" style={{ color: c.txt2 }}>
-                          {v.date} · {v.doctor}
-                        </p>
-                      </div>
-                    </div>
-                    <Badge color={c.blue} bg={c.blue + "12"}>
-                      Report
-                    </Badge>
-                  </div>
-                  <div className="space-y-3">
-                    <div>
-                      <p
-                        className="text-[10px] font-bold uppercase tracking-wider mb-1"
-                        style={{ color: c.txt3 }}
-                      >
-                        Clinical Notes
-                      </p>
-                      <p className="text-xs leading-relaxed" style={{ color: c.txt2 }}>
-                        {v.notes}
-                      </p>
-                    </div>
-                    <div>
-                      <p
-                        className="text-[10px] font-bold uppercase tracking-wider mb-1"
-                        style={{ color: c.txt3 }}
-                      >
-                        Recommendations
-                      </p>
-                      <div
-                        className="p-3 rounded-xl border border-dashed"
-                        style={{ borderColor: c.border, background: c.bg }}
-                      >
-                        <p
-                          className="text-xs italic"
-                          style={{ color: c.blue }}
-                        >
-                          " {v.recommendations} "
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              ))}
             </div>
           )}
           {["diagnostics", "prescriptions"].includes(tab) && (
@@ -2094,6 +1984,13 @@ function AppointmentsPage({
   const [selectedDoctor, setSelectedDoctor] = useState(null); // for calendar panel
   const [profileDoctor, setProfileDoctor] = useState(null); // for profile modal
 
+  // Review system state
+  const [doctorReviews, setDoctorReviews] = useState({}); // { docId: [{stars, comment, date}] }
+  const [reviewModal, setReviewModal] = useState(null); // doc being reviewed
+  const [reviewStars, setReviewStars] = useState(0);
+  const [reviewHover, setReviewHover] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+
   const [calMonth, setCalMonth] = useState(new Date(2026, 2, 1)); // March 2026
   const [calDay, setCalDay] = useState(null);
   const [calSlot, setCalSlot] = useState(null);
@@ -2183,12 +2080,34 @@ function AppointmentsPage({
             ? "#4A6FA5"
             : "#2D8C6F",
           phone: (d.user && d.user.phone) || "+213 -- -- --",
-          lang: d.languages ? d.languages.split(",") : ["Français", "Arabe"],
+          lang: d.languages 
+            ? (Array.isArray(d.languages) ? d.languages : String(d.languages).split(",")) 
+            : ["Français", "Arabe"],
           bio: d.bio || "Le docteur n'a pas rédigé de biographie.",
-          edu: "Faculté de Médecine.",
+          edu: d.education || "Faculté de Médecine.",
           reviews: d.total_reviews || 0,
+          gender: d.gender || "M",
         }));
-        setDoctors(normalized);
+        if (normalized.length === 0) {
+          setDoctors([{
+            id: 'mock-1',
+            name: "Dr. Sarah Smith",
+            spec: "Cardiologue",
+            loc: "Clinique Al-Azhar, Alger",
+            rating: 4.9,
+            exp: 12,
+            reviews: 124,
+            initials: "SS",
+            color: "#4A6FA5",
+            phone: "+213 555 12 34 56",
+            lang: ["Français", "Arabe", "Anglais"],
+            bio: "Spécialiste en cardiologie interventionnelle avec plus de 12 ans d'expérience.",
+            edu: "Faculté de Médecine d'Alger.",
+            gender: "F"
+          }]);
+        } else {
+          setDoctors(normalized);
+        }
       } catch (err) {
         console.error("Error fetching doctors:", err);
       } finally {
@@ -2227,11 +2146,10 @@ function AppointmentsPage({
     }
   }, [selectedDoctor, calDay, calMonth]);
 
-  const safeAppts = (Array.isArray(rawAppointments) && rawAppointments.length > 0) ? rawAppointments : APPOINTMENTS;
   const upcomingAppts =
-    safeAppts.filter((a) => a.status === "confirmed" || a.status === "pending") || [];
+    rawAppointments?.filter((a) => a.status === "confirmed") || [];
   const historyAppts =
-    safeAppts.filter((a) =>
+    rawAppointments?.filter((a) =>
       ["completed", "cancelled", "refused"].includes(a.status),
     ) || [];
   const filteredUpcoming = upcomingAppts.filter(
@@ -2244,6 +2162,8 @@ function AppointmentsPage({
   const month = calMonth.getMonth();
   const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
   const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const emptyDays = Array.from({ length: firstDay === 0 ? 6 : firstDay - 1 }, (_, i) => i);
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const today = new Date();
 
   const monthNames = [
@@ -2303,6 +2223,40 @@ function AppointmentsPage({
     setAvailableSlots([]);
   };
 
+  const openGoogleMaps = (doc) => {
+    const query = encodeURIComponent(`${doc.name} ${doc.clinic_address || doc.loc}`);
+    window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, "_blank", "noopener,noreferrer");
+  };
+
+  // Get combined reviews (initial from doc + user submitted)
+  const getDocReviews = (docId) => doctorReviews[docId] || [];
+
+  // Compute live rating for a doc
+  const getLiveRating = (doc) => {
+    const reviews = getDocReviews(doc.id);
+    if (reviews.length === 0) return { rating: doc.rating, reviews: doc.reviews };
+    const total = reviews.reduce((s, r) => s + r.stars, 0);
+    const avg = (total / reviews.length).toFixed(1);
+    return { rating: avg, reviews: doc.reviews + reviews.length };
+  };
+
+  const submitReview = () => {
+    if (!reviewModal || reviewStars === 0) return;
+    const newReview = {
+      stars: reviewStars,
+      comment: reviewComment.trim() || null,
+      date: new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }),
+    };
+    setDoctorReviews(prev => ({
+      ...prev,
+      [reviewModal.id]: [newReview, ...(prev[reviewModal.id] || [])]
+    }));
+    setReviewModal(null);
+    setReviewStars(0);
+    setReviewHover(0);
+    setReviewComment("");
+  };
+
   const filteredDoctors = doctors.filter((d) => {
     const matchesSpec =
       specFilter === "All" ||
@@ -2334,6 +2288,105 @@ function AppointmentsPage({
 
   return (
     <>
+      {/* ─ Review Modal ─ */}
+      {reviewModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}
+          onClick={(e) => { if (e.target === e.currentTarget) { setReviewModal(null); setReviewStars(0); setReviewHover(0); setReviewComment(""); } }}
+        >
+          <div
+            className="rounded-2xl w-full max-w-md overflow-hidden shadow-2xl border"
+            style={{ background: c.card, borderColor: c.border }}
+          >
+            {/* Review Modal Header */}
+            <div className="p-6 border-b" style={{ borderColor: c.border }}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: c.blue + "15" }}>
+                    <Star size={18} style={{ color: c.blue }} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base" style={{ color: c.txt }}>Laisser un avis</h3>
+                    <p className="text-xs" style={{ color: c.txt3 }}>{reviewModal.name}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setReviewModal(null); setReviewStars(0); setReviewHover(0); setReviewComment(""); }}
+                  className="w-8 h-8 rounded-full flex items-center justify-center hover:opacity-70"
+                  style={{ background: c.blueLight }}
+                >
+                  <X size={15} style={{ color: c.txt3 }} />
+                </button>
+              </div>
+            </div>
+
+            {/* Review Modal Body */}
+            <div className="p-6 space-y-5">
+              {/* Star Picker */}
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: c.txt3 }}>Votre note</p>
+                <div className="flex items-center gap-2">
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <button
+                      key={n}
+                      onClick={() => setReviewStars(n)}
+                      onMouseEnter={() => setReviewHover(n)}
+                      onMouseLeave={() => setReviewHover(0)}
+                      className="text-3xl transition-transform hover:scale-110 active:scale-95"
+                      title={n + " étoile" + (n > 1 ? "s" : "")}
+                    >
+                      <span style={{ color: n <= (reviewHover || reviewStars) ? "#E8A838" : (dk ? "#ffffff22" : "#e2e8f0") }}>★</span>
+                    </button>
+                  ))}
+                  {reviewStars > 0 && (
+                    <span className="ml-2 text-sm font-black" style={{ color: "#E8A838" }}>
+                      {["Très mauvais", "Mauvais", "Correct", "Bien", "Excellent"][reviewStars - 1]}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Comment Area */}
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>Commentaire (optionnel)</p>
+                <textarea
+                  value={reviewComment}
+                  onChange={e => setReviewComment(e.target.value)}
+                  placeholder="Partagez votre expérience avec ce médecin..."
+                  rows={3}
+                  className="w-full rounded-xl border px-4 py-3 text-sm resize-none focus:outline-none transition-all"
+                  style={{
+                    background: c.bg,
+                    borderColor: c.border,
+                    color: c.txt,
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Review Modal Footer */}
+            <div className="px-6 pb-5 flex gap-3">
+              <button
+                onClick={submitReview}
+                disabled={reviewStars === 0}
+                className="flex-1 py-2.5 rounded-xl text-sm font-black text-white transition-all hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                style={{ background: `linear-gradient(135deg, ${c.blue}, #304B71)` }}
+              >
+                <Check size={16} /> Publier l'avis
+              </button>
+              <button
+                onClick={() => { setReviewModal(null); setReviewStars(0); setReviewHover(0); setReviewComment(""); }}
+                className="px-5 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:opacity-80"
+                style={{ borderColor: c.border, color: c.txt2 }}
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ─ Profile Modal ─ */}
       {profileDoctor && (
         <div
@@ -2342,6 +2395,7 @@ function AppointmentsPage({
             background: "rgba(0,0,0,0.55)",
             backdropFilter: "blur(4px)",
           }}
+          onClick={(e) => { if (e.target === e.currentTarget) setProfileDoctor(null); }}
         >
           <div
             className="rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl border"
@@ -2360,21 +2414,22 @@ function AppointmentsPage({
                   <h2 className="text-lg font-bold" style={{ color: c.txt }}>
                     {profileDoctor.name}
                   </h2>
-                  <p
-                    className="text-sm font-semibold"
-                    style={{ color: c.blue }}
-                  >
+                  <p className="text-sm font-semibold" style={{ color: c.blue }}>
                     {profileDoctor.spec}
                   </p>
-                  <div className="flex items-center gap-3 mt-1 flex-wrap">
-                    <span
-                      className="text-xs font-bold"
-                      style={{ color: "#E8A838" }}
+                  <div className="flex items-center gap-3 mt-2 flex-wrap">
+                    {/* Clickable rating to open review */}
+                    <button
+                      onClick={() => { setReviewModal(profileDoctor); setProfileDoctor(null); }}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all hover:scale-105 active:scale-95"
+                      style={{ background: "#E8A83818" }}
+                      title="Cliquez pour laisser un avis"
                     >
-                      ⭐ {profileDoctor.rating}
-                    </span>
+                      <span className="text-sm font-black" style={{ color: "#E8A838" }}>★ {getLiveRating(profileDoctor).rating}</span>
+                      <MessageSquare size={12} style={{ color: "#E8A838", opacity: 0.8 }} />
+                    </button>
                     <span className="text-xs" style={{ color: c.txt3 }}>
-                      {profileDoctor.reviews} avis
+                      {getLiveRating(profileDoctor).reviews} avis
                     </span>
                     <span className="text-xs" style={{ color: c.txt3 }}>
                       {profileDoctor.exp} ans exp.
@@ -2390,76 +2445,64 @@ function AppointmentsPage({
                 </button>
               </div>
             </div>
+
             {/* Body */}
-            <div className="p-6 space-y-4 max-h-96 overflow-y-auto">
+            <div className="p-6 space-y-4 max-h-[420px] overflow-y-auto">
+              {/* À propos */}
               <div>
-                <p
-                  className="text-xs font-bold uppercase tracking-wide mb-1.5"
-                  style={{ color: c.txt3 }}
-                >
-                  À propos
+                <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt3 }}>À propos</p>
+                <p className="text-sm" style={{ color: c.txt2 }}>{profileDoctor.bio}</p>
+              </div>
+
+              {/* Formation */}
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt3 }}>Formation</p>
+                <p className="text-sm" style={{ color: c.txt2 }}>{profileDoctor.edu}</p>
+              </div>
+
+              {/* Contact */}
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt3 }}>Contact</p>
+                <p className="text-sm font-medium flex items-center gap-2" style={{ color: c.txt }}>
+                  <Phone size={13} style={{ color: c.blue }} /> {profileDoctor.phone}
                 </p>
-                <p className="text-sm" style={{ color: c.txt2 }}>
-                  {profileDoctor.bio}
+                <p className="text-xs mt-1 flex items-center gap-2" style={{ color: c.txt2 }}>
+                  <MapPin size={12} style={{ color: c.txt3 }} /> {profileDoctor.loc}
                 </p>
               </div>
+
+              {/* Avis des patients */}
               <div>
-                <p
-                  className="text-xs font-bold uppercase tracking-wide mb-1.5"
-                  style={{ color: c.txt3 }}
-                >
-                  Formation
-                </p>
-                <p className="text-sm" style={{ color: c.txt2 }}>
-                  {profileDoctor.edu}
-                </p>
-              </div>
-              <div>
-                <p
-                  className="text-xs font-bold uppercase tracking-wide mb-1.5"
-                  style={{ color: c.txt3 }}
-                >
-                  Langues parlées
-                </p>
-                <div className="flex gap-2 flex-wrap">
-                  {profileDoctor.lang.map((l) => (
-                    <span
-                      key={l}
-                      className="text-xs px-3 py-1 rounded-full font-semibold border"
-                      style={{
-                        background: c.blueLight,
-                        borderColor: c.blue + "33",
-                        color: c.blue,
-                      }}
-                    >
-                      {l}
-                    </span>
-                  ))}
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-bold uppercase tracking-wide" style={{ color: c.txt3 }}>Avis des patients</p>
+                  <button
+                    onClick={() => { setReviewModal(profileDoctor); setProfileDoctor(null); }}
+                    className="text-[11px] font-bold flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all hover:opacity-80"
+                    style={{ background: c.blue + "15", color: c.blue }}
+                  >
+                    <Plus size={11} /> Laisser un avis
+                  </button>
                 </div>
-              </div>
-              <div>
-                <p
-                  className="text-xs font-bold uppercase tracking-wide mb-1.5"
-                  style={{ color: c.txt3 }}
-                >
-                  Contact
-                </p>
-                <p
-                  className="text-sm font-medium flex items-center gap-2"
-                  style={{ color: c.txt }}
-                >
-                  <Phone size={13} style={{ color: c.blue }} />{" "}
-                  {profileDoctor.phone}
-                </p>
-                <p
-                  className="text-xs mt-1 flex items-center gap-2"
-                  style={{ color: c.txt2 }}
-                >
-                  <MapPin size={12} style={{ color: c.txt3 }} />{" "}
-                  {profileDoctor.loc}
-                </p>
+                {getDocReviews(profileDoctor.id).length === 0 ? (
+                  <p className="text-xs italic" style={{ color: c.txt3 }}>Aucun avis pour l'instant. Soyez le premier !</p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {getDocReviews(profileDoctor.id).map((r, idx) => (
+                      <div key={idx} className="rounded-xl p-3 border" style={{ borderColor: c.border, background: c.bg }}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-black" style={{ color: "#E8A838" }}>
+                            {"★".repeat(r.stars)}{"☆".repeat(5 - r.stars)}
+                          </span>
+                          <span className="text-[10px] font-medium" style={{ color: c.txt3 }}>{r.date}</span>
+                        </div>
+                        {r.comment && <p className="text-xs" style={{ color: c.txt2 }}>{r.comment}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
+
             {/* Footer */}
             <div className="px-6 pb-5 flex gap-3">
               <button
@@ -2643,24 +2686,12 @@ function AppointmentsPage({
                           <Calendar size={20} style={{ color: c.blue }} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p
-                              className="font-bold text-sm truncate"
-                              style={{ color: c.txt }}
-                            >
-                              {a.doctor_name || "Médecin"}
-                            </p>
-                            {a.status === "pending" && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 whitespace-nowrap">
-                                En attente
-                              </span>
-                            )}
-                            {a.status === "confirmed" && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/30 whitespace-nowrap">
-                                Confirmé
-                              </span>
-                            )}
-                          </div>
+                          <p
+                            className="font-bold text-sm truncate"
+                            style={{ color: c.txt }}
+                          >
+                            {a.doctor_name || "Médecin"}
+                          </p>
                           <p
                             className="text-xs font-medium opacity-70"
                             style={{ color: c.txt2 }}
@@ -3052,7 +3083,7 @@ function AppointmentsPage({
                 className="p-6 border-b flex items-center justify-between gap-4 bg-opacity-50 backdrop-blur-md"
                 style={{
                   borderColor: c.border,
-                  background: `linear-gradient(to right, ${c.card}, ${c.blue}08)`,
+                  background: dk ? `linear-gradient(to right, ${c.card}, ${c.blue}15)` : `linear-gradient(to right, ${c.card}, ${c.blue}08)`,
                 }}
               >
                 <div className="flex items-center gap-4">
@@ -3152,133 +3183,77 @@ function AppointmentsPage({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-7 mb-3">
-                    {dayNames.map((d) => (
-                      <div
-                        key={d}
-                        className="text-center text-xs font-black py-1 uppercase tracking-widest"
-                        style={{ color: c.txt3 }}
-                      >
-                        {d}
-                      </div>
-                    ))}
+                  <div className="grid grid-cols-7 gap-2 mb-2">
+                    {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map(
+                      (d) => (
+                        <div
+                          key={d}
+                          className="text-center text-[10px] font-black uppercase tracking-widest opacity-40 mb-2"
+                        >
+                          {d}
+                        </div>
+                      )
+                    )}
                   </div>
-
-                  <div className="grid grid-cols-7 gap-1.5">
-                    {Array.from({
-                      length: firstDay === 0 ? 6 : firstDay - 1,
-                    }).map((_, i) => (
-                      <div key={`e${i}`} className="h-11" />
+                  <div className="grid grid-cols-7 gap-2">
+                    {emptyDays.map((_, i) => (
+                      <div key={`empty-${i}`} />
                     ))}
-                    {Array.from({ length: daysInMonth }).map((_, i) => {
-                      const day = i + 1;
-                      const avail = hasSlots(selectedDoctor, day);
+                    {days.map((d) => {
                       const isToday =
-                        day === today.getDate() &&
+                        d === today.getDate() &&
                         month === today.getMonth() &&
                         year === today.getFullYear();
-                      const isSelected = calDay === day;
-                      const isPast = new Date(year, month, day) < today;
+                      const isSel = d === calDay;
+                      const hasSlt = true;
 
                       return (
                         <button
-                          key={day}
-                          disabled={!avail || isPast}
+                          key={d}
                           onClick={() => {
-                            setCalDay(day);
+                            setCalDay(d);
                             setCalSlot(null);
                           }}
-                          className="relative h-11 rounded-2xl flex items-center justify-center text-sm font-bold transition-all group"
+                          className="aspect-square rounded-xl flex flex-col items-center justify-center relative transition-all group border-0"
                           style={{
-                            background: isSelected
+                            background: isSel
                               ? c.blue
                               : isToday
-                                ? `${c.blue}11`
+                                ? c.blueLight
                                 : "transparent",
-                            color: isSelected
+                            color: isSel
                               ? "#fff"
-                              : isPast
-                                ? c.txt3
-                                : avail
-                                  ? c.txt
-                                  : c.txt3,
-                            border:
-                              isToday && !isSelected
-                                ? `2px solid ${c.blue}44`
-                                : "2px solid transparent",
-                            opacity: !avail && !isPast ? 0.3 : 1,
-                            cursor: avail && !isPast ? "pointer" : "default",
-                            boxShadow: isSelected
-                              ? `0 8px 15px ${c.blue}44`
-                              : "none",
+                              : isToday
+                                ? c.blue
+                                : c.txt,
                           }}
                         >
-                          {day}
-                          {avail && !isPast && !isSelected && (
-                            <span
-                              className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full transition-all group-hover:scale-150"
+                          <span className="text-sm font-black z-10">{d}</span>
+                          {hasSlt && !isSel && (
+                            <div
+                              className="w-1 h-1 rounded-full absolute bottom-2"
                               style={{ background: c.blue }}
                             />
+                          )}
+                          {isSel && (
+                            <div className="absolute inset-x-2 bottom-2 h-1 rounded-full bg-white/30" />
                           )}
                         </button>
                       );
                     })}
                   </div>
-
-                  <div
-                    className="mt-8 flex items-center gap-6 p-4 rounded-2xl bg-opacity-30"
-                    style={{ background: c.blueLight }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ background: c.blue }}
-                      />
-                      <span
-                        className="text-[10px] font-bold uppercase tracking-wider"
-                        style={{ color: c.txt3 }}
-                      >
-                        Disponible
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-3 h-3 rounded-full border-2"
-                        style={{ borderColor: c.blue + "44" }}
-                      />
-                      <span
-                        className="text-[10px] font-bold uppercase tracking-wider"
-                        style={{ color: c.txt3 }}
-                      >
-                        Aujourd'hui
-                      </span>
-                    </div>
-                  </div>
                 </div>
 
-                {/* Right Column: Slots & Summary (5 cols) */}
+                {/* Right Column: Time Slots (5 cols) */}
                 <div
                   className="lg:col-span-5 p-6 bg-opacity-10"
-                  style={{ background: `${c.blue}05` }}
+                  style={{ background: dk ? "#ffffff03" : "#00000002" }}
                 >
                   {!calDay ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-4">
-                      <div
-                        className="w-16 h-16 rounded-full flex items-center justify-center"
-                        style={{ background: c.blueLight }}
-                      >
-                        <Calendar
-                          size={28}
-                          className="animate-bounce"
-                          style={{ color: c.blue }}
-                        />
-                      </div>
-                      <p
-                        className="font-bold text-sm"
-                        style={{ color: c.txt2 }}
-                      >
-                        Veuillez choisir une date dans le calendrier pour voir
-                        les créneaux.
+                    <div className="h-full flex flex-col items-center justify-center p-8 opacity-40">
+                      <Calendar size={32} className="mb-3 opacity-20" />
+                      <p className="text-sm font-medium text-center">
+                        Choisissez un jour pour voir les créneaux disponibles
                       </p>
                     </div>
                   ) : (
@@ -3288,139 +3263,68 @@ function AppointmentsPage({
                           className="font-bold text-base"
                           style={{ color: c.txt }}
                         >
-                          Créneaux disponibles
+                          Heures disponibles
                         </h4>
-                        <span
-                          className="text-xs font-bold px-3 py-1 rounded-full"
-                          style={{ background: c.blue + "11", color: c.blue }}
+                        <div
+                          className="px-3 py-1 rounded-lg text-[10px] font-black tracking-widest text-white uppercase"
+                          style={{ background: c.green }}
                         >
                           {calDay} {monthNames[month]}
-                        </span>
+                        </div>
                       </div>
 
-                      <div className="flex-1 space-y-6 overflow-y-auto max-h-[350px] pr-2 custom-scrollbar">
-                        {/* Morning Slots */}
-                        <div>
-                          <div className="flex items-center gap-2 mb-3">
-                            <Sun size={14} style={{ color: "#E8A838" }} />
-                            <span
-                              className="text-[10px] font-black uppercase tracking-widest"
-                              style={{ color: c.txt3 }}
-                            >
-                              Matin
-                            </span>
-                          </div>
+                      <div className="flex-1 overflow-y-auto pr-2 space-y-6 max-h-[350px] custom-scrollbar">
+                        {/* Morning Section */}
+                        <div className="space-y-3">
+                          <p className="text-[10px] font-black uppercase tracking-[0.15em] opacity-40 flex items-center gap-2">
+                            <Sun size={12} /> Matin
+                          </p>
                           <div className="grid grid-cols-3 gap-2">
-                            {(() => {
-                              const morningHours = [
-                                "08:00",
-                                "08:30",
-                                "09:00",
-                                "09:30",
-                                "10:00",
-                                "10:30",
-                                "11:00",
-                                "11:30",
-                              ];
-                              const available = slotsForDay(
-                                selectedDoctor,
-                                calDay,
+                            {["08:30", "09:00", "09:30", "10:00", "10:30", "11:00"].map((slot) => {
+                              const isSel = calSlot === slot;
+                              return (
+                                <button
+                                  key={slot}
+                                  onClick={() => setCalSlot(slot)}
+                                  className="py-3 rounded-xl text-[13px] font-black border transition-all"
+                                  style={{
+                                    background: isSel ? c.blue : c.card,
+                                    color: isSel ? "#fff" : c.txt,
+                                    borderColor: isSel ? c.blue : c.border,
+                                    boxShadow: isSel ? `0 4px 12px ${c.blue}44` : "none"
+                                  }}
+                                >
+                                  {slot}
+                                </button>
                               );
-                              return morningHours.map((slot) => {
-                                const isAvail = available.includes(slot);
-                                const isSel = calSlot === slot;
-                                return (
-                                  <button
-                                    key={slot}
-                                    disabled={!isAvail}
-                                    onClick={() => setCalSlot(slot)}
-                                    className="py-2.5 rounded-xl text-xs font-bold border transition-all active:scale-95"
-                                    style={{
-                                      background: isSel
-                                        ? c.blue
-                                        : isAvail
-                                          ? c.card
-                                          : "transparent",
-                                      color: isSel
-                                        ? "#fff"
-                                        : isAvail
-                                          ? c.txt
-                                          : c.txt3,
-                                      borderColor: isSel
-                                        ? c.blue
-                                        : isAvail
-                                          ? c.border
-                                          : c.border + "33",
-                                      opacity: isAvail ? 1 : 0.4,
-                                    }}
-                                  >
-                                    {slot}
-                                  </button>
-                                );
-                              });
-                            })()}
+                            })}
                           </div>
                         </div>
 
-                        {/* Afternoon Slots */}
-                        <div>
-                          <div className="flex items-center gap-2 mb-3">
-                            <Moon size={14} style={{ color: c.blue }} />
-                            <span
-                              className="text-[10px] font-black uppercase tracking-widest"
-                              style={{ color: c.txt3 }}
-                            >
-                              Après-midi
-                            </span>
-                          </div>
+                        {/* Afternoon Section */}
+                        <div className="space-y-3">
+                          <p className="text-[10px] font-black uppercase tracking-[0.15em] opacity-40 flex items-center gap-2">
+                            <Moon size={12} /> Après-midi
+                          </p>
                           <div className="grid grid-cols-3 gap-2">
-                            {(() => {
-                              const afternoonHours = [
-                                "14:00",
-                                "14:30",
-                                "15:00",
-                                "15:30",
-                                "16:00",
-                                "16:30",
-                                "17:00",
-                              ];
-                              const available = slotsForDay(
-                                selectedDoctor,
-                                calDay,
+                            {["14:00", "14:30", "15:00", "15:30", "16:00", "16:30"].map((slot) => {
+                              const isSel = calSlot === slot;
+                              return (
+                                <button
+                                  key={slot}
+                                  onClick={() => setCalSlot(slot)}
+                                  className="py-3 rounded-xl text-[13px] font-black border transition-all"
+                                  style={{
+                                    background: isSel ? c.blue : c.card,
+                                    color: isSel ? "#fff" : c.txt,
+                                    borderColor: isSel ? c.blue : c.border,
+                                    boxShadow: isSel ? `0 4px 12px ${c.blue}44` : "none"
+                                  }}
+                                >
+                                  {slot}
+                                </button>
                               );
-                              return afternoonHours.map((slot) => {
-                                const isAvail = available.includes(slot);
-                                const isSel = calSlot === slot;
-                                return (
-                                  <button
-                                    key={slot}
-                                    disabled={!isAvail}
-                                    onClick={() => setCalSlot(slot)}
-                                    className="py-2.5 rounded-xl text-xs font-bold border transition-all active:scale-95"
-                                    style={{
-                                      background: isSel
-                                        ? c.blue
-                                        : isAvail
-                                          ? c.card
-                                          : "transparent",
-                                      color: isSel
-                                        ? "#fff"
-                                        : isAvail
-                                          ? c.txt
-                                          : c.txt3,
-                                      borderColor: isSel
-                                        ? c.blue
-                                        : isAvail
-                                          ? c.border
-                                          : c.border + "33",
-                                      opacity: isAvail ? 1 : 0.4,
-                                    }}
-                                  >
-                                    {slot}
-                                  </button>
-                                );
-                              });
-                            })()}
+                            })}
                           </div>
                         </div>
                       </div>
@@ -3470,27 +3374,16 @@ function AppointmentsPage({
                         )}
 
                         <button
-                          onClick={handleBook}
-                          disabled={!calSlot || isSubmitting}
-                          className="w-full py-3.5 rounded-2xl text-sm font-black text-white transition-all shadow-lg active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                          disabled={!calSlot}
+                          onClick={() => handleBook(selectedDoctor)}
+                          className="w-full py-4 rounded-2xl text-[15px] font-black text-white transition-all shadow-xl disabled:opacity-30 disabled:grayscale flex items-center justify-center gap-3 active:scale-[0.98]"
                           style={{
-                            background: calSlot
-                              ? `linear-gradient(135deg, ${selectedDoctor.color}, ${c.blue})`
-                              : c.border,
-                            boxShadow: calSlot
-                              ? `0 10px 20px -5px ${c.blue}66`
-                              : "none",
-                            cursor:
-                              calSlot && !isSubmitting ? "pointer" : "default",
+                            background: `linear-gradient(135deg, ${c.blue}, #304B71)`,
+                            boxShadow: `0 12px 24px -10px ${c.blue}66`,
                           }}
                         >
-                          {isSubmitting ? (
-                            <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                          ) : calSlot ? (
-                            "Confirmer la réservation"
-                          ) : (
-                            "Choisissez un horaire"
-                          )}
+                          CONFIRMER ET RÉSERVER
+                          <ArrowRight size={18} />
                         </button>
                       </div>
                     </div>
@@ -3500,103 +3393,93 @@ function AppointmentsPage({
             </div>
           )}
 
-          {/* Doctor list */}
+          {/* Subtle separator before doctor list */}
+          <div className="h-px w-full my-10" style={{ background: c.border, opacity: 0.4 }} />
+
           <div className="space-y-4 mb-10 pt-4" ref={docListRef}>
-            {filteredDoctors.map((doc) => (
-              <Card key={doc.id} dk={dk} style={{ padding: "18px" }}>
-                <div className="flex gap-4 flex-wrap">
-                  <div
-                    className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-base shrink-0"
-                    style={{ background: doc.color }}
-                  >
-                    {doc.initials}
-                  </div>
-                  <div className="flex-1 min-w-48">
-                    <h3 className="font-bold" style={{ color: c.txt }}>
-                      {doc.name}
-                    </h3>
-                    <p
-                      className="text-sm font-semibold"
-                      style={{ color: c.blue }}
+            {filteredDoctors.map((doc) => {
+              const live = getLiveRating(doc);
+              return (
+              <div key={doc.id} className="mb-4">
+                <Card dk={dk} style={{ padding: "20px", borderRadius: "24px" }} className="hover:shadow-lg transition-shadow border-0 shadow-sm">
+                  {/* Single-row layout: Avatar | Info | Stats+Buttons */}
+                  <div className="flex items-center gap-4">
+                    {/* Avatar */}
+                    <div
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-black text-lg shrink-0 shadow-md"
+                      style={{ background: `linear-gradient(135deg, ${doc.color}, ${doc.color}bb)` }}
                     >
-                      {doc.spec}
-                    </p>
-                    <p
-                      className="text-xs flex items-center gap-1 mt-1"
-                      style={{ color: c.txt2 }}
-                    >
-                      <MapPin size={12} /> {doc.loc}
-                    </p>
-                    <div className="flex items-center gap-3 mt-2">
-                      <span
-                        className="text-xs font-bold"
-                        style={{ color: "#E8A838" }}
-                      >
-                        ⭐ {doc.rating}
-                      </span>
-                      <span
-                        className="text-xs font-medium"
-                        style={{ color: c.txt3 }}
-                      >
-                        {doc.exp} ans exp.
-                      </span>
-                      <span className="text-xs" style={{ color: c.txt3 }}>
-                        {doc.reviews} avis
-                      </span>
+                      {doc.initials}
                     </div>
-                    {/* Languages */}
-                    <div className="flex gap-1.5 mt-2 flex-wrap">
-                      {doc.lang.map((l) => (
-                        <span
-                          key={l}
-                          className="text-[10px] px-2 py-0.5 rounded-full border"
-                          style={{ borderColor: c.border, color: c.txt3 }}
-                        >
-                          {l}
+
+                    {/* Info block — grows to fill space */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-base leading-tight truncate" style={{ color: c.txt }}>{doc.name}</h3>
+                      <p className="text-xs font-semibold mt-0.5" style={{ color: c.blue }}>{doc.spec}</p>
+
+                      {/* Address + proximity on same row */}
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-md" style={{ background: c.blue + "08" }}>
+                          <MapPin size={11} style={{ color: c.blue }} />
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(doc.name + ' ' + (doc.clinic_address || doc.loc))}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] font-black uppercase hover:underline cursor-pointer"
+                            style={{ color: c.blue }}
+                          >
+                            {doc.loc}
+                          </a>
+                        </div>
+                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md flex items-center gap-1" style={{ background: c.blue + "15", color: c.blue }}>
+                          <Zap size={8} fill={c.blue} /> 0.8 KM
                         </span>
-                      ))}
+                      </div>
+                    </div>
+
+                    {/* Right column: Stats + Buttons */}
+                    <div className="flex flex-col items-end gap-3 shrink-0">
+                      {/* Stats row */}
+                      <div className="flex items-center gap-3">
+                        {/* Clickable rating */}
+                        <button
+                          onClick={() => setReviewModal(doc)}
+                          className="flex items-center gap-1 px-2 py-0.5 rounded-lg transition-all hover:scale-105 active:scale-95 group"
+                          style={{ background: "#E8A83812" }}
+                          title="Laisser un avis"
+                        >
+                          <span className="text-sm font-black" style={{ color: "#E8A838" }}>★ {live.rating}</span>
+                          <span className="text-[10px] opacity-50 group-hover:opacity-80 transition-opacity" style={{ color: c.txt }}>({live.reviews})</span>
+                          <MessageSquare size={11} className="opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: "#E8A838" }} />
+                        </button>
+                        <div className="text-right" style={{ color: c.txt }}>
+                          <span className="text-sm font-bold">{doc.exp}</span>
+                          <span className="text-[10px] opacity-40 ml-0.5">ans</span>
+                        </div>
+                      </div>
+
+                      {/* Buttons row */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setProfileDoctor(doc)}
+                          className="px-4 py-2 rounded-xl text-[11px] font-bold transition-all hover:opacity-80 flex items-center gap-1.5 border"
+                          style={{ borderColor: c.border, color: c.txt2, background: c.card }}
+                        >
+                          <User size={12} /> PROFIL
+                        </button>
+                        <button
+                          onClick={() => openCalendar(doc)}
+                          className="px-5 py-2 rounded-xl text-[11px] font-black text-white transition-all hover:scale-[1.03] active:scale-95 shadow-md flex items-center gap-1.5 group"
+                          style={{ background: `linear-gradient(135deg, ${c.blue}, #304B71)` }}
+                        >
+                          RDV <ArrowRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div className="shrink-0 flex flex-col items-end gap-2">
-                    <p
-                      className="text-[10px] font-bold uppercase tracking-wider"
-                      style={{ color: c.txt3 }}
-                    >
-                      Prochains créneaux
-                    </p>
-                    <div className="flex gap-2 flex-wrap justify-end">
-                      {/* For now we leave placeholders or empty if slots are not loaded individually for all doctors */}
-                      <span
-                        className="px-3 py-1.5 rounded-xl text-xs font-bold border"
-                        style={{
-                          borderColor: c.blue + "33",
-                          color: c.blue,
-                          background: c.blueLight,
-                        }}
-                      >
-                        Sur RDV
-                      </span>
-                    </div>
-                    <div className="flex gap-2 mt-1">
-                      <button
-                        onClick={() => setProfileDoctor(doc)}
-                        className="px-3 py-2 rounded-xl text-xs font-semibold border transition-all hover:opacity-80"
-                        style={{ borderColor: c.border, color: c.txt2 }}
-                      >
-                        Profil
-                      </button>
-                      <button
-                        onClick={() => openCalendar(doc)}
-                        className="px-5 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95"
-                        style={{ background: c.blue }}
-                      >
-                        Prendre RDV
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              </div>
+            );})}
           </div>
           {/* Spacer to prevent absolute dropdowns from cutting into the page background bottom */}
           <div className="h-[260px] w-full pointer-events-none" />
@@ -4389,7 +4272,7 @@ function NotificationsPage({ dk, notifications, setNotifications }) {
 function SettingsPage({ dk, onToggleDark, userData }) {
   const c = dk ? T.dark : T.light;
   const [showPwd, setShowPwd] = useState(false);
-  
+
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -4399,7 +4282,10 @@ function SettingsPage({ dk, onToggleDark, userData }) {
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState({ type: "", msg: "" });
 
-  const [pwdForm, setPwdForm] = useState({ currentPassword: "", newPassword: "" });
+  const [pwdForm, setPwdForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+  });
   const [pwdStatus, setPwdStatus] = useState({ type: "", msg: "" });
   const [isSavingPwd, setIsSavingPwd] = useState(false);
 
@@ -4431,11 +4317,11 @@ function SettingsPage({ dk, onToggleDark, userData }) {
     try {
       setIsSaving(true);
       setStatus({ type: "", msg: "" });
-      
+
       const names = form.name.split(" ");
       const first_name = names[0] || "";
       const last_name = names.slice(1).join(" ") || "";
-      
+
       await api.updateMe({
         first_name,
         last_name,
@@ -4456,14 +4342,17 @@ function SettingsPage({ dk, onToggleDark, userData }) {
       setIsSavingPwd(true);
       setPwdStatus({ type: "", msg: "" });
       const token = localStorage.getItem("access_token");
-      const res = await fetch("http://localhost:8000/api/auth/password/change/", {
-        method: "POST", // usually POST or PUT
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
+      const res = await fetch(
+        "http://localhost:8000/api/auth/password/change/",
+        {
+          method: "POST", // usually POST or PUT
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(pwdForm),
         },
-        body: JSON.stringify(pwdForm),
-      });
+      );
       if (!res.ok) throw new Error("Erreur");
       setPwdStatus({ type: "success", msg: "Mot de passe modifié ✅" });
       setPwdForm({ currentPassword: "", newPassword: "" });
@@ -4502,7 +4391,8 @@ function SettingsPage({ dk, onToggleDark, userData }) {
               <div
                 className="mb-4 p-3 rounded-xl text-xs font-semibold"
                 style={{
-                  background: status.type === "success" ? "#2D8C6F12" : "#E0555512",
+                  background:
+                    status.type === "success" ? "#2D8C6F12" : "#E0555512",
                   color: status.type === "success" ? "#2D8C6F" : "#E05555",
                   border: `1px solid ${status.type === "success" ? "#2D8C6F44" : "#E0555544"}`,
                 }}
@@ -4547,7 +4437,9 @@ function SettingsPage({ dk, onToggleDark, userData }) {
               </label>
               <select
                 value={form.city}
-                onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, city: e.target.value }))
+                }
                 className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
                 style={{
                   background: dk ? "#1A2333" : "#F8FAFC",
@@ -4577,7 +4469,8 @@ function SettingsPage({ dk, onToggleDark, userData }) {
               <div
                 className="mb-4 p-3 rounded-xl text-xs font-semibold"
                 style={{
-                  background: pwdStatus.type === "success" ? "#2D8C6F12" : "#E0555512",
+                  background:
+                    pwdStatus.type === "success" ? "#2D8C6F12" : "#E0555512",
                   color: pwdStatus.type === "success" ? "#2D8C6F" : "#E05555",
                   border: `1px solid ${pwdStatus.type === "success" ? "#2D8C6F44" : "#E0555544"}`,
                 }}
@@ -4600,7 +4493,9 @@ function SettingsPage({ dk, onToggleDark, userData }) {
                   type={showPwd ? "text" : "password"}
                   placeholder="••••••••"
                   value={pwdForm[field.key]}
-                  onChange={(e) => setPwdForm({ ...pwdForm, [field.key]: e.target.value })}
+                  onChange={(e) =>
+                    setPwdForm({ ...pwdForm, [field.key]: e.target.value })
+                  }
                   className="w-full px-4 py-2.5 pr-12 rounded-xl text-sm outline-none border"
                   style={{
                     background: dk ? "#1A2333" : "#F8FAFC",
@@ -4621,14 +4516,17 @@ function SettingsPage({ dk, onToggleDark, userData }) {
               onClick={handleSavePwd}
               disabled={isSavingPwd}
               className="px-6 py-2.5 rounded-xl text-sm font-semibold border transition-colors hover:opacity-80"
-              style={{ color: c.blue, borderColor: c.border, opacity: isSavingPwd ? 0.7 : 1 }}
+              style={{
+                color: c.blue,
+                borderColor: c.border,
+                opacity: isSavingPwd ? 0.7 : 1,
+              }}
             >
               {isSavingPwd ? "Updating..." : "Update Password"}
             </button>
           </Card>
         </div>
         <div className="space-y-5">
-
           <Card dk={dk}>
             <p className="font-semibold mb-4" style={{ color: c.txt }}>
               Language
@@ -4787,7 +4685,13 @@ export default function PatientDashboard({ onLogout }) {
           />
         );
       case "settings":
-        return <SettingsPage dk={dk} onToggleDark={() => setDk(!dk)} userData={userData} />;
+        return (
+          <SettingsPage
+            dk={dk}
+            onToggleDark={() => setDk(!dk)}
+            userData={userData}
+          />
+        );
       default:
         return <DashboardPage {...props} />;
     }

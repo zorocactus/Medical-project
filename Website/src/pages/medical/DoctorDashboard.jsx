@@ -23,6 +23,7 @@ import {
   EyeOff,
   ArrowLeft,
   Send,
+  Trash2,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useData } from "../../context/DataContext";
@@ -1284,6 +1285,50 @@ function PatientDetailView({ patient, onBack }) {
 
   const [activeTab, setActiveTab] = useState("history");
 
+  // --- STATE FOR MEDICAL HISTORY ---
+  const [history, setHistory] = useState([
+    {
+      date: "Oct 12, 2023",
+      title: "Type 2 Diabetes Checkup",
+      doc: "Dr. Benali",
+      note: "Patient reports stable glucose levels. Reduced Metformin dosage.",
+      type: "Chronic",
+    },
+    {
+      date: "Aug 05, 2023",
+      title: "Annual Physical Exam",
+      doc: "Dr. Kaci",
+      note: "All vitals normal. Recommended increased physical activity.",
+      type: "Normal",
+    },
+  ]);
+  const [showAddHistory, setShowAddHistory] = useState(false);
+  const [newHist, setNewHist] = useState({ title: "", date: "", type: "Chronic" });
+
+  // --- STATE FOR LAB RESULTS ---
+  const [labs, setLabs] = useState([
+    {
+      test: "Blood Glucose (HbA1c)",
+      result: "6.4%",
+      ref: "4.0 - 5.6%",
+      status: "High",
+    },
+    {
+      test: "Total Cholesterol",
+      result: "185 mg/dL",
+      ref: "< 200 mg/dL",
+      status: "Normal",
+    },
+    {
+      test: "LDL Cholesterol",
+      result: "110 mg/dL",
+      ref: "< 100 mg/dL",
+      status: "Borderline",
+    },
+  ]);
+  const [showAddLab, setShowAddLab] = useState(false);
+  const [newLab, setNewLab] = useState({ test: "", note: "" });
+
   if (!patient) return null;
 
   const name = patient.name || patient.patient || 
@@ -1292,6 +1337,41 @@ function PatientDetailView({ patient, onBack }) {
     patient.lastName || 
     "Unknown Patient";
   const age = patient.age || "—";
+
+  const handleAddHistory = (e) => {
+    e.preventDefault();
+    if (!newHist.title) return;
+    const item = {
+      ...newHist,
+      doc: "Dr. Current",
+      note: "Added during current consultation.",
+    };
+    setHistory([item, ...history]);
+    setNewHist({ title: "", date: "", type: "Chronic" });
+    setShowAddHistory(false);
+  };
+
+  const handleAddLab = (e) => {
+    e.preventDefault();
+    if (!newLab.test) return;
+    const item = {
+      test: newLab.test,
+      result: "Pending",
+      ref: "—",
+      status: "Requested",
+    };
+    setLabs([item, ...labs]);
+    setNewLab({ test: "", note: "" });
+    setShowAddLab(false);
+  };
+
+  const handleDeleteHistory = (index) => {
+    setHistory(history.filter((_, i) => i !== index));
+  };
+
+  const handleDeleteLab = (index) => {
+    setLabs(labs.filter((_, i) => i !== index));
+  };
 
   return (
     <div className="animate-in fade-in duration-500 space-y-6 pb-10">
@@ -1327,76 +1407,193 @@ function PatientDetailView({ patient, onBack }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: History & Labs */}
         <div className="lg:col-span-2 space-y-6">
-          <Card dk={dk} className="p-0 overflow-hidden">
-            <div className="flex border-b" style={{ borderColor: c.border }}>
-              {["history", "lab", "prescriptions"].map((tab) => (
+          <Card dk={dk} className="p-0 overflow-hidden shadow-2xl border-0">
+            <div className="flex items-center justify-between border-b pr-4" style={{ borderColor: c.border }}>
+              <div className="flex">
+                {["history", "lab", "prescriptions"].map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-6 py-4 text-sm font-bold transition-all relative ${
+                      activeTab === tab ? "" : "opacity-30"
+                    }`}
+                    style={{ color: activeTab === tab ? c.blue : c.txt }}
+                  >
+                    {tab === "history" && "Medical History"}
+                    {tab === "lab" && "Lab Results"}
+                    {tab === "prescriptions" && "Past Prescriptions"}
+                    {activeTab === tab && (
+                      <div
+                        className="absolute bottom-0 left-0 right-0 h-1.5 rounded-t-full"
+                        style={{ background: c.blue }}
+                      />
+                    )}
+                  </button>
+                ))}
+              </div>
+              
+              {activeTab === "history" && (
                 <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-6 py-4 text-sm font-bold transition-all relative ${
-                    activeTab === tab ? "" : "opacity-50"
-                  }`}
-                  style={{ color: activeTab === tab ? c.blue : c.txt }}
+                  onClick={() => setShowAddHistory(!showAddHistory)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 text-[11px] font-black tracking-wider transition-all hover:bg-opacity-10 active:scale-95"
+                  style={{ 
+                    borderColor: c.blue, 
+                    color: c.blue, 
+                    background: c.blue + "08"
+                  }}
                 >
-                  {tab === "history" && "Medical History"}
-                  {tab === "lab" && "Lab Results"}
-                  {tab === "prescriptions" && "Past Prescriptions"}
-                  {activeTab === tab && (
-                    <div
-                      className="absolute bottom-0 left-0 right-0 h-1 rounded-t-full"
-                      style={{ background: c.blue }}
-                    />
-                  )}
+                  <Plus size={14} /> ADD ANTECEDENT
                 </button>
-              ))}
+              )}
+              {activeTab === "lab" && (
+                <button
+                  onClick={() => setShowAddLab(!showAddLab)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 text-[11px] font-black tracking-wider transition-all hover:bg-opacity-10 active:scale-95"
+                  style={{ 
+                    borderColor: c.blue, 
+                    color: c.blue, 
+                    background: c.blue + "08"
+                  }}
+                >
+                  <Plus size={14} /> REQUEST LAB TEST
+                </button>
+              )}
             </div>
 
-            <div className="p-6">
+            <div className="p-8">
               {activeTab === "history" && (
-                <div className="space-y-6">
-                  {[
-                    {
-                      date: "Oct 12, 2023",
-                      title: "Type 2 Diabetes Checkup",
-                      doc: "Dr. Benali",
-                      note: "Patient reports stable glucose levels. Reduced Metformin dosage.",
-                    },
-                    {
-                      date: "Aug 05, 2023",
-                      title: "Annual Physical Exam",
-                      doc: "Dr. Kaci",
-                      note: "All vitals normal. Recommended increased physical activity.",
-                    },
-                  ].map((h, i) => (
+                <div className="space-y-8">
+                  {/* Premium Form Add History */}
+                  {showAddHistory && (
+                    <div 
+                      className="p-6 rounded-[28px] border-2 mb-10 space-y-5 animate-in zoom-in-95 duration-300 shadow-2xl relative overflow-hidden" 
+                      style={{ borderColor: c.blue + "33", background: dk ? "#1A2333" : "#F8FAFC" }}
+                    >
+                      <div className="absolute top-0 left-0 w-1.5 h-full" style={{ background: c.blue }} />
+                      
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: c.blue }}>
+                          Nouveau Dossier Médical
+                        </p>
+                        <button onClick={() => setShowAddHistory(false)} className="opacity-40 hover:opacity-100 transition-all hover:bg-red-500/10 p-1 rounded-lg">
+                          <X size={18} />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">Pathologie</label>
+                          <input
+                            placeholder="ex: Hypertension"
+                            value={newHist.title}
+                            onChange={e => setNewHist({...newHist, title: e.target.value})}
+                            className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
+                            style={{ background: dk ? "#111827" : "#fff", borderColor: c.border, color: c.txt }}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">Date diagnostic</label>
+                          <input
+                            type="date"
+                            value={newHist.date}
+                            onChange={e => setNewHist({...newHist, date: e.target.value})}
+                            className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500 font-sans"
+                            style={{ 
+                              background: dk ? "#111827" : "#fff", 
+                              borderColor: c.border, 
+                              color: c.txt,
+                              fontFamily: 'inherit'
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">Type d'Antécédent</label>
+                        <select
+                          value={newHist.type}
+                          onChange={e => setNewHist({...newHist, type: e.target.value})}
+                          className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
+                          style={{ background: dk ? "#111827" : "#fff", borderColor: c.border, color: c.txt }}
+                        >
+                          <option value="Chronic">Chronique</option>
+                          <option value="Acute">Aigu</option>
+                          <option value="Surgical">Chirurgical</option>
+                          <option value="Allergy">Allergie</option>
+                        </select>
+                      </div>
+
+                      <div className="flex gap-4 pt-3">
+                        <button 
+                          onClick={() => setShowAddHistory(false)} 
+                          className="flex-1 py-4 rounded-xl text-xs font-black transition-all hover:bg-opacity-5" 
+                          style={{ color: c.txt2 }}
+                        >
+                          ANNULER
+                        </button>
+                        <button 
+                          onClick={handleAddHistory} 
+                          className="flex-[2] py-4 rounded-xl text-white text-xs font-black shadow-xl transition-all hover:scale-[1.02] active:scale-95" 
+                          style={{ background: c.blue, boxShadow: `0 8px 25px ${c.blue}44` }}
+                        >
+                          METTRE À JOUR LE DOSSIER
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {history.map((h, i) => (
                     <div
                       key={i}
-                      className="relative pl-6 border-l-2"
+                      className="relative pl-8 border-l-2 last:border-l-0 pb-8 last:pb-0 group"
                       style={{ borderColor: c.border }}
                     >
+                      {/* Delete Button */}
+                      <button 
+                        onClick={() => handleDeleteHistory(i)}
+                        className="absolute right-0 top-0 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/10 text-red-500"
+                        title="Supprimer l'antécédent"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+
                       <div
                         className="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 bg-white"
                         style={{ borderColor: c.blue }}
                       />
-                      <p
-                        className="text-[11px] font-bold uppercase tracking-wider"
-                        style={{ color: c.txt3 }}
-                      >
-                        {h.date}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p
+                          className="text-[11px] font-black uppercase tracking-widest opacity-40"
+                          style={{ color: c.txt }}
+                        >
+                          {h.date}
+                        </p>
+                        {h.type && (
+                          <span 
+                            className="text-[9px] font-black uppercase px-2 py-0.5 rounded-md" 
+                            style={{ 
+                              background: h.type === "Chronic" ? "#EF444415" : c.blue + "15", 
+                              color: h.type === "Chronic" ? "#EF4444" : c.blue 
+                            }}
+                          >
+                            {h.type}
+                          </span>
+                        )}
+                      </div>
                       <h3
-                        className="text-sm font-black mt-1"
+                        className="text-lg font-black mt-1"
                         style={{ color: c.txt }}
                       >
                         {h.title}
                       </h3>
                       <p
-                        className="text-xs font-bold mt-1"
+                        className="text-[13px] font-bold mt-1"
                         style={{ color: c.blue }}
                       >
                         {h.doc}
                       </p>
                       <p
-                        className="text-sm mt-2 leading-relaxed opacity-70"
+                        className="text-sm mt-3 leading-relaxed opacity-60 font-medium"
                         style={{ color: c.txt }}
                       >
                         {h.note}
@@ -1407,66 +1604,120 @@ function PatientDetailView({ patient, onBack }) {
               )}
 
               {activeTab === "lab" && (
-                <div className="space-y-4">
-                  {[
-                    {
-                      test: "Blood Glucose (HbA1c)",
-                      result: "6.4%",
-                      ref: "4.0 - 5.6%",
-                      status: "High",
-                    },
-                    {
-                      test: "Total Cholesterol",
-                      result: "185 mg/dL",
-                      ref: "< 200 mg/dL",
-                      status: "Normal",
-                    },
-                    {
-                      test: "LDL Cholesterol",
-                      result: "110 mg/dL",
-                      ref: "< 100 mg/dL",
-                      status: "Borderline",
-                    },
-                  ].map((l, i) => (
+                <div className="space-y-6">
+                  {/* Premium Form Add Lab Request */}
+                  {showAddLab && (
+                    <div 
+                      className="p-6 rounded-[28px] border-2 mb-10 space-y-5 animate-in zoom-in-95 duration-300 shadow-2xl relative overflow-hidden" 
+                      style={{ borderColor: c.blue + "33", background: dk ? "#1A2333" : "#F8FAFC" }}
+                    >
+                      <div className="absolute top-0 left-0 w-1.5 h-full" style={{ background: c.blue }} />
+                      
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: c.blue }}>
+                          Nouvelle Prescription d'Analyse
+                        </p>
+                        <button onClick={() => setShowAddLab(false)} className="opacity-40 hover:opacity-100 transition-all hover:bg-red-500/10 p-1 rounded-lg">
+                          <X size={18} />
+                        </button>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">Analyse demandée</label>
+                        <input
+                          placeholder="ex: Bilan Lipidique Complet"
+                          value={newLab.test}
+                          onChange={e => setNewLab({...newLab, test: e.target.value})}
+                          className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
+                          style={{ background: dk ? "#111827" : "#fff", borderColor: c.border, color: c.txt }}
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">Notes / Urgence</label>
+                        <textarea
+                          placeholder="Indications cliniques..."
+                          value={newLab.note}
+                          onChange={e => setNewLab({...newLab, note: e.target.value})}
+                          className="w-full px-4 py-4 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500 resize-none h-24"
+                          style={{ background: dk ? "#111827" : "#fff", borderColor: c.border, color: c.txt }}
+                        />
+                      </div>
+
+                      <div className="flex gap-4 pt-3">
+                        <button 
+                          onClick={() => setShowAddLab(false)} 
+                          className="flex-1 py-4 rounded-xl text-xs font-black transition-all hover:bg-opacity-5" 
+                          style={{ color: c.txt2 }}
+                        >
+                          ANNULER
+                        </button>
+                        <button 
+                          onClick={handleAddLab} 
+                          className="flex-[2] py-4 rounded-xl text-white text-xs font-black shadow-xl transition-all hover:scale-[1.02] active:scale-95" 
+                          style={{ background: c.blue, boxShadow: `0 8px 25px ${c.blue}44` }}
+                        >
+                          CONFIRMER LA DEMANDE
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {labs.map((l, i) => (
                     <div
                       key={i}
-                      className="flex items-center justify-between p-4 rounded-xl border"
+                      className="flex items-center justify-between p-5 rounded-2xl border-2 transition-all hover:shadow-md group relative overflow-hidden"
                       style={{
                         borderColor: c.border,
-                        background: c.bg + "11",
+                        background: dk ? "#ffffff03" : "#00000002",
                       }}
                     >
-                      <div>
-                        <p
-                          className="text-sm font-black"
-                          style={{ color: c.txt }}
-                        >
-                          {l.test}
-                        </p>
-                        <p
-                          className="text-xs opacity-50 font-bold"
-                          style={{ color: c.txt }}
-                        >
-                          Ref: {l.ref}
-                        </p>
+                      {/* Delete Button */}
+                      <button 
+                        onClick={() => handleDeleteLab(i)}
+                        className="absolute -right-12 group-hover:right-2 top-2 p-2 rounded-lg transition-all hover:bg-red-500/10 text-red-500"
+                        title="Supprimer la demande"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 rounded-xl bg-opacity-10" style={{ background: l.status === "Requested" ? "#E8A83822" : c.blue + "15" }}>
+                          <Activity size={20} style={{ color: l.status === "Requested" ? "#E8A838" : c.blue }} />
+                        </div>
+                        <div>
+                          <p
+                            className="text-base font-black"
+                            style={{ color: c.txt }}
+                          >
+                            {l.test}
+                          </p>
+                          <p
+                            className="text-xs opacity-50 font-bold mt-1"
+                            style={{ color: c.txt }}
+                          >
+                            Valeur de réf: {l.ref}
+                          </p>
+                        </div>
                       </div>
                       <div className="text-right">
                         <p
-                          className="text-sm font-black"
+                          className="text-base font-black"
                           style={{
-                            color: l.status === "Normal" ? c.green : "#EF4444",
+                            color: l.status === "Requested" ? "#E8A838" : (l.status === "Normal" ? c.green : "#EF4444"),
                           }}
                         >
                           {l.result}
                         </p>
-                        <p
-                          className="text-[10px] font-black uppercase tracking-tighter"
+                        <span
+                          className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md"
                           style={{
-                            color: l.status === "Normal" ? c.green : "#EF4444",
+                            background: l.status === "Requested" ? "#E8A83815" : (l.status === "Normal" ? c.green + "15" : "#EF444415"),
+                            color: l.status === "Requested" ? "#E8A838" : (l.status === "Normal" ? c.green : "#EF4444"),
                           }}
                         >
                           {l.status}
-                        </p>
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -1491,32 +1742,32 @@ function PatientDetailView({ patient, onBack }) {
                   ].map((p, i) => (
                     <div
                       key={i}
-                      className="flex items-center gap-4 p-4 rounded-xl border"
+                      className="flex items-center gap-4 p-5 rounded-2xl border-2 hover:shadow-md transition-all"
                       style={{ borderColor: c.border }}
                     >
                       <div
-                        className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                        className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
                         style={{ background: c.blue + "15", color: c.blue }}
                       >
-                        <FileText size={20} />
+                        <FileText size={22} />
                       </div>
                       <div className="flex-1">
                         <p
-                          className="text-sm font-black"
+                          className="text-base font-black"
                           style={{ color: c.txt }}
                         >
                           {p.med}
                         </p>
                         <p
-                          className="text-xs opacity-60 font-bold"
+                          className="text-xs opacity-50 font-bold mt-0.5"
                           style={{ color: c.txt }}
                         >
                           {p.freq} · {p.dur}
                         </p>
                       </div>
                       <p
-                        className="text-xs font-black"
-                        style={{ color: c.txt3 }}
+                        className="text-xs font-black opacity-30"
+                        style={{ color: c.txt }}
                       >
                         {p.date}
                       </p>
@@ -1530,53 +1781,53 @@ function PatientDetailView({ patient, onBack }) {
 
         {/* Right Column: Quick Notes & Action */}
         <div className="space-y-6">
-          <Card dk={dk} className="p-6">
-            <h2 className="text-lg font-black mb-6" style={{ color: c.txt }}>
-              Consultation Notes
+          <Card dk={dk} className="p-8 shadow-xl border-0">
+            <h2 className="text-xl font-black mb-8" style={{ color: c.txt }}>
+              Compte-rendu
             </h2>
-            <div className="space-y-5">
+            <div className="space-y-6">
               <div className="space-y-2">
                 <label
-                  className="text-[11px] font-black uppercase tracking-widest ml-1"
-                  style={{ color: c.txt3 }}
+                  className="text-[11px] font-black uppercase tracking-widest ml-1 opacity-40"
+                  style={{ color: c.txt }}
                 >
-                  Current Symptoms
+                  Symptômes actuels
                 </label>
                 <textarea
-                  className="w-full rounded-2xl p-4 text-sm font-medium border outline-none transition-all focus:border-blue-400 min-h-[100px]"
+                  className="w-full rounded-[20px] p-5 text-sm font-bold border-2 outline-none transition-all focus:border-blue-500 min-h-[120px] resize-none"
                   style={{
-                    background: dk ? c.bg + "22" : "#F8FAFC",
+                    background: dk ? "#111827" : "#F8FAFC",
                     borderColor: c.border,
                     color: c.txt,
                   }}
-                  placeholder="Type symptoms here..."
+                  placeholder="Notes cliniques..."
                 />
               </div>
               <div className="space-y-2">
                 <label
-                  className="text-[11px] font-black uppercase tracking-widest ml-1"
-                  style={{ color: c.txt3 }}
+                  className="text-[11px] font-black uppercase tracking-widest ml-1 opacity-40"
+                  style={{ color: c.txt }}
                 >
-                  Diagnosis
+                  Diagnostic préliminaire
                 </label>
                 <input
-                  className="w-full rounded-xl px-4 py-3 text-sm font-medium border outline-none focus:border-blue-400"
+                  className="w-full rounded-2xl px-5 py-4 text-sm font-bold border-2 outline-none focus:border-blue-500"
                   style={{
-                    background: dk ? c.bg + "22" : "#F8FAFC",
+                    background: dk ? "#111827" : "#F8FAFC",
                     borderColor: c.border,
                     color: c.txt,
                   }}
-                  placeholder="Preliminary diagnosis..."
+                  placeholder="Recherche de diagnostic..."
                 />
               </div>
               <button
-                className="w-full py-4 rounded-xl text-white font-black text-sm shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2"
+                className="w-full py-4.5 rounded-2xl text-white font-black text-[15px] shadow-2xl transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3 mt-4"
                 style={{
-                  background: c.blue,
-                  boxShadow: `0 4px 15px ${c.blue}44`,
+                  background: `linear-gradient(135deg, ${c.blue}, #304B71)`,
+                  boxShadow: `0 12px 30px ${c.blue}44`,
                 }}
               >
-                <Send size={18} /> Save consultation
+                <Send size={20} /> TERMINER LA CONSULTATION
               </button>
             </div>
           </Card>
