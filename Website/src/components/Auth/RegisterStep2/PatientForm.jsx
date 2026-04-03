@@ -75,6 +75,19 @@ export default function PatientForm({ onComplete, onBack }) {
     onComplete(formData);
   };
 
+  const handleDevFill = () => {
+    onComplete({
+      birthDate: "1990-05-15",
+      sex: "Masculin",
+      phone: "0555000000",
+      idCardNumber: "10344567890",
+      address: "12 Rue Didouche Mourad",
+      postalCode: "16000",
+      city: "Alger-Centre",
+      wilaya: "Alger",
+    });
+  };
+
   return (
     <div className="min-h-screen bg-[#D1DFEC] flex items-center justify-center p-6 font-sans">
       <div className="bg-white rounded-[24px] shadow-xl w-full max-w-[800px] px-[60px] py-[50px] relative">
@@ -165,6 +178,15 @@ export default function PatientForm({ onComplete, onBack }) {
           </button>
         </div>
       </div>
+
+      {import.meta.env.DEV && (
+        <button
+          onClick={handleDevFill}
+          className="fixed bottom-4 left-4 z-50 bg-black/80 text-yellow-400 text-[10px] px-3 py-1.5 rounded border border-yellow-400/50 hover:bg-black font-mono cursor-pointer"
+        >
+          ⚡ DEV: Auto-Fill
+        </button>
+      )}
     </div>
   );
 }

@@ -249,25 +249,75 @@ const PHARMACY_ITEMS = [
 const CARETAKERS = [
   {
     id: 1,
-    name: "Ahmed Meziane",
-    role: "Professional Caregiver",
-    exp: "5 yrs",
-    rating: 4.6,
-    price: "1200 DZD/day",
-    tags: ["Diabetes", "Hypertension"],
-    initials: "AM",
+    name: "Amira Hadj Salem",
+    role: "Infirmière diplômée d'État",
+    exp: "7 ans",
+    rating: 4.8,
+    reviews: 52,
+    tarifSoin: "2 500 DZD/soin",
+    tarifNuit: "4 000 DZD/nuit",
+    tarifMensuel: "45 000 DZD/mois",
+    zone: "Alger-Centre",
+    wilaya: "Alger",
+    tags: ["Diabète", "Hypertension", "Soins post-op"],
+    initials: "AH",
     color: "#2D8C6F",
+    bio: "Infirmière diplômée avec 7 ans d'expérience en soins à domicile. Spécialisée en suivi des maladies chroniques, notamment le diabète et l'hypertension.",
+    phone: "+213 555 12 34 56",
   },
   {
     id: 2,
-    name: "Nadia Boumediene",
-    role: "Nursing Assistant",
-    exp: "8 yrs",
+    name: "Yassine Boukhalfa",
+    role: "Aide-soignant certifié",
+    exp: "4 ans",
+    rating: 4.5,
+    reviews: 31,
+    tarifSoin: "1 800 DZD/soin",
+    tarifNuit: "3 200 DZD/nuit",
+    tarifMensuel: "32 000 DZD/mois",
+    zone: "El Biar – Hydra",
+    wilaya: "Alger",
+    tags: ["Personnes âgées", "Rééducation"],
+    initials: "YB",
+    color: "#4A6FA5",
+    bio: "Aide-soignant certifié spécialisé en gériatrie et rééducation fonctionnelle. Approche bienveillante et patiente pour les personnes âgées dépendantes.",
+    phone: "+213 555 98 76 54",
+  },
+  {
+    id: 3,
+    name: "Nora Benmansour",
+    role: "Garde-malade certifiée",
+    exp: "10 ans",
     rating: 5.0,
-    price: "1500 DZD/day",
-    tags: ["Elderly Care", "Post-surgery"],
+    reviews: 88,
+    tarifSoin: "3 000 DZD/soin",
+    tarifNuit: "5 500 DZD/nuit",
+    tarifMensuel: "58 000 DZD/mois",
+    zone: "Kouba – Bir Mourad Raïs",
+    wilaya: "Alger",
+    tags: ["Soins palliatifs", "Handicap", "Post-chirurgie"],
     initials: "NB",
     color: "#7B5EA7",
+    bio: "Garde-malade certifiée avec 10 ans d'expérience dans les soins palliatifs et post-chirurgicaux. Accompagnement de patients en situation de handicap et en fin de vie.",
+    phone: "+213 555 45 67 89",
+  },
+  {
+    id: 4,
+    name: "Karim Messaoudi",
+    role: "Infirmier diplômé d'État",
+    exp: "5 ans",
+    rating: 4.6,
+    reviews: 44,
+    tarifSoin: "2 200 DZD/soin",
+    tarifNuit: "3 800 DZD/nuit",
+    tarifMensuel: "40 000 DZD/mois",
+    zone: "Oran-Centre",
+    wilaya: "Oran",
+    tags: ["Cardiologie", "Diabète", "Soins intensifs"],
+    initials: "KM",
+    color: "#E8A838",
+    bio: "Infirmier diplômé spécialisé en soins cardiaques à domicile. Formation en soins intensifs et suivi post-infarctus.",
+    phone: "+213 555 22 33 44",
   },
 ];
 
@@ -4182,215 +4232,679 @@ function PharmacyPage({ dk }) {
 }
 
 // ─── CARE TAKER PAGE ──────────────────────────────────────────────────────────
+const WILAYAS_CT = ["Toutes", "Alger", "Oran", "Constantine", "Annaba", "Blida", "Sétif", "Tlemcen", "Batna", "Autres"];
+
 function CareTakerPage({ dk }) {
   const c = dk ? T.dark : T.light;
-  const [tab, setTab] = useState("assigned");
+
+  // ── Navigation ──
+  const [tab, setTab] = useState("find");
+
+  // ── Workflow d'embauche ──
+  const [pendingRequest, setPendingRequest]       = useState(null);   // ct object
+  const [isAccepted, setIsAccepted]               = useState(false);
+  const [emergencyContactFilled, setEmergencyContactFilled] = useState(false);
+  const [emergencyPhone, setEmergencyPhone]       = useState("");
+  const [homeAddress, setHomeAddress]             = useState("");
+
+  // ── Recherche & filtres ──
+  const [searchTerm, setSearchTerm]   = useState("");
+  const [wilayaFilter, setWilayaFilter] = useState("Toutes");
+  const [starFilter, setStarFilter]   = useState(1);
+  const [profileModal, setProfileModal] = useState(null); // ct object
+
+  // ── Système d'avis ──
+  const [ctReviews, setCtReviews]   = useState({});
+  const [reviewModal, setReviewModal] = useState(null);
+  const [reviewStars, setReviewStars] = useState(0);
+  const [reviewHover, setReviewHover] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+
+  // ── Filtre des gardes-malades ──
+  const filteredCT = CARETAKERS.filter((ct) => {
+    const q = searchTerm.toLowerCase();
+    const matchSearch = !q || ct.name.toLowerCase().includes(q) || ct.role.toLowerCase().includes(q) || ct.zone.toLowerCase().includes(q);
+    const matchWilaya = wilayaFilter === "Toutes" || ct.wilaya === wilayaFilter;
+    const matchStars = ct.rating >= starFilter;
+    return matchSearch && matchWilaya && matchStars;
+  });
+
+  const getCtReviews = (id) => ctReviews[id] || [];
+  const getLiveRating = (ct) => {
+    const reviews = getCtReviews(ct.id);
+    if (reviews.length === 0) return { rating: ct.rating, count: ct.reviews };
+    const avg = (reviews.reduce((s, r) => s + r.stars, 0) / reviews.length).toFixed(1);
+    return { rating: avg, count: ct.reviews + reviews.length };
+  };
+
+  const submitReview = () => {
+    if (!reviewModal || reviewStars === 0) return;
+    setCtReviews(prev => ({
+      ...prev,
+      [reviewModal.id]: [{ stars: reviewStars, comment: reviewComment.trim() || null, date: new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }) }, ...(prev[reviewModal.id] || [])],
+    }));
+    setReviewModal(null); setReviewStars(0); setReviewHover(0); setReviewComment("");
+  };
+
+  const handleAssign = (ct) => {
+    setPendingRequest(ct);
+    setIsAccepted(false);
+    setEmergencyContactFilled(false);
+    setEmergencyPhone("");
+    setTab("assigned");
+  };
+
+  const handleReassign = () => {
+    setPendingRequest(null); setIsAccepted(false); setEmergencyContactFilled(false); setEmergencyPhone(""); setHomeAddress("");
+    setTab("find");
+  };
+
+  const handleFinalize = () => {
+    const phoneOk = emergencyPhone.replace(/\D/g, "").length >= 9;
+    const addrOk  = homeAddress.trim().length >= 5;
+    if (phoneOk && addrOk) setEmergencyContactFilled(true);
+  };
+
   return (
     <>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: c.txt }}>
-          Care Taker
-        </h1>
-        <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
-          Manage your assigned caregiver
-        </p>
-      </div>
-      {/* Assigned caregiver */}
-      <div
-        className="rounded-2xl p-6 mb-6 flex items-center gap-5 flex-wrap"
-        style={{ background: "linear-gradient(135deg, #2D8C6F, #3aaa88)" }}
-      >
-        <div
-          className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-lg"
-          style={{ background: "rgba(255,255,255,0.2)" }}
-        >
-          FB
-        </div>
-        <div className="flex-1">
-          <p className="text-white font-bold text-lg">Fatima Benali</p>
-          <p className="text-white/80 text-sm">
-            Professional Caregiver · ⭐ 4.8 (48 reviews) · 5 years experience
-          </p>
-          <div className="flex gap-2 mt-3">
-            {["💬 Message", "📞 Call", "🔄 Reassign"].map((btn) => (
-              <button
-                key={btn}
-                className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors hover:bg-white/20"
-                style={{
-                  background: "rgba(255,255,255,0.15)",
-                  border: "1px solid rgba(255,255,255,0.3)",
-                  color: "#fff",
-                }}
-              >
-                {btn}
+      {/* ── Modal Avis Garde-Malade ── */}
+      {reviewModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}
+          onClick={(e) => { if (e.target === e.currentTarget) { setReviewModal(null); setReviewStars(0); setReviewHover(0); setReviewComment(""); } }}>
+          <div className="rounded-2xl w-full max-w-md overflow-hidden shadow-2xl border"
+            style={{ background: c.card, borderColor: c.border }}>
+            <div className="p-6 border-b" style={{ borderColor: c.border }}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: c.blue + "15" }}>
+                    <Star size={18} style={{ color: c.blue }} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base" style={{ color: c.txt }}>Laisser un avis</h3>
+                    <p className="text-xs" style={{ color: c.txt3 }}>{reviewModal.name}</p>
+                  </div>
+                </div>
+                <button onClick={() => { setReviewModal(null); setReviewStars(0); setReviewHover(0); setReviewComment(""); }}
+                  className="w-8 h-8 rounded-full flex items-center justify-center hover:opacity-70"
+                  style={{ background: c.blueLight }}>
+                  <X size={15} style={{ color: c.txt3 }} />
+                </button>
+              </div>
+            </div>
+            <div className="p-6 space-y-5">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: c.txt3 }}>Votre note</p>
+                <div className="flex items-center gap-2">
+                  {[1,2,3,4,5].map(n => (
+                    <button key={n} onClick={() => setReviewStars(n)}
+                      onMouseEnter={() => setReviewHover(n)} onMouseLeave={() => setReviewHover(0)}
+                      className="text-3xl transition-transform hover:scale-110 active:scale-95">
+                      <span style={{ color: n <= (reviewHover || reviewStars) ? "#E8A838" : (dk ? "#ffffff22" : "#e2e8f0") }}>★</span>
+                    </button>
+                  ))}
+                  {reviewStars > 0 && (
+                    <span className="ml-2 text-sm font-black" style={{ color: "#E8A838" }}>
+                      {["Très mauvais","Mauvais","Correct","Bien","Excellent"][reviewStars - 1]}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>Commentaire (optionnel)</p>
+                <textarea value={reviewComment} onChange={e => setReviewComment(e.target.value)}
+                  placeholder="Partagez votre expérience avec ce garde-malade..."
+                  rows={3} className="w-full rounded-xl border px-4 py-3 text-sm resize-none focus:outline-none"
+                  style={{ background: c.bg, borderColor: c.border, color: c.txt }} />
+              </div>
+            </div>
+            <div className="px-6 pb-5 flex gap-3">
+              <button onClick={submitReview} disabled={reviewStars === 0}
+                className="flex-1 py-2.5 rounded-xl text-sm font-black text-white transition-all hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                style={{ background: `linear-gradient(135deg, ${c.blue}, #304B71)` }}>
+                <Check size={16} /> Publier l'avis
               </button>
-            ))}
+              <button onClick={() => { setReviewModal(null); setReviewStars(0); setReviewHover(0); setReviewComment(""); }}
+                className="px-5 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:opacity-80"
+                style={{ borderColor: c.border, color: c.txt2 }}>
+                Annuler
+              </button>
+            </div>
           </div>
         </div>
-        <Badge color="#fff" bg="rgba(255,255,255,0.2)">
-          Currently Assigned
-        </Badge>
+      )}
+
+      {/* ── Modal Profil Garde-Malade ── */}
+      {profileModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setProfileModal(null); }}>
+          <div className="rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl border"
+            style={{ background: c.card, borderColor: c.border }}>
+            <div className="p-6 border-b" style={{ borderColor: c.border }}>
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-bold text-lg shrink-0"
+                  style={{ background: profileModal.color }}>
+                  {profileModal.initials}
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-lg font-bold" style={{ color: c.txt }}>{profileModal.name}</h2>
+                  <p className="text-sm font-semibold" style={{ color: c.blue }}>{profileModal.role} · {profileModal.exp}</p>
+                  <div className="flex items-center gap-3 mt-2 flex-wrap">
+                    <button onClick={() => { setReviewModal(profileModal); setProfileModal(null); }}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:scale-105 transition-all"
+                      style={{ background: "#E8A83818" }} title="Laisser un avis">
+                      <span className="text-sm font-black" style={{ color: "#E8A838" }}>★ {getLiveRating(profileModal).rating}</span>
+                    </button>
+                    <span className="text-xs" style={{ color: c.txt3 }}>{getLiveRating(profileModal).count} avis</span>
+                  </div>
+                </div>
+                <button onClick={() => setProfileModal(null)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center hover:opacity-70"
+                  style={{ background: c.blueLight }}>
+                  <X size={15} style={{ color: c.txt3 }} />
+                </button>
+              </div>
+            </div>
+            <div className="p-6 space-y-4 max-h-[420px] overflow-y-auto">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt3 }}>À propos</p>
+                <p className="text-sm" style={{ color: c.txt2 }}>{profileModal.bio}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt3 }}>Spécialités</p>
+                <div className="flex flex-wrap gap-2">
+                  {profileModal.tags.map(t => (
+                    <span key={t} className="text-xs px-2.5 py-1 rounded-full" style={{ background: c.blueLight, color: c.blue }}>{t}</span>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt3 }}>Tarifs</p>
+                <div className="flex flex-wrap gap-4">
+                  <span className="text-sm font-semibold" style={{ color: c.green }}>Soin : {profileModal.tarifSoin}</span>
+                  <span className="text-sm font-semibold" style={{ color: c.amber }}>Nuit : {profileModal.tarifNuit}</span>
+                  {profileModal.tarifMensuel && (
+                    <span className="text-sm font-semibold" style={{ color: c.blue }}>Mensuel : {profileModal.tarifMensuel}</span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt3 }}>Contact</p>
+                <a href={`tel:${profileModal.phone}`}
+                  className="text-sm font-medium flex items-center gap-2 hover:opacity-75 transition-opacity w-fit"
+                  style={{ color: c.green }}>
+                  <Phone size={13} /> {profileModal.phone}
+                </a>
+                <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(profileModal.zone)}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="text-xs mt-1 flex items-center gap-2 hover:opacity-75 transition-opacity w-fit"
+                  style={{ color: c.blue }}>
+                  <MapPin size={12} /> {profileModal.zone}
+                </a>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-bold uppercase tracking-wide" style={{ color: c.txt3 }}>Avis des patients</p>
+                  <button onClick={() => { setReviewModal(profileModal); setProfileModal(null); }}
+                    className="text-[11px] font-bold flex items-center gap-1 px-2.5 py-1 rounded-lg hover:opacity-80"
+                    style={{ background: c.blue + "15", color: c.blue }}>
+                    <Plus size={11} /> Laisser un avis
+                  </button>
+                </div>
+                {getCtReviews(profileModal.id).length === 0 ? (
+                  <p className="text-xs italic" style={{ color: c.txt3 }}>Aucun avis pour l'instant.</p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {getCtReviews(profileModal.id).map((r, idx) => (
+                      <div key={idx} className="rounded-xl p-3 border" style={{ borderColor: c.border, background: c.bg }}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-black" style={{ color: "#E8A838" }}>{"★".repeat(r.stars)}{"☆".repeat(5-r.stars)}</span>
+                          <span className="text-[10px] font-medium" style={{ color: c.txt3 }}>{r.date}</span>
+                        </div>
+                        {r.comment && <p className="text-xs" style={{ color: c.txt2 }}>{r.comment}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="px-6 pb-5 flex gap-3">
+              <button onClick={() => { handleAssign(profileModal); setProfileModal(null); }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white hover:opacity-90"
+                style={{ background: c.blue }}>
+                Envoyer une demande
+              </button>
+              <button onClick={() => setProfileModal(null)}
+                className="px-5 py-2.5 rounded-xl text-sm font-semibold border hover:opacity-80"
+                style={{ borderColor: c.border, color: c.txt2 }}>
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── En-tête ── */}
+      <div className="mb-6 flex items-end justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: c.txt }}>Garde-Malade</h1>
+          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>Gérez votre garde-malade assigné</p>
+        </div>
+        {pendingRequest && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border"
+            style={isAccepted
+              ? { background: c.green + "15", borderColor: c.green + "40", color: c.green }
+              : { background: c.amber + "15", borderColor: c.amber + "40", color: c.amber }}>
+            {isAccepted ? <><CheckCircle size={13} /> Offre acceptée</> : <><Clock size={13} /> En attente de réponse</>}
+          </div>
+        )}
       </div>
-      <div
-        className="flex gap-1 border-b mb-6"
-        style={{ borderColor: c.border }}
-      >
+
+      {/* ── Tabs ── */}
+      <div className="flex gap-1 border-b mb-6" style={{ borderColor: c.border }}>
         {["assigned", "find"].map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className="px-4 py-2.5 text-sm font-semibold capitalize transition-all"
-            style={{
-              color: tab === t ? c.blue : c.txt2,
-              borderBottom:
-                tab === t ? `2px solid ${c.blue}` : "2px solid transparent",
-              marginBottom: -1,
-            }}
-          >
-            {t === "assigned" ? "My Caregiver" : "Find a Caregiver"}
+          <button key={t} onClick={() => setTab(t)}
+            className="px-4 py-2.5 text-sm font-semibold transition-all"
+            style={{ color: tab === t ? c.blue : c.txt2, borderBottom: tab === t ? `2px solid ${c.blue}` : "2px solid transparent", marginBottom: -1 }}>
+            {t === "assigned" ? "Mon Garde-Malade" : "Trouver un Garde-Malade"}
           </button>
         ))}
       </div>
+
+      {/* ══════════════════════════════════════════════════════════
+          ONGLET : MON GARDE-MALADE
+      ══════════════════════════════════════════════════════════ */}
       {tab === "assigned" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <Card dk={dk}>
-            <p className="font-semibold mb-4" style={{ color: c.txt }}>
-              Today's Tasks
-            </p>
-            {[
-              {
-                text: "Morning medication administered",
-                time: "8:00 AM",
-                done: true,
-              },
-              {
-                text: "Picked up Lisinopril from pharmacy",
-                time: "10:30 AM",
-                done: true,
-              },
-              {
-                text: "Evening medication — Metformin",
-                time: "8:00 PM (pending)",
-                done: false,
-              },
-            ].map((task) => (
-              <div
-                key={task.text}
-                className="flex items-center gap-3 py-3 border-b last:border-0"
-                style={{ borderColor: c.border }}
-              >
-                {task.done ? (
-                  <CheckCircle size={20} style={{ color: c.green }} />
-                ) : (
-                  <Circle size={20} style={{ color: c.txt3 }} />
-                )}
-                <div>
-                  <p
-                    className="text-sm font-medium"
-                    style={{
-                      color: task.done ? c.txt3 : c.txt,
-                      textDecoration: task.done ? "line-through" : "none",
-                    }}
-                  >
-                    {task.text}
-                  </p>
-                  <p className="text-xs" style={{ color: c.txt3 }}>
-                    {task.time}
-                  </p>
-                </div>
+        <>
+          {!pendingRequest ? (
+            /* État vide */
+            <Card dk={dk} className="flex flex-col items-center justify-center min-h-[340px] text-center py-16">
+              <div className="w-20 h-20 rounded-full flex items-center justify-center mb-5" style={{ background: c.blueLight }}>
+                <User size={36} style={{ color: c.blue, opacity: 0.6 }} />
               </div>
-            ))}
-          </Card>
-          <Card dk={dk}>
-            <p className="font-semibold mb-4" style={{ color: c.txt }}>
-              Compatibility
-            </p>
-            <p className="text-sm mb-3" style={{ color: c.txt2 }}>
-              Fatima is matched to your medical profile:
-            </p>
-            <div className="flex flex-wrap gap-2 mb-4">
-              {[
-                "Hypertension care",
-                "Diabetes management",
-                "Medication adherence",
-              ].map((tag) => (
-                <span
-                  key={tag}
-                  className="text-xs px-2.5 py-1 rounded-full"
-                  style={{ background: c.blueLight, color: c.blue }}
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-            <p className="text-xs font-semibold mb-2" style={{ color: c.txt2 }}>
-              Treatment adherence this week
-            </p>
-            <div
-              className="w-full h-2 rounded-full overflow-hidden"
-              style={{ background: c.blueLight }}
-            >
-              <div
-                className="h-full rounded-full"
-                style={{ width: "86%", background: c.green }}
-              />
-            </div>
-            <p className="text-xs mt-1" style={{ color: c.txt2 }}>
-              86% — Excellent
-            </p>
-          </Card>
-        </div>
-      )}
-      {tab === "find" && (
-        <div className="space-y-4">
-          {CARETAKERS.map((ct) => (
-            <Card key={ct.name} dk={dk}>
-              <div className="flex gap-4 flex-wrap">
-                <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold shrink-0"
-                  style={{ background: ct.color }}
-                >
-                  {ct.initials}
+              <h2 className="text-xl font-bold mb-2" style={{ color: c.txt }}>Aucun garde-malade assigné</h2>
+              <p className="text-sm max-w-sm mb-7" style={{ color: c.txt2 }}>
+                Parcourez la liste et cliquez sur "Assigner" pour envoyer une demande à un garde-malade.
+              </p>
+              <button onClick={() => setTab("find")}
+                className="px-6 py-2.5 rounded-xl text-sm font-bold text-white shadow-md active:scale-95"
+                style={{ background: c.blue }}>
+                Trouver un Garde-Malade →
+              </button>
+            </Card>
+
+          ) : !isAccepted ? (
+            /* ── ÉTAPE 1 : En attente de réponse du garde-malade ── */
+            <div className="space-y-5 animate-in fade-in duration-300">
+              {/* Carte "En attente" */}
+              <div className="rounded-2xl p-6 border-2 flex flex-col md:flex-row items-start md:items-center gap-5"
+                style={{ background: c.amber + "08", borderColor: c.amber + "40" }}>
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-lg shrink-0"
+                  style={{ background: pendingRequest.color + "80" }}>
+                  {pendingRequest.initials}
                 </div>
                 <div className="flex-1">
-                  <p className="font-bold" style={{ color: c.txt }}>
-                    {ct.name}
+                  <div className="flex items-center gap-3 mb-1 flex-wrap">
+                    <h2 className="text-lg font-bold" style={{ color: c.txt }}>{pendingRequest.name}</h2>
+                    <span className="text-xs font-bold px-3 py-1 rounded-full border animate-pulse"
+                      style={{ background: c.amber + "18", borderColor: c.amber + "40", color: c.amber }}>
+                      ⏳ En attente de réponse du garde-malade
+                    </span>
+                  </div>
+                  <p className="text-sm" style={{ color: c.txt2 }}>{pendingRequest.role} · {pendingRequest.exp} · ⭐ {pendingRequest.rating}</p>
+                  <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>📍 {pendingRequest.zone} · {pendingRequest.tarifSoin}</p>
+                  <p className="text-xs mt-3 italic" style={{ color: c.txt3 }}>
+                    Votre demande a bien été envoyée. Le garde-malade examinera votre profil médical avant d'accepter ou de refuser.
                   </p>
-                  <p className="text-sm" style={{ color: c.txt2 }}>
-                    {ct.role} · {ct.exp}
-                  </p>
-                  <p className="text-xs mt-0.5 mb-2" style={{ color: c.txt2 }}>
-                    ⭐ {ct.rating} · {ct.price}
-                  </p>
-                  <div className="flex gap-2 flex-wrap">
-                    {ct.tags.map((t) => (
-                      <span
-                        key={t}
-                        className="text-xs px-2.5 py-1 rounded-full"
-                        style={{ background: c.blueLight, color: c.blue }}
-                      >
-                        {t}
-                      </span>
-                    ))}
+                </div>
+                <button onClick={handleReassign}
+                  className="text-xs font-semibold px-4 py-2 rounded-xl border transition-colors hover:opacity-80 shrink-0"
+                  style={{ borderColor: c.border, color: c.txt2 }}>
+                  Annuler la demande
+                </button>
+              </div>
+
+              {/* Bouton pour simuler l'acceptation (mock UI) */}
+              <Card dk={dk} className="border-dashed">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <p className="text-sm font-bold" style={{ color: c.txt }}>Simulation pour test UI</p>
+                    <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>Cliquez pour simuler que le garde-malade a accepté votre demande.</p>
+                  </div>
+                  <button onClick={() => setIsAccepted(true)}
+                    className="px-5 py-2.5 rounded-xl text-sm font-bold text-white shadow-md active:scale-95"
+                    style={{ background: c.green }}>
+                    ✓ Simuler l'acceptation
+                  </button>
+                </div>
+              </Card>
+            </div>
+
+          ) : !emergencyContactFilled ? (
+            /* ── ÉTAPE 2 : Offre acceptée — saisir numéro d'urgence ── */
+            <div className="animate-in fade-in duration-300 space-y-5">
+              {/* Bannière acceptée */}
+              <div className="rounded-2xl p-6 flex items-center gap-5 flex-wrap"
+                style={{ background: `linear-gradient(135deg, ${pendingRequest.color}, ${pendingRequest.color}cc)` }}>
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-xl shrink-0"
+                  style={{ background: "rgba(255,255,255,0.2)" }}>
+                  {pendingRequest.initials}
+                </div>
+                <div className="flex-1">
+                  <p className="text-white font-bold text-lg">{pendingRequest.name}</p>
+                  <p className="text-white/80 text-sm">{pendingRequest.role} · ⭐ {pendingRequest.rating}</p>
+                </div>
+                <span className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.25)", color: "#fff" }}>
+                  ✓ Offre Acceptée
+                </span>
+              </div>
+
+              {/* Carte bloquante : numéro d'urgence + adresse */}
+              <Card dk={dk} className="border-2" style={{ borderColor: c.blue + "40" }}>
+                <div className="flex items-start gap-4 mb-5">
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: c.blue + "15" }}>
+                    <Phone size={22} style={{ color: c.blue }} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold mb-1" style={{ color: c.txt }}>
+                      🎉 Offre acceptée ! Dernière étape…
+                    </h3>
+                    <p className="text-sm" style={{ color: c.txt2 }}>
+                      Renseignez votre <strong style={{ color: c.txt }}>adresse domicile</strong> et un <strong style={{ color: c.txt }}>numéro d'urgence</strong> pour finaliser l'assignation.
+                    </p>
                   </div>
                 </div>
-                <div className="flex flex-col gap-2 shrink-0">
+
+                {/* Adresse domicile */}
+                <div className="mb-4">
+                  <label className="block text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt2 }}>
+                    Adresse complète du domicile *
+                  </label>
+                  <input
+                    type="text"
+                    value={homeAddress}
+                    onChange={(e) => setHomeAddress(e.target.value)}
+                    placeholder="Ex: 12 Rue Didouche Mourad, Alger-Centre"
+                    className="w-full px-4 py-3 rounded-xl text-sm outline-none border transition-all focus:ring-2"
+                    style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: homeAddress.trim().length >= 5 ? c.green : homeAddress.length > 0 ? c.amber : c.border, color: c.txt }}
+                  />
+                  {homeAddress.length > 0 && homeAddress.trim().length < 5 && (
+                    <p className="text-xs mt-1.5 flex items-center gap-1" style={{ color: c.amber }}>
+                      <AlertCircle size={11} /> Adresse trop courte
+                    </p>
+                  )}
+                </div>
+
+                {/* Numéro d'urgence */}
+                <div className="mb-5">
+                  <label className="block text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt2 }}>
+                    Numéro d'urgence (Famille / Proche) *
+                  </label>
+                  <div className="relative">
+                    <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: c.txt3 }} />
+                    <input
+                      type="tel"
+                      value={emergencyPhone}
+                      onChange={(e) => setEmergencyPhone(e.target.value.replace(/[^\d\s+]/g, ""))}
+                      placeholder="+213 555 123 456"
+                      className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none border transition-all focus:ring-2"
+                      style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: emergencyPhone.replace(/\D/g, "").length >= 9 ? c.green : emergencyPhone.length > 0 ? c.amber : c.border, color: c.txt }}
+                    />
+                  </div>
+                  {emergencyPhone.length > 0 && emergencyPhone.replace(/\D/g, "").length < 9 && (
+                    <p className="text-xs mt-1.5 flex items-center gap-1" style={{ color: c.amber }}>
+                      <AlertCircle size={11} /> Numéro incomplet (minimum 9 chiffres)
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex gap-3">
                   <button
-                    className="text-xs font-semibold px-4 py-2 rounded-xl border"
-                    style={{ color: c.txt2, borderColor: c.border }}
-                  >
-                    View Profile
+                    onClick={handleFinalize}
+                    disabled={emergencyPhone.replace(/\D/g, "").length < 9 || homeAddress.trim().length < 5}
+                    className="flex-1 py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    style={{ background: c.blue }}>
+                    <CheckCircle size={16} /> Finaliser l'assignation
                   </button>
-                  <button
-                    className="text-xs font-semibold px-4 py-2 rounded-xl text-white"
-                    style={{ background: c.blue }}
-                  >
-                    Assign
+                  <button onClick={handleReassign}
+                    className="px-5 py-3 rounded-xl text-sm font-semibold border hover:opacity-80"
+                    style={{ borderColor: c.border, color: c.txt2 }}>
+                    Annuler
                   </button>
                 </div>
+              </Card>
+            </div>
+
+          ) : (
+            /* ── ÉTAPE 3 : Vue complète Mon Garde-Malade ── */
+            <div className="animate-in fade-in duration-300 space-y-5">
+              {/* Bannière principale */}
+              <div className="rounded-2xl p-6 flex items-center gap-5 flex-wrap"
+                style={{ background: `linear-gradient(135deg, ${pendingRequest.color}, ${pendingRequest.color}cc)` }}>
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-lg shrink-0"
+                  style={{ background: "rgba(255,255,255,0.2)" }}>
+                  {pendingRequest.initials}
+                </div>
+                <div className="flex-1">
+                  <p className="text-white font-bold text-lg">{pendingRequest.name}</p>
+                  <p className="text-white/80 text-sm">{pendingRequest.role} · ⭐ {pendingRequest.rating} · {pendingRequest.exp} d'expérience</p>
+                  <p className="text-white/70 text-xs mt-0.5">📍 {pendingRequest.zone} · {pendingRequest.tarifSoin} · Nuit : {pendingRequest.tarifNuit}</p>
+                  <div className="flex gap-2 mt-3 flex-wrap">
+                    <button onClick={() => setReviewModal(pendingRequest)}
+                      className="text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-white/20 transition-colors"
+                      style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff" }}>
+                      ⭐ Laisser un avis
+                    </button>
+                    <a
+                      href={`tel:${pendingRequest.phone}`}
+                      className="text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-white/20 transition-colors flex items-center gap-1"
+                      style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff" }}>
+                      📞 {pendingRequest.phone}
+                    </a>
+                    <button onClick={handleReassign}
+                      className="text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-white/20 transition-colors"
+                      style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.7)" }}>
+                      🔄 Réassigner
+                    </button>
+                  </div>
+                </div>
+                <span className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.25)", color: "#fff" }}>✓ Assigné</span>
               </div>
-            </Card>
-          ))}
+
+              {/* Info urgence + adresse */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="flex items-center gap-3 px-4 py-3 rounded-xl border"
+                  style={{ background: c.green + "08", borderColor: c.green + "30" }}>
+                  <Phone size={15} style={{ color: c.green }} />
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wide mb-0.5" style={{ color: c.green }}>Urgence</p>
+                    <a href={`tel:${emergencyPhone.replace(/\s/g, "")}`}
+                      className="text-sm font-bold hover:underline"
+                      style={{ color: c.txt }}>{emergencyPhone}</a>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 px-4 py-3 rounded-xl border"
+                  style={{ background: c.blue + "08", borderColor: c.blue + "30" }}>
+                  <MapPin size={15} style={{ color: c.blue }} />
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wide mb-0.5" style={{ color: c.blue }}>Domicile</p>
+                    <p className="text-sm font-medium" style={{ color: c.txt }}>{homeAddress}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Carte info du garde-malade assigné (minimaliste) */}
+              <Card dk={dk}>
+                <p className="text-xs font-bold uppercase tracking-wide mb-4" style={{ color: c.txt3 }}>Informations de contact</p>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm" style={{ color: c.txt2 }}>Zone d'intervention</span>
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pendingRequest.zone)}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="text-xs font-semibold flex items-center gap-1 hover:underline"
+                      style={{ color: c.blue }}>
+                      <MapPin size={12} /> {pendingRequest.zone}
+                    </a>
+                  </div>
+                  <div className="flex items-center justify-between border-t pt-3" style={{ borderColor: c.border }}>
+                    <span className="text-sm" style={{ color: c.txt2 }}>Téléphone direct</span>
+                    <a
+                      href={`tel:${pendingRequest.phone}`}
+                      className="flex items-center gap-2 text-sm font-bold px-3 py-1.5 rounded-xl transition-colors hover:opacity-90"
+                      style={{ background: c.green + "15", color: c.green }}>
+                      <Phone size={13} /> {pendingRequest.phone}
+                    </a>
+                  </div>
+                  <div className="flex items-center justify-between border-t pt-3" style={{ borderColor: c.border }}>
+                    <span className="text-sm" style={{ color: c.txt2 }}>Tarifs</span>
+                    <div className="flex flex-wrap gap-3 justify-end">
+                      <span className="text-xs font-semibold" style={{ color: c.green }}>Soin : {pendingRequest.tarifSoin}</span>
+                      <span className="text-xs font-semibold" style={{ color: c.amber }}>Nuit : {pendingRequest.tarifNuit}</span>
+                      {pendingRequest.tarifMensuel && (
+                        <span className="text-xs font-semibold" style={{ color: c.blue }}>Mensuel : {pendingRequest.tarifMensuel}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between border-t pt-3" style={{ borderColor: c.border }}>
+                    <span className="text-sm" style={{ color: c.txt2 }}>Avis</span>
+                    <button onClick={() => setReviewModal(pendingRequest)}
+                      className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl"
+                      style={{ background: "#E8A83818", color: "#E8A838" }}>
+                      ⭐ Laisser un avis
+                    </button>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════
+          ONGLET : TROUVER UN GARDE-MALADE
+      ══════════════════════════════════════════════════════════ */}
+      {tab === "find" && (
+        <div className="space-y-6">
+
+          {/* ── Grande barre de recherche ── */}
+          <div className="relative">
+            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: c.txt3 }} />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Rechercher par nom, spécialité ou zone..."
+              className="w-full pl-12 pr-5 py-3.5 rounded-2xl text-sm outline-none border transition-all"
+              style={{ background: c.card, borderColor: searchTerm ? c.blue : c.border, color: c.txt, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}
+            />
+          </div>
+
+          {/* ── Filtres ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Wilaya */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt2 }}>Wilaya</label>
+              <DashSelect
+                value={wilayaFilter === "Toutes" ? "" : wilayaFilter}
+                options={WILAYAS_CT}
+                onSelect={(v) => setWilayaFilter(v)}
+                dk={dk} c={c}
+                placeholder="Toutes les wilayas"
+              />
+            </div>
+
+            {/* Note minimale */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt2 }}>Note minimum</label>
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border w-fit"
+                style={{ background: c.card, borderColor: c.border }}>
+                <span className="text-xs font-medium" style={{ color: c.txt3 }}>Note min :</span>
+                <div className="flex gap-0.5">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button key={star} onClick={() => setStarFilter(star)}
+                      className="text-lg leading-none transition-colors"
+                      style={{ color: star <= starFilter ? "#E8A838" : c.border }}>
+                      ★
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Résultats ── */}
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold uppercase tracking-wide" style={{ color: c.txt3 }}>
+              {filteredCT.length} garde-malade{filteredCT.length !== 1 ? "s" : ""} trouvé{filteredCT.length !== 1 ? "s" : ""}
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {filteredCT.length === 0 ? (
+              <Card dk={dk} className="text-center py-12">
+                <Search size={32} style={{ color: c.txt3, opacity: 0.4 }} className="mx-auto mb-3" />
+                <p className="font-semibold" style={{ color: c.txt }}>Aucun résultat</p>
+                <p className="text-sm mt-1" style={{ color: c.txt3 }}>Essayez d'autres filtres ou une recherche différente.</p>
+              </Card>
+            ) : filteredCT.map((ct) => {
+              const isPending = pendingRequest?.id === ct.id;
+              const live = getLiveRating(ct);
+              return (
+                <Card key={ct.id} dk={dk} className="hover:shadow-md transition-shadow group">
+                  <div className="flex gap-4 flex-wrap">
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-lg shrink-0"
+                      style={{ background: ct.color }}>
+                      {ct.initials}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-bold group-hover:text-blue-500 transition-colors" style={{ color: c.txt }}>{ct.name}</p>
+                      <p className="text-sm" style={{ color: c.txt2 }}>{ct.role} · {ct.exp}</p>
+                      <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                        <button onClick={() => setReviewModal(ct)}
+                          className="flex items-center gap-1 text-xs font-bold hover:scale-105 transition-transform"
+                          style={{ color: "#E8A838" }} title="Laisser un avis">
+                          ★ {live.rating}
+                          <span className="font-normal" style={{ color: c.txt3 }}>({live.count} avis)</span>
+                        </button>
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ct.zone)}`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-xs hover:underline"
+                          style={{ color: c.txt3 }}
+                          title="Ouvrir dans Google Maps">
+                          <MapPin size={11} /> {ct.zone}
+                        </a>
+                      </div>
+                      <div className="flex gap-3 mt-1 flex-wrap">
+                        <span className="text-xs font-semibold" style={{ color: c.green }}>Soin : {ct.tarifSoin}</span>
+                        <span className="text-xs font-semibold" style={{ color: c.amber }}>Nuit : {ct.tarifNuit}</span>
+                      </div>
+                      <div className="flex gap-2 mt-2 flex-wrap">
+                        {ct.tags.map((t) => (
+                          <span key={t} className="text-xs px-2.5 py-0.5 rounded-full" style={{ background: c.blueLight, color: c.blue }}>{t}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2 shrink-0 justify-center">
+                      <button onClick={() => setProfileModal(ct)}
+                        className="text-xs font-semibold px-4 py-2 rounded-xl border transition-colors hover:opacity-80"
+                        style={{ color: c.txt2, borderColor: c.border }}>
+                        Voir Profil
+                      </button>
+                      <button onClick={() => handleAssign(ct)}
+                        className="text-xs font-bold px-4 py-2 rounded-xl text-white shadow-md active:scale-95 hover:opacity-90"
+                        style={{ background: isPending ? c.amber : c.blue }}>
+                        {isPending ? "⏳ En attente" : "Assigner"}
+                      </button>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
         </div>
       )}
     </>

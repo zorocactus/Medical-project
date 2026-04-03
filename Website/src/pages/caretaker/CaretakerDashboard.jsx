@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import { useData } from "../../context/DataContext";
@@ -10,7 +10,7 @@ import {
   Plus, ShoppingCart, AlertTriangle, Search, Filter, Minus, RefreshCw,
   QrCode, Download, Eye, EyeOff, Clock, ExternalLink, Stethoscope, Shield, Settings,
   ClipboardList, ChevronDown, LogOut, Menu, Sun, Moon, Check,
-  Link as LinkIcon
+  Link as LinkIcon, Brain, Send, MessageSquare
 } from "lucide-react";
 
 // ─── Theme tokens (Identical to Doctor/Patient Dashboard) ────────────────────
@@ -60,6 +60,54 @@ function Card({ children, className = "", style = {}, dk }) {
   );
 }
 
+// ─── DashSelect (menu déroulant thémé) ────────────────────────────────────────
+function DashSelect({ label, value, options, onSelect, dk, c, placeholder = "Sélectionner..." }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      {label && (
+        <label className="block text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt2 }}>
+          {label}
+        </label>
+      )}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm outline-none transition-all"
+          style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: open ? c.blue : c.border, color: value ? c.txt : c.txt3 }}
+        >
+          <span>{value || placeholder}</span>
+          <ChevronDown size={16} className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`} style={{ color: c.txt3 }} />
+        </button>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+            <div
+              className="absolute top-full left-0 right-0 mt-2 rounded-2xl border shadow-xl z-50 py-2 max-h-56 overflow-y-auto"
+              style={{ background: dk ? "#141B27" : "#fff", borderColor: c.border }}
+            >
+              {options.map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => { onSelect(opt); setOpen(false); }}
+                  className="w-full flex items-center px-5 py-2.5 text-sm font-medium transition-all text-left"
+                  style={{ color: value === opt ? c.blue : c.txt, background: value === opt ? c.blue + "15" : "transparent" }}
+                  onMouseEnter={(e) => { if (value !== opt) e.currentTarget.style.background = c.blue + "10"; }}
+                  onMouseLeave={(e) => { if (value !== opt) e.currentTarget.style.background = "transparent"; }}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── StatCard component ───────────────────────────────────────────────────────
 function StatCard({ label, value, sub, icon: Icon, color, dk }) {
   const c = dk ? T.dark : T.light;
@@ -100,28 +148,58 @@ const SAMPLE_REQUESTS = [
   { id: 3, patientName: "Meriem Kaci", age: 32, location: "Sidi Yahia (1.2 km away)", condition: "Temporary disability support", duration: "Part-time (4h/day)", pay: "28,000 DA/month", posted: "Yesterday", urgency: "Normal", initials: "MK" }
 ];
 
-const INITIAL_STOCK = [
-  { id: 1, name: "Metformin 500mg", quantity: 8, threshold: 10, unit: "tablets", status: "low" },
-  { id: 2, name: "Aspirin 75mg", quantity: 42, threshold: 15, unit: "tablets", status: "ok" },
-  { id: 3, name: "Lisinopril 10mg", quantity: 5, threshold: 10, unit: "tablets", status: "critical" },
-  { id: 4, name: "Paracetamol 500mg", quantity: 12, threshold: 5, unit: "tablets", status: "ok" }
-];
-
-const SAMPLE_PRESCRIPTIONS = [
-  {
-    id: "#RX-4482", date: "24 Oct 2023", doctor: "Dr. Kamel Benali", specialty: "Cardiologist", patient: "Ahmed Meziane", status: "Active",
-    medications: [
-      { name: "Metformin", dosage: "500mg", freq: "Twice daily" },
-      { name: "Aspirin", dosage: "75mg", freq: "Once daily" }
-    ]
+// ─── Profils patients détaillés (pour le modal "Détails du profil") ────────────
+const PATIENT_PROFILES = {
+  1: {
+    name: "Nadia Khelifa", age: 58, gender: "F", city: "Alger-Centre",
+    conditions: ["Diabète Type 2", "Hypertension artérielle"],
+    vitals: [
+      { label: "Glycémie à jeun", value: "8.2 mmol/L", highlight: true },
+      { label: "Tension artérielle", value: "145/92 mmHg", highlight: true },
+      { label: "IMC", value: "28.4 kg/m²", highlight: false },
+    ],
+    treatments: ["Metformin 500mg (2×/jour)", "Lisinopril 10mg (1×/jour)", "Aspirine 75mg (1×/jour)"],
+    notes: "Patiente stable. Surveillance glycémique et tensionnelle quotidienne requise. Régime alimentaire contrôlé.",
+    difficulty: "Modérée",
+    diffColor: "#E8A838",
   },
-  {
-    id: "#RX-3921", date: "12 Sep 2023", doctor: "Dr. Sara Meziane", specialty: "General Practitioner", patient: "Ahmed Meziane", status: "Expired",
-    medications: [
-      { name: "Amoxicillin", dosage: "1g", freq: "Three times daily" }
-    ]
-  }
+  2: {
+    name: "Youcef Belaid", age: 72, gender: "M", city: "El Biar",
+    conditions: ["Post-chirurgie cardiaque (bypass)", "Insuffisance cardiaque légère"],
+    vitals: [
+      { label: "Fréquence cardiaque", value: "72 bpm", highlight: false },
+      { label: "SpO2", value: "97%", highlight: false },
+      { label: "Tension artérielle", value: "130/85 mmHg", highlight: true },
+    ],
+    treatments: ["Warfarin 5mg (1×/jour)", "Amiodarone 200mg (1×/jour)", "Bisoprolol 2.5mg"],
+    notes: "Surveillance nocturne intensive requise. Pansement cicatrice à refaire toutes les 48h. Mobilisation assistée.",
+    difficulty: "Élevée",
+    diffColor: "#E05555",
+  },
+  3: {
+    name: "Meriem Kaci", age: 32, gender: "F", city: "Sidi Yahia",
+    conditions: ["Fracture membre inférieur", "Rééducation post-fracture"],
+    vitals: [
+      { label: "Tension artérielle", value: "120/80 mmHg", highlight: false },
+      { label: "Température", value: "37.1°C", highlight: false },
+      { label: "Saturation O2", value: "99%", highlight: false },
+    ],
+    treatments: ["Ibuprofène 400mg (3×/jour)", "Calcium D3 (1×/jour)", "Anticoagulant préventif"],
+    notes: "Aide à la mobilité et soins de plaie requis. Exercices de rééducation supervisés. Patient coopératif.",
+    difficulty: "Faible",
+    diffColor: "#2D8C6F",
+  },
+};
+
+// ─── AI HISTORIQUE ─────────────────────────────────────────────────────────────
+const HISTORY_SESSIONS = [
+  { id: 1, title: "Soins post-opératoires — Alex", date: "Aujourd'hui · 2h", badge: "med", badgeLabel: "Modérée" },
+  { id: 2, title: "Suivi diabète — Youcef", date: "Hier · 5 échanges", badge: "low", badgeLabel: "Faible" },
+  { id: 3, title: "Urgence hypertension — Nadia", date: "Hier · 4 échanges", badge: "high", badgeLabel: "Élevée" },
+  { id: 4, title: "Consultation gériatrique", date: "18 Mar · 3 échanges", badge: "low", badgeLabel: "Faible" },
+  { id: 5, title: "Douleur thoracique — Patient 2", date: "16 Mar · 4 échanges", badge: "high", badgeLabel: "Élevée" },
 ];
+const BADGE_COLORS = { low: "#2D8C6F", med: "#E8A838", high: "#E05555" };
 
 // ─── WILAYAS_LIST ─────────────────────────────────────────────────────────────
 const WILAYAS_LIST = [
@@ -254,9 +332,6 @@ function HomeView({ onChangePage, dk, c, setEmergency }) {
           <h1 className="text-3xl font-bold mb-1" style={{ color: c.txt }}>
             Bonjour, <span style={{ color: c.blue }}>{userName}</span>
           </h1>
-          <p className="text-sm font-medium uppercase tracking-wider" style={{ color: c.txt3 }}>
-            Jeudi 24 Octobre · {patients.length} patients à votre charge
-          </p>
         </div>
         <button
           onClick={() => setEmergency(true)}
@@ -265,13 +340,6 @@ function HomeView({ onChangePage, dk, c, setEmergency }) {
         >
           <AlertTriangle size={15} /> URGENCE
         </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard label="Patients suivis" value={patients.length.toString()} icon={Users} color={c.blue} dk={dk} />
-        <StatCard label="Traitements aujourd'hui" value="7" sub="4 terminés · 3 en attente" icon={Heart} color={c.red} dk={dk} />
-        <StatCard label="Rendez-vous" value="2" icon={Calendar} color={c.green} dk={dk} />
-        <StatCard label="Ma Note" value="4.8" sub="48 avis" icon={Star} color={c.amber} dk={dk} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
@@ -288,51 +356,24 @@ function HomeView({ onChangePage, dk, c, setEmergency }) {
               </Card>
             ) : patients.map((patient) => (
               <Card key={patient.id} dk={dk} className="group overflow-hidden relative hover:border-blue-500/30">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg text-white"
-                      style={{ background: patient.color === 'blue' ? c.blue : patient.color === 'amber' ? c.amber : c.green }}>
-                      {patient.initials}
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold transition-colors group-hover:text-blue-500" style={{ color: c.txt }}>{patient.name}</h3>
-                      <p className="text-xs font-medium" style={{ color: c.txt3 }}>{patient.condition}</p>
-                    </div>
+                <div className="flex items-center gap-4 mb-5">
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg text-white shrink-0"
+                    style={{ background: patient.color === 'blue' ? c.blue : patient.color === 'amber' ? c.amber : c.green }}>
+                    {patient.initials}
                   </div>
-                  <div className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border"
-                    style={{ 
-                      background: dk ? "rgba(99,142,203,0.1)" : "#EEF3FB", 
-                      borderColor: c.border,
-                      color: patient.status === 'Stable' ? c.blue : patient.status === 'Monitor' ? c.amber : c.green
-                    }}>
-                    {patient.status}
-                  </div>
-                </div>
-                <div className="space-y-2 mb-6">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: c.txt3 }}>Adhésion cette semaine</span>
-                    <span className="text-[10px] font-bold" style={{ color: c.txt2 }}>{patient.adherence}%</span>
-                  </div>
-                  <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: dk ? "#1A2333" : "#E4EAF5" }}>
-                    <div className="h-full rounded-full transition-all duration-1000" 
-                      style={{ 
-                        width: `${patient.adherence}%`,
-                        background: patient.color === 'blue' ? c.blue : patient.color === 'amber' ? c.amber : c.green 
-                      }}>
-                    </div>
-                  </div>
-                  <div className="flex justify-end pt-1">
-                    <span className="text-[10px] italic" style={{ color: c.txt3 }}>Prochain soin dans {patient.nextMed}</span>
+                  <div>
+                    <h3 className="text-base font-bold transition-colors group-hover:text-blue-500" style={{ color: c.txt }}>{patient.name}</h3>
+                    <p className="text-xs font-medium" style={{ color: c.txt3 }}>{patient.age} ans · {patient.condition}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <button onClick={() => onChangePage("patientProfile")} className="px-5 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all border"
+                  <button onClick={() => onChangePage("myPatients")} className="px-5 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all border"
                     style={{ background: dk ? "rgba(255,255,255,0.05)" : "#fff", borderColor: c.border, color: c.txt2 }}>
                     Profil
                   </button>
-                  <button onClick={() => onChangePage("emergencies")} className="px-5 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all border border-red-500/50 text-red-500 hover:bg-red-500 hover:text-white">
-                    Alerter Médecin
-                  </button>
+                  <a href={`tel:${patient.emergencyPhone || "+21355500000"}`} className="px-5 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all border border-red-500/50 text-red-500 hover:bg-red-500 hover:text-white">
+                    Alerter
+                  </a>
                 </div>
               </Card>
             ))}
@@ -360,30 +401,38 @@ function HomeView({ onChangePage, dk, c, setEmergency }) {
               ))}
             </div>
           </Card>
-          <Card dk={dk} style={{ borderLeftWidth: 4, borderLeftColor: c.red }}>
-            <div className="flex items-center gap-2 text-red-500 mb-6">
-              <AlertCircle size={18} />
-              <h3 className="text-sm font-bold" style={{ color: c.txt }}>Contacts d'Urgence</h3>
+          <Card dk={dk}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold" style={{ color: c.txt }}>Ma Note & Avis</h3>
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full" style={{ background: c.amber + "18" }}>
+                <Star size={13} style={{ color: c.amber }} />
+                <span className="text-sm font-bold" style={{ color: c.amber }}>4.8</span>
+                <span className="text-xs font-medium" style={{ color: c.txt3 }}>/5</span>
+              </div>
             </div>
-            <div className="space-y-4">
-              {emergencyContacts.length === 0 ? (
-                <div className="text-center py-6 text-sm" style={{ color: c.txt3 }}>Aucun contact.</div>
-              ) : emergencyContacts.map((contact, i) => (
-                <div key={i} className="flex items-center justify-between p-3 rounded-xl border"
-                  style={{ background: dk ? "rgba(255,255,255,0.03)" : "#F8FAFC", borderColor: c.border }}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
-                      style={{ background: contact.color }}>{contact.initials}</div>
-                    <div>
-                      <p className="text-xs font-bold leading-none" style={{ color: c.txt }}>{contact.name}</p>
-                      <p className="text-[10px] font-medium mt-1" style={{ color: c.txt3 }}>{contact.role}</p>
-                    </div>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: c.txt3 }}>48 avis patients</p>
+            <div className="space-y-3">
+              {[
+                { author: "Famille Johnson", note: "Très professionnelle, ponctuelle et bienveillante.", stars: 5, date: "Il y a 2 jours" },
+                { author: "Dr. Benali", note: "Bonne exécution des prescriptions, communication claire.", stars: 5, date: "Il y a 5 jours" },
+                { author: "Famille Belaid", note: "Service satisfaisant, quelques retards.", stars: 4, date: "Il y a 1 sem." },
+              ].map((avis, i) => (
+                <div key={i} className="p-3 rounded-xl border" style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border }}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold" style={{ color: c.txt }}>{avis.author}</span>
+                    <span className="text-[10px]" style={{ color: c.txt3 }}>{avis.date}</span>
                   </div>
-                  <button className="px-3 py-1 bg-blue-500/10 hover:bg-blue-500 text-blue-500 hover:text-white rounded-lg text-[10px] font-bold transition-all border border-blue-500/20">Appel</button>
+                  <div className="flex gap-0.5 mb-1.5">
+                    {Array.from({ length: 5 }).map((_, s) => (
+                      <Star key={s} size={10} style={{ color: s < avis.stars ? c.amber : c.border }} fill={s < avis.stars ? c.amber : "none"} />
+                    ))}
+                  </div>
+                  <p className="text-xs italic" style={{ color: c.txt2 }}>{avis.note}</p>
                 </div>
               ))}
             </div>
           </Card>
+
         </div>
       </div>
     </div>
@@ -484,8 +533,124 @@ function EmergenciesView({ dk, c }) {
 }
 
 function JobRequestsView({ dk, c }) {
+  const [profileModal, setProfileModal] = useState(null); // req id
+  const [dismissed, setDismissed] = useState([]); // ids refusés
+  const [accepted, setAccepted] = useState([]); // ids acceptés (confirmés après 5 min)
+  const [pendingAccept, setPendingAccept] = useState({}); // id -> secondes restantes
+
+  // Compte à rebours de 5 minutes par mission acceptée
+  useEffect(() => {
+    const ids = Object.keys(pendingAccept).filter(id => pendingAccept[id] > 0);
+    if (ids.length === 0) return;
+    const interval = setInterval(() => {
+      setPendingAccept(prev => {
+        const next = { ...prev };
+        ids.forEach(id => {
+          if (next[id] > 0) {
+            next[id]--;
+            if (next[id] === 0) {
+              // Confirmation définitive après 5 min
+              setAccepted(a => [...a, Number(id)]);
+            }
+          }
+        });
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [pendingAccept]);
+
+  const handleAccept = (id) => {
+    setPendingAccept(prev => ({ ...prev, [id]: 300 }));
+  };
+
+  const handleRetract = (id) => {
+    setPendingAccept(prev => { const next = { ...prev }; delete next[id]; return next; });
+  };
+
+  const active = SAMPLE_REQUESTS.filter(r => !dismissed.includes(r.id) && !accepted.includes(r.id));
+  const profile = profileModal !== null ? PATIENT_PROFILES[profileModal] : null;
+
   return (
     <div className="animate-in fade-in duration-500 space-y-8">
+
+      {/* ── Modal Profil Patient ── */}
+      {profile && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setProfileModal(null); }}
+        >
+          <div className="rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl border"
+            style={{ background: c.card, borderColor: c.border }}>
+            {/* Header */}
+            <div className="p-6 border-b flex items-center justify-between" style={{ borderColor: c.border }}>
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-xl"
+                  style={{ background: profile.diffColor }}>
+                  {profile.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold" style={{ color: c.txt }}>{profile.name}</h2>
+                  <p className="text-sm" style={{ color: c.txt3 }}>{profile.age} ans · {profile.gender === "F" ? "Femme" : "Homme"} · {profile.city}</p>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full mt-1 inline-block"
+                    style={{ background: profile.diffColor + "18", color: profile.diffColor }}>
+                    Difficulté de soins : {profile.difficulty}
+                  </span>
+                </div>
+              </div>
+              <button onClick={() => setProfileModal(null)}
+                className="w-8 h-8 rounded-full flex items-center justify-center hover:opacity-70"
+                style={{ background: c.blueLight }}>
+                <X size={15} style={{ color: c.txt3 }} />
+              </button>
+            </div>
+
+            {/* Corps */}
+            <div className="p-6 space-y-5 max-h-[450px] overflow-y-auto">
+              {/* Conditions */}
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>Pathologies</p>
+                <div className="flex flex-wrap gap-2">
+                  {profile.conditions.map((cond) => (
+                    <span key={cond} className="text-xs px-3 py-1 rounded-full border font-medium"
+                      style={{ background: c.blueLight, color: c.blue, borderColor: c.blue + "30" }}>{cond}</span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Traitements */}
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>Traitements en cours</p>
+                <div className="space-y-1.5">
+                  {profile.treatments.map((t) => (
+                    <div key={t} className="flex items-center gap-2 text-sm" style={{ color: c.txt2 }}>
+                      <Pill size={13} style={{ color: c.blue }} /> {t}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>Notes du médecin</p>
+                <p className="text-sm p-3 rounded-xl italic" style={{ background: dk ? "#1A2333" : "#F8FAFC", color: c.txt2 }}>
+                  "{profile.notes}"
+                </p>
+              </div>
+            </div>
+
+            {/* Footer — lecture seule, pas d'action ici */}
+            <div className="px-6 pb-5">
+              <p className="text-xs text-center" style={{ color: c.txt3 }}>
+                Vue en lecture seule — Acceptez ou refusez depuis la liste des offres.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── En-tête ── */}
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold mb-1" style={{ color: c.txt }}>Offres de Missions</h1>
@@ -493,68 +658,558 @@ function JobRequestsView({ dk, c }) {
         </div>
         <div className="flex items-center gap-2 px-4 py-2 rounded-xl border font-bold text-sm"
           style={{ background: c.blue + "10", borderColor: c.blue + "20", color: c.blue }}>
-          <Users size={16} /> {SAMPLE_REQUESTS.length} Missions trouvées
+          <Users size={16} /> {active.length} Mission{active.length !== 1 ? "s" : ""} disponible{active.length !== 1 ? "s" : ""}
         </div>
       </div>
-      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-        {["Tous", "Temps complet", "Temps partiel", "Nuit", "Court terme"].map((filter, i) => (
-          <button key={i} className={`whitespace-nowrap px-4 py-2 rounded-xl text-sm font-semibold transition-all border ${i === 0 ? "text-white shadow-md shadow-blue-500/20" : "hover:bg-blue-500/10"}`}
-            style={{ background: i === 0 ? c.blue : "transparent", borderColor: i === 0 ? c.blue : c.border, color: i === 0 ? "#fff" : c.txt3 }}>
-            {filter}
-          </button>
-        ))}
-      </div>
+
+      {/* ── Liste ── */}
       <div className="space-y-4">
-        {SAMPLE_REQUESTS.map((req) => (
-          <Card key={req.id} dk={dk} className="hover:shadow-md group">
-            <div className="flex flex-col lg:flex-row lg:items-center gap-6">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-bold text-xl border transition-all duration-300 group-hover:text-white"
-                  style={{ background: c.blue + "10", color: c.blue, borderColor: c.blue + "20" }}>
-                  {req.initials}
+        {active.length === 0 && (
+          <Card dk={dk} className="flex flex-col items-center justify-center py-16 text-center">
+            <CheckCircle2 size={40} style={{ color: c.green }} className="mb-4" />
+            <h2 className="text-lg font-bold mb-1" style={{ color: c.txt }}>Toutes les offres traitées</h2>
+            <p className="text-sm" style={{ color: c.txt3 }}>Vous avez répondu à toutes les demandes disponibles.</p>
+          </Card>
+        )}
+        {active.map((req) => {
+          const isPending = pendingAccept[req.id] !== undefined && pendingAccept[req.id] > 0;
+          const secs = pendingAccept[req.id] || 0;
+          const mins = Math.floor(secs / 60);
+          const ss = String(secs % 60).padStart(2, "0");
+          return (
+            <Card key={req.id} dk={dk} className={`hover:shadow-md group transition-all ${isPending ? "border-amber-500/40" : ""}`}
+              style={isPending ? { borderColor: c.amber + "60" } : {}}>
+              <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+
+                {/* Identité patient */}
+                <div className="flex items-center gap-4 shrink-0">
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-bold text-xl border"
+                    style={{ background: c.blue + "10", color: c.blue, borderColor: c.blue + "20" }}>
+                    {req.initials}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold" style={{ color: c.txt }}>{req.patientName}</h3>
+                    <p className="text-sm font-medium" style={{ color: c.txt3 }}>{req.age} ans · {req.condition}</p>
+                    <p className="text-xs mt-0.5 font-medium" style={{ color: c.txt3 }}>{req.posted}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-bold" style={{ color: c.txt }}>{req.patientName}</h3>
-                  <p className="text-sm font-medium" style={{ color: c.txt3 }}>{req.age} ans · {req.condition}</p>
+
+                {/* Adresse */}
+                <div className="flex-1 flex items-center gap-2 text-sm font-medium border-y lg:border-y-0 lg:border-x py-4 lg:py-0 lg:px-8"
+                  style={{ borderColor: c.border, color: c.txt2 }}>
+                  <MapPin size={15} style={{ color: c.blue }} />{req.location}
+                </div>
+
+                {/* Actions */}
+                <div className="flex flex-col sm:flex-row lg:flex-row items-center gap-3 shrink-0">
+                  {/* Bouton Détails du profil */}
+                  <button
+                    onClick={() => setProfileModal(req.id)}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm border transition-all hover:opacity-80 whitespace-nowrap"
+                    style={{ background: "transparent", borderColor: c.border, color: c.txt2 }}>
+                    <User size={14} /> Détails du profil
+                  </button>
+
+                  {/* Accepter / Refuser */}
+                  {isPending ? (
+                    <div className="flex flex-col items-center gap-1.5">
+                      <div className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm"
+                        style={{ background: c.amber + "15", color: c.amber, border: `1px solid ${c.amber}30` }}>
+                        <Clock size={15} /> En attente — {mins}:{ss}
+                      </div>
+                      <button
+                        onClick={() => handleRetract(req.id)}
+                        className="text-[11px] font-bold underline transition-opacity hover:opacity-70"
+                        style={{ color: c.red }}>
+                        Retirer l'acceptation
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleAccept(req.id)}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-white transition-all shadow-md hover:opacity-90 active:scale-95 whitespace-nowrap"
+                        style={{ background: c.green }}>
+                        <CheckCircle2 size={16} /> Accepter
+                      </button>
+                      <button
+                        onClick={() => setDismissed(prev => [...prev, req.id])}
+                        className="w-10 h-10 rounded-xl border flex items-center justify-center transition-all hover:bg-red-500 hover:text-white"
+                        style={{ background: c.red + "15", borderColor: c.red + "25", color: c.red }}>
+                        <X size={18} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-4 gap-x-8 flex-1 border-y lg:border-y-0 lg:border-x py-4 lg:py-0 lg:px-8"
-                style={{ borderColor: c.border }}>
-                <div className="flex items-center gap-3 text-sm font-medium" style={{ color: c.txt2 }}><MapPin size={16} style={{ color: c.blue }} />{req.location}</div>
-                <div className="flex items-center gap-3 text-sm font-medium" style={{ color: c.txt2 }}><Clock size={16} style={{ color: c.blue }} />{req.duration}</div>
-                <div className="flex items-center gap-3 text-sm font-bold" style={{ color: c.txt }}><Calendar size={16} style={{ color: c.blue }} />{req.pay}</div>
-              </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <div className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider h-fit mr-4 border"
-                  style={{ 
-                    color: req.urgency === 'High' ? c.red : c.blue, 
-                    background: req.urgency === 'High' ? c.red + "15" : c.blue + "15",
-                    borderColor: req.urgency === 'High' ? c.red + "25" : c.blue + "25"
-                  }}>
-                  {req.urgency}
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* ── Historique des missions ── */}
+      {(accepted.length > 0 || dismissed.length > 0) && (
+        <div>
+          <h2 className="text-base font-bold mb-4" style={{ color: c.txt }}>Historique</h2>
+          <div className="space-y-3">
+            {accepted.map(id => {
+              const req = SAMPLE_REQUESTS.find(r => r.id === id);
+              if (!req) return null;
+              return (
+                <div key={`acc-${id}`} className="flex items-center justify-between p-4 rounded-2xl border"
+                  style={{ background: c.green + "08", borderColor: c.green + "30" }}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm border"
+                      style={{ background: c.green + "15", color: c.green, borderColor: c.green + "25" }}>
+                      {req.initials}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold" style={{ color: c.txt }}>{req.patientName}</p>
+                      <p className="text-xs font-medium" style={{ color: c.txt3 }}>{req.condition} · {req.location}</p>
+                    </div>
+                  </div>
+                  <span className="flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full"
+                    style={{ background: c.green + "15", color: c.green }}>
+                    <CheckCircle2 size={12} /> Acceptée
+                  </span>
                 </div>
-                <button className="flex-1 lg:flex-none px-6 py-2.5 rounded-xl text-white font-bold text-sm transition-all shadow-md active:scale-95"
-                  style={{ background: c.blue }}>Détails</button>
-                <div className="flex items-center gap-1.5">
-                   <button className="w-10 h-10 rounded-xl border flex items-center justify-center transition-all hover:bg-emerald-500 hover:text-white"
-                     style={{ background: c.green + "15", borderColor: c.green + "25", color: c.green }}><CheckCircle2 size={18} /></button>
-                   <button className="w-10 h-10 rounded-xl border flex items-center justify-center transition-all hover:bg-red-500 hover:text-white"
-                     style={{ background: c.red + "15", borderColor: c.red + "25", color: c.red }}><X size={18} /></button>
+              );
+            })}
+            {dismissed.map(id => {
+              const req = SAMPLE_REQUESTS.find(r => r.id === id);
+              if (!req) return null;
+              return (
+                <div key={`dis-${id}`} className="flex items-center justify-between p-4 rounded-2xl border"
+                  style={{ background: c.red + "08", borderColor: c.red + "25" }}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm border"
+                      style={{ background: c.red + "15", color: c.red, borderColor: c.red + "25" }}>
+                      {req.initials}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold" style={{ color: c.txt }}>{req.patientName}</p>
+                      <p className="text-xs font-medium" style={{ color: c.txt3 }}>{req.condition} · {req.location}</p>
+                    </div>
+                  </div>
+                  <span className="flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full"
+                    style={{ background: c.red + "15", color: c.red }}>
+                    <X size={12} /> Refusée
+                  </span>
                 </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── AI DIAGNOSIS PAGE (Garde-Malade) ────────────────────────────────────────
+function AIDiagnosisPage({ dk, c }) {
+  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState([
+    {
+      role: "ai",
+      text: "Bonjour 👋 Décrivez les symptômes de votre patient en détail — localisation, intensité, durée — et je vous fournirai une analyse clinique immédiate avec des recommandations de soins adaptées.",
+    },
+  ]);
+  const [loading, setLoading] = useState(false);
+  const [showFullHistory, setShowFullHistory] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState([]);
+  const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
+  const quickSymptoms = [
+    "Glycémie élevée",
+    "Douleur thoracique",
+    "Hypertension",
+    "Fièvre",
+    "Prise de médicaments",
+    "Chute",
+  ];
+
+  const send = (text) => {
+    const msg = text || input.trim();
+    if (!msg && attachedFiles.length === 0) return;
+    const displayText = msg || `📎 ${attachedFiles.length} fichier(s) joint(s)`;
+    setMessages((m) => [...m, { role: "user", text: displayText, files: attachedFiles }]);
+    setInput("");
+    setAttachedFiles([]);
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      setMessages((m) => [...m, {
+        role: "ai",
+        text: "Analyse en cours…",
+        result: {
+          urgency: "Urgence modérée",
+          color: "#E8A838",
+          diagnosis: "Possible déséquilibre glycémique",
+          confidence: 83,
+          body: "Les symptômes décrits suggèrent une instabilité glycémique. Vérifiez la glycémie capillaire immédiatement et ajustez la dose de Metformin si nécessaire. Contactez le médecin traitant si la valeur dépasse 11 mmol/L.",
+          tags: ["Vérifier glycémie", "Contacter médecin", "Hydratation accrue"],
+        },
+      }]);
+    }, 1500);
+  };
+
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    setAttachedFiles((prev) => [...prev, ...files.map((f) => f.name)]);
+    e.target.value = "";
+  };
+
+  const toggleRecording = () => {
+    setIsRecording((r) => !r);
+    if (!isRecording) {
+      setTimeout(() => {
+        setIsRecording(false);
+        setInput("Le patient présente une glycémie à 9.8 et des tremblements depuis ce matin");
+      }, 2000);
+    }
+  };
+
+  return (
+    <>
+      <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: c.txt }}>IA Diagnostic</h1>
+          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>Analysez les symptômes de vos patients avec l'assistance IA</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowFullHistory(true)}
+            className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl border transition-all hover:opacity-80"
+            style={{ color: c.blue, borderColor: c.blue, background: c.card }}>
+            <Clock size={14} /> Historique
+          </button>
+          <button
+            onClick={() => setMessages([{ role: "ai", text: "Nouvelle session. Décrivez les symptômes du patient." }])}
+            className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl border transition-all hover:opacity-80"
+            style={{ color: c.blue, borderColor: c.border, background: c.card }}>
+            <Plus size={14} /> Nouvelle session
+          </button>
+        </div>
+      </div>
+
+      {/* Historique Sidebar */}
+      {showFullHistory && (
+        <>
+          <div className="fixed inset-0 z-40" style={{ background: "rgba(0,0,0,0.5)" }}
+            onClick={() => setShowFullHistory(false)} />
+          <div className="fixed top-0 left-0 w-[280px] h-full z-50 flex flex-col shadow-2xl"
+            style={{ background: c.card, borderRight: `1px solid ${c.border}`, animation: "slideInLeft 0.3s ease forwards" }}>
+            <style>{`@keyframes slideInLeft { from { transform: translateX(-100%); } to { transform: translateX(0); } }`}</style>
+            <div className="px-4 py-4 flex items-center justify-between border-b" style={{ borderColor: c.border }}>
+              <p className="font-bold" style={{ color: c.txt }}>Historique</p>
+              <button onClick={() => setShowFullHistory(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:opacity-70"
+                style={{ color: c.txt3, background: c.bg }}>✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {HISTORY_SESSIONS.map((s) => (
+                <button key={s.id}
+                  onClick={() => { setShowFullHistory(false); setMessages([{ role: "ai", text: `Session chargée : "${s.title}"` }]); }}
+                  className="w-full flex items-center gap-3 px-4 py-4 border-b text-left hover:opacity-80"
+                  style={{ borderColor: c.border, background: "transparent" }}>
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: BADGE_COLORS[s.badge] + "18" }}>
+                    <Brain size={16} style={{ color: BADGE_COLORS[s.badge] }} />
+                  </div>
+                  <div className="flex-1 min-w-0 pr-2">
+                    <p className="text-sm font-semibold truncate" style={{ color: c.txt }}>{s.title}</p>
+                    <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>{s.date}</p>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
+                    style={{ color: BADGE_COLORS[s.badge], background: BADGE_COLORS[s.badge] + "18" }}>
+                    {s.badgeLabel}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Chat */}
+        <div className="lg:col-span-2 flex flex-col gap-4">
+          <Card dk={dk} style={{ padding: 0, overflow: "hidden" }}>
+            {/* Messages */}
+            <div className="p-4 space-y-4 overflow-y-auto" style={{ minHeight: 450, maxHeight: 600 }}>
+              {messages.map((m, i) => (
+                <div key={i} className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                    style={{ background: m.role === "ai" ? "linear-gradient(135deg, #4A6FA5, #304B71)" : "linear-gradient(135deg, #2D8C6F, #3aaa88)" }}>
+                    {m.role === "ai" ? "AI" : "GM"}
+                  </div>
+                  <div className="max-w-[80%]">
+                    <div className="rounded-2xl p-3.5 text-sm"
+                      style={{
+                        background: m.role === "ai" ? c.card : c.blue,
+                        color: m.role === "ai" ? c.txt : "#fff",
+                        border: m.role === "ai" ? `1px solid ${c.border}` : "none",
+                        borderRadius: m.role === "ai" ? "4px 16px 16px 16px" : "16px 4px 16px 16px",
+                      }}>
+                      {m.text}
+                      {m.result && (
+                        <div className="mt-3 rounded-xl p-3 border"
+                          style={{ background: dk ? "rgba(255,255,255,0.05)" : "#F8FAFC", borderColor: c.border }}>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-bold uppercase tracking-wide" style={{ color: c.txt3 }}>Analyse IA</span>
+                            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full"
+                              style={{ background: m.result.color + "18", color: m.result.color }}>{m.result.urgency}</span>
+                          </div>
+                          <p className="font-bold text-sm mb-1" style={{ color: c.txt }}>{m.result.diagnosis}</p>
+                          <p className="text-xs mb-2" style={{ color: c.txt2 }}>{m.result.body}</p>
+                          <div className="flex flex-wrap gap-1">
+                            {m.result.tags.map((t) => (
+                              <span key={t} className="text-xs px-2 py-0.5 rounded-full"
+                                style={{ background: c.blueLight, color: c.blue }}>{t}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {loading && (
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                    style={{ background: "linear-gradient(135deg, #4A6FA5, #304B71)" }}>AI</div>
+                  <div className="rounded-2xl p-3.5 flex items-center gap-1.5"
+                    style={{ background: c.card, border: `1px solid ${c.border}` }}>
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className="w-1.5 h-1.5 rounded-full animate-bounce"
+                        style={{ background: c.txt3, animationDelay: `${i * 0.15}s` }} />
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Zone de saisie */}
+            <div className="p-4 border-t" style={{ borderColor: c.border }}>
+              <div className="flex gap-2 flex-wrap mb-3">
+                {quickSymptoms.map((s) => (
+                  <button key={s} onClick={() => send(s)}
+                    className="text-xs px-3 py-1.5 rounded-full border transition-colors hover:opacity-80"
+                    style={{ background: c.blueLight, color: c.blue, borderColor: c.blue + "40" }}>
+                    {s}
+                  </button>
+                ))}
               </div>
+              {attachedFiles.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {attachedFiles.map((f, i) => (
+                    <div key={i} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border"
+                      style={{ background: c.blueLight, borderColor: c.border, color: c.txt }}>
+                      <FileText size={11} style={{ color: c.blue }} />
+                      {f.length > 20 ? f.slice(0, 18) + "…" : f}
+                      <button onClick={() => setAttachedFiles((fs) => fs.filter((_, j) => j !== i))}
+                        className="ml-1 hover:opacity-70" style={{ color: c.txt3 }}>
+                        <X size={11} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {isRecording && (
+                <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl border"
+                  style={{ background: "rgba(224,85,85,0.08)", borderColor: "rgba(224,85,85,0.3)" }}>
+                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-xs font-semibold" style={{ color: "#E05555" }}>Enregistrement en cours…</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2 rounded-xl border px-3 py-2"
+                style={{ background: c.blueLight, borderColor: c.border }}>
+                <label className="w-9 h-9 rounded-lg flex items-center justify-center border transition-colors hover:opacity-70 shrink-0"
+                  style={{ borderColor: c.border, background: c.card, cursor: "pointer" }}>
+                  <input type="file" multiple accept="image/*,.pdf,.doc,.docx" className="hidden" onChange={handleFileChange} />
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: c.txt2 }}>
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                  </svg>
+                </label>
+                <input value={input} onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && send()}
+                  placeholder={isRecording ? "Enregistrement…" : "Décrivez les symptômes du patient…"}
+                  disabled={isRecording}
+                  className="flex-1 text-sm outline-none bg-transparent" style={{ color: c.txt }} />
+                <button onClick={toggleRecording}
+                  className="w-9 h-9 rounded-lg flex items-center justify-center border transition-all hover:opacity-80 shrink-0"
+                  style={{ borderColor: isRecording ? "rgba(224,85,85,0.5)" : c.border, background: isRecording ? "rgba(224,85,85,0.12)" : c.card }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                    style={{ color: isRecording ? "#E05555" : c.txt2 }}>
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                    <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
+                  </svg>
+                </button>
+                <button onClick={() => send()}
+                  className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:opacity-80 shrink-0"
+                  style={{ background: c.blue }}>
+                  <Send size={14} className="text-white" />
+                </button>
+              </div>
+              <p className="text-xs mt-2 text-center" style={{ color: c.txt3 }}>
+                ⏎ Entrée pour envoyer · 🎤 Vocal disponible · 📎 Fichiers acceptés
+              </p>
             </div>
           </Card>
-        ))}
+        </div>
+
+        {/* Panneau latéral */}
+        <div className="space-y-4">
+          <Card dk={dk}>
+            <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: c.txt3 }}>Niveau d'urgence</p>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-bold" style={{ color: "#E8A838" }}>Modérée</span>
+              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full" style={{ background: "#E8A83818", color: "#E8A838" }}>65 / 100</span>
+            </div>
+            <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: c.blueLight }}>
+              <div className="h-full rounded-full" style={{ width: "65%", background: "#E8A838" }} />
+            </div>
+          </Card>
+          <Card dk={dk}>
+            <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: c.txt3 }}>Action recommandée</p>
+            <div className="flex items-center gap-3 p-3 rounded-xl mb-3" style={{ background: c.blueLight }}>
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: c.blueLight, border: `1px solid ${c.border}` }}>
+                <Phone size={16} style={{ color: c.blue }} />
+              </div>
+              <div>
+                <p className="text-sm font-bold" style={{ color: c.txt }}>Contacter médecin</p>
+                <p className="text-xs" style={{ color: c.txt2 }}>Dans les 2 heures</p>
+              </div>
+            </div>
+            <button className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-colors hover:opacity-90"
+              style={{ background: c.blue }}>
+              Appeler Dr. Benali
+            </button>
+          </Card>
+          <Card dk={dk}>
+            <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: c.txt3 }}>Historique récent</p>
+            <div className="space-y-2">
+              {HISTORY_SESSIONS.slice(0, 3).map((s) => (
+                <div key={s.id} className="flex items-center gap-2 p-2 rounded-xl border"
+                  style={{ borderColor: c.border, background: dk ? "#1A2333" : "#F8FAFC" }}>
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ background: BADGE_COLORS[s.badge] + "18" }}>
+                    <Brain size={13} style={{ color: BADGE_COLORS[s.badge] }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold truncate" style={{ color: c.txt }}>{s.title}</p>
+                    <p className="text-[10px]" style={{ color: c.txt3 }}>{s.date}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
 function MyPatientsView({ onChangePage, dk, c }) {
   const { gmPatients: patients, loadGMDemoData } = useData();
+  const [profilePatient, setProfilePatient] = useState(null);
 
   return (
     <div className="space-y-12 animate-in fade-in duration-500">
+
+      {/* ── Modal Profil Patient ── */}
+      {profilePatient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}
+          onClick={e => { if (e.target === e.currentTarget) setProfilePatient(null); }}>
+          <div className="rounded-2xl w-full max-w-md overflow-hidden shadow-2xl border"
+            style={{ background: c.card, borderColor: c.border }}>
+
+            {/* Header */}
+            <div className="p-6 border-b flex items-center justify-between" style={{ borderColor: c.border }}>
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-bold text-xl text-white"
+                  style={{ background: profilePatient.color === 'blue' ? c.blue : profilePatient.color === 'amber' ? c.amber : c.green }}>
+                  {profilePatient.initials}
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold" style={{ color: c.txt }}>{profilePatient.name}</h2>
+                  <p className="text-sm" style={{ color: c.txt3 }}>
+                    {profilePatient.age} ans · {profilePatient.gender === 'Male' ? 'Homme' : 'Femme'} · {profilePatient.city}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setProfilePatient(null)}
+                className="w-8 h-8 rounded-full flex items-center justify-center hover:opacity-70"
+                style={{ background: c.blueLight }}>
+                <X size={15} style={{ color: c.txt3 }} />
+              </button>
+            </div>
+
+            {/* Corps */}
+            <div className="p-6 space-y-5">
+              {/* Pathologies */}
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>Pathologies</p>
+                <div className="flex flex-wrap gap-2">
+                  {profilePatient.conditions.map((cond, i) => (
+                    <span key={i} className="text-xs px-3 py-1 rounded-full border font-medium"
+                      style={{ background: c.blueLight, color: c.blue, borderColor: c.blue + "30" }}>{cond}</span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Contacts */}
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>Contacts du patient</p>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-3 rounded-xl border"
+                    style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border }}>
+                    <span className="text-xs font-medium" style={{ color: c.txt2 }}>Téléphone direct</span>
+                    <a href={`tel:${profilePatient.phone || "+21300000000"}`}
+                      className="flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-lg"
+                      style={{ background: c.green + "15", color: c.green }}>
+                      <Phone size={12} /> {profilePatient.phone || "Non renseigné"}
+                    </a>
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-xl border"
+                    style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border }}>
+                    <span className="text-xs font-medium" style={{ color: c.txt2 }}>Contact d'urgence</span>
+                    <a href={`tel:${profilePatient.emergencyPhone || "+21300000001"}`}
+                      className="flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-lg"
+                      style={{ background: c.red + "15", color: c.red }}>
+                      <Phone size={12} /> {profilePatient.emergencyContact || "Famille"}
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              {/* Adresse */}
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>Adresse</p>
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(profilePatient.address || profilePatient.city || "")}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="flex items-start gap-2 p-3 rounded-xl border transition-opacity hover:opacity-80"
+                  style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border }}>
+                  <MapPin size={14} style={{ color: c.blue, flexShrink: 0, marginTop: 1 }} />
+                  <span className="text-sm" style={{ color: c.txt2 }}>
+                    {profilePatient.address || profilePatient.city || "Adresse non renseignée"}
+                  </span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header>
         <h1 className="text-3xl font-bold mb-2" style={{ color: c.txt }}>Mes Patients</h1>
         <p className="font-medium" style={{ color: c.txt3 }}>{patients.length} patients assignés à votre charge</p>
@@ -577,49 +1232,33 @@ function MyPatientsView({ onChangePage, dk, c }) {
             <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full blur-[80px] opacity-10"
               style={{ background: p.color === 'blue' ? c.blue : p.color === 'amber' ? c.amber : c.green }}></div>
             <div className="flex flex-col items-center text-center space-y-4 relative z-10">
-              <div className="w-20 h-20 rounded-full border-4 flex items-center justify-center text-2xl font-bold text-white shadow-xl"
+              <div className="w-20 h-20 rounded-full border-4 flex items-center justify-center text-2xl font-bold shadow-xl"
                 style={{ background: dk ? "#1F2937" : "#F8FAFC", borderColor: c.border }}>
                 <span style={{ color: dk ? "#fff" : c.blue }}>{p.initials}</span>
               </div>
               <div>
-                 <h2 className="text-xl font-bold group-hover:text-blue-500 transition-colors" style={{ color: c.txt }}>{p.name}</h2>
-                 <p className="text-xs font-bold uppercase tracking-widest mt-1" style={{ color: c.txt3 }}>{p.age} ans · {p.gender === 'Male' ? 'Homme' : 'Femme'} · {p.city}</p>
+                <h2 className="text-xl font-bold group-hover:text-blue-500 transition-colors" style={{ color: c.txt }}>{p.name}</h2>
+                <p className="text-xs font-bold uppercase tracking-widest mt-1" style={{ color: c.txt3 }}>{p.age} ans · {p.gender === 'Male' ? 'Homme' : 'Femme'} · {p.city}</p>
               </div>
-              <div className="flex flex-wrap items-center justify-center gap-2 py-2">
+              <div className="flex flex-wrap items-center justify-center gap-2">
                 {p.conditions.map((cond, i) => (
                   <span key={i} className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border"
-                    style={{ 
-                      background: dk ? "rgba(255,255,255,0.05)" : "#fff", 
-                      borderColor: c.border,
-                      color: c.txt2
-                    }}>{cond}</span>
+                    style={{ background: dk ? "rgba(255,255,255,0.05)" : "#fff", borderColor: c.border, color: c.txt2 }}>
+                    {cond}
+                  </span>
                 ))}
               </div>
-              <div className="w-full space-y-3 pt-6 border-t" style={{ borderColor: c.border }}>
-                {p.vitals.map((v, i) => (
-                  <div key={i} className="flex items-center justify-between text-sm group/vital">
-                    <span className="font-medium transition-colors" style={{ color: c.txt3 }}>{v.label}</span>
-                    <span className="font-bold" style={{ color: v.highlight ? c.amber : c.txt }}>{v.value} <small className="text-[10px] opacity-50 font-medium">{v.unit}</small></span>
-                  </div>
-                ))}
-              </div>
-              <div className="w-full space-y-2 pt-6">
-                 <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: c.txt3 }}>Adhésion</span>
-                    <span className="text-[10px] font-bold" style={{ color: c.txt2 }}>{p.adherence}%</span>
-                 </div>
-                 <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: dk ? "#1A2333" : "#E4EAF5" }}>
-                    <div className="h-full rounded-full transition-all duration-1000" 
-                      style={{ 
-                        width: `${p.adherence}%`,
-                        background: p.color === 'blue' ? c.blue : p.color === 'amber' ? c.amber : c.green 
-                      }}></div>
-                 </div>
-              </div>
-              <div className="w-full grid grid-cols-1 gap-3 pt-4">
-                <button onClick={() => onChangePage("patientProfile")} className="w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border"
-                  style={{ background: dk ? "rgba(255,255,255,0.05)" : "#fff", borderColor: c.border, color: c.txt2 }}>Profil Complet</button>
-                <button onClick={() => onChangePage("emergencies")} className="w-full py-2.5 border border-red-500/30 text-red-500 hover:bg-red-500 hover:text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-all">Alerter Médecin</button>
+              <div className="w-full grid grid-cols-1 gap-3 pt-4 border-t" style={{ borderColor: c.border }}>
+                <button
+                  onClick={() => setProfilePatient(p)}
+                  className="w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border flex items-center justify-center gap-2"
+                  style={{ background: dk ? "rgba(255,255,255,0.05)" : "#fff", borderColor: c.border, color: c.txt2 }}>
+                  <User size={13} /> Voir profil
+                </button>
+                <a href={`tel:${p.emergencyPhone || "+21300000000"}`}
+                  className="w-full py-2.5 border border-red-500/30 text-red-500 hover:bg-red-500 hover:text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2">
+                  <Phone size={13} /> Alerter
+                </a>
               </div>
             </div>
           </Card>
@@ -629,154 +1268,289 @@ function MyPatientsView({ onChangePage, dk, c }) {
   );
 }
 
-function PharmacyView({ dk, c }) {
-  const [stock, setStock] = useState(INITIAL_STOCK);
-  const [cart, setCart] = useState([]);
+function TreatmentsView({ dk, c }) {
+  const {
+    gmPatients: patients, gmTreatments: treatments, loadGMDemoData,
+    addMedicationToTreatment, removeMedicationFromTreatment,
+    addPatientToTreatments, removePatientFromTreatments,
+  } = useData();
 
-  const addToCart = (med) => {
-    if (!cart.find(item => item.id === med.id)) {
-      setCart([...cart, { ...med, qty: 1 }]);
-    }
+  const [editId, setEditId] = useState(null);
+  const [newMed, setNewMed] = useState({ name: "", dosage: "", slot: "morning" });
+  const [showAddPatient, setShowAddPatient] = useState(null); // patient id to confirm add
+  const [removedHistory, setRemovedHistory] = useState([]); // {id, initials, patientName, condition, removedAt}
+
+  const editTreatment = treatments.find(t => t.id === editId) || null;
+  const slots = [
+    { key: "morning", label: "Matin" },
+    { key: "afternoon", label: "Après-midi" },
+    { key: "evening", label: "Soir" },
+  ];
+
+  const handleAddMed = () => {
+    if (!newMed.name.trim() || !editTreatment) return;
+    addMedicationToTreatment(editId, newMed.slot, { name: newMed.name.trim(), dosage: newMed.dosage.trim() });
+    setNewMed({ name: "", dosage: "", slot: newMed.slot });
   };
 
-  const removeFromCart = (id) => setCart(cart.filter(item => item.id !== id));
+  const patientsNotInPlan = patients.filter(p => !treatments.find(t => t.id === p.id));
+
+  const inputCls = "px-3 py-2 rounded-xl text-sm outline-none border";
+  const inputStyle = { background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border, color: c.txt };
 
   return (
     <div className="animate-in fade-in duration-500 space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold mb-1" style={{ color: c.txt }}>Pharmacie & Stock</h1>
-          <p className="text-sm font-medium" style={{ color: c.txt3 }}>Suivez et renouvelez les stocks de médicaments</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button className="px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 border"
-            style={{ background: "transparent", borderColor: c.border, color: c.blue }}>
-            <RefreshCw size={16} /> Synchroniser
-          </button>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-          <Card dk={dk} className="p-8">
-            <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
-               <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: c.txt }}><Pill size={20} style={{ color: c.blue }} /> Stock Médicaments</h2>
-               <div className="flex items-center gap-2 flex-1 md:flex-none">
-                  <div className="relative flex-1">
-                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: c.txt3 }} />
-                    <input type="text" placeholder="Rechercher..." className="pl-9 pr-4 py-1.5 rounded-lg text-xs outline-none w-full border"
-                      style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border, color: c.txt }} />
-                  </div>
-                  <button className="p-1.5 border rounded-lg" style={{ borderColor: c.border, color: c.txt3 }}><Filter size={14} /></button>
-               </div>
+
+      {/* ── Modal Modifier Traitement ── */}
+      {editId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}
+          onClick={e => { if (e.target === e.currentTarget) setEditId(null); }}>
+          <div className="rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl border"
+            style={{ background: c.card, borderColor: c.border }}>
+            <div className="p-6 border-b flex items-center justify-between" style={{ borderColor: c.border }}>
+              <h2 className="text-lg font-bold" style={{ color: c.txt }}>
+                Modifier — {editTreatment?.patientName}
+              </h2>
+              <button onClick={() => setEditId(null)} className="w-8 h-8 rounded-full flex items-center justify-center hover:opacity-70"
+                style={{ background: c.blueLight }}>
+                <X size={15} style={{ color: c.txt3 }} />
+              </button>
             </div>
-            <div className="space-y-4">
-               {stock.map((item) => (
-                 <div key={item.id} className="p-5 rounded-2xl border transition-all"
-                   style={{ 
-                     background: item.status === 'critical' ? c.red + "08" : item.status === 'low' ? c.amber + "08" : "transparent",
-                     borderColor: item.status === 'critical' ? c.red + "22" : item.status === 'low' ? c.amber + "22" : c.border 
-                   }}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                         <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-sm"
-                           style={{ background: item.status === 'critical' ? c.red : item.status === 'low' ? c.amber : c.blue }}><Pill size={18} /></div>
-                         <div>
-                            <h4 className="text-sm font-bold" style={{ color: c.txt }}>{item.name}</h4>
-                            <p className="text-[10px] font-bold uppercase tracking-widest mt-1" style={{ color: c.txt3 }}>Seuil: {item.threshold} {item.unit}</p>
-                         </div>
+            <div className="p-6 space-y-5 max-h-[50vh] overflow-y-auto">
+              {slots.map(({ key, label }) => (
+                <div key={key}>
+                  <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>{label}</p>
+                  <div className="space-y-2">
+                    {(editTreatment?.[key] || []).length === 0 && (
+                      <p className="text-xs italic" style={{ color: c.txt3 }}>Aucun médicament</p>
+                    )}
+                    {(editTreatment?.[key] || []).map((med, idx) => (
+                      <div key={idx} className="flex items-center justify-between px-4 py-2.5 rounded-xl border"
+                        style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border }}>
+                        <div className="flex items-center gap-2">
+                          <Pill size={14} style={{ color: c.blue }} />
+                          <span className="text-sm font-semibold" style={{ color: c.txt }}>{med.name}</span>
+                          {med.dosage && <span className="text-xs" style={{ color: c.txt3 }}>{med.dosage}</span>}
+                        </div>
+                        <button onClick={() => removeMedicationFromTreatment(editId, key, idx)}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-red-500 hover:text-white"
+                          style={{ background: c.red + "15", color: c.red }}>
+                          <Trash2 size={13} />
+                        </button>
                       </div>
-                      <div className="flex items-center gap-6">
-                         <div className="text-right">
-                            <p className="text-lg font-bold" style={{ color: item.status === 'critical' ? c.red : item.status === 'low' ? c.amber : c.blue }}>
-                              {item.quantity} <small className="text-[10px] font-medium opacity-50">{item.unit}</small>
-                            </p>
-                            <p className="text-[10px] font-bold uppercase tracking-widest leading-none" style={{ color: c.txt3 }}>En Stock</p>
-                         </div>
-                         <button disabled={item.status === 'ok'} onClick={() => addToCart(item)} className="px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
-                           style={{ 
-                             background: item.status === 'ok' ? (dk ? "#1F2937" : "#E4EAF5") : c.blue,
-                             color: item.status === 'ok' ? c.txt3 : "#fff",
-                             opacity: item.status === 'ok' ? 0.5 : 1
-                           }}>{item.status === 'ok' ? 'En Stock' : 'Commander'}</button>
-                      </div>
-                    </div>
-                 </div>
-               ))}
-            </div>
-          </Card>
-        </div>
-        <div className="lg:col-span-1 space-y-6">
-          <Card dk={dk}>
-             <div className="flex items-center justify-between mb-8">
-                <h3 className="text-lg font-bold flex items-center gap-2" style={{ color: c.txt }}><ShoppingCart size={20} style={{ color: c.blue }} /> Panier Ravitaillement</h3>
-                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: c.txt3 }}>{cart.length} Articles</span>
-             </div>
-             <div className="space-y-4 mb-8">
-                {cart.length === 0 ? (
-                  <div className="text-center py-8">
-                    <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border"
-                      style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border }}>
-                      <ShoppingCart size={24} style={{ color: c.txt3, opacity: 0.5 }} />
-                    </div>
-                    <p className="text-xs font-medium mx-auto" style={{ color: c.txt3 }}>Le panier est vide.</p>
+                    ))}
                   </div>
-                ) : cart.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between group">
-                       <div className="flex items-center gap-3">
-                          <button onClick={() => removeFromCart(item.id)} className="w-6 h-6 rounded-md flex items-center justify-center hover:bg-red-500 hover:text-white transition-all shadow-sm border border-red-500/20"
-                            style={{ background: c.red + "15", color: c.red }}><Trash2 size={12} /></button>
-                          <div>
-                            <p className="text-xs font-bold group-hover:text-blue-500" style={{ color: c.txt }}>{item.name}</p>
-                            <p className="text-[10px]" style={{ color: c.txt3 }}>1 Boîte (30 tabs)</p>
-                          </div>
-                       </div>
-                       <div className="flex items-center gap-2">
-                          <button className="w-6 h-6 rounded-md border font-bold flex items-center justify-center" style={{ borderColor: c.border, color: c.txt3 }}>-</button>
-                          <span className="text-xs font-bold" style={{ color: c.txt }}>1</span>
-                          <button className="w-6 h-6 rounded-md border font-bold flex items-center justify-center" style={{ borderColor: c.border, color: c.txt3 }}>+</button>
-                       </div>
-                    </div>
-                ))}
-             </div>
-             <div className="pt-6 border-t space-y-4" style={{ borderColor: c.border }}>
-                <div className="flex items-center justify-between text-sm font-bold">
-                   <span style={{ color: c.txt3 }}>Pharmacie</span>
-                   <span style={{ color: c.txt }}>Pharmacie du Jardin</span>
                 </div>
-                <div className="flex items-center justify-between text-sm font-bold">
-                   <span style={{ color: c.txt3 }}>Livraison</span>
-                   <span style={{ color: c.txt }}>À Domicile</span>
-                </div>
-                <button disabled={cart.length === 0} className="w-full py-4 rounded-xl font-bold transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 text-white"
-                  style={{ 
-                    background: cart.length === 0 ? (dk ? "#1F2937" : "#E4EAF5") : c.blue,
-                    opacity: cart.length === 0 ? 0.5 : 1
-                  }}>Commander <CheckCircle2 size={18} /></button>
-             </div>
-          </Card>
-          <div className="rounded-3xl p-8 relative overflow-hidden group shadow-xl"
-            style={{ background: c.red }}>
-              <div className="absolute top-[-20px] right-[-20px] w-24 h-24 bg-white/10 rounded-full blur-xl animate-pulse"></div>
-              <div className="relative z-10 text-white">
-                <div className="flex items-center gap-2 opacity-70 text-[10px] font-bold uppercase tracking-widest mb-2"><AlertTriangle size={14} /> Action Requise</div>
-                <h3 className="font-bold text-lg mb-2">Lisinopril en Rupture</h3>
-                <p className="text-white/80 text-xs font-medium leading-relaxed">Le stock est en dessous d'une journée de dosage. Veuillez passer commande immédiatement.</p>
+              ))}
+            </div>
+            <div className="p-6 border-t space-y-3" style={{ borderColor: c.border }}>
+              <p className="text-xs font-bold uppercase tracking-wide" style={{ color: c.txt3 }}>Ajouter un médicament</p>
+              <div className="flex gap-2 flex-wrap">
+                <input type="text" placeholder="Nom" value={newMed.name}
+                  onChange={e => setNewMed(m => ({ ...m, name: e.target.value }))}
+                  className={`flex-1 min-w-[120px] ${inputCls}`} style={inputStyle} />
+                <input type="text" placeholder="Dosage" value={newMed.dosage}
+                  onChange={e => setNewMed(m => ({ ...m, dosage: e.target.value }))}
+                  className={`w-28 ${inputCls}`} style={inputStyle} />
+                <select value={newMed.slot} onChange={e => setNewMed(m => ({ ...m, slot: e.target.value }))}
+                  className={inputCls} style={inputStyle}>
+                  <option value="morning">Matin</option>
+                  <option value="afternoon">Après-midi</option>
+                  <option value="evening">Soir</option>
+                </select>
+                <button onClick={handleAddMed} disabled={!newMed.name.trim()}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-white transition-all active:scale-95"
+                  style={{ background: newMed.name.trim() ? c.blue : c.border }}>
+                  <Plus size={15} /> Ajouter
+                </button>
               </div>
+            </div>
           </div>
         </div>
+      )}
+
+      {/* ── En-tête + boutons globaux ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold mb-1" style={{ color: c.txt }}>Plans de Traitement</h1>
+          <p className="text-sm font-medium" style={{ color: c.txt3 }}>{treatments.length} patient{treatments.length !== 1 ? "s" : ""} au planning</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {/* Ajouter un patient */}
+          {patientsNotInPlan.length > 0 && (
+            <div className="relative">
+              <button
+                onClick={() => setShowAddPatient(showAddPatient ? null : "open")}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all active:scale-95"
+                style={{ background: c.blue }}>
+                <UserPlus size={15} /> Ajouter un patient
+              </button>
+              {showAddPatient === "open" && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowAddPatient(null)} />
+                  <div className="absolute right-0 top-12 z-50 rounded-2xl border shadow-xl py-2 min-w-[220px]"
+                    style={{ background: c.card, borderColor: c.border }}>
+                    {patientsNotInPlan.map(p => (
+                      <button key={p.id}
+                        onClick={() => { addPatientToTreatments(p); setShowAddPatient(null); }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-left transition-all hover:opacity-80"
+                        style={{ color: c.txt }}>
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                          style={{ background: p.color === 'blue' ? c.blue : p.color === 'amber' ? c.amber : c.green }}>
+                          {p.initials}
+                        </div>
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          {treatments.length === 0 && patients.length === 0 && (
+            <button onClick={loadGMDemoData}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all active:scale-95"
+              style={{ background: c.blue }}>
+              <Plus size={15} /> Charger données démo
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* ── Liste des plans ── */}
+      {treatments.length === 0 ? (
+        <Card dk={dk} className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4"
+            style={{ background: c.blue + "15" }}>
+            <Pill size={28} style={{ color: c.blue }} />
+          </div>
+          <h2 className="text-lg font-bold mb-2" style={{ color: c.txt }}>Aucun plan de traitement</h2>
+          <p className="text-sm max-w-sm" style={{ color: c.txt3 }}>
+            {patients.length === 0
+              ? "Chargez d'abord les données démo pour voir les patients."
+              : "Utilisez le bouton ci-dessus pour ajouter un patient au planning."}
+          </p>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {treatments.map(t => (
+            <Card key={t.id} dk={dk} className="hover:shadow-md transition-all">
+              {/* Header carte */}
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold"
+                    style={{ background: c.blue }}>
+                    {t.initials}
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold" style={{ color: c.txt }}>{t.patientName}</h3>
+                    <p className="text-[11px] font-medium" style={{ color: c.txt3 }}>{t.condition}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => { setEditId(t.id); setNewMed({ name: "", dosage: "", slot: "morning" }); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold border transition-all hover:opacity-80"
+                    style={{ borderColor: c.blue + "40", color: c.blue, background: c.blue + "10" }}>
+                    <Plus size={12} /> Modifier
+                  </button>
+                  <button onClick={() => {
+                    setRemovedHistory(h => [...h, { id: t.id, initials: t.initials, patientName: t.patientName, condition: t.condition, removedAt: new Date().toLocaleDateString("fr-FR") }]);
+                    removePatientFromTreatments(t.id);
+                  }}
+                    className="w-8 h-8 rounded-xl flex items-center justify-center border transition-all hover:bg-red-500 hover:text-white"
+                    style={{ borderColor: c.red + "30", color: c.red, background: c.red + "10" }}>
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Créneaux médicaments */}
+              <div className="space-y-3">
+                {slots.map(({ key, label }) => {
+                  const meds = t[key] || [];
+                  if (meds.length === 0) return null;
+                  return (
+                    <div key={key} className="rounded-xl p-3 border" style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border }}>
+                      <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: c.txt3 }}>{label}</p>
+                      <div className="space-y-1.5">
+                        {meds.map((med, idx) => (
+                          <div key={idx} className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-sm">
+                              <Pill size={13} style={{ color: c.blue }} />
+                              <span style={{ color: c.txt }}>{med.name}</span>
+                              {med.dosage && <span className="text-xs font-medium" style={{ color: c.txt3 }}>{med.dosage}</span>}
+                            </div>
+                            <button onClick={() => removeMedicationFromTreatment(t.id, key, idx)}
+                              className="w-6 h-6 rounded-lg flex items-center justify-center transition-all hover:bg-red-500 hover:text-white shrink-0"
+                              style={{ color: c.red, background: c.red + "12" }}>
+                              <Trash2 size={11} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+                {slots.every(({ key }) => (t[key] || []).length === 0) && (
+                  <p className="text-xs text-center py-2 italic" style={{ color: c.txt3 }}>
+                    Aucun médicament — cliquez sur Modifier pour en ajouter.
+                  </p>
+                )}
+              </div>
+
+              {t.specialInstructions && (
+                <div className="mt-4 p-3 rounded-xl border text-xs italic"
+                  style={{ background: c.amber + "08", borderColor: c.amber + "25", color: c.txt2 }}>
+                  {t.specialInstructions}
+                </div>
+              )}
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* ── Historique ── */}
+      {removedHistory.length > 0 && (
+        <div>
+          <h2 className="text-base font-bold mb-4" style={{ color: c.txt }}>Historique</h2>
+          <div className="space-y-3">
+            {removedHistory.map((h, i) => (
+              <div key={i} className="flex items-center justify-between p-4 rounded-2xl border"
+                style={{ background: c.red + "08", borderColor: c.red + "25" }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm border"
+                    style={{ background: c.red + "15", color: c.red, borderColor: c.red + "25" }}>
+                    {h.initials}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold" style={{ color: c.txt }}>{h.patientName}</p>
+                    <p className="text-xs font-medium" style={{ color: c.txt3 }}>{h.condition}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs font-bold px-3 py-1 rounded-full"
+                    style={{ background: c.txt3 + "15", color: c.txt3 }}>
+                    Retiré le {h.removedAt}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function SettingsView() {
+function SettingsView({ onTarifSaved }) {
   const { theme } = useTheme();
   const dk = theme === "dark";
   const c = dk ? T.dark : T.light;
   const { userData: user } = useAuth();
   const [showPwd, setShowPwd] = useState(false);
-  const [wilayaOpen, setWilayaOpen] = useState(false);
   const [locSaved, setLocSaved] = useState(false);
+  const [tarifSaved, setTarifSaved] = useState(false);
 
   const [form, setForm] = useState({ name: "", email: "", phone: "" });
   const [isSaving, setIsSaving] = useState(false);
@@ -787,6 +1561,7 @@ function SettingsView() {
   const [isSavingPwd, setIsSavingPwd] = useState(false);
 
   const [locForm, setLocForm] = useState({ address: "", commune: "", wilaya: "Alger", mapsUrl: "" });
+  const [tarifForm, setTarifForm] = useState({ tarifSoin: "", tarifNuit: "", tarifMensuel: "" });
 
   useEffect(() => {
     if (user) {
@@ -841,6 +1616,12 @@ function SettingsView() {
   const handleSaveLocation = () => {
     setLocSaved(true);
     setTimeout(() => setLocSaved(false), 3000);
+  };
+
+  const handleSaveTarifs = () => {
+    setTarifSaved(true);
+    if (onTarifSaved) onTarifSaved(tarifForm.tarifMensuel);
+    setTimeout(() => setTarifSaved(false), 3000);
   };
 
   const inputCls = "w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition-all focus:ring-2";
@@ -974,40 +1755,15 @@ function SettingsView() {
                 style={inputStyle}
               />
             </div>
-            <div>
-              <label className={labelCls} style={{ color: c.txt2 }}>Wilaya</label>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setWilayaOpen(!wilayaOpen)}
-                  className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm outline-none transition-all"
-                  style={{ ...inputStyle, borderColor: wilayaOpen ? c.blue : c.border }}
-                >
-                  <span style={{ color: locForm.wilaya ? c.txt : c.txt3 }}>{locForm.wilaya || "Sélectionner..."}</span>
-                  <ChevronDown size={16} className={`shrink-0 transition-transform ${wilayaOpen ? "rotate-180" : ""}`} style={{ color: c.txt3 }} />
-                </button>
-                {wilayaOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setWilayaOpen(false)} />
-                    <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl border shadow-xl z-50 py-2 max-h-56 overflow-y-auto"
-                      style={{ background: dk ? "#141B27" : "#fff", borderColor: c.border }}>
-                      {WILAYAS_LIST.map((w) => (
-                        <button
-                          key={w} type="button"
-                          onClick={() => { setLocForm((f) => ({ ...f, wilaya: w })); setWilayaOpen(false); }}
-                          className="w-full flex items-center px-5 py-2.5 text-sm font-medium transition-all text-left"
-                          style={{ color: locForm.wilaya === w ? c.blue : c.txt, background: locForm.wilaya === w ? c.blue + "15" : "transparent" }}
-                          onMouseEnter={(e) => { if (locForm.wilaya !== w) e.currentTarget.style.background = c.blue + "10"; }}
-                          onMouseLeave={(e) => { if (locForm.wilaya !== w) e.currentTarget.style.background = "transparent"; }}
-                        >
-                          {w}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
+            <DashSelect
+              label="Wilaya"
+              value={locForm.wilaya}
+              options={WILAYAS_LIST}
+              onSelect={(w) => setLocForm((f) => ({ ...f, wilaya: w }))}
+              dk={dk}
+              c={c}
+              placeholder="Sélectionner votre wilaya"
+            />
             <div>
               <label className={labelCls} style={{ color: c.txt2 }}>Lien Google Maps (Optionnel)</label>
               <div className="relative">
@@ -1111,6 +1867,62 @@ function SettingsView() {
         </div>
       </Card>
 
+      {/* ── Tarifs de garde ── */}
+      <Card dk={dk}>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: c.green + "18" }}>
+            <Shield size={18} style={{ color: c.green }} />
+          </div>
+          <div>
+            <p className="font-bold text-base" style={{ color: c.txt }}>Tarifs de garde</p>
+            <p className="text-xs" style={{ color: c.txt3 }}>Définissez vos tarifs affichés aux patients</p>
+          </div>
+        </div>
+
+        {tarifSaved && (
+          <div className="mb-5 p-3 rounded-xl text-xs font-semibold flex items-center gap-2"
+            style={{ background: "#2D8C6F12", color: "#2D8C6F", border: "1px solid #2D8C6F44" }}>
+            <Check size={14} /> Tarifs mis à jour avec succès ✅
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-5">
+          {[
+            { key: "tarifSoin", label: "Tarif Soin Ponctuel", placeholder: "Ex: 2000", suffix: "DZD" },
+            { key: "tarifNuit", label: "Tarif Garde de Nuit", placeholder: "Ex: 4000", suffix: "DZD" },
+            { key: "tarifMensuel", label: "Tarif Mensuel (optionnel)", placeholder: "Ex: 45000", suffix: "DZD" },
+          ].map(({ key, label, placeholder, suffix }) => (
+            <div key={key}>
+              <label className={labelCls} style={{ color: c.txt2 }}>{label}</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder={placeholder}
+                  value={tarifForm[key]}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, "");
+                    setTarifForm((f) => ({ ...f, [key]: v }));
+                  }}
+                  className={inputCls}
+                  style={inputStyle}
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold pointer-events-none" style={{ color: c.txt3 }}>
+                  {suffix}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={handleSaveTarifs}
+          className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
+          style={{ background: `linear-gradient(135deg, #1F6B50, ${c.green})` }}
+        >
+          <Shield size={15} /> Enregistrer les tarifs
+        </button>
+      </Card>
+
       {/* ── Langue + À propos ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <Card dk={dk}>
@@ -1153,6 +1965,7 @@ export default function GardeMaladeDashboard({ onLogout }) {
   const [mobileMenu, setMobileMenu] = useState(false);
   const [emergency, setEmergency] = useState(false);
   const [notifications] = useState([]);
+  const [tarifMensuel, setTarifMensuel] = useState("");
 
   const dk = theme === "dark";
   const c = dk ? T.dark : T.light;
@@ -1170,7 +1983,8 @@ export default function GardeMaladeDashboard({ onLogout }) {
     { id: "dashboard", label: "Accueil" },
     { id: "jobRequests", label: "Offres & Missions" },
     { id: "myPatients", label: "Mes Patients" },
-    { id: "pharmacy", label: "Pharmacie" }
+    { id: "treatments", label: "Traitements" },
+    { id: "ai-diagnosis", label: "IA Diagnostic" },
   ];
 
   const renderPage = () => {
@@ -1179,8 +1993,9 @@ export default function GardeMaladeDashboard({ onLogout }) {
       case "emergencies": return <EmergenciesView dk={dk} c={c} />;
       case "jobRequests": return <JobRequestsView dk={dk} c={c} />;
       case "myPatients": return <MyPatientsView onChangePage={setPage} dk={dk} c={c} />;
-      case "pharmacy": return <PharmacyView dk={dk} c={c} />;
-      case "settings": return <SettingsView />;
+      case "treatments": return <TreatmentsView dk={dk} c={c} />;
+      case "ai-diagnosis": return <AIDiagnosisPage dk={dk} c={c} />;
+      case "settings": return <SettingsView onTarifSaved={setTarifMensuel} />;
       default: return <HomeView onChangePage={setPage} dk={dk} c={c} setEmergency={setEmergency} />;
     }
   };
@@ -1320,6 +2135,11 @@ export default function GardeMaladeDashboard({ onLogout }) {
                       <div>
                         <p className="text-sm font-bold" style={{ color: c.txt }}>{fullName}</p>
                         <p className="text-xs" style={{ color: c.txt3 }}>Garde-Malade · ID #{user?.id || "----"}</p>
+                        {tarifMensuel && (
+                          <p className="text-xs font-bold mt-0.5" style={{ color: c.green }}>
+                            Tarif mensuel : {Number(tarifMensuel).toLocaleString("fr-DZ")} DA
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>

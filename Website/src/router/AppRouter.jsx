@@ -116,13 +116,15 @@ export default function AppRouter() {
 
   if (FORCE_TEST) {
     const ROLE_MAP = {
+      landing:    <LandingPage         onLogin={() => {}} onRegister={() => {}} />,
+      auth:       <AuthTransition      initialActive={true} onLogin={(t) => console.log("Auth login:", t)} onBack={() => {}} />,
       patient:    <PatientDashboard    onLogout={() => console.log("Logout!")} />,
       doctor:     <DoctorDashboard     onLogout={() => console.log("Logout!")} />,
       pharmacist: <PharmacistDashboard onLogout={() => console.log("Logout!")} />,
       admin:      <AdminDashboard      onLogout={() => console.log("Logout!")} />,
       caretaker:  <CaretakerDashboard  onLogout={() => console.log("Logout!")} />,
     };
-    const devRoles = ["patient", "doctor", "pharmacist", "admin", "caretaker"];
+    const devRoles = ["landing", "auth", "patient", "doctor", "pharmacist", "admin", "caretaker"];
     return (
       <>
         {ROLE_MAP[forcedRole]}
@@ -142,6 +144,7 @@ export default function AppRouter() {
       </>
     );
   }
+  
 
   // =========================================================================
 

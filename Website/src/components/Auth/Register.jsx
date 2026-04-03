@@ -48,7 +48,23 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible }) {
     setErrors({});
     console.log("Form submitted");
     if (onNextStep) {
-      onNextStep({ firstName, lastName, email, accountType });
+      onNextStep({ firstName, lastName, email, accountType, password, confirmPassword });
+    } else {
+      onLogin(accountType);
+    }
+  }
+
+  function handleDevFill() {
+    const ts = Date.now();
+    if (onNextStep) {
+      onNextStep({
+        firstName: "Dev",
+        lastName: "Test",
+        email: `dev${ts}@test.com`,
+        password: "DevTest@123",
+        confirmPassword: "DevTest@123",
+        accountType,
+      });
     } else {
       onLogin(accountType);
     }
@@ -226,6 +242,16 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible }) {
         </div>
 
       </div>
+
+      {import.meta.env.DEV && (
+        <button
+          type="button"
+          onClick={handleDevFill}
+          className="fixed bottom-4 left-4 z-50 bg-black/80 text-yellow-400 text-[10px] px-3 py-1.5 rounded border border-yellow-400/50 hover:bg-black font-mono cursor-pointer"
+        >
+          ⚡ DEV: Auto-Fill
+        </button>
+      )}
     </div>
   );
 }

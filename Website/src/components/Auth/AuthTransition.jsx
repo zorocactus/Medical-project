@@ -133,7 +133,7 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
 
   if (step === 5) {
     if (tempUser?.accountType === "personnel médical") {
-      return <MedicalInfoForm onComplete={handleCompletedStep5} onBack={() => setStep(4)} />;
+      return <MedicalInfoForm onComplete={handleCompletedStep5} onBack={() => setStep(4)} medicalRole={tempUser?.medicalRole || tempUser?.role || "Médecin"} />;
     }
   }
 
