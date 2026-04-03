@@ -4,6 +4,7 @@ import PatientSidebar from "../components/SideBar/PatientSB"
 import GardeMSidebar from "../components/SideBar/GardeMSB"
 import PharmacienSidebar from "../components/SideBar/PharmacienSB"
 import DoctorDashboard from "../pages/DoctorDashboard"
+import GardeMaledeDashboard from "../pages/GardeMaledeDashboard"
 import { DataProvider } from "../context/DataContext"
 
 const PATIENTS_STORAGE_KEY = "medsmart_patients";
@@ -53,14 +54,21 @@ export default function AppRouter() {
     )
   }
 
+  if (accountType === "Garde-malade") {
+    return (
+      <DataProvider>
+        <GardeMaledeDashboard />
+      </DataProvider>
+    )
+  }
+
   return (
     <DataProvider>
       <div className="flex min-h-screen bg-[#D1DFEC] font-sans">
         {accountType === "Patient"       && <PatientSidebar />}
-        {accountType === "Garde-malade"  && <GardeMSidebar />}
         {accountType === "Pharmacien"    && <PharmacienSidebar />}
         <main className="flex-1 p-8">
-          {/* dashboard ici */}
+          {/* Default view */}
         </main>
       </div>
     </DataProvider>
