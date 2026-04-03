@@ -1342,10 +1342,6 @@ export default function PharmacistDashboard({ onLogout }) {
             </div>
             <div>
               <span className="font-bold text-sm" style={{ color: c.txt }}>MedSmart</span>
-              <span className="ml-2 text-xs font-semibold px-1.5 py-1 rounded-full"
-                style={{ background: "#2D8C6F18", color: "#2D8C6F" }}>
-                Pharmacien
-              </span>
             </div>
           </div>
 

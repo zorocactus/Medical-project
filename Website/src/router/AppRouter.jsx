@@ -5,6 +5,7 @@ import PatientDashboard from "../pages/patient/Dashboard";
 import DoctorDashboard from "../pages/medical/DoctorDashboard";
 import PharmacistDashboard from "../pages/pharmacist/PharmacistDashboard";
 import AdminDashboard from "../pages/admin/Admindashboard";
+import CaretakerDashboard from "../pages/caretaker/CaretakerDashboard";
 import LandingPage from "../pages/LandingPage";
 
 // ─── Mapping rôles backend → dashboard ───────────────────────────────────────
@@ -38,8 +39,10 @@ function RoleRouter() {
     const isCaretaker = role === "caretaker" || role === "garde-malade";
 
     if (isPharmacist) return <PharmacistDashboard onLogout={logout} />;
-    if (isDoctor || isCaretaker)
+    if (isDoctor)
       return <DoctorDashboard role={userData?.role} onLogout={logout} />;
+    if (isCaretaker)
+      return <CaretakerDashboard onLogout={logout} />;
 
     // Rôle médical non précisé → DoctorDashboard par défaut
     return <DoctorDashboard role="Médecin" onLogout={logout} />;
@@ -109,7 +112,7 @@ export default function AppRouter() {
   // =========================================================================
 
   const FORCE_TEST = true; // Mettre à true pour activer le bypass
-  const [forcedRole, setForcedRole] = useState("pharmacist"); // Choix: "patient", "doctor", "pharmacist", "admin"
+  const [forcedRole, setForcedRole] = useState("pharmacist"); // Choix: "patient", "doctor", "pharmacist", "admin", "caretaker"
 
   if (FORCE_TEST) {
     const ROLE_MAP = {
@@ -117,8 +120,9 @@ export default function AppRouter() {
       doctor:     <DoctorDashboard     onLogout={() => console.log("Logout!")} />,
       pharmacist: <PharmacistDashboard onLogout={() => console.log("Logout!")} />,
       admin:      <AdminDashboard      onLogout={() => console.log("Logout!")} />,
+      caretaker:  <CaretakerDashboard  onLogout={() => console.log("Logout!")} />,
     };
-    const devRoles = ["patient", "doctor", "pharmacist", "admin"];
+    const devRoles = ["patient", "doctor", "pharmacist", "admin", "caretaker"];
     return (
       <>
         {ROLE_MAP[forcedRole]}

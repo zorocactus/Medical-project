@@ -661,7 +661,7 @@ function DashboardPage({
       <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: c.txt }}>
-            Bonjour, <span style={{ color: c.blue }}>{firstName}</span> 👋
+            Bonjour, <span style={{ color: c.blue }}>{firstName}</span> 
           </h1>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
