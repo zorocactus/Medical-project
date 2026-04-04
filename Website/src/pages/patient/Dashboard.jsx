@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { useData } from "../../context/DataContext";
 import * as api from "../../services/api";
 import {
   LayoutDashboard,
@@ -1144,17 +1145,18 @@ function MedicalProfilePage({ dk, profile, userId }) {
   const [editMode, setEditMode] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [status, setStatus] = useState({ type: "", msg: "" }); // { type: "success"|"error", msg: "" }
+  const loadedTabs = useRef(new Set());
 
   useEffect(() => {
+    const FETCH_TABS = { antecedents: true, treatments: true, analyses: true };
+    if (!FETCH_TABS[tab]) return; // diagnostics/prescriptions need no fetch
+    if (loadedTabs.current.has(tab)) return; // already loaded, skip
     async function fetchTabData() {
       setLoading(true);
       try {
         if (tab === "antecedents") {
           const res = await api.getAntecedents().catch(() => []);
-          setData((d) => ({
-            ...d,
-            antecedents: Array.isArray(res) ? res : [],
-          }));
+          setData((d) => ({ ...d, antecedents: Array.isArray(res) ? res : [] }));
         } else if (tab === "treatments") {
           const res = await api.getTreatments().catch(() => []);
           setData((d) => ({ ...d, treatments: Array.isArray(res) ? res : [] }));
@@ -1163,6 +1165,7 @@ function MedicalProfilePage({ dk, profile, userId }) {
           setData((d) => ({ ...d, analyses: Array.isArray(res) ? res : [] }));
         }
       } catch (err) {}
+      loadedTabs.current.add(tab);
       setLoading(false);
     }
     fetchTabData();
@@ -1226,57 +1229,47 @@ function MedicalProfilePage({ dk, profile, userId }) {
           <div className="flex-1 min-w-[250px]">
             {editMode ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                <input
-                  type="text"
-                  placeholder="Nom complet"
-                  value={editForm.name || safeProfile.name || ""}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, name: e.target.value })
-                  }
-                  className="px-3 py-2 border rounded-lg text-sm bg-transparent w-full"
-                  style={{ borderColor: c.border, color: c.txt }}
-                />
-                <input
-                  type="date"
-                  placeholder="Date de naissance (DOB)"
-                  value={editForm.dob || safeProfile.dob || ""}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, dob: e.target.value })
-                  }
-                  className="px-3 py-2 border rounded-lg text-sm bg-transparent w-full"
-                  style={{ borderColor: c.border, color: c.txt }}
-                />
-                <input
-                  type="tel"
-                  placeholder="Téléphone"
-                  value={editForm.phone || safeProfile.phone || ""}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, phone: e.target.value })
-                  }
-                  className="px-3 py-2 border rounded-lg text-sm bg-transparent w-full"
-                  style={{ borderColor: c.border, color: c.txt }}
-                />
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Ville"
-                    value={editForm.city || safeProfile.city || ""}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, city: e.target.value })
-                    }
-                    className="px-3 py-2 border rounded-lg text-sm bg-transparent w-full"
-                    style={{ borderColor: c.border, color: c.txt }}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Wilaya"
-                    value={editForm.wilaya || safeProfile.wilaya || ""}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, wilaya: e.target.value })
-                    }
-                    className="px-3 py-2 border rounded-lg text-sm bg-transparent w-full"
-                    style={{ borderColor: c.border, color: c.txt }}
-                  />
+                {[
+                  { label: "Nom complet", key: "name", type: "text", placeholder: "Ex: Ahmed Benali" },
+                  { label: "Date de naissance", key: "dob", type: "date", placeholder: "" },
+                  { label: "Téléphone", key: "phone", type: "tel", placeholder: "+213 5XX XX XX XX" },
+                  { label: "Groupe sanguin", key: "blood_type", type: "text", placeholder: "A+, B−, O+…" },
+                ].map(({ label, key, type, placeholder }) => (
+                  <div key={key}>
+                    <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>{label}</label>
+                    <input
+                      type={type}
+                      placeholder={placeholder}
+                      value={editForm[key] ?? safeProfile[key] ?? ""}
+                      onChange={(e) => setEditForm({ ...editForm, [key]: e.target.value })}
+                      className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                      style={{ background: dk ? "#1A2333" : "#fff", borderColor: c.border, color: c.txt }}
+                    />
+                  </div>
+                ))}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Ville</label>
+                  <input type="text" placeholder="Ex: Alger"
+                    value={editForm.city ?? safeProfile.city ?? ""}
+                    onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                    className="px-3 py-2 border rounded-xl text-sm w-full outline-none"
+                    style={{ background: dk ? "#1A2333" : "#fff", borderColor: c.border, color: c.txt }} />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Wilaya</label>
+                  <input type="text" placeholder="Ex: Alger"
+                    value={editForm.wilaya ?? safeProfile.wilaya ?? ""}
+                    onChange={(e) => setEditForm({ ...editForm, wilaya: e.target.value })}
+                    className="px-3 py-2 border rounded-xl text-sm w-full outline-none"
+                    style={{ background: dk ? "#1A2333" : "#fff", borderColor: c.border, color: c.txt }} />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Allergies (séparées par des virgules)</label>
+                  <input type="text" placeholder="Ex: Pénicilline, Aspirine"
+                    value={editForm.allergies ?? safeProfile.allergies ?? ""}
+                    onChange={(e) => setEditForm({ ...editForm, allergies: e.target.value })}
+                    className="px-3 py-2 border rounded-xl text-sm w-full outline-none"
+                    style={{ background: dk ? "#1A2333" : "#fff", borderColor: c.border, color: c.txt }} />
                 </div>
               </div>
             ) : (
@@ -1362,7 +1355,7 @@ function MedicalProfilePage({ dk, profile, userId }) {
                   background: c.blueLight,
                 }}
               >
-                Edit Profile
+                Modifier le profil
               </button>
             )}
           </div>
@@ -4210,18 +4203,6 @@ function PharmacyPage({ dk }) {
                     <span>{Math.round(subtotal * 0.4)} DZD</span>
                   </div>
                 </div>
-                <button
-                  className="w-full py-3 rounded-xl text-sm font-bold text-white mt-4 transition-all hover:opacity-90"
-                  style={{ background: c.blue }}
-                >
-                  Confirm & Pay
-                </button>
-                <p
-                  className="text-center text-xs mt-2"
-                  style={{ color: c.txt3 }}
-                >
-                  🔒 Secured · CNAS integrated
-                </p>
               </>
             )}
           </Card>
@@ -4572,7 +4553,14 @@ function CareTakerPage({ dk }) {
                     <p className="text-sm font-bold" style={{ color: c.txt }}>Simulation pour test UI</p>
                     <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>Cliquez pour simuler que le garde-malade a accepté votre demande.</p>
                   </div>
-                  <button onClick={() => setIsAccepted(true)}
+                  <button onClick={() => {
+                    setIsAccepted(true);
+                    addNotification(
+                      "Nouvelle mission assignée",
+                      `${pendingRequest?.name || "Un garde-malade"} a accepté votre demande de soins.`,
+                      "success"
+                    );
+                  }}
                     className="px-5 py-2.5 rounded-xl text-sm font-bold text-white shadow-md active:scale-95"
                     style={{ background: c.green }}>
                     ✓ Simuler l'acceptation
@@ -5333,6 +5321,7 @@ function SettingsPage({ dk, onToggleDark, userData }) {
 // ─── MAIN SHELL ───────────────────────────────────────────────────────────────
 export default function PatientDashboard({ onLogout }) {
   const { userData } = useAuth();
+  const { globalNotifications = [], markAllNotificationsRead, addNotification } = useData();
   const [page, setPage] = useState("dashboard");
   const [dk, setDk] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -5560,12 +5549,13 @@ export default function PatientDashboard({ onLogout }) {
           <div className="flex items-center gap-3 ml-auto shrink-0">
             {/* Profile button — red dot on border corner for notifications */}
             <div className="relative">
-              {/* Red dot on the outer corner of the whole button container */}
-              {notifications.filter((n) => !n.is_read && n.unread !== false)
-                .length > 0 && (
+              {/* Red dot — API notifications + global notifications */}
+              {(notifications.filter(n => !n.is_read && n.unread !== false).length +
+                globalNotifications.filter(n => !n.read).length) > 0 && (
                 <div
-                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 border-2 z-10 flex items-center justify-center"
+                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 z-10 flex items-center justify-center"
                   style={{
+                    background: c.red,
                     borderColor: c.nav,
                     fontSize: 7,
                     color: "#fff",
@@ -5573,11 +5563,8 @@ export default function PatientDashboard({ onLogout }) {
                     pointerEvents: "none",
                   }}
                 >
-                  {
-                    notifications.filter(
-                      (n) => !n.is_read && n.unread !== false,
-                    ).length
-                  }
+                  {notifications.filter(n => !n.is_read && n.unread !== false).length +
+                   globalNotifications.filter(n => !n.read).length}
                 </div>
               )}
               <button

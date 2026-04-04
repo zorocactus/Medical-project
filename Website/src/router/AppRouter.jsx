@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import AuthTransition from "../components/Auth/AuthTransition";
 import PatientDashboard from "../pages/patient/Dashboard";
@@ -20,8 +20,42 @@ import LandingPage from "../pages/LandingPage";
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
+function PendingApprovalPage({ logout }) {
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F0F4F8", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+      <div style={{ background: "#fff", borderRadius: 24, padding: "48px 40px", maxWidth: 440, width: "100%", textAlign: "center", boxShadow: "0 8px 40px rgba(74,111,165,0.12)" }}>
+        <div style={{ width: 72, height: 72, borderRadius: 20, background: "linear-gradient(135deg, #E8A838, #c8891a)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+        </div>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0D1B2E", marginBottom: 12 }}>Compte en attente de validation</h1>
+        <p style={{ fontSize: 14, color: "#5A6E8A", lineHeight: 1.7, marginBottom: 8 }}>
+          Votre inscription a été reçue avec succès. Notre équipe administrative vérifie vos documents et informations professionnelles.
+        </p>
+        <p style={{ fontSize: 13, color: "#9AACBE", marginBottom: 32 }}>
+          Vous recevrez une confirmation par e-mail sous <strong style={{ color: "#E8A838" }}>24–48 heures</strong>.
+        </p>
+        <div style={{ background: "#FFF8EC", border: "1px solid #E8A83840", borderRadius: 14, padding: "16px 20px", marginBottom: 28, textAlign: "left" }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: "#E8A838", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Documents requis vérifiés</p>
+          {["Diplôme ou titre professionnel", "Pièce d'identité nationale", "Registre professionnel / Numéro RPPS"].map(d => (
+            <div key={d} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E8A838" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              <span style={{ fontSize: 13, color: "#5A6E8A" }}>{d}</span>
+            </div>
+          ))}
+        </div>
+        <button onClick={logout}
+          style={{ width: "100%", padding: "14px", borderRadius: 14, background: "linear-gradient(135deg, #304B71, #6492C9)", color: "#fff", fontWeight: 700, fontSize: 15, border: "none", cursor: "pointer" }}>
+          Se déconnecter
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function RoleRouter() {
-  const { accountType, userData, logout } = useAuth();
+  const { accountType, userData, logout, isApproved } = useAuth();
 
   const type = accountType?.toLowerCase()?.trim();
 
@@ -34,6 +68,9 @@ function RoleRouter() {
   }
 
   if (type === "personnel médical") {
+    // Block unapproved medical staff with a friendly pending page
+    if (!isApproved) return <PendingApprovalPage logout={logout} />;
+
     const isPharmacist = role === "pharmacist" || role === "pharmacien";
     const isDoctor = role === "doctor" || role === "médecin";
     const isCaretaker = role === "caretaker" || role === "garde-malade";
@@ -104,7 +141,7 @@ function RoleRouter() {
 
 // ─── Main Router ──────────────────────────────────────────────────────────────
 export default function AppRouter() {
-  const { isAuthenticated, loginWithData, logout } = useAuth();
+  const { isAuthenticated, loginWithData } = useAuth();
   const [authMode, setAuthMode] = useState(null); // null = landing, "login" | "register"
 
   // =========================================================================

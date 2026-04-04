@@ -847,6 +847,215 @@ function SystemePage({ dk }) {
   );
 }
 
+// ─── PAGE: VALIDATION DES INSCRIPTIONS ───────────────────────────────────────
+const PENDING_PROS = [
+  {
+    id: 1, name: "Dr. Ramzi Boudiaf", role: "médecin", specialty: "Cardiologie",
+    wilaya: "Alger", email: "ramzi.boudiaf@email.dz", phone: "+213 550 12 34 56",
+    submittedAt: "2026-04-03", initials: "RB", color: "#2D8C6F",
+    docs: [
+      { label: "Diplôme de médecine", key: "diplome" },
+      { label: "Ordre des médecins", key: "ordre" },
+      { label: "Pièce d'identité", key: "cni" },
+    ],
+  },
+  {
+    id: 2, name: "Pharmacie Al Amal", role: "pharmacien", specialty: "Pharmacie",
+    wilaya: "Oran", email: "alalampharm@email.dz", phone: "+213 561 98 76 54",
+    submittedAt: "2026-04-02", initials: "PA", color: "#E8A838",
+    docs: [
+      { label: "Registre du commerce", key: "registre" },
+      { label: "Licence d'exploitation", key: "licence" },
+      { label: "Convention CNAS", key: "cnas" },
+    ],
+  },
+  {
+    id: 3, name: "Amira Djoudi", role: "garde-malade", specialty: "Soins à domicile",
+    wilaya: "Constantine", email: "amira.djoudi@email.dz", phone: "+213 540 55 66 77",
+    submittedAt: "2026-04-04", initials: "AD", color: "#7B5EA7",
+    docs: [
+      { label: "Certificat de formation", key: "certif" },
+      { label: "Pièce d'identité", key: "cni" },
+    ],
+  },
+];
+
+function ValidationPage({ dk }) {
+  const c = dk ? T.dark : T.light;
+  const [pending, setPending] = useState(PENDING_PROS);
+  const [history, setHistory] = useState([]); // { ...pro, decision: "approved"|"rejected" }
+  const [docModal, setDocModal] = useState(null); // { pro, doc }
+
+  const approve = (id) => {
+    const pro = pending.find(p => p.id === id);
+    setPending(prev => prev.filter(p => p.id !== id));
+    setHistory(prev => [{ ...pro, decision: "approved", decidedAt: new Date().toLocaleDateString("fr-FR") }, ...prev]);
+  };
+  const reject = (id) => {
+    const pro = pending.find(p => p.id === id);
+    setPending(prev => prev.filter(p => p.id !== id));
+    setHistory(prev => [{ ...pro, decision: "rejected", decidedAt: new Date().toLocaleDateString("fr-FR") }, ...prev]);
+  };
+
+  const roleMeta = {
+    "médecin":     { color: "#2D8C6F", bg: "#2D8C6F18", label: "Médecin" },
+    "pharmacien":  { color: "#E8A838", bg: "#E8A83818", label: "Pharmacien" },
+    "garde-malade":{ color: "#7B5EA7", bg: "#7B5EA718", label: "Garde-malade" },
+  };
+
+  return (
+    <>
+      {/* Document preview modal */}
+      {docModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)" }}
+          onClick={e => { if (e.target === e.currentTarget) setDocModal(null); }}>
+          <div className="rounded-2xl w-full max-w-md p-8 border text-center"
+            style={{ background: c.card, borderColor: c.border }}>
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              style={{ background: c.blueLight }}>
+              <FileText size={28} style={{ color: c.blue }} />
+            </div>
+            <h2 className="text-lg font-bold mb-1" style={{ color: c.txt }}>{docModal.doc.label}</h2>
+            <p className="text-sm mb-6" style={{ color: c.txt3 }}>Soumis par {docModal.pro.name}</p>
+            <div className="rounded-xl border p-6 mb-6 flex flex-col items-center gap-2"
+              style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border }}>
+              <FileText size={40} style={{ color: c.txt3 }} />
+              <p className="text-sm font-medium" style={{ color: c.txt2 }}>document_{docModal.doc.key}.pdf</p>
+              <p className="text-xs" style={{ color: c.txt3 }}>Aperçu non disponible en mode démo</p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setDocModal(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold border"
+                style={{ borderColor: c.border, color: c.txt2 }}>
+                Fermer
+              </button>
+              <button className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white"
+                style={{ background: c.blue }}>
+                Télécharger
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-black" style={{ color: c.txt }}>Validation des inscriptions</h1>
+          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
+            {pending.length} professionnel{pending.length !== 1 ? "s" : ""} en attente · {history.length} traité{history.length !== 1 ? "s" : ""}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 px-4 py-2 rounded-xl border font-bold text-sm"
+          style={{ background: c.amberLight, borderColor: c.amber + "40", color: c.amber }}>
+          <Clock size={15} /> {pending.length} en attente
+        </div>
+      </div>
+
+      {/* Pending list */}
+      {pending.length === 0 ? (
+        <Card dk={dk} style={{ padding: 48, textAlign: "center" }}>
+          <CheckCircle size={40} style={{ color: c.green, margin: "0 auto 16px" }} />
+          <p className="text-lg font-bold" style={{ color: c.txt }}>Toutes les demandes ont été traitées</p>
+          <p className="text-sm mt-1" style={{ color: c.txt3 }}>Aucune inscription en attente pour le moment.</p>
+        </Card>
+      ) : (
+        <div className="space-y-4 mb-8">
+          {pending.map(pro => {
+            const meta = roleMeta[pro.role] || { color: c.blue, bg: c.blueLight, label: pro.role };
+            return (
+              <Card key={pro.id} dk={dk} style={{ padding: 24 }}>
+                <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+                  {/* Identity */}
+                  <div className="flex items-center gap-4 shrink-0">
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-lg shrink-0"
+                      style={{ background: pro.color }}>
+                      {pro.initials}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-base font-bold" style={{ color: c.txt }}>{pro.name}</h3>
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: meta.bg, color: meta.color }}>{meta.label}</span>
+                      </div>
+                      <p className="text-sm mt-0.5" style={{ color: c.txt3 }}>{pro.specialty} · {pro.wilaya}</p>
+                      <p className="text-xs mt-1" style={{ color: c.txt3 }}>{pro.email} · {pro.phone}</p>
+                      <p className="text-[10px] mt-1 font-semibold uppercase tracking-wide" style={{ color: c.txt3 }}>
+                        Soumis le {pro.submittedAt}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Documents */}
+                  <div className="flex-1">
+                    <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>Documents soumis</p>
+                    <div className="flex flex-wrap gap-2">
+                      {pro.docs.map(doc => (
+                        <button key={doc.key}
+                          onClick={() => setDocModal({ pro, doc })}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all hover:opacity-80"
+                          style={{ background: c.blueLight, borderColor: c.blue + "30", color: c.blue }}>
+                          <FileText size={12} /> {doc.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-3 shrink-0">
+                    <button onClick={() => approve(pro.id)}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95"
+                      style={{ background: c.green }}>
+                      <Check size={15} /> Approuver
+                    </button>
+                    <button onClick={() => reject(pro.id)}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95"
+                      style={{ background: c.red }}>
+                      <X size={15} /> Rejeter
+                    </button>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* History */}
+      {history.length > 0 && (
+        <>
+          <h2 className="text-base font-bold mb-4" style={{ color: c.txt }}>Historique des décisions</h2>
+          <div className="space-y-3">
+            {history.map((pro, i) => {
+              const meta = roleMeta[pro.role] || { color: c.blue, bg: c.blueLight, label: pro.role };
+              const approved = pro.decision === "approved";
+              return (
+                <div key={i} className="flex items-center justify-between p-4 rounded-2xl border"
+                  style={{ background: approved ? c.greenLight : c.redLight, borderColor: (approved ? c.green : c.red) + "30" }}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0"
+                      style={{ background: pro.color }}>{pro.initials}</div>
+                    <div>
+                      <p className="text-sm font-bold" style={{ color: c.txt }}>{pro.name}</p>
+                      <p className="text-xs" style={{ color: c.txt3 }}>{meta.label} · {pro.wilaya}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs" style={{ color: c.txt3 }}>{pro.decidedAt}</span>
+                    <span className="flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full"
+                      style={{ background: approved ? c.green + "18" : c.red + "18", color: approved ? c.green : c.red }}>
+                      {approved ? <><Check size={11} /> Approuvé</> : <><X size={11} /> Rejeté</>}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
 // ─── PAGE: AUDIT LOG ──────────────────────────────────────────────────────────
 function AuditPage({ dk }) {
   const c = dk ? T.dark : T.light;
@@ -1042,9 +1251,12 @@ export default function AdminDashboard({ onLogout }) {
   const [alertCount] = useState(4);
   const c = dk ? T.dark : T.light;
 
+  const [pendingCount] = useState(PENDING_PROS.length);
+
   const NAV = [
     { id: "overview",    label: "Vue globale",   icon: LayoutDashboard },
-    { id: "utilisateurs",label: "Utilisateurs",  icon: Users,           badge: 2 },
+    { id: "validation",  label: "Validation",    icon: UserCheck,       badge: pendingCount },
+    { id: "utilisateurs",label: "Utilisateurs",  icon: Users },
     { id: "ia",          label: "IA Monitoring", icon: Brain },
     { id: "systeme",     label: "Système",       icon: Server },
     { id: "audit",       label: "Audit",         icon: Shield,          badge: alertCount },
@@ -1053,12 +1265,13 @@ export default function AdminDashboard({ onLogout }) {
   const renderPage = () => {
     switch (page) {
       case "overview":     return <OverviewPage dk={dk} onNav={setPage} />;
+      case "validation":   return <ValidationPage dk={dk} />;
       case "utilisateurs": return <UtilisateursPage dk={dk} />;
       case "ia":           return <IAMonitoringPage dk={dk} />;
       case "systeme":      return <SystemePage dk={dk} />;
       case "audit":        return <AuditPage dk={dk} />;
       case "parametres":   return <AdminSettingsPage dk={dk} onToggleDark={() => setDk(!dk)} />;
-      default:             return <OverviewPage dk={dk} onNav={setPage} />;
+      default:             return <ValidationPage dk={dk} />;
     }
   };
 

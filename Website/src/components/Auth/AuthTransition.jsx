@@ -140,10 +140,10 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
   if (step === 6) {
     if (tempUser?.accountType === "personnel médical") {
       return <MedicalSuccess onComplete={() => {
-        // Automatically login the user using the api.login after successful registration
+        // New medical registrations are pending admin approval — mark is_approved: false
         api.login(tempUser.email, tempUser.password)
-          .then((res) => onLogin(res.role || "doctor"))
-          .catch(() => onLogin("doctor")); // Fallback if auto-login fails
+          .then((res) => onLogin(res.role || "doctor", { ...res, is_approved: false }))
+          .catch(() => onLogin("doctor", { is_approved: false }));
       }} />
     }
   }

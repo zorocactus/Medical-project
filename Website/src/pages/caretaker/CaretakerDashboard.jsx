@@ -876,25 +876,22 @@ function AIDiagnosisPage({ dk, c }) {
 
   return (
     <>
-      <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: c.txt }}>IA Diagnostic</h1>
-          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>Analysez les symptômes de vos patients avec l'assistance IA</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowFullHistory(true)}
-            className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl border transition-all hover:opacity-80"
-            style={{ color: c.blue, borderColor: c.blue, background: c.card }}>
-            <Clock size={14} /> Historique
-          </button>
-          <button
-            onClick={() => setMessages([{ role: "ai", text: "Nouvelle session. Décrivez les symptômes du patient." }])}
-            className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl border transition-all hover:opacity-80"
-            style={{ color: c.blue, borderColor: c.border, background: c.card }}>
-            <Plus size={14} /> Nouvelle session
-          </button>
-        </div>
+      <div className="mb-6 flex items-end justify-end w-full gap-2">
+        <button
+          onClick={() => setShowFullHistory(true)}
+          className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl border transition-all hover:opacity-80"
+          style={{ color: showFullHistory ? "#fff" : c.blue, borderColor: c.blue, background: showFullHistory ? c.blue : c.card }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+          </svg>
+          Voir tout l'historique
+        </button>
+        <button
+          onClick={() => setMessages([{ role: "ai", text: "Nouvelle session. Décrivez les symptômes du patient." }])}
+          className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl border transition-all hover:opacity-80"
+          style={{ color: c.blue, borderColor: c.border, background: c.card }}>
+          <Plus size={14} /> Nouvelle session
+        </button>
       </div>
 
       {/* Historique Sidebar */}
@@ -938,7 +935,7 @@ function AIDiagnosisPage({ dk, c }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Chat */}
-        <div className="lg:col-span-2 flex flex-col gap-4">
+        <div className="lg:col-span-2 flex flex-col gap-4" style={{ marginTop: "-60px" }}>
           <Card dk={dk} style={{ padding: 0, overflow: "hidden" }}>
             {/* Messages */}
             <div className="p-4 space-y-4 overflow-y-auto" style={{ minHeight: 450, maxHeight: 600 }}>
@@ -1078,35 +1075,34 @@ function AIDiagnosisPage({ dk, c }) {
             </div>
           </Card>
           <Card dk={dk}>
-            <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: c.txt3 }}>Action recommandée</p>
+            <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: c.txt3 }}>Médecin traitant</p>
             <div className="flex items-center gap-3 p-3 rounded-xl mb-3" style={{ background: c.blueLight }}>
               <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: c.blueLight, border: `1px solid ${c.border}` }}>
-                <Phone size={16} style={{ color: c.blue }} />
+                <User size={16} style={{ color: c.blue }} />
               </div>
               <div>
-                <p className="text-sm font-bold" style={{ color: c.txt }}>Contacter médecin</p>
-                <p className="text-xs" style={{ color: c.txt2 }}>Dans les 2 heures</p>
+                <p className="text-sm font-bold" style={{ color: c.txt }}>Dr. Benali Karim</p>
+                <p className="text-xs" style={{ color: c.txt2 }}>À contacter sous 2h</p>
               </div>
             </div>
-            <button className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-colors hover:opacity-90"
+            <a href="tel:+21300000000"
+              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-colors hover:opacity-90"
               style={{ background: c.blue }}>
-              Appeler Dr. Benali
-            </button>
+              <Phone size={14} /> Appeler le médecin
+            </a>
           </Card>
           <Card dk={dk}>
-            <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: c.txt3 }}>Historique récent</p>
-            <div className="space-y-2">
-              {HISTORY_SESSIONS.slice(0, 3).map((s) => (
-                <div key={s.id} className="flex items-center gap-2 p-2 rounded-xl border"
-                  style={{ borderColor: c.border, background: dk ? "#1A2333" : "#F8FAFC" }}>
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                    style={{ background: BADGE_COLORS[s.badge] + "18" }}>
-                    <Brain size={13} style={{ color: BADGE_COLORS[s.badge] }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold truncate" style={{ color: c.txt }}>{s.title}</p>
-                    <p className="text-[10px]" style={{ color: c.txt3 }}>{s.date}</p>
-                  </div>
+            <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: c.txt3 }}>Conseils immédiats</p>
+            <div className="space-y-2.5">
+              {[
+                ["💊", "Vérifier la glycémie capillaire"],
+                ["🛌", "Maintenir le patient au calme"],
+                ["💧", "Assurer une bonne hydratation"],
+                ["📋", "Documenter les symptômes observés"],
+              ].map(([e, t]) => (
+                <div key={t} className="flex items-start gap-2 text-sm" style={{ color: c.txt2 }}>
+                  <span>{e}</span>
+                  <span>{t}</span>
                 </div>
               ))}
             </div>
@@ -1964,8 +1960,9 @@ export default function GardeMaladeDashboard({ onLogout }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [emergency, setEmergency] = useState(false);
-  const [notifications] = useState([]);
+  const { globalNotifications, markAllNotificationsRead } = useData();
   const [tarifMensuel, setTarifMensuel] = useState("");
+  const unreadCount = globalNotifications.filter(n => !n.read).length;
 
   const dk = theme === "dark";
   const c = dk ? T.dark : T.light;
@@ -2075,12 +2072,12 @@ export default function GardeMaladeDashboard({ onLogout }) {
           <div className="flex items-center gap-3 ml-auto shrink-0">
             <div className="relative">
               {/* Point rouge notifications */}
-              {notifications.filter((n) => !n.is_read && n.unread !== false).length > 0 && (
+              {unreadCount > 0 && (
                 <div
-                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 border-2 z-10 flex items-center justify-center"
-                  style={{ borderColor: c.nav, fontSize: 7, color: "#fff", fontWeight: 800, pointerEvents: "none" }}
+                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 z-10 flex items-center justify-center"
+                  style={{ background: c.red, borderColor: c.nav, fontSize: 7, color: "#fff", fontWeight: 800, pointerEvents: "none" }}
                 >
-                  {notifications.filter((n) => !n.is_read && n.unread !== false).length}
+                  {unreadCount}
                 </div>
               )}
               <button
@@ -2145,13 +2142,17 @@ export default function GardeMaladeDashboard({ onLogout }) {
                   </div>
 
                   <div className="p-2 flex flex-col gap-1 group">
-                    {/* Urgences */}
+                    {/* Notifications */}
                     <button
-                      onClick={() => { setPage("emergencies"); setProfileOpen(false); }}
+                      onClick={() => { markAllNotificationsRead(); setPage("emergencies"); setProfileOpen(false); }}
                       className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer"
                     >
                       <Bell size={16} className="hover:rotate-45 transition-transform" />
-                      Urgences & Alertes
+                      Notifications
+                      {unreadCount > 0 && (
+                        <span className="ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full"
+                          style={{ background: c.red, color: "#fff" }}>{unreadCount}</span>
+                      )}
                     </button>
 
                     {/* Paramètres */}

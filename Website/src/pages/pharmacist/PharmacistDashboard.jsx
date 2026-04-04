@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useData } from "../context/DataContext";
 import {
   Search, Bell, Settings, LogOut, Menu, ChevronDown, Sun, Moon,
   Package, Pill, ShoppingCart, FileText, AlertTriangle, Check,
@@ -1288,7 +1289,8 @@ export default function PharmacistDashboard({ onLogout }) {
   const [dk, setDk] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [notifCount] = useState(3);
+  const { globalNotifications, markAllNotificationsRead } = useData();
+  const notifCount = globalNotifications.filter(n => !n.read).length;
   const c = dk ? T.dark : T.light;
 
   const NAV = [
@@ -1401,12 +1403,14 @@ export default function PharmacistDashboard({ onLogout }) {
                   </div>
 
                   <div className="p-2 flex flex-col gap-1">
-                    <button onClick={() => { setPage("parametres"); setProfileOpen(false); }}
+                    <button onClick={() => { markAllNotificationsRead(); setPage("parametres"); setProfileOpen(false); }}
                       className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer">
                       <Bell size={16} />
                       Notifications
-                      <span className="ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full"
-                        style={{ background: "#E05555", color: "#fff" }}>{notifCount}</span>
+                      {notifCount > 0 && (
+                        <span className="ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full"
+                          style={{ background: "#E05555", color: "#fff" }}>{notifCount}</span>
+                      )}
                     </button>
                     <button onClick={() => { setPage("parametres"); setProfileOpen(false); }}
                       className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer">

@@ -10,6 +10,22 @@ export function DataProvider({ children }) {
   const [prescriptions, setPrescriptions]     = useState([]);
   const [gmPatients, setGmPatients]           = useState([]);
   const [gmTreatments, setGmTreatments]       = useState([]);
+  const [globalNotifications, setGlobalNotifications] = useState([]);
+
+  function addNotification(title, message, type = "info") {
+    setGlobalNotifications(prev => [
+      { id: Date.now(), title, message, type, read: false, createdAt: new Date() },
+      ...prev,
+    ]);
+  }
+
+  function markNotificationRead(id) {
+    setGlobalNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  }
+
+  function markAllNotificationsRead() {
+    setGlobalNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  }
 
   useEffect(() => {
     api.getDoctorAppointments()
@@ -144,7 +160,8 @@ export function DataProvider({ children }) {
       patients, appointments, patientRequests, prescriptions, addPrescription,
       gmPatients, gmTreatments, loadGMDemoData,
       addMedicationToTreatment, removeMedicationFromTreatment,
-      addPatientToTreatments, removePatientFromTreatments
+      addPatientToTreatments, removePatientFromTreatments,
+      globalNotifications, addNotification, markNotificationRead, markAllNotificationsRead,
     }}>
       {children}
     </DataContext.Provider>

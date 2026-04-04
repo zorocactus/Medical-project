@@ -65,6 +65,12 @@ export default function Navbar({ onLogin, onRegister }) {
         </button>
         <button
           onClick={onRegister}
+          className="hidden sm:block px-4 py-2 text-[.86rem] font-semibold text-[#395886] border border-[#395886]/30 hover:bg-[#EEF3FB] rounded-lg transition-all duration-200 cursor-pointer bg-transparent"
+        >
+          Espace Pro
+        </button>
+        <button
+          onClick={onRegister}
           className="px-5 py-2 text-[.86rem] font-semibold text-white bg-[#395886] hover:bg-[#2d4570] rounded-lg transition-all duration-200 cursor-pointer shadow-[0_2px_10px_rgba(57,88,134,0.3)] border-none"
         >
           Commencer

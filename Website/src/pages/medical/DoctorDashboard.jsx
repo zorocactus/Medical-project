@@ -2612,7 +2612,7 @@ export default function DoctorDashboard({ onLogout }) {
   const c = dk ? T.dark : T.light;
 
   const { userData: user } = useAuth();
-  const { patients = [], appointments = [], patientRequests = [] } = useData();
+  const { patients = [], appointments = [], patientRequests = [], globalNotifications = [], markAllNotificationsRead } = useData();
 
   const [currentPage, setCurrentPage] = useState("dashboard");
   const [profileOpen, setProfileOpen] = useState(false);
@@ -2789,6 +2789,22 @@ export default function DoctorDashboard({ onLogout }) {
 
           {/* Right Actions */}
           <div className="flex items-center gap-3 ml-auto shrink-0">
+            {/* Bell — global notifications */}
+            <button
+              onClick={() => markAllNotificationsRead?.()}
+              className="relative w-9 h-9 rounded-xl flex items-center justify-center border transition-all hover:opacity-80"
+              style={{ border: `1px solid ${c.border}`, background: "transparent" }}
+              title="Notifications"
+            >
+              <Bell size={16} style={{ color: c.txt2 }} />
+              {globalNotifications.filter(n => !n.read).length > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center"
+                  style={{ background: c.red, fontSize: 7, color: "#fff", fontWeight: 800 }}>
+                  {globalNotifications.filter(n => !n.read).length}
+                </span>
+              )}
+            </button>
+
             {/* Profile Dropdown */}
             <div className="relative">
               {safeRequests.length > 0 && (

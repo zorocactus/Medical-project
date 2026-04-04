@@ -43,7 +43,7 @@ export function AuthProvider({ children }) {
   async function login(email, password) {
     const data = await apiLogin(email, password);
     if (!data?.access) throw new Error("Identifiants incorrects");
-    
+
     // Après login on récupère le profil complet
     const me = await getMe();
     setUserData({ ...data, ...me });
@@ -63,7 +63,17 @@ export function AuthProvider({ children }) {
     setIsLoggedIn(false);
     setAccountType(null);
     setUserData(null);
+    // Hard redirect to root — prevents back-button return to authenticated pages
+    window.location.replace("/");
   }
+
+  // Derived: medical professionals must be approved before accessing dashboard
+  const isApproved = (() => {
+    if (!userData) return true;
+    // Explicitly false only when is_approved field is set to false
+    if (userData.is_approved === false) return false;
+    return true;
+  })();
 
   if (loading) {
     return (
@@ -92,7 +102,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated: isLoggedIn, accountType, userData, login, loginWithData, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated: isLoggedIn, accountType, userData, login, loginWithData, logout, isApproved }}>
       {children}
     </AuthContext.Provider>
   );
