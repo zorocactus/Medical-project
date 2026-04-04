@@ -154,7 +154,7 @@ export default function AppRouter() {
   // =========================================================================
 
   const FORCE_TEST = true; // Mettre à true pour activer le bypass
-  const [forcedRole, setForcedRole] = useState("pharmacist"); // Choix: "patient", "doctor", "pharmacist", "admin", "caretaker"
+  const [forcedRole, setForcedRole] = useState("patient"); // Choix: "patient", "doctor", "pharmacist", "admin", "caretaker"
 
   if (FORCE_TEST) {
     const ROLE_MAP = {

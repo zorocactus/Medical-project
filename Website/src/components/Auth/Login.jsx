@@ -10,6 +10,8 @@ export default function LoginForm({ onLogin }) {
   const [errors, setErrors]             = useState({});
   const [apiError, setApiError]         = useState("");
   const [loading, setLoading]           = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isFacebookLoading, setIsFacebookLoading] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -41,6 +43,30 @@ export default function LoginForm({ onLogin }) {
       setLoading(false);
     }
   }
+
+  const handleGoogleLogin = async () => {
+    if (isGoogleLoading || isFacebookLoading) return;
+    setIsGoogleLoading(true);
+    // Simulation délai réseau
+    setTimeout(() => {
+      setIsGoogleLoading(false);
+      console.log("Redirection vers l'authentification Google en cours... (À lier au Backend)");
+      alert("Redirection vers l'authentification Google en cours... (À lier au Backend)");
+      // window.location.href = "http://localhost:8000/api/auth/login/google/";
+    }, 1000);
+  };
+
+  const handleFacebookLogin = async () => {
+    if (isGoogleLoading || isFacebookLoading) return;
+    setIsFacebookLoading(true);
+    // Simulation délai réseau
+    setTimeout(() => {
+      setIsFacebookLoading(false);
+      console.log("Redirection vers l'authentification Facebook en cours... (À lier au Backend)");
+      alert("Redirection vers l'authentification Facebook en cours... (À lier au Backend)");
+      // window.location.href = "http://localhost:8000/api/auth/login/facebook/";
+    }, 1000);
+  };
 
   return (
     <div className="flex flex-col justify-center px-16 py-16 w-full h-full">
@@ -110,13 +136,31 @@ export default function LoginForm({ onLogin }) {
           <div className="flex flex-col items-center gap-4">
             <p className="text-sm font-medium text-gray-500">ou se connecter avec</p>
             <div className="flex gap-4">
-              <button className="w-16 h-16 flex items-center justify-center bg-white border border-gray-200 rounded-[20px] hover:bg-gray-100 transition-all cursor-pointer shadow-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="30" height="30">
-                  <path fill="#0a0a0aff" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
-                </svg>
+              <button 
+                type="button"
+                onClick={handleGoogleLogin}
+                disabled={isGoogleLoading || isFacebookLoading || loading}
+                className="w-16 h-16 flex items-center justify-center bg-white border border-gray-200 rounded-[20px] hover:bg-gray-50 active:scale-95 transition-all cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isGoogleLoading ? (
+                  <div className="w-6 h-6 border-2 border-gray-300 border-t-[#365885] rounded-full animate-spin" />
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="30" height="30">
+                    <path fill="#0a0a0aff" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
+                  </svg>
+                )}
               </button>
-              <button className="w-16 h-16 flex items-center justify-center bg-white border border-gray-200 rounded-[20px] hover:bg-gray-100 transition-all cursor-pointer shadow-sm">
-                <Facebook size={28} fill="#000000ff" strokeWidth={0} />
+              <button 
+                type="button"
+                onClick={handleFacebookLogin}
+                disabled={isGoogleLoading || isFacebookLoading || loading}
+                className="w-16 h-16 flex items-center justify-center bg-white border border-gray-200 rounded-[20px] hover:bg-gray-50 active:scale-95 transition-all cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isFacebookLoading ? (
+                  <div className="w-6 h-6 border-2 border-gray-300 border-t-[#365885] rounded-full animate-spin" />
+                ) : (
+                  <Facebook size={28} fill="#000000ff" strokeWidth={0} />
+                )}
               </button>
             </div>
           </div>
