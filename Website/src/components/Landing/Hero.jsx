@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Paperclip, History } from "lucide-react";
+import { ParticlesHero } from "../backgrounds/MedParticles";
 
 const QUICK_CHIPS = ["Maux de tête", "Fatigue", "Douleur thoracique", "Fièvre"];
 
@@ -236,6 +237,7 @@ export default function Hero({ onStart }) {
         .aw-msgs::-webkit-scrollbar-track { background: transparent; }
         .aw-msgs::-webkit-scrollbar-thumb { background: rgba(99,142,203,0.25); border-radius: 99px; }
         .aw-msgs::-webkit-scrollbar-thumb:hover { background: rgba(99,142,203,0.45); }
+
       `}</style>
 
       <section
@@ -243,12 +245,15 @@ export default function Hero({ onStart }) {
         style={{ fontFamily: "'DM Sans', sans-serif" }}
         className="min-h-screen pt-[60px] grid grid-cols-1 lg:grid-cols-2 relative overflow-hidden bg-[#F5F7FB]"
       >
+        <ParticlesHero darkMode={false} />
         {/* Blobs */}
         <div className="absolute top-[-120px] left-[-120px] w-[500px] h-[500px] rounded-full bg-[#B1C9EF]/20 blur-[80px] pointer-events-none" />
         <div className="absolute bottom-[-80px] right-[-80px] w-[400px] h-[400px] rounded-full bg-[#638ECB]/15 blur-[80px] pointer-events-none" />
 
         {/* LEFT */}
         <div className="flex flex-col justify-center px-10 lg:px-16 py-16 lg:py-0 relative z-10">
+
+
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-[#E4EAF5] bg-white text-[.78rem] font-medium text-[#5A6E8A] mb-8 w-fit shadow-sm">
             <span className="w-2 h-2 rounded-full bg-[#3DAA73]" />
             IA Médicale · Algérie
@@ -285,6 +290,8 @@ export default function Hero({ onStart }) {
           {/* Glow behind */}
           <div className="absolute w-[420px] h-[520px] bg-[#395886]/15 rounded-[40px] blur-[70px] pointer-events-none" />
           <div className="absolute w-[280px] h-[280px] bg-[#638ECB]/10 rounded-full blur-[60px] translate-x-16 pointer-events-none" />
+
+
 
           {/* Dark card — backdrop-blur, no white wrapper */}
           <div className="relative w-full max-w-[500px] rounded-[20px] overflow-hidden border border-white/[0.08] shadow-[0_32px_80px_rgba(8,15,30,0.5)]"

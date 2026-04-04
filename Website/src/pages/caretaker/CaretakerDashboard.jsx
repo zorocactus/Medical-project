@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { ParticlesHero } from '../../components/backgrounds/MedParticles';
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import { useData } from "../../context/DataContext";
@@ -1999,7 +2000,7 @@ export default function GardeMaladeDashboard({ onLogout }) {
 
   return (
     <div
-      className="min-h-screen"
+      className="min-h-screen relative"
       style={{
         background: c.bg,
         fontFamily: "'Plus Jakarta Sans', sans-serif",
@@ -2007,6 +2008,8 @@ export default function GardeMaladeDashboard({ onLogout }) {
         transition: "background 0.3s, color 0.2s",
       }}
     >
+      <ParticlesHero darkMode={dk} />
+      <div className="relative z-10">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         * { transition: background-color 0.2s, border-color 0.2s; }
@@ -2242,6 +2245,7 @@ export default function GardeMaladeDashboard({ onLogout }) {
       {profileOpen && (
         <div className="fixed inset-0 z-20" onClick={() => setProfileOpen(false)} />
       )}
+    </div>
     </div>
   );
 }

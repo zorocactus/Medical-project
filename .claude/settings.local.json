@@ -3,7 +3,19 @@
     "allow": [
       "Bash(npx tsc:*)",
       "Bash(npx vite:*)",
-      "Bash(node -e ':*)"
+      "Bash(node -e ':*)",
+      "Bash(npx jsrepo:*)",
+      "Bash(curl -s \"https://raw.githubusercontent.com/DavidHDev/react-bits/main/src/backgrounds/Aurora/Aurora.jsx\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/DavidHDev/react-bits/main/src/backgrounds/Particles/Particles.jsx\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/DavidHDev/react-bits/main/src/content/Backgrounds/Silk/Silk.jsx\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/DavidHDev/react-bits/main/src/content/Backgrounds/Aurora/Aurora.css\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/DavidHDev/react-bits/main/src/content/Backgrounds/Particles/Particles.css\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/DavidHDev/react-bits/main/src/content/Backgrounds/Waves/Waves.css\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/DavidHDev/react-bits/main/src/content/Backgrounds/DotGrid/DotGrid.css\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/DavidHDev/react-bits/main/src/content/Backgrounds/Threads/Threads.css\")",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(netstat -ano)"
     ]
   }
 }

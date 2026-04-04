@@ -59,15 +59,9 @@ export default function Navbar({ onLogin, onRegister }) {
       <div className="flex items-center gap-3">
         <button
           onClick={onLogin}
-          className="px-4 py-2 text-[.86rem] font-semibold text-[#395886] hover:bg-[#EEF3FB] rounded-lg transition-all duration-200 cursor-pointer border-none bg-transparent"
+          className="px-4 py-2 text-[.86rem] font-semibold text-[#395886] border border-[#395886]/30 hover:bg-[#EEF3FB] rounded-lg transition-all duration-200 cursor-pointer bg-transparent"
         >
           Connexion
-        </button>
-        <button
-          onClick={onRegister}
-          className="hidden sm:block px-4 py-2 text-[.86rem] font-semibold text-[#395886] border border-[#395886]/30 hover:bg-[#EEF3FB] rounded-lg transition-all duration-200 cursor-pointer bg-transparent"
-        >
-          Espace Pro
         </button>
         <button
           onClick={onRegister}

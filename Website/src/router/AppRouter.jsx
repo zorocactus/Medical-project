@@ -7,6 +7,7 @@ import PharmacistDashboard from "../pages/pharmacist/PharmacistDashboard";
 import AdminDashboard from "../pages/admin/Admindashboard";
 import CaretakerDashboard from "../pages/caretaker/CaretakerDashboard";
 import LandingPage from "../pages/LandingPage";
+import BackgroundTest from "../pages/BackgroundTest";
 
 // ─── Mapping rôles backend → dashboard ───────────────────────────────────────
 //
@@ -141,6 +142,10 @@ function RoleRouter() {
 
 // ─── Main Router ──────────────────────────────────────────────────────────────
 export default function AppRouter() {
+  if (window.location.hash === '#/test-bg') {
+    return <BackgroundTest />;
+  }
+
   const { isAuthenticated, loginWithData } = useAuth();
   const [authMode, setAuthMode] = useState(null); // null = landing, "login" | "register"
 

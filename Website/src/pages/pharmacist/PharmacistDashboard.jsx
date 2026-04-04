@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
-import { useData } from "../context/DataContext";
+import { ParticlesHero } from '../../components/backgrounds/MedParticles';
+import { useData } from "../../context/DataContext";
 import {
   Search, Bell, Settings, LogOut, Menu, ChevronDown, Sun, Moon,
   Package, Pill, ShoppingCart, FileText, AlertTriangle, Check,
@@ -1312,7 +1313,10 @@ export default function PharmacistDashboard({ onLogout }) {
   };
 
   return (
-    <div className="min-h-screen" style={{ background: c.bg, fontFamily: "'Plus Jakarta Sans', sans-serif", color: c.txt, transition: "background 0.3s, color 0.2s" }}>
+    <div className="min-h-screen relative" style={{ background: c.bg, fontFamily: "'Plus Jakarta Sans', sans-serif", color: c.txt, transition: "background 0.3s, color 0.2s" }}>
+      <ParticlesHero darkMode={dk} />
+      <div className="relative z-10">
+
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         * { transition: background-color 0.2s, border-color 0.2s; }
@@ -1476,6 +1480,7 @@ export default function PharmacistDashboard({ onLogout }) {
       <main className="w-full px-6 py-6">{renderPage()}</main>
 
       {profileOpen && <div className="fixed inset-0 z-20" onClick={() => setProfileOpen(false)} />}
+    </div>
     </div>
   );
 }

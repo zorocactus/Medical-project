@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { ParticlesHero } from '../../components/backgrounds/MedParticles';
 import {
   Users,
   User,
@@ -2685,12 +2686,14 @@ export default function DoctorDashboard({ onLogout }) {
 
   return (
     <div
-      className={`min-h-screen transition-all duration-500 ${dk ? "dark" : ""}`}
+      className={`min-h-screen relative transition-all duration-500 ${dk ? "dark" : ""}`}
       style={{
         background: c.bg,
         fontFamily: "'Plus Jakarta Sans', sans-serif",
       }}
     >
+      <ParticlesHero darkMode={dk} />
+      <div className="relative z-10">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         * { transition: background-color 0.2s, border-color 0.2s, color 0.15s; }
@@ -3001,6 +3004,7 @@ export default function DoctorDashboard({ onLogout }) {
           onClick={() => setProfileOpen(false)}
         />
       )}
+    </div>
     </div>
   );
 }

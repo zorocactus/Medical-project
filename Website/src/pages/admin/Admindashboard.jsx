@@ -1,16 +1,14 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
+import { ParticlesHero } from '../../components/backgrounds/MedParticles';
 import {
   LayoutDashboard, Users, Stethoscope, Pill, Heart, Shield,
   Bell, Settings, LogOut, ChevronDown, Sun, Moon, Search,
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle,
-  XCircle, Clock, Activity, Server, Database, Cpu, Wifi,
-  Eye, EyeOff, Edit, Trash2, Plus, Download, Upload,
-  RefreshCw, Filter, MoreHorizontal, ChevronRight,
-  Globe, Lock, Unlock, UserCheck, UserX, BarChart2,
-  PieChart, FileText, Zap, Star, Phone, MapPin,
-  ArrowUpRight, ArrowDownRight, Check, X, Menu,
-  AlertCircle, Package, DollarSign, Calendar,
-  Brain, Flag, Radio, Layers
+  XCircle, Clock, Activity,
+  Trash2, Plus, Download, RefreshCw,
+  Lock, Unlock, UserCheck,
+  FileText, MapPin,
+  Check, X, Menu,
 } from "lucide-react";
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
@@ -149,55 +147,16 @@ function AnimCounter({ target, suffix = "" }) {
   return <>{val.toLocaleString()}{suffix}</>;
 }
 
-// ─── Mini Sparkline ───────────────────────────────────────────────────────────
-function Sparkline({ data, color, height = 40 }) {
-  const max = Math.max(...data), min = Math.min(...data);
-  const pts = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * 100;
-    const y = height - ((v - min) / (max - min + 1)) * height;
-    return `${x},${y}`;
-  }).join(" ");
-  return (
-    <svg viewBox={`0 0 100 ${height}`} className="w-full" style={{ height }}>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-// ─── System Health Gauge ──────────────────────────────────────────────────────
-function Gauge({ value, label, color, dk }) {
-  const c = dk ? T.dark : T.light;
-  const r = 32, cx = 40, cy = 40, circ = 2 * Math.PI * r;
-  const dash = (value / 100) * circ;
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <svg width="80" height="80" viewBox="0 0 80 80">
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke={c.border} strokeWidth="6" />
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth="6"
-          strokeDasharray={`${dash} ${circ}`} strokeDashoffset={circ * 0.25}
-          strokeLinecap="round" style={{ transition: "stroke-dasharray 1s ease" }} />
-        <text x={cx} y={cy + 5} textAnchor="middle" fontSize="13" fontWeight="800" fill={color}>{value}%</text>
-      </svg>
-      <span className="text-xs font-semibold" style={{ color: c.txt2 }}>{label}</span>
-    </div>
-  );
-}
 
 // ─── PAGE: OVERVIEW ───────────────────────────────────────────────────────────
 function OverviewPage({ dk, onNav }) {
   const c = dk ? T.dark : T.light;
-  const [users, setUsers] = useState(USERS_DATA);
-  const sparkData = [42, 58, 51, 67, 72, 61, 78, 84, 79, 91, 88, 96];
 
   const kpis = [
-    { label: "Utilisateurs totaux",   value: <AnimCounter target={6482} />,   icon: Users,       color: c.blue,   trend: 14, trendLabel: "+821 ce mois" },
-    { label: "Médecins vérifiés",     value: <AnimCounter target={342} />,    icon: Stethoscope, color: c.green,  trend: 8,  trendLabel: "+28 ce mois" },
-    { label: "Pharmacies actives",    value: <AnimCounter target={148} />,    icon: Pill,        color: c.amber,  trend: 5,  trendLabel: "+8 ce mois" },
-    { label: "Revenus plateforme",    value: <><AnimCounter target={2841} />K DZD</>, icon: DollarSign, color: c.purple, trend: 22, trendLabel: "+624K ce mois" },
-    { label: "Sessions IA aujourd'hui",value: <AnimCounter target={1284} />,  icon: Brain,       color: "#E05555",trend: 31, trendLabel: "+307 vs hier" },
-    { label: "Ordonnances CNAS",      value: <AnimCounter target={8841} />,   icon: Shield,      color: c.green,  trend: 12, trendLabel: "62% de couverture" },
-    { label: "Wilaya couvertes",      value: <AnimCounter target={48} />,     icon: MapPin,      color: c.blue,   trend: 4,  trendLabel: "Sur 58 wilayas" },
-    { label: "Uptime système",        value: <><AnimCounter target={99} suffix="." />9%</>, icon: Activity, color: c.green, trend: 0, trendLabel: "30 jours continus" },
+    { label: "Utilisateurs totaux",  value: <AnimCounter target={6482} />,  icon: Users,       color: c.blue,   trend: 14, trendLabel: "+821 ce mois" },
+    { label: "Médecins vérifiés",    value: <AnimCounter target={342} />,   icon: Stethoscope, color: c.green,  trend: 8,  trendLabel: "+28 ce mois" },
+    { label: "Pharmacies actives",   value: <AnimCounter target={148} />,   icon: Pill,        color: c.amber,  trend: 5,  trendLabel: "+8 ce mois" },
+    { label: "Ordonnances CNAS",     value: <AnimCounter target={8841} />,  icon: Shield,      color: c.green,  trend: 12, trendLabel: "62% de couverture" },
   ];
 
   return (
@@ -577,272 +536,6 @@ function UtilisateursPage({ dk }) {
           </div>
         </div>
       </Card>
-    </>
-  );
-}
-
-// ─── PAGE: IA MONITORING ──────────────────────────────────────────────────────
-function IAMonitoringPage({ dk }) {
-  const c = dk ? T.dark : T.light;
-  const [modelActive, setModelActive] = useState(true);
-
-  const aiStats = [
-    { label: "Sessions aujourd'hui",  value: "1 284",  icon: Brain,    color: c.blue,   spark: [40,55,48,62,58,71,65,78,72,84,79,91] },
-    { label: "Précision diagnostique",value: "94.2%",  icon: Activity, color: c.green,  spark: [88,89,91,90,92,91,93,92,94,93,94,94] },
-    { label: "Temps de réponse moy.", value: "1.3s",   icon: Zap,      color: c.amber,  spark: [2.1,1.9,1.8,1.7,1.6,1.5,1.4,1.4,1.3,1.3,1.3,1.3] },
-    { label: "Taux de satisfaction",  value: "91%",    icon: Star,     color: c.purple, spark: [82,84,85,86,87,88,89,89,90,90,91,91] },
-  ];
-
-  const topSymptoms = [
-    { symptom: "Douleurs thoraciques",  count: 284, pct: 87, urgency: "high"   },
-    { symptom: "Maux de tête",          count: 412, pct: 100, urgency: "low"   },
-    { symptom: "Fatigue chronique",     count: 321, pct: 78, urgency: "medium" },
-    { symptom: "Fièvre",               count: 298, pct: 72, urgency: "medium" },
-    { symptom: "Douleurs abdominales",  count: 187, pct: 45, urgency: "medium" },
-    { symptom: "Nausées",              count: 156, pct: 38, urgency: "low"    },
-  ];
-
-  const urgencyColors = { high: c.red, medium: c.amber, low: c.green };
-
-  return (
-    <>
-      <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-black" style={{ color: c.txt }}>Monitoring IA</h1>
-          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>MedSmart IA v2.2 · Modèle médical Algérien</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border" style={{ borderColor: c.border }}>
-            <div className={`w-2 h-2 rounded-full ${modelActive ? "bg-green-500 animate-pulse" : "bg-red-500"}`} />
-            <span className="text-sm font-semibold" style={{ color: c.txt }}>
-              Modèle {modelActive ? "actif" : "arrêté"}
-            </span>
-            <button onClick={() => setModelActive(!modelActive)}
-              className="relative w-9 h-5 rounded-full transition-all"
-              style={{ background: modelActive ? c.green : c.border }}>
-              <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all"
-                style={{ left: modelActive ? "17px" : "2px" }} />
-            </button>
-          </div>
-          <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold"
-            style={{ background: c.blue }}>
-            <Upload size={14} /> Déployer v2.3
-          </button>
-        </div>
-      </div>
-
-      {/* AI KPIs with sparklines */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
-        {aiStats.map(s => (
-          <Card key={s.label} dk={dk} style={{ padding: 18 }}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: s.color + "18" }}>
-                <s.icon size={15} style={{ color: s.color }} />
-              </div>
-              <span className="text-xs font-semibold" style={{ color: c.txt3 }}>{s.label}</span>
-            </div>
-            <p className="text-2xl font-black mb-2" style={{ color: c.txt }}>{s.value}</p>
-            <Sparkline data={s.spark} color={s.color} height={36} />
-          </Card>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        {/* Top symptoms */}
-        <Card dk={dk} style={{ padding: 20 }}>
-          <h3 className="font-bold mb-4" style={{ color: c.txt }}>Symptômes les plus fréquents</h3>
-          <div className="space-y-4">
-            {topSymptoms.map(s => (
-              <div key={s.symptom}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full" style={{ background: urgencyColors[s.urgency] }} />
-                    <span className="text-sm font-semibold" style={{ color: c.txt }}>{s.symptom}</span>
-                  </div>
-                  <span className="text-xs font-bold" style={{ color: c.txt2 }}>{s.count} cas</span>
-                </div>
-                <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: c.blueLight }}>
-                  <div className="h-full rounded-full transition-all"
-                    style={{ width: `${s.pct}%`, background: urgencyColors[s.urgency] }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        {/* Model versions */}
-        <Card dk={dk} style={{ padding: 20 }}>
-          <h3 className="font-bold mb-4" style={{ color: c.txt }}>Versions du modèle</h3>
-          <div className="space-y-3 mb-5">
-            {[
-              { v: "v2.2", status: "active",   date: "15 Mar 2026", acc: "94.2%", sessions: "41 284" },
-              { v: "v2.1", status: "archived", date: "02 Jan 2026", acc: "91.8%", sessions: "128 441" },
-              { v: "v2.0", status: "archived", date: "10 Oct 2025", acc: "88.4%", sessions: "84 221" },
-              { v: "v2.3", status: "pending",  date: "Bientôt",     acc: "~96%",  sessions: "—" },
-            ].map(v => (
-              <div key={v.v} className="flex items-center gap-4 p-3 rounded-xl border"
-                style={{ borderColor: v.status === "active" ? c.green + "44" : c.border,
-                  background: v.status === "active" ? c.greenLight : "transparent" }}>
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm"
-                  style={{ background: v.status === "active" ? c.green : c.blueLight,
-                    color: v.status === "active" ? "#fff" : c.txt2 }}>
-                  {v.v}
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold" style={{ color: c.txt }}>Modèle {v.v}</p>
-                  <p className="text-xs" style={{ color: c.txt3 }}>{v.date} · Précision: {v.acc}</p>
-                </div>
-                <Badge
-                  color={v.status === "active" ? c.green : v.status === "pending" ? c.amber : c.txt3}
-                  bg={v.status === "active" ? c.greenLight : v.status === "pending" ? c.amberLight : c.blueLight}>
-                  {v.status === "active" ? "Actif" : v.status === "pending" ? "En test" : "Archivé"}
-                </Badge>
-              </div>
-            ))}
-          </div>
-
-          {/* Accuracy over time mini chart */}
-          <div className="p-3 rounded-xl" style={{ background: c.blueLight }}>
-            <p className="text-xs font-bold mb-2" style={{ color: c.txt2 }}>Précision — 12 derniers mois</p>
-            <Sparkline data={[85, 87, 88, 88, 89, 90, 91, 91, 92, 93, 94, 94]} color={c.green} height={48} />
-          </div>
-        </Card>
-      </div>
-    </>
-  );
-}
-
-// ─── PAGE: SYSTÈME ────────────────────────────────────────────────────────────
-function SystemePage({ dk }) {
-  const c = dk ? T.dark : T.light;
-  const [cpu, setCpu] = useState(42);
-  const [ram, setRam] = useState(67);
-  const [disk, setDisk] = useState(54);
-
-  // Simulate live updates
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCpu(v => Math.min(95, Math.max(20, v + (Math.random() - 0.5) * 8)));
-      setRam(v => Math.min(90, Math.max(50, v + (Math.random() - 0.5) * 4)));
-    }, 2000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const servers = [
-    { name: "API Server 01",     region: "Alger DC",   status: "healthy", cpu: Math.round(cpu), ram: Math.round(ram), uptime: "99.99%" },
-    { name: "API Server 02",     region: "Alger DC",   status: "healthy", cpu: Math.round(cpu * 0.7), ram: Math.round(ram * 0.8), uptime: "99.97%" },
-    { name: "IA Model Server",   region: "Oran DC",    status: "healthy", cpu: Math.round(cpu * 1.2), ram: Math.round(ram * 1.1), uptime: "99.95%" },
-    { name: "Database Primary",  region: "Alger DC",   status: "healthy", cpu: 28, ram: 71, uptime: "100%" },
-    { name: "Database Replica",  region: "Oran DC",    status: "warning", cpu: 91, ram: 88, uptime: "98.2%"  },
-    { name: "Storage Server",    region: "Alger DC",   status: "healthy", cpu: 15, ram: 42, uptime: "100%"  },
-  ];
-
-  const services = [
-    { name: "API REST",          status: "operational", ping: "12ms",  rps: "2.4K"  },
-    { name: "IA Diagnostic",     status: "operational", ping: "84ms",  rps: "340"   },
-    { name: "Auth Service",      status: "operational", ping: "8ms",   rps: "1.1K"  },
-    { name: "CNAS Gateway",      status: "degraded",    ping: "320ms", rps: "82"    },
-    { name: "Notification Svc",  status: "operational", ping: "22ms",  rps: "890"   },
-    { name: "File Storage",      status: "operational", ping: "45ms",  rps: "210"   },
-  ];
-
-  const statusColor = { operational: c.green, degraded: c.amber, down: c.red };
-  const serverStatusColor = { healthy: c.green, warning: c.amber, critical: c.red };
-
-  return (
-    <>
-      <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-black" style={{ color: c.txt }}>Système & Infrastructure</h1>
-          <p className="text-sm mt-0.5 flex items-center gap-2" style={{ color: c.txt2 }}>
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block" />
-            Tous les systèmes opérationnels · Dernière vérification il y a 30s
-          </p>
-        </div>
-        <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:opacity-80"
-          style={{ borderColor: c.border, color: c.txt2 }}>
-          <RefreshCw size={14} /> Rafraîchir
-        </button>
-      </div>
-
-      {/* Health gauges */}
-      <Card dk={dk} className="mb-5" style={{ padding: 24 }}>
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="font-bold" style={{ color: c.txt }}>Ressources système — Live</h3>
-          <div className="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full"
-            style={{ background: c.greenLight, color: c.green }}>
-            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Monitoring actif
-          </div>
-        </div>
-        <div className="flex justify-around flex-wrap gap-8">
-          <Gauge value={Math.round(cpu)} label="CPU" color={cpu > 80 ? c.red : cpu > 60 ? c.amber : c.green} dk={dk} />
-          <Gauge value={Math.round(ram)} label="RAM" color={ram > 85 ? c.red : ram > 70 ? c.amber : c.blue} dk={dk} />
-          <Gauge value={disk} label="Stockage" color={disk > 85 ? c.red : disk > 65 ? c.amber : c.purple} dk={dk} />
-          <Gauge value={99} label="Réseau" color={c.green} dk={dk} />
-        </div>
-      </Card>
-
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        {/* Servers */}
-        <Card dk={dk} style={{ padding: 0, overflow: "hidden" }}>
-          <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: c.border }}>
-            <h3 className="font-bold" style={{ color: c.txt }}>Serveurs</h3>
-            <Badge color={c.green} bg={c.greenLight}>{servers.filter(s => s.status === "healthy").length}/{servers.length} sains</Badge>
-          </div>
-          <div className="divide-y" style={{ borderColor: c.border }}>
-            {servers.map(sv => {
-              const sc = serverStatusColor[sv.status] || c.green;
-              return (
-                <div key={sv.name} className="flex items-center gap-4 px-5 py-3">
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${sv.status === "healthy" ? "animate-pulse" : ""}`}
-                    style={{ background: sc }} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold" style={{ color: c.txt }}>{sv.name}</p>
-                    <p className="text-xs" style={{ color: c.txt3 }}>{sv.region} · Uptime {sv.uptime}</p>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs shrink-0">
-                    <div className="text-right">
-                      <p style={{ color: sv.cpu > 80 ? c.red : c.txt2 }}>CPU {sv.cpu}%</p>
-                      <p style={{ color: sv.ram > 85 ? c.red : c.txt2 }}>RAM {sv.ram}%</p>
-                    </div>
-                    <div className="w-2 h-8 rounded-full overflow-hidden" style={{ background: c.blueLight }}>
-                      <div className="w-full rounded-full transition-all" style={{ height: `${sv.cpu}%`, background: sv.cpu > 80 ? c.red : c.blue, marginTop: `${100 - sv.cpu}%` }} />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-
-        {/* Services status */}
-        <Card dk={dk} style={{ padding: 0, overflow: "hidden" }}>
-          <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: c.border }}>
-            <h3 className="font-bold" style={{ color: c.txt }}>Services</h3>
-            <Badge color={c.amber} bg={c.amberLight}>1 dégradé</Badge>
-          </div>
-          <div className="divide-y" style={{ borderColor: c.border }}>
-            {services.map(svc => {
-              const sc = statusColor[svc.status] || c.green;
-              return (
-                <div key={svc.name} className="flex items-center gap-4 px-5 py-3">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                    style={{ background: sc + "18" }}>
-                    <Server size={14} style={{ color: sc }} />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold" style={{ color: c.txt }}>{svc.name}</p>
-                    <p className="text-xs" style={{ color: c.txt3 }}>Ping: {svc.ping} · {svc.rps} req/s</p>
-                  </div>
-                  <Badge color={sc} bg={sc + "18"}>
-                    {svc.status === "operational" ? "Opérationnel" : svc.status === "degraded" ? "Dégradé" : "En panne"}
-                  </Badge>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      </div>
     </>
   );
 }
@@ -1254,12 +947,10 @@ export default function AdminDashboard({ onLogout }) {
   const [pendingCount] = useState(PENDING_PROS.length);
 
   const NAV = [
-    { id: "overview",    label: "Vue globale",   icon: LayoutDashboard },
-    { id: "validation",  label: "Validation",    icon: UserCheck,       badge: pendingCount },
-    { id: "utilisateurs",label: "Utilisateurs",  icon: Users },
-    { id: "ia",          label: "IA Monitoring", icon: Brain },
-    { id: "systeme",     label: "Système",       icon: Server },
-    { id: "audit",       label: "Audit",         icon: Shield,          badge: alertCount },
+    { id: "overview",    label: "Vue globale",  icon: LayoutDashboard },
+    { id: "validation",  label: "Validation",   icon: UserCheck,       badge: pendingCount },
+    { id: "utilisateurs",label: "Utilisateurs", icon: Users },
+    { id: "audit",       label: "Audit",        icon: Shield,          badge: alertCount },
   ];
 
   const renderPage = () => {
@@ -1267,16 +958,17 @@ export default function AdminDashboard({ onLogout }) {
       case "overview":     return <OverviewPage dk={dk} onNav={setPage} />;
       case "validation":   return <ValidationPage dk={dk} />;
       case "utilisateurs": return <UtilisateursPage dk={dk} />;
-      case "ia":           return <IAMonitoringPage dk={dk} />;
-      case "systeme":      return <SystemePage dk={dk} />;
       case "audit":        return <AuditPage dk={dk} />;
       case "parametres":   return <AdminSettingsPage dk={dk} onToggleDark={() => setDk(!dk)} />;
-      default:             return <ValidationPage dk={dk} />;
+      default:             return <OverviewPage dk={dk} onNav={setPage} />;
     }
   };
 
   return (
-    <div className="min-h-screen" style={{ background: c.bg, fontFamily: "'Plus Jakarta Sans', sans-serif", color: c.txt, transition: "background 0.3s, color 0.2s" }}>
+    <div className="min-h-screen relative" style={{ background: c.bg, fontFamily: "'Plus Jakarta Sans', sans-serif", color: c.txt, transition: "background 0.3s, color 0.2s" }}>
+      <ParticlesHero darkMode={dk} />
+      <div className="relative z-10">
+
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
         * { transition: background-color 0.2s, border-color 0.2s; }
@@ -1455,6 +1147,7 @@ export default function AdminDashboard({ onLogout }) {
       <main className="w-full px-6 py-6">{renderPage()}</main>
 
       {profileOpen && <div className="fixed inset-0 z-20" onClick={() => setProfileOpen(false)} />}
+    </div>
     </div>
   );
 }

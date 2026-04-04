@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { ParticlesHero } from '../../components/backgrounds/MedParticles';
 import { useAuth } from "../../context/AuthContext";
 import { useData } from "../../context/DataContext";
 import * as api from "../../services/api";
@@ -5454,7 +5455,7 @@ export default function PatientDashboard({ onLogout }) {
 
   return (
     <div
-      className="min-h-screen"
+      className="min-h-screen relative"
       style={{
         background: c.bg,
         fontFamily: "'Plus Jakarta Sans', sans-serif",
@@ -5462,6 +5463,10 @@ export default function PatientDashboard({ onLogout }) {
         transition: "background 0.3s, color 0.2s",
       }}
     >
+      <ParticlesHero darkMode={dk} />
+      <div className="relative z-10">
+      <ParticlesHero darkMode={dk} />
+      <div className="relative z-10">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         * { transition: background-color 0.2s, border-color 0.2s; }
@@ -5787,6 +5792,8 @@ export default function PatientDashboard({ onLogout }) {
           onClick={() => setProfileOpen(false)}
         />
       )}
+    </div>
+    </div>
     </div>
   );
 }
