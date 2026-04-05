@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import ErrorBoundary from "../../components/ErrorBoundary";
 import { ParticlesHero } from '../../components/backgrounds/MedParticles';
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
@@ -1540,11 +1541,7 @@ function TreatmentsView({ dk, c }) {
   );
 }
 
-function SettingsView({ onTarifSaved }) {
-  const { theme } = useTheme();
-  const dk = theme === "dark";
-  const c = dk ? T.dark : T.light;
-  const { userData: user } = useAuth();
+function SettingsView({ onTarifSaved, dk, c, user }) {
   const [showPwd, setShowPwd] = useState(false);
   const [locSaved, setLocSaved] = useState(false);
   const [tarifSaved, setTarifSaved] = useState(false);
@@ -1592,13 +1589,7 @@ function SettingsView({ onTarifSaved }) {
     try {
       setIsSavingPwd(true);
       setPwdStatus({ type: "", msg: "" });
-      const token = localStorage.getItem("access_token");
-      const res = await fetch("http://localhost:8000/api/auth/password/change/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(pwdForm),
-      });
-      if (!res.ok) throw new Error("Erreur");
+      await api.changePassword(pwdForm);
       setPwdStatus({ type: "success", msg: "Mot de passe modifié ✅" });
       setPwdForm({ currentPassword: "", newPassword: "" });
       setTimeout(() => setPwdStatus({ type: "", msg: "" }), 4000);
@@ -1993,7 +1984,7 @@ export default function GardeMaladeDashboard({ onLogout }) {
       case "myPatients": return <MyPatientsView onChangePage={setPage} dk={dk} c={c} />;
       case "treatments": return <TreatmentsView dk={dk} c={c} />;
       case "ai-diagnosis": return <AIDiagnosisPage dk={dk} c={c} />;
-      case "settings": return <SettingsView onTarifSaved={setTarifMensuel} />;
+      case "settings": return <SettingsView onTarifSaved={setTarifMensuel} dk={dk} c={c} user={user} />;
       default: return <HomeView onChangePage={setPage} dk={dk} c={c} setEmergency={setEmergency} />;
     }
   };
@@ -2240,7 +2231,7 @@ export default function GardeMaladeDashboard({ onLogout }) {
       </nav>
 
       {/* Contenu */}
-      <main className="max-w-7xl mx-auto px-6 py-8">{renderPage()}</main>
+      <main className="max-w-7xl mx-auto px-6 py-8"><ErrorBoundary>{renderPage()}</ErrorBoundary></main>
 
       {profileOpen && (
         <div className="fixed inset-0 z-20" onClick={() => setProfileOpen(false)} />

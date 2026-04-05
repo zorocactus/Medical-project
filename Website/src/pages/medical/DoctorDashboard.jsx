@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import ErrorBoundary from "../../components/ErrorBoundary";
 import { ParticlesHero } from '../../components/backgrounds/MedParticles';
 import {
   Users,
@@ -416,7 +417,6 @@ function DashboardHome({
   patients,
   appointments,
   patientRequests,
-  doctorName,
 }) {
   const { theme } = useTheme();
   const dk = theme === "dark";
@@ -524,9 +524,7 @@ function DashboardHome({
 // SUB-VIEW : SCHEDULE
 // ============================================================================
 
-function ScheduleView() {
-  const { theme } = useTheme();
-  const dk = theme === "dark";
+function ScheduleView({ dk }) {
   const c = dk ? T.dark : T.light;
 
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -585,9 +583,8 @@ function ScheduleView() {
     return counts;
   }, [allAppointments]);
 
-  const handleSlotCreated = (slot) => {
-    console.log("New slot created:", slot);
-    // Potential integration: api.createSlot(slot).then(...)
+  const handleSlotCreated = (_slot) => {
+    // Potential integration: api.createSlot(_slot).then(...)
   };
 
   return (
@@ -1498,9 +1495,7 @@ function PrescriptionsView() {
 // SUB-VIEW : PATIENT DETAIL (DOSSIER MÉDICAL)
 // ============================================================================
 
-function PatientDetailView({ patient, onBack }) {
-  const { theme } = useTheme();
-  const dk = theme === "dark";
+function PatientDetailView({ patient, onBack, dk }) {
   const c = dk ? T.dark : T.light;
 
   const [activeTab, setActiveTab] = useState("history");
@@ -2066,13 +2061,7 @@ function StatisticsView() {
   const dk = theme === "dark";
   const c = dk ? T.dark : T.light;
 
-  let data = { appointments: [], prescriptions: [], patients: [] };
-  try {
-    data = useData();
-  } catch (e) {
-    console.error("StatisticsView: Context error", e);
-  }
-
+  const data = useData();
   const appointments = Array.isArray(data?.appointments) ? data.appointments : [];
   const prescriptions = Array.isArray(data?.prescriptions) ? data.prescriptions : [];
   const patients = Array.isArray(data?.patients) ? data.patients : [];
@@ -2247,13 +2236,7 @@ function SettingsView() {
     try {
       setIsSavingPwd(true);
       setPwdStatus({ type: "", msg: "" });
-      const token = localStorage.getItem("access_token");
-      const res = await fetch("http://localhost:8000/api/auth/password/change/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(pwdForm),
-      });
-      if (!res.ok) throw new Error("Erreur");
+      await api.changePassword(pwdForm);
       setPwdStatus({ type: "success", msg: "Mot de passe modifié ✅" });
       setPwdForm({ currentPassword: "", newPassword: "" });
       setTimeout(() => setPwdStatus({ type: "", msg: "" }), 4000);
@@ -2645,7 +2628,7 @@ export default function DoctorDashboard({ onLogout }) {
   const renderContent = () => {
     switch (currentPage.toLowerCase()) {
       case "schedule":
-        return <ScheduleView />;
+        return <ScheduleView dk={dk} />;
       case "patients":
         return (
           <PatientsView
@@ -2665,6 +2648,7 @@ export default function DoctorDashboard({ onLogout }) {
         return (
           <PatientDetailView
             patient={selectedPatient}
+            dk={dk}
             onBack={() => {
               setSelectedPatient(null);
               setCurrentPage("patients");
@@ -2678,7 +2662,6 @@ export default function DoctorDashboard({ onLogout }) {
             patients={safePatients}
             appointments={safeAppointments}
             patientRequests={safeRequests}
-            doctorName={doctorName}
           />
         );
     }
@@ -2980,7 +2963,7 @@ export default function DoctorDashboard({ onLogout }) {
       </nav>
 
       <main className="max-w-7xl mx-auto px-6 py-8 pb-24">
-        {renderContent()}
+        <ErrorBoundary>{renderContent()}</ErrorBoundary>
       </main>
 
       {profileOpen && (

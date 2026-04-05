@@ -31,7 +31,7 @@ export default function MedicalSuccess({ onComplete }) {
               <Check size={16} strokeWidth={3} />
             </div>
             <div className="w-[32px] h-[32px] rounded-full bg-[#6492C9] text-white flex items-center justify-center font-bold text-[13px] z-10 relative">
-              5
+              <Check size={16} strokeWidth={3} />
             </div>
           </div>
         </div>

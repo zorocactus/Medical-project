@@ -1,9 +1,11 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import * as api from "../services/api";
+import { useAuth } from "./AuthContext";
 
 const DataContext = createContext(null);
 
 export function DataProvider({ children }) {
+  const { userData } = useAuth();
   const [patients, setPatients]               = useState([]);
   const [appointments, setAppointments]       = useState([]);
   const [patientRequests, setPatientRequests] = useState([]);
@@ -28,14 +30,19 @@ export function DataProvider({ children }) {
   }
 
   useEffect(() => {
-    api.getDoctorAppointments()
-      .then(data => { if (Array.isArray(data)) setAppointments(data); })
-      .catch(() => {});
+    if (userData?.role === "doctor") {
+      api.getDoctorAppointments()
+        .then(data => { if (Array.isArray(data)) setAppointments(data); })
+        .catch(() => {});
 
-    api.getPendingAppointments()
-      .then(data => { if (Array.isArray(data)) setPatientRequests(data); })
-      .catch(() => {});
-  }, []);
+      api.getPendingAppointments()
+        .then(data => { if (Array.isArray(data)) setPatientRequests(data); })
+        .catch(() => {});
+    } else {
+      setAppointments([]);
+      setPatientRequests([]);
+    }
+  }, [userData?.role]);
 
   function addPrescription(rx) {
     setPrescriptions(prev => [rx, ...prev]);

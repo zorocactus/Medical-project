@@ -12,6 +12,7 @@ export default function LoginForm({ onLogin }) {
   const [loading, setLoading]           = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isFacebookLoading, setIsFacebookLoading] = useState(false);
+  const [oauthMessage, setOauthMessage] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -34,10 +35,8 @@ export default function LoginForm({ onLogin }) {
     try {
       // POST /api/auth/token/ → sauvegarde tokens → GET /api/auth/me/
       const me = await login(email, password);
-      console.log("✅ Login réussi :", me);
       onLogin(me?.role || "patient", me);
     } catch (err) {
-      console.error("❌ Erreur login :", err);
       setApiError(err.message || "Email ou mot de passe incorrect.");
     } finally {
       setLoading(false);
@@ -47,11 +46,9 @@ export default function LoginForm({ onLogin }) {
   const handleGoogleLogin = async () => {
     if (isGoogleLoading || isFacebookLoading) return;
     setIsGoogleLoading(true);
-    // Simulation délai réseau
     setTimeout(() => {
       setIsGoogleLoading(false);
-      console.log("Redirection vers l'authentification Google en cours... (À lier au Backend)");
-      alert("Redirection vers l'authentification Google en cours... (À lier au Backend)");
+      setOauthMessage("L'authentification Google n'est pas encore disponible. (À lier au Backend)");
       // window.location.href = "http://localhost:8000/api/auth/login/google/";
     }, 1000);
   };
@@ -59,11 +56,9 @@ export default function LoginForm({ onLogin }) {
   const handleFacebookLogin = async () => {
     if (isGoogleLoading || isFacebookLoading) return;
     setIsFacebookLoading(true);
-    // Simulation délai réseau
     setTimeout(() => {
       setIsFacebookLoading(false);
-      console.log("Redirection vers l'authentification Facebook en cours... (À lier au Backend)");
-      alert("Redirection vers l'authentification Facebook en cours... (À lier au Backend)");
+      setOauthMessage("L'authentification Facebook n'est pas encore disponible. (À lier au Backend)");
       // window.location.href = "http://localhost:8000/api/auth/login/facebook/";
     }, 1000);
   };
@@ -76,6 +71,11 @@ export default function LoginForm({ onLogin }) {
         {apiError && (
           <div className="mb-6 p-4 rounded-xl bg-red-50 text-red-600 text-sm font-medium border border-red-200">
             {apiError}
+          </div>
+        )}
+        {oauthMessage && (
+          <div className="mb-6 p-4 rounded-xl bg-blue-50 text-blue-700 text-sm font-medium border border-blue-200">
+            {oauthMessage}
           </div>
         )}
         

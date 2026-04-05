@@ -534,6 +534,31 @@ export function isAuthenticated() {
 }
 
 /**
+ * Change le mot de passe de l'utilisateur connecté
+ * @param {object} data — { old_password, new_password }
+ */
+export async function changePassword(data) {
+  return apiFetch("/auth/password/change/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * (Admin) Liste des médecins/pros en attente de validation
+ */
+export async function getPendingDoctors() {
+  return apiFetch("/admin/doctors/pending/");
+}
+
+/**
+ * (Admin) Liste de tous les utilisateurs
+ */
+export async function getUsers() {
+  return apiFetch("/admin/users/");
+}
+
+/**
  * Exporte clearTokens pour que AuthContext puisse l'utiliser
  */
 export { clearTokens };

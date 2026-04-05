@@ -16,6 +16,9 @@
       "Bash(npm install:*)",
       "Bash(npm run:*)",
       "Bash(netstat -ano)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\yassi\\OneDrive\\Bureau\\Front\\Website\\src\\components\\Auth\\RegisterStep2"
     ]
   }
 }

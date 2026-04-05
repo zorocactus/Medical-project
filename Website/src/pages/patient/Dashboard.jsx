@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import ErrorBoundary from "../../components/ErrorBoundary";
 import { ParticlesHero } from '../../components/backgrounds/MedParticles';
 import { useAuth } from "../../context/AuthContext";
 import { useData } from "../../context/DataContext";
@@ -84,24 +85,6 @@ const T = {
 };
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
-const APPOINTMENTS = [
-  {
-    id: 1,
-    name: "Dr. Sarah Smith",
-    role: "Cardiologist",
-    date: "Oct 24, 10:30 AM",
-    initials: "SS",
-    color: "#4A6FA5",
-  },
-  {
-    id: 2,
-    name: "Dr. Michael Chen",
-    role: "Dermatologist",
-    date: "Nov 02, 2:15 PM",
-    initials: "MC",
-    color: "#2D8C6F",
-  },
-];
 const MEDICATIONS = [
   { id: 1, name: "Lisinopril (10mg)", time: "8:00 AM · 1 Tablet", taken: true },
   {
@@ -115,58 +98,6 @@ const MEDICATIONS = [
     name: "Metformin (500mg)",
     time: "8:00 PM · 1 Tablet",
     taken: false,
-  },
-];
-const NOTIFICATIONS_DATA = [
-  {
-    id: 1,
-    icon: Calendar,
-    color: "#4A6FA5",
-    bg: "#EEF3FB",
-    bgDark: "#1A2333",
-    title: "Appointment Confirmed",
-    sub: "Dr. Benali — 5 min ago",
-    unread: true,
-  },
-  {
-    id: 2,
-    icon: Heart,
-    color: "#2D8C6F",
-    bg: "#EEF8F4",
-    bgDark: "#1A2D28",
-    title: "Medication Reminder",
-    sub: "Take Metformin — 1 hour ago",
-    unread: true,
-  },
-  {
-    id: 3,
-    icon: FileSearch,
-    color: "#888",
-    bg: "#F5F5F5",
-    bgDark: "#1A1A1A",
-    title: "Analysis Ready",
-    sub: "Lipid Profile — Yesterday",
-    unread: false,
-  },
-  {
-    id: 4,
-    icon: AlertCircle,
-    color: "#E8A838",
-    bg: "#FFF8EC",
-    bgDark: "#1A1508",
-    title: "Prescription Expiring",
-    sub: "Metformin expires in 5 days",
-    unread: true,
-  },
-  {
-    id: 5,
-    icon: Check,
-    color: "#2D8C6F",
-    bg: "#EEF8F4",
-    bgDark: "#1A2D28",
-    title: "Caregiver Update",
-    sub: "Fatima B. completed medication",
-    unread: false,
   },
 ];
 const PRESCRIPTIONS = [
@@ -2238,13 +2169,12 @@ function AppointmentsPage({
   const [availableSlots, setAvailableSlots] = useState([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
 
-  const [confirmed, setConfirmed] = useState(false);
   const [specFilter, setSpecFilter] = useState("All");
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [searchAppt, setSearchAppt] = useState(""); // BUG 6
+  const [searchAppt, setSearchAppt] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [selectedCity, setSelectedCity] = useState("Alger");
+  const [selectedCity, setSelectedCity] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedGender, setSelectedGender] = useState("Any Gender");
   const [starFilter, setStarFilter] = useState(1);
@@ -2253,7 +2183,6 @@ function AppointmentsPage({
   const [genderOpen, setGenderOpen] = useState(false);
   const dateInputRef = useRef(null);
   const docListRef = useRef(null);
-  const isFirstRender = useRef(true);
 
   // Removed auto-scroll downward block as requested.
 
@@ -2298,7 +2227,7 @@ function AppointmentsPage({
         setLoading(true);
         const filters = {};
         if (specFilter !== "All") filters.specialty = specFilter;
-        if (selectedCity && selectedCity !== "Toutes")
+        if (selectedCity)
           filters.city = selectedCity;
         if (debouncedSearch) filters.q = debouncedSearch;
 
@@ -2517,15 +2446,21 @@ function AppointmentsPage({
 
   const slotsForDay = (day) => {
     if (!day) return [];
-    // Map objects to time strings for the UI grid
     return availableSlots.map((s) => s.time);
   };
 
   const hasSlots = (day) => {
-    // This is more complex since we fetch slots ONLY for the selected day.
-    // For now, we'll mark all days as potentially having slots, or we'd need a separate 'has_slots' API check.
     return true;
   };
+
+  const morningSlots = useMemo(
+    () => availableSlots.filter((s) => s.time < "12:00"),
+    [availableSlots],
+  );
+  const afternoonSlots = useMemo(
+    () => availableSlots.filter((s) => s.time >= "12:00"),
+    [availableSlots],
+  );
 
   return (
     <>
@@ -2997,7 +2932,7 @@ function AppointmentsPage({
               borderColor: searchFocused ? "#4A6FA5" : c.border,
               background: c.card,
               boxShadow: searchFocused
-                ? "0 0 0 4px rgba(74,111,165,0.1)"
+                ? `0 0 0 4px ${c.blue}1A`
                 : "none",
               minHeight: 52,
             }}
@@ -3036,7 +2971,7 @@ function AppointmentsPage({
                     className="text-[.87rem] whitespace-nowrap font-medium"
                     style={{ color: c.txt2 }}
                   >
-                    {selectedCity}, Algérie
+                    {selectedCity ? `${selectedCity}, Algérie` : "Toutes les wilayas"}
                   </span>
                   <ChevronDown
                     size={13}
@@ -3515,59 +3450,76 @@ function AppointmentsPage({
                       </div>
 
                       <div className="flex-1 overflow-y-auto pr-2 space-y-6 max-h-[350px] custom-scrollbar">
-                        {/* Morning Section */}
-                        <div className="space-y-3">
-                          <p className="text-[10px] font-black uppercase tracking-[0.15em] opacity-40 flex items-center gap-2">
-                            <Sun size={12} /> Matin
-                          </p>
-                          <div className="grid grid-cols-3 gap-2">
-                            {["08:30", "09:00", "09:30", "10:00", "10:30", "11:00"].map((slot) => {
-                              const isSel = calSlot === slot;
-                              return (
-                                <button
-                                  key={slot}
-                                  onClick={() => setCalSlot(slot)}
-                                  className="py-3 rounded-xl text-[13px] font-black border transition-all"
-                                  style={{
-                                    background: isSel ? c.blue : c.card,
-                                    color: isSel ? "#fff" : c.txt,
-                                    borderColor: isSel ? c.blue : c.border,
-                                    boxShadow: isSel ? `0 4px 12px ${c.blue}44` : "none"
-                                  }}
-                                >
-                                  {slot}
-                                </button>
-                              );
-                            })}
+                        {slotsLoading ? (
+                          <div className="flex items-center justify-center py-12 opacity-50">
+                            <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: c.blue, borderTopColor: "transparent" }} />
                           </div>
-                        </div>
+                        ) : availableSlots.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center py-12 opacity-40">
+                            <Clock size={28} className="mb-2 opacity-30" />
+                            <p className="text-sm font-medium text-center">Aucun créneau disponible pour ce jour</p>
+                          </div>
+                        ) : (
+                          <>
+                            {/* Morning Section */}
+                            {morningSlots.length > 0 && (
+                              <div className="space-y-3">
+                                <p className="text-[10px] font-black uppercase tracking-[0.15em] opacity-40 flex items-center gap-2">
+                                  <Sun size={12} /> Matin
+                                </p>
+                                <div className="grid grid-cols-3 gap-2">
+                                  {morningSlots.map((slotObj) => {
+                                    const isSel = calSlot === slotObj.time;
+                                    return (
+                                      <button
+                                        key={slotObj.id ?? slotObj.time}
+                                        onClick={() => setCalSlot(slotObj.time)}
+                                        className="py-3 rounded-xl text-[13px] font-black border transition-all"
+                                        style={{
+                                          background: isSel ? c.blue : c.card,
+                                          color: isSel ? "#fff" : c.txt,
+                                          borderColor: isSel ? c.blue : c.border,
+                                          boxShadow: isSel ? `0 4px 12px ${c.blue}44` : "none"
+                                        }}
+                                      >
+                                        {slotObj.time}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
 
-                        {/* Afternoon Section */}
-                        <div className="space-y-3">
-                          <p className="text-[10px] font-black uppercase tracking-[0.15em] opacity-40 flex items-center gap-2">
-                            <Moon size={12} /> Après-midi
-                          </p>
-                          <div className="grid grid-cols-3 gap-2">
-                            {["14:00", "14:30", "15:00", "15:30", "16:00", "16:30"].map((slot) => {
-                              const isSel = calSlot === slot;
-                              return (
-                                <button
-                                  key={slot}
-                                  onClick={() => setCalSlot(slot)}
-                                  className="py-3 rounded-xl text-[13px] font-black border transition-all"
-                                  style={{
-                                    background: isSel ? c.blue : c.card,
-                                    color: isSel ? "#fff" : c.txt,
-                                    borderColor: isSel ? c.blue : c.border,
-                                    boxShadow: isSel ? `0 4px 12px ${c.blue}44` : "none"
-                                  }}
-                                >
-                                  {slot}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
+                            {/* Afternoon Section */}
+                            {afternoonSlots.length > 0 && (
+                              <div className="space-y-3">
+                                <p className="text-[10px] font-black uppercase tracking-[0.15em] opacity-40 flex items-center gap-2">
+                                  <Moon size={12} /> Après-midi
+                                </p>
+                                <div className="grid grid-cols-3 gap-2">
+                                  {afternoonSlots.map((slotObj) => {
+                                    const isSel = calSlot === slotObj.time;
+                                    return (
+                                      <button
+                                        key={slotObj.id ?? slotObj.time}
+                                        onClick={() => setCalSlot(slotObj.time)}
+                                        className="py-3 rounded-xl text-[13px] font-black border transition-all"
+                                        style={{
+                                          background: isSel ? c.blue : c.card,
+                                          color: isSel ? "#fff" : c.txt,
+                                          borderColor: isSel ? c.blue : c.border,
+                                          boxShadow: isSel ? `0 4px 12px ${c.blue}44` : "none"
+                                        }}
+                                      >
+                                        {slotObj.time}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        )}
                       </div>
 
                       {/* Booking Summary & Action */}
@@ -4216,8 +4168,19 @@ function PharmacyPage({ dk }) {
 // ─── CARE TAKER PAGE ──────────────────────────────────────────────────────────
 const WILAYAS_CT = ["Toutes", "Alger", "Oran", "Constantine", "Annaba", "Blida", "Sétif", "Tlemcen", "Batna", "Autres"];
 
+const WILAYAS_LIST = [
+  "Alger","Oran","Constantine","Annaba","Blida","Batna","Sétif","Tlemcen",
+  "Tizi Ouzou","Béjaïa","Jijel","Médéa","Mostaganem","Bouira","Bordj Bou Arréridj",
+  "Boumerdès","Tipaza","Aïn Defla","Tissemsilt","Relizane","Chlef","Skikda",
+  "Guelma","Souk Ahras","El Tarf","Mila","Khenchela","Oum El Bouaghi","Tébessa",
+  "Biskra","Djelfa","Laghouat","El Bayadh","Naâma","Saïda","Mascara","Tiaret",
+  "Adrar","Béchar","Tamanrasset","Illizi","Tindouf","El Oued","Ouargla",
+  "Ghardaïa","Aïn Témouchent","Sidi Bel Abbès","Autres",
+];
+
 function CareTakerPage({ dk }) {
   const c = dk ? T.dark : T.light;
+  const { addNotification } = useData();
 
   // ── Navigation ──
   const [tab, setTab] = useState("find");
@@ -4242,8 +4205,42 @@ function CareTakerPage({ dk }) {
   const [reviewHover, setReviewHover] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
 
+  // ── Caretakers API ──
+  const [caretakers, setCaretakers] = useState(CARETAKERS);
+  const [ctLoading, setCtLoading] = useState(true);
+  const [ctError, setCtError] = useState("");
+
+  useEffect(() => {
+    api.getCaretakers()
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          const normalized = data.map(ct => ({
+            id: ct.id,
+            name: `${ct.first_name || ""} ${ct.last_name || ""}`.trim() || ct.name || "—",
+            role: ct.role_label || ct.specialty || "Garde-malade",
+            exp: ct.experience_years != null ? `${ct.experience_years} ans` : "—",
+            rating: parseFloat(ct.rating) || 0,
+            reviews: ct.reviews_count ?? ct.reviews ?? 0,
+            tarifSoin: ct.tarif_soin || "—",
+            tarifNuit: ct.tarif_nuit || "—",
+            tarifMensuel: ct.tarif_mensuel || "—",
+            zone: ct.zone || ct.city || "—",
+            wilaya: ct.wilaya || ct.city || "—",
+            tags: ct.tags || ct.specializations || [],
+            initials: ((ct.first_name?.[0] || "") + (ct.last_name?.[0] || "")).toUpperCase() || "??",
+            color: "#4A6FA5",
+            bio: ct.bio || ct.description || "",
+            phone: ct.phone || "—",
+          }));
+          setCaretakers(normalized);
+        }
+      })
+      .catch(() => setCtError("Impossible de charger les gardes-malades. Affichage des données locales."))
+      .finally(() => setCtLoading(false));
+  }, []);
+
   // ── Filtre des gardes-malades ──
-  const filteredCT = CARETAKERS.filter((ct) => {
+  const filteredCT = caretakers.filter((ct) => {
     const q = searchTerm.toLowerCase();
     const matchSearch = !q || ct.name.toLowerCase().includes(q) || ct.role.toLowerCase().includes(q) || ct.zone.toLowerCase().includes(q);
     const matchWilaya = wilayaFilter === "Toutes" || ct.wilaya === wilayaFilter;
@@ -4824,15 +4821,27 @@ function CareTakerPage({ dk }) {
             </div>
           </div>
 
+          {/* ── Error banner ── */}
+          {ctError && (
+            <div className="px-4 py-3 rounded-xl text-sm font-medium border"
+              style={{ background: c.amberLight, color: c.amber, borderColor: c.amber + "44" }}>
+              {ctError}
+            </div>
+          )}
+
           {/* ── Résultats ── */}
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold uppercase tracking-wide" style={{ color: c.txt3 }}>
-              {filteredCT.length} garde-malade{filteredCT.length !== 1 ? "s" : ""} trouvé{filteredCT.length !== 1 ? "s" : ""}
+              {ctLoading ? "Chargement…" : `${filteredCT.length} garde-malade${filteredCT.length !== 1 ? "s" : ""} trouvé${filteredCT.length !== 1 ? "s" : ""}`}
             </p>
           </div>
 
           <div className="space-y-4">
-            {filteredCT.length === 0 ? (
+            {ctLoading ? (
+              <div className="flex items-center justify-center py-16 opacity-50">
+                <div className="w-7 h-7 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: c.blue, borderTopColor: "transparent" }} />
+              </div>
+            ) : filteredCT.length === 0 ? (
               <Card dk={dk} className="text-center py-12">
                 <Search size={32} style={{ color: c.txt3, opacity: 0.4 }} className="mx-auto mb-3" />
                 <p className="font-semibold" style={{ color: c.txt }}>Aucun résultat</p>
@@ -4903,6 +4912,20 @@ function CareTakerPage({ dk }) {
 // ─── NOTIFICATIONS PAGE ───────────────────────────────────────────────────────
 function NotificationsPage({ dk, notifications, setNotifications }) {
   const c = dk ? T.dark : T.light;
+  const { globalNotifications = [] } = useData();
+
+  const mergedNotifications = useMemo(() => {
+    const adapted = globalNotifications.map((n) => ({
+      id: "g_" + n.id,
+      title: n.title,
+      message: n.message,
+      is_read: n.read,
+      created_at: n.createdAt instanceof Date ? n.createdAt.toISOString() : new Date().toISOString(),
+      type: n.type,
+    }));
+    const combined = [...(notifications || []), ...adapted];
+    return combined.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  }, [notifications, globalNotifications]);
 
   const dismiss = async (id) => {
     try {
@@ -4957,7 +4980,7 @@ function NotificationsPage({ dk, notifications, setNotifications }) {
         )}
       </div>
       <div className="space-y-3">
-        {(notifications || []).map((n) => {
+        {mergedNotifications.map((n) => {
           const isUnread = !n.is_read && n.unread !== false;
           const typeColor =
             n.type === "emergency"
@@ -5096,19 +5119,7 @@ function SettingsPage({ dk, onToggleDark, userData }) {
     try {
       setIsSavingPwd(true);
       setPwdStatus({ type: "", msg: "" });
-      const token = localStorage.getItem("access_token");
-      const res = await fetch(
-        "http://localhost:8000/api/auth/password/change/",
-        {
-          method: "POST", // usually POST or PUT
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(pwdForm),
-        },
-      );
-      if (!res.ok) throw new Error("Erreur");
+      await api.changePassword(pwdForm);
       setPwdStatus({ type: "success", msg: "Mot de passe modifié ✅" });
       setPwdForm({ currentPassword: "", newPassword: "" });
       setTimeout(() => setPwdStatus({ type: "", msg: "" }), 4000);
@@ -5184,28 +5195,15 @@ function SettingsPage({ dk, onToggleDark, userData }) {
               </div>
             ))}
             <div className="mb-4">
-              <label
-                className="block text-xs font-bold uppercase tracking-wide mb-1.5"
-                style={{ color: c.txt2 }}
-              >
-                City
-              </label>
-              <select
+              <DashSelect
+                label="Wilaya"
                 value={form.city}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, city: e.target.value }))
-                }
-                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
-                style={{
-                  background: dk ? "#1A2333" : "#F8FAFC",
-                  borderColor: c.border,
-                  color: c.txt,
-                }}
-              >
-                <option value="Alger">Alger</option>
-                <option value="Oran">Oran</option>
-                <option value="Constantine">Constantine</option>
-              </select>
+                options={WILAYAS_LIST}
+                onSelect={(v) => setForm((f) => ({ ...f, city: v }))}
+                dk={dk}
+                c={c}
+                placeholder="Sélectionner une wilaya..."
+              />
             </div>
             <button
               onClick={handleSaveProfile}
@@ -5327,7 +5325,6 @@ export default function PatientDashboard({ onLogout }) {
   const [dk, setDk] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [emergency, setEmergency] = useState(false);
 
   const [appointments, setAppointments] = useState([]);
   const [medicalProfile, setMedicalProfile] = useState(null);
@@ -5465,8 +5462,6 @@ export default function PatientDashboard({ onLogout }) {
     >
       <ParticlesHero darkMode={dk} />
       <div className="relative z-10">
-      <ParticlesHero darkMode={dk} />
-      <div className="relative z-10">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         * { transition: background-color 0.2s, border-color 0.2s; }
@@ -5476,10 +5471,6 @@ export default function PatientDashboard({ onLogout }) {
         a { cursor: pointer !important; }
         .nav-link:not(.active-nav):hover { background: rgba(100,146,201,0.15) !important; color: #6492C9 !important; }
       `}</style>
-
-      {emergency && (
-        <EmergencyModal onClose={() => setEmergency(false)} dk={dk} />
-      )}
 
       {/* ═══ NAVBAR ═══ */}
       <nav
@@ -5783,7 +5774,7 @@ export default function PatientDashboard({ onLogout }) {
       </nav>
 
       {/* Page content */}
-      <main className="w-full px-6 py-6">{renderPage()}</main>
+      <main className="w-full px-6 py-6"><ErrorBoundary>{renderPage()}</ErrorBoundary></main>
 
       {/* Close dropdown on outside click */}
       {profileOpen && (
@@ -5792,7 +5783,6 @@ export default function PatientDashboard({ onLogout }) {
           onClick={() => setProfileOpen(false)}
         />
       )}
-    </div>
     </div>
     </div>
   );

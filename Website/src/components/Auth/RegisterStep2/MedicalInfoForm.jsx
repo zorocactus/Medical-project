@@ -121,6 +121,30 @@ const ROLE_CONFIG = {
   "Garde-malade": { icon: <Users size={18} />,       color: "#9B7FD4", title: "Informations — Garde-Malade", upload: "diplomeFile",      uploadLabel: "Copie du Diplôme"       },
 };
 
+// ─ Champ texte stylisé générique (module-level pour éviter la recréation) ────
+function TextField({ name, label, placeholder, value, onChange, onFieldChange, error, numeric, maxLen, suffix }) {
+  return (
+    <div className="relative group">
+      <span className="absolute -top-3 left-4 px-1.5 bg-white text-[13px] font-medium text-[#365885] z-10">{label}</span>
+      <div className="relative">
+        <input
+          type="text"
+          inputMode={numeric ? "numeric" : "text"}
+          name={name}
+          placeholder={placeholder}
+          value={value}
+          onChange={numeric
+            ? (e) => { const v = e.target.value.replace(/\D/g, ""); if (!maxLen || v.length <= maxLen) onFieldChange(name, v); }
+            : onChange}
+          className={`w-full px-4 ${suffix ? "pr-14" : "pr-4"} py-3 rounded-xl border ${error ? "border-red-400" : "border-[#D1DFEC] hover:border-[#89AEDB] focus:border-[#6492C9]"} focus:ring-0 outline-none text-gray-700 text-sm transition-colors placeholder:text-[#A0B5CD]`}
+        />
+        {suffix && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[12px] font-bold text-[#89AEDB] pointer-events-none">{suffix}</span>}
+      </div>
+      {error && <p className="text-red-500 text-[12px] mt-1 ml-1">{error}</p>}
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Médecin" }) {
   const config = ROLE_CONFIG[medicalRole] || ROLE_CONFIG["Médecin"];
@@ -194,28 +218,6 @@ export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Mé
     onComplete({ ...devData, medicalRole });
   };
 
-  // ─ Champ texte stylisé générique ─────────────────────────────────────────
-  const TextField = ({ name, label, placeholder, value, onChange, error, numeric, maxLen, suffix }) => (
-    <div className="relative group">
-      <span className="absolute -top-3 left-4 px-1.5 bg-white text-[13px] font-medium text-[#365885] z-10">{label}</span>
-      <div className="relative">
-        <input
-          type="text"
-          inputMode={numeric ? "numeric" : "text"}
-          name={name}
-          placeholder={placeholder}
-          value={value}
-          onChange={numeric
-            ? (e) => { const v = e.target.value.replace(/\D/g, ""); if (!maxLen || v.length <= maxLen) handleField(name, v); }
-            : (onChange || handleChange)}
-          className={`w-full px-4 ${suffix ? "pr-14" : "pr-4"} py-3 rounded-xl border ${error ? "border-red-400" : "border-[#D1DFEC] hover:border-[#89AEDB] focus:border-[#6492C9]"} focus:ring-0 outline-none text-gray-700 text-sm transition-colors placeholder:text-[#A0B5CD]`}
-        />
-        {suffix && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[12px] font-bold text-[#89AEDB] pointer-events-none">{suffix}</span>}
-      </div>
-      {error && <p className="text-red-500 text-[12px] mt-1 ml-1">{error}</p>}
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-[#D1DFEC] flex items-center justify-center p-6 font-sans">
       <div className="bg-white rounded-[24px] shadow-xl w-full max-w-[800px] px-[60px] py-[50px] relative">
@@ -257,12 +259,20 @@ export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Mé
             <TextField
               name="nInscription" label="N° d'inscription à l'Ordre"
               placeholder="Ex: 161234" value={formData.nInscription}
+              onChange={handleChange} onFieldChange={handleField}
               numeric maxLen={10} error={errors.nInscription}
             />
             <TextField
               name="cabinetName" label="Nom du Cabinet Médical"
               placeholder="Ex: Cabinet Dr. Benali" value={formData.cabinetName}
+              onChange={handleChange} onFieldChange={handleField}
               error={errors.cabinetName}
+            />
+            <TextField
+              name="experienceYears" label="Années d'expérience"
+              placeholder="Ex: 5" value={formData.experienceYears}
+              onChange={handleChange} onFieldChange={handleField}
+              numeric maxLen={2} error={errors.experienceYears}
             />
             <MapsInput
               label="Adresse Google Maps (optionnel)"
@@ -282,11 +292,13 @@ export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Mé
             <TextField
               name="pharmacyName" label="Nom de la Pharmacie"
               placeholder="Ex: Pharmacie du Centre" value={formData.pharmacyName}
+              onChange={handleChange} onFieldChange={handleField}
               error={errors.pharmacyName}
             />
             <TextField
               name="agrement" label="N° d'Agrément National"
               placeholder="Ex: 20241001" value={formData.agrement}
+              onChange={handleChange} onFieldChange={handleField}
               numeric maxLen={12} error={errors.agrement}
             />
             <MapsInput
@@ -314,11 +326,13 @@ export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Mé
             <TextField
               name="experienceYears" label="Années d'expérience"
               placeholder="Ex: 5" value={formData.experienceYears}
+              onChange={handleChange} onFieldChange={handleField}
               numeric maxLen={2} suffix="ans" error={errors.experienceYears}
             />
             <TextField
               name="tarifSoin" label="Tarif de base par soin (DZD)"
               placeholder="Ex: 2000" value={formData.tarifSoin}
+              onChange={handleChange} onFieldChange={handleField}
               numeric maxLen={6} suffix="DZD" error={errors.tarifSoin}
             />
             <CustomSelect

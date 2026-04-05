@@ -1,5 +1,6 @@
 import { useState } from "react";
 import * as api from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
 import LoginForm from "./Login";
 import RegisterForm from "./Register";
 import PatientForm from "./RegisterStep2/PatientForm";
@@ -12,7 +13,7 @@ import MedicalInfoForm from "./RegisterStep2/MedicalInfoForm";
 import MedicalSuccess from "./RegisterStep2/MedicalSuccess";
 
 export default function AuthTransition({ onLogin, initialActive = false, onBack }) {
-  console.log("onLogin reçu :", onLogin);
+  const { login } = useAuth();
   const [isActive, setIsActive] = useState(initialActive);
   const [step, setStep] = useState(1);
   const [tempUser, setTempUser] = useState(null);
@@ -41,7 +42,7 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
           first_name: data.firstName,
           last_name: data.lastName,
           phone: data.phone,
-          birth_date: data.birthDate || "1990-01-01",
+          birth_date: data.birthDate,
           gender: data.sex === "Masculin" ? "M" : "F",
           address: data.address || "",
         });
@@ -81,9 +82,9 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
           last_name: data.lastName,
           phone: data.phone,
           gender: data.sex === "Masculin" ? "M" : "F",
-          role: roleMap[data.role] || "doctor",
-          specialty: data.specialty || "Généraliste",
-          experience_years: parseInt(data.experience) || 0,
+          role: roleMap[data.medicalRole] || "doctor",
+          specialty: data.specialite || "Généraliste",
+          experience_years: parseInt(data.experienceYears || data.experience) || 0,
         });
         setStep(6);
       } catch (err) {
@@ -120,10 +121,9 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
   if (step === 4) {
     if (tempUser?.accountType === "patient") {
       return <PatientSuccess onComplete={() => {
-        // Automatically login the user using the api.login after successful registration
-        api.login(tempUser.email, tempUser.password)
-          .then((res) => onLogin(res.role || "patient"))
-          .catch(() => onLogin("patient")); // Fallback if auto-login fails
+        login(tempUser.email, tempUser.password)
+          .then((me) => onLogin(me?.role || "patient"))
+          .catch(() => onLogin("patient"));
       }} />;
     }
     if (tempUser?.accountType === "personnel médical") {
@@ -140,9 +140,8 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
   if (step === 6) {
     if (tempUser?.accountType === "personnel médical") {
       return <MedicalSuccess onComplete={() => {
-        // New medical registrations are pending admin approval — mark is_approved: false
-        api.login(tempUser.email, tempUser.password)
-          .then((res) => onLogin(res.role || "doctor", { ...res, is_approved: false }))
+        login(tempUser.email, tempUser.password)
+          .then((me) => onLogin(me?.role || "doctor", { ...me, is_approved: false }))
           .catch(() => onLogin("doctor", { is_approved: false }));
       }} />
     }
@@ -272,11 +271,11 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
       <div className={`auth-container${isActive ? " active" : ""}`}>
 
         <div className="form-box login">
-  <LoginForm key="login" onLogin={onLogin} />
+  <LoginForm key="login" onLogin={onLogin} isVisible={isActive} />
 </div>
 
 <div className="form-box register">
-  <RegisterForm key="register" onLogin={onLogin} onNextStep={handleNextStep} />
+  <RegisterForm key="register" onLogin={onLogin} onNextStep={handleNextStep} isVisible={!isActive} />
 </div>
 
         <div className="toggle-box">

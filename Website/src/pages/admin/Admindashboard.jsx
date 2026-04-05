@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import * as api from "../../services/api";
+import ErrorBoundary from "../../components/ErrorBoundary";
 import { ParticlesHero } from '../../components/backgrounds/MedParticles';
 import {
   LayoutDashboard, Users, Stethoscope, Pill, Heart, Shield,
@@ -172,7 +174,7 @@ function OverviewPage({ dk, onNav }) {
             Centre de Contrôle <span style={{ color: c.blue }}>MedSmart</span>
           </h1>
           <p className="text-sm mt-1" style={{ color: c.txt2 }}>
-            Vue globale de la plateforme · Samedi 28 Mars 2026 · 14:32
+            Vue globale de la plateforme · {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · {new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -345,14 +347,39 @@ function OverviewPage({ dk, onNav }) {
 }
 
 // ─── PAGE: UTILISATEURS ───────────────────────────────────────────────────────
+const PAGE_SIZE = 7;
+
 function UtilisateursPage({ dk }) {
   const c = dk ? T.dark : T.light;
   const [users, setUsers] = useState(USERS_DATA);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selected, setSelected] = useState([]);
+  const [page, setPage] = useState(1);
   const [modal, setModal] = useState(null); // { type: "approve"|"suspend"|"delete", user }
+
+  useEffect(() => {
+    api.getUsers()
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          const normalized = data.map(u => ({
+            id: u.id,
+            name: `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.name || "—",
+            email: u.email || "—",
+            role: u.role || "patient",
+            wilaya: u.wilaya || u.city || "—",
+            status: u.status || u.is_active === false ? "suspended" : "active",
+            joined: u.date_joined?.slice(0, 10) || u.joined || "—",
+            verified: u.is_verified ?? u.verified ?? false,
+          }));
+          setUsers(normalized);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   const filtered = users.filter(u => {
     const matchSearch = u.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -363,12 +390,17 @@ function UtilisateursPage({ dk }) {
     return matchSearch && matchRole && matchStatus;
   });
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const handleFilterChange = useCallback((setter) => (val) => { setter(val); setPage(1); }, []);
+
   const approve = (id) => setUsers(prev => prev.map(u => u.id === id ? { ...u, status: "active", verified: true } : u));
   const suspend = (id) => setUsers(prev => prev.map(u => u.id === id ? { ...u, status: u.status === "suspended" ? "active" : "suspended" } : u));
   const deleteUser = (id) => setUsers(prev => prev.filter(u => u.id !== id));
 
   const toggleSelect = (id) => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  const allSelected = filtered.length > 0 && filtered.every(u => selected.includes(u.id));
+  const allSelected = paginated.length > 0 && paginated.every(u => selected.includes(u.id));
 
   return (
     <>
@@ -407,21 +439,24 @@ function UtilisateursPage({ dk }) {
               placeholder="Rechercher par nom, email, wilaya…"
               className="outline-none text-sm bg-transparent flex-1" style={{ color: c.txt }} />
           </div>
-          <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl text-sm outline-none border" style={{ background: c.card, color: c.txt, borderColor: c.border }}>
-            <option value="all">Tous les rôles</option>
-            <option value="patient">Patients</option>
-            <option value="médecin">Médecins</option>
-            <option value="pharmacien">Pharmaciens</option>
-            <option value="garde-malade">Garde-malades</option>
-          </select>
-          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl text-sm outline-none border" style={{ background: c.card, color: c.txt, borderColor: c.border }}>
-            <option value="all">Tous les statuts</option>
-            <option value="active">Actifs</option>
-            <option value="pending">En attente</option>
-            <option value="suspended">Suspendus</option>
-          </select>
+          <div className="flex items-center gap-1 flex-wrap">
+            {[["all", "Tous"], ["patient", "Patients"], ["médecin", "Médecins"], ["pharmacien", "Pharmaciens"], ["garde-malade", "Gardes"]].map(([val, label]) => (
+              <button key={val} onClick={() => handleFilterChange(setRoleFilter)(val)}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all"
+                style={{ background: roleFilter === val ? c.blue : "transparent", color: roleFilter === val ? "#fff" : c.txt2, borderColor: roleFilter === val ? c.blue : c.border }}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1 flex-wrap">
+            {[["all", "Tous"], ["active", "Actifs"], ["pending", "En attente"], ["suspended", "Suspendus"]].map(([val, label]) => (
+              <button key={val} onClick={() => handleFilterChange(setStatusFilter)(val)}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all"
+                style={{ background: statusFilter === val ? c.blue : "transparent", color: statusFilter === val ? "#fff" : c.txt2, borderColor: statusFilter === val ? c.blue : c.border }}>
+                {label}
+              </button>
+            ))}
+          </div>
           <button className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm border transition-all hover:opacity-80"
             style={{ borderColor: c.border, color: c.txt2 }}>
             <Download size={13} /> Exporter CSV
@@ -437,7 +472,7 @@ function UtilisateursPage({ dk }) {
               <tr style={{ borderBottom: `1px solid ${c.border}`, background: dk ? "rgba(255,255,255,0.02)" : "#FAFBFD" }}>
                 <th className="px-4 py-3">
                   <input type="checkbox" checked={allSelected}
-                    onChange={() => allSelected ? setSelected([]) : setSelected(filtered.map(u => u.id))}
+                    onChange={() => allSelected ? setSelected([]) : setSelected(paginated.map(u => u.id))}
                     className="w-4 h-4 rounded" />
                 </th>
                 {["Utilisateur", "Rôle", "Wilaya", "Statut", "Vérifié", "Inscrit le", "Actions"].map(h => (
@@ -447,14 +482,14 @@ function UtilisateursPage({ dk }) {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(u => {
+              {paginated.map(u => {
                 const rm = ROLE_META[u.role] || ROLE_META["patient"];
                 const sm = STATUS_META[u.status] || STATUS_META["active"];
                 return (
                   <tr key={u.id}
                     style={{ borderBottom: `1px solid ${c.border}`, background: selected.includes(u.id) ? (dk ? "rgba(74,111,165,0.08)" : "#F0F5FF") : "transparent" }}
                     onMouseEnter={e => { if (!selected.includes(u.id)) e.currentTarget.style.background = dk ? "rgba(255,255,255,0.02)" : "#FAFBFD"; }}
-                    onMouseLeave={e => { if (!selected.includes(u.id)) e.currentTarget.style.background = "transparent"; }}>
+                    onMouseLeave={e => { if (!selected.includes(u.id)) e.currentTarget.style.background = selected.includes(u.id) ? (dk ? "rgba(74,111,165,0.08)" : "#F0F5FF") : "transparent"; }}>
                     <td className="px-4 py-3">
                       <input type="checkbox" checked={selected.includes(u.id)}
                         onChange={() => toggleSelect(u.id)} className="w-4 h-4 rounded" />
@@ -525,14 +560,23 @@ function UtilisateursPage({ dk }) {
         </div>
         {/* Pagination */}
         <div className="flex items-center justify-between px-4 py-3 border-t" style={{ borderColor: c.border }}>
-          <p className="text-xs" style={{ color: c.txt3 }}>Affichage de {filtered.length} sur {users.length} utilisateurs</p>
+          <p className="text-xs" style={{ color: c.txt3 }}>
+            {filtered.length === 0 ? "Aucun résultat" : `${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, filtered.length)} sur ${filtered.length} utilisateurs`}
+          </p>
           <div className="flex gap-1">
-            {[1,2,3].map(p => (
-              <button key={p} className="w-8 h-8 rounded-lg text-xs font-bold transition-all"
-                style={{ background: p === 1 ? c.blue : "transparent", color: p === 1 ? "#fff" : c.txt3 }}>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+              className="w-8 h-8 rounded-lg text-xs font-bold transition-all disabled:opacity-30"
+              style={{ color: c.txt3 }}>‹</button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+              <button key={p} onClick={() => setPage(p)}
+                className="w-8 h-8 rounded-lg text-xs font-bold transition-all"
+                style={{ background: p === page ? c.blue : "transparent", color: p === page ? "#fff" : c.txt3 }}>
                 {p}
               </button>
             ))}
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+              className="w-8 h-8 rounded-lg text-xs font-bold transition-all disabled:opacity-30"
+              style={{ color: c.txt3 }}>›</button>
           </div>
         </div>
       </Card>
@@ -573,20 +617,50 @@ const PENDING_PROS = [
   },
 ];
 
-function ValidationPage({ dk }) {
+function ValidationPage({ dk, onCountChange }) {
   const c = dk ? T.dark : T.light;
   const [pending, setPending] = useState(PENDING_PROS);
+  const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState([]); // { ...pro, decision: "approved"|"rejected" }
+
+  useEffect(() => {
+    api.getPendingDoctors()
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          const normalized = data.map(d => ({
+            id: d.id,
+            name: `${d.first_name || ""} ${d.last_name || ""}`.trim() || d.name || "—",
+            role: d.role || "médecin",
+            specialty: d.specialty || d.specialite || "—",
+            wilaya: d.wilaya || d.city || "—",
+            email: d.email || "—",
+            phone: d.phone || "—",
+            submittedAt: d.created_at?.slice(0, 10) || d.submittedAt || "—",
+            initials: ((d.first_name?.[0] || "") + (d.last_name?.[0] || "")).toUpperCase() || "??",
+            color: "#4A6FA5",
+            docs: d.docs || [],
+          }));
+          setPending(normalized);
+          if (onCountChange) onCountChange(normalized.length);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
   const [docModal, setDocModal] = useState(null); // { pro, doc }
 
   const approve = (id) => {
     const pro = pending.find(p => p.id === id);
-    setPending(prev => prev.filter(p => p.id !== id));
+    const next = pending.filter(p => p.id !== id);
+    setPending(next);
+    if (onCountChange) onCountChange(next.length);
     setHistory(prev => [{ ...pro, decision: "approved", decidedAt: new Date().toLocaleDateString("fr-FR") }, ...prev]);
   };
   const reject = (id) => {
     const pro = pending.find(p => p.id === id);
-    setPending(prev => prev.filter(p => p.id !== id));
+    const next = pending.filter(p => p.id !== id);
+    setPending(next);
+    if (onCountChange) onCountChange(next.length);
     setHistory(prev => [{ ...pro, decision: "rejected", decidedAt: new Date().toLocaleDateString("fr-FR") }, ...prev]);
   };
 
@@ -941,10 +1015,13 @@ export default function AdminDashboard({ onLogout }) {
   const [dk, setDk] = useState(false); // Admin starts in light mode as requested
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [alertCount] = useState(4);
+  const [pendingCount, setPendingCount] = useState(0);
   const c = dk ? T.dark : T.light;
 
-  const [pendingCount] = useState(PENDING_PROS.length);
+  const alertCount = useMemo(
+    () => AUDIT_LOGS.filter(l => l.type === "warning" || l.type === "danger").length,
+    []
+  );
 
   const NAV = [
     { id: "overview",    label: "Vue globale",  icon: LayoutDashboard },
@@ -956,7 +1033,7 @@ export default function AdminDashboard({ onLogout }) {
   const renderPage = () => {
     switch (page) {
       case "overview":     return <OverviewPage dk={dk} onNav={setPage} />;
-      case "validation":   return <ValidationPage dk={dk} />;
+      case "validation":   return <ValidationPage dk={dk} onCountChange={setPendingCount} />;
       case "utilisateurs": return <UtilisateursPage dk={dk} />;
       case "audit":        return <AuditPage dk={dk} />;
       case "parametres":   return <AdminSettingsPage dk={dk} onToggleDark={() => setDk(!dk)} />;
@@ -1144,7 +1221,7 @@ export default function AdminDashboard({ onLogout }) {
       </nav>
 
       {/* Content */}
-      <main className="w-full px-6 py-6">{renderPage()}</main>
+      <main className="w-full px-6 py-6"><ErrorBoundary>{renderPage()}</ErrorBoundary></main>
 
       {profileOpen && <div className="fixed inset-0 z-20" onClick={() => setProfileOpen(false)} />}
     </div>

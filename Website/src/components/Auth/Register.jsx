@@ -13,6 +13,7 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible }) {
   const [accountType, setAccountType] = useState("patient");
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isFacebookLoading, setIsFacebookLoading] = useState(false);
+  const [oauthMessage, setOauthMessage] = useState("");
 
   // Réinitialise tous les champs quand la page devient invisible
   useEffect(() => {
@@ -48,7 +49,6 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible }) {
     }
 
     setErrors({});
-    console.log("Form submitted");
     if (onNextStep) {
       onNextStep({ firstName, lastName, email, accountType, password, confirmPassword });
     } else {
@@ -75,11 +75,9 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible }) {
   const handleGoogleLogin = async () => {
     if (isGoogleLoading || isFacebookLoading) return;
     setIsGoogleLoading(true);
-    // Simulation délai réseau
     setTimeout(() => {
       setIsGoogleLoading(false);
-      console.log("Redirection vers l'authentification Google en cours... (À lier au Backend)");
-      alert("Redirection vers l'authentification Google en cours... (À lier au Backend)");
+      setOauthMessage("L'authentification Google n'est pas encore disponible. (À lier au Backend)");
       // window.location.href = "http://localhost:8000/api/auth/login/google/";
     }, 1000);
   };
@@ -87,11 +85,9 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible }) {
   const handleFacebookLogin = async () => {
     if (isGoogleLoading || isFacebookLoading) return;
     setIsFacebookLoading(true);
-    // Simulation délai réseau
     setTimeout(() => {
       setIsFacebookLoading(false);
-      console.log("Redirection vers l'authentification Facebook en cours... (À lier au Backend)");
-      alert("Redirection vers l'authentification Facebook en cours... (À lier au Backend)");
+      setOauthMessage("L'authentification Facebook n'est pas encore disponible. (À lier au Backend)");
       // window.location.href = "http://localhost:8000/api/auth/login/facebook/";
     }, 1000);
   };
@@ -252,6 +248,11 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible }) {
 
         {/* Socials — en dehors du form */}
         <div className="flex flex-col items-center gap-4 mt-4">
+          {oauthMessage && (
+            <div className="w-full p-3 rounded-xl bg-blue-50 text-blue-700 text-xs font-medium border border-blue-200">
+              {oauthMessage}
+            </div>
+          )}
           <p className="text-xs font-medium text-gray-500">
             or register with social platforms
           </p>

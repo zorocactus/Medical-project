@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import ErrorBoundary from "../../components/ErrorBoundary";
 import { ParticlesHero } from '../../components/backgrounds/MedParticles';
 import { useData } from "../../context/DataContext";
 import {
@@ -1477,7 +1478,7 @@ export default function PharmacistDashboard({ onLogout }) {
       </nav>
 
       {/* Page */}
-      <main className="w-full px-6 py-6">{renderPage()}</main>
+      <main className="w-full px-6 py-6"><ErrorBoundary>{renderPage()}</ErrorBoundary></main>
 
       {profileOpen && <div className="fixed inset-0 z-20" onClick={() => setProfileOpen(false)} />}
     </div>
