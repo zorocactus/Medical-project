@@ -559,7 +559,31 @@ export async function getUsers() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 8. CONSULTATION SESSION  →  /api/appointments/ + /api/consultations/
+// 8. DOSSIER PATIENT (vue médecin)  →  /api/doctor/patients/
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * (Médecin) Récupère le dossier médical complet d'un patient
+ * @param {number} patientId
+ * Returns: { profile, medical_profile, history, lab_results, prescriptions }
+ */
+export async function getPatientRecord(patientId) {
+  return apiFetch(`/doctor/patients/${patientId}/record/`);
+}
+
+/**
+ * (Médecin) Ajoute une ordonnance dans le dossier d'un patient
+ * @param {object} data — { patient_id, medication, dosage, frequency, duration, ... }
+ */
+export async function addPrescription(data) {
+  return apiFetch("/consultations/prescriptions/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 9. CONSULTATION SESSION  →  /api/appointments/ + /api/consultations/
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**

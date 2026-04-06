@@ -16,7 +16,8 @@
       "Bash(npm install:*)",
       "Bash(npm run:*)",
       "Bash(netstat -ano)",
-      "Read(//c/Users/yassi/OneDrive/Bureau/**)"
+      "Read(//c/Users/yassi/OneDrive/Bureau/**)",
+      "Bash(grep -v \"^[0-9]*:.*//.*ConsultationSession\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\yassi\\OneDrive\\Bureau\\Front\\Website\\src\\components\\Auth\\RegisterStep2",
