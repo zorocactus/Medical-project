@@ -174,9 +174,12 @@ function StatCard({ label, value, sub, icon: Icon, color, trend, dk }) {
 }
 
 // ─── NEW COMPONENT : TODAYS SCHEDULE ──────────────────────────────────────────
-function TodaysSchedule({ appointments = [] }) {
+function TodaysSchedule({ appointments = [], onStartConsultation }) {
   const { theme } = useTheme();
   const dk = theme === "dark";
+  const c = dk ? T.dark : T.light;
+  const [startingId, setStartingId] = useState(null);
+  const [startErrors, setStartErrors] = useState({});
 
   const defaultData = [
     { time: "08:00", name: "Ahmed Meziane", type: "In-Person" },
@@ -267,10 +270,39 @@ function TodaysSchedule({ appointments = [] }) {
                 <div
                   className={`py-3 px-4 border-l-[3px] rounded-r-lg shadow-sm transition-all hover:translate-x-1 ${getTypeStyles(item.type)}`}
                 >
-                  <p className="text-sm font-bold truncate">
-                    {item.name || item.patient}{" "}
-                    <span className="mx-1 opacity-40">·</span> {item.type}
-                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-bold truncate">
+                      {item.name || item.patient}{" "}
+                      <span className="mx-1 opacity-40">·</span> {item.type}
+                    </p>
+                    {onStartConsultation && (item.status === "confirmed" || item.status === "scheduled") && (
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <button
+                          disabled={startingId === item.id}
+                          onClick={async () => {
+                            setStartingId(item.id);
+                            setStartErrors((p) => ({ ...p, [item.id]: null }));
+                            try {
+                              const updated = await api.startConsultation(item.id);
+                              onStartConsultation(updated || { ...item, status: "in_progress" });
+                            } catch (err) {
+                              setStartErrors((p) => ({ ...p, [item.id]: err.message }));
+                              setStartingId(null);
+                            }
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 disabled:opacity-60"
+                          style={{ background: c.blue }}
+                        >
+                          {startingId === item.id ? (
+                            <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />
+                          ) : "▶"} Commencer
+                        </button>
+                        {startErrors[item.id] && (
+                          <p className="text-[10px] font-semibold" style={{ color: c.red }}>{startErrors[item.id]}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -310,10 +342,12 @@ const MOCK_REQUESTS = [
   },
 ];
 
-function PatientRequests({ requests = MOCK_REQUESTS }) {
+function PatientRequests({ requests = MOCK_REQUESTS, onStartConsultation }) {
   const { theme } = useTheme();
   const dk = theme === "dark";
   const c = dk ? T.dark : T.light;
+  const [startingId, setStartingId] = useState(null);
+  const [startErrors, setStartErrors] = useState({});
   const safeRequests =
     Array.isArray(requests) && requests.length > 0 ? requests : MOCK_REQUESTS;
 
@@ -378,27 +412,56 @@ function PatientRequests({ requests = MOCK_REQUESTS }) {
                 </span>
               </div>
 
-              <div className="flex items-center gap-1.5">
-                <button
-                  className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all hover:bg-emerald-500 hover:text-white ${
-                    dk
-                      ? "bg-emerald-900/20 text-emerald-400 border-emerald-800/30"
-                      : "bg-emerald-50 text-emerald-600 border-emerald-100"
-                  }`}
-                  title="Accept"
-                >
-                  <Check size={16} strokeWidth={2.5} />
-                </button>
-                <button
-                  className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all hover:bg-red-500 hover:text-white ${
-                    dk
-                      ? "bg-red-900/20 text-red-400 border-red-800/30"
-                      : "bg-red-50 text-red-500 border-red-100"
-                  }`}
-                  title="Decline"
-                >
-                  <X size={16} strokeWidth={2.5} />
-                </button>
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all hover:bg-emerald-500 hover:text-white ${
+                      dk
+                        ? "bg-emerald-900/20 text-emerald-400 border-emerald-800/30"
+                        : "bg-emerald-50 text-emerald-600 border-emerald-100"
+                    }`}
+                    title="Accept"
+                  >
+                    <Check size={16} strokeWidth={2.5} />
+                  </button>
+                  <button
+                    className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all hover:bg-red-500 hover:text-white ${
+                      dk
+                        ? "bg-red-900/20 text-red-400 border-red-800/30"
+                        : "bg-red-50 text-red-500 border-red-100"
+                    }`}
+                    title="Decline"
+                  >
+                    <X size={16} strokeWidth={2.5} />
+                  </button>
+                </div>
+                {onStartConsultation && (req.status === "confirmed" || req.status === "scheduled") && (
+                  <div className="flex flex-col items-end gap-1">
+                    <button
+                      disabled={startingId === req.id}
+                      onClick={async () => {
+                        setStartingId(req.id);
+                        setStartErrors((p) => ({ ...p, [req.id]: null }));
+                        try {
+                          const updated = await api.startConsultation(req.id);
+                          onStartConsultation(updated || { ...req, status: "in_progress" });
+                        } catch (err) {
+                          setStartErrors((p) => ({ ...p, [req.id]: err.message }));
+                          setStartingId(null);
+                        }
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 disabled:opacity-60"
+                      style={{ background: c.blue }}
+                    >
+                      {startingId === req.id ? (
+                        <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />
+                      ) : "▶"} Commencer
+                    </button>
+                    {startErrors[req.id] && (
+                      <p className="text-[10px] font-semibold" style={{ color: c.red }}>{startErrors[req.id]}</p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -524,12 +587,21 @@ function DashboardHome({
 // SUB-VIEW : SCHEDULE
 // ============================================================================
 
-function ScheduleView({ dk }) {
+function ScheduleView({ dk, onStartConsultation }) {
   const c = dk ? T.dark : T.light;
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [view, setView] = useState("week"); // "week" | "month"
+  const [successBanner, setSuccessBanner] = useState(false);
   const { appointments = [], patientRequests = [] } = useData();
+
+  const handleStartConsultation = (appointment) => {
+    setSuccessBanner(true);
+    setTimeout(() => setSuccessBanner(false), 4000);
+    setTimeout(() => {
+      if (onStartConsultation) onStartConsultation(appointment);
+    }, 800);
+  };
 
   // MOCK DATA if needed
   const SAMPLE = [
@@ -589,6 +661,17 @@ function ScheduleView({ dk }) {
 
   return (
     <div className="animate-in fade-in duration-500 space-y-6">
+      {/* Success banner */}
+      {successBanner && (
+        <div
+          className="flex items-center gap-3 px-5 py-3 rounded-xl border font-semibold text-sm animate-in fade-in duration-300"
+          style={{ background: c.green + "18", borderColor: c.green + "44", color: c.green }}
+        >
+          <Check size={16} />
+          Consultation démarrée — le créneau est maintenant verrouillé.
+        </div>
+      )}
+
       {/* Dynamic Week Calendar */}
       <WeekCalendar
         selectedDate={selectedDate}
@@ -602,11 +685,17 @@ function ScheduleView({ dk }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <div className="lg:col-span-2">
           {/* Le planning du jour filtré */}
-          <TodaysSchedule appointments={filteredAppointments} />
+          <TodaysSchedule
+            appointments={filteredAppointments}
+            onStartConsultation={onStartConsultation ? handleStartConsultation : undefined}
+          />
         </div>
         <div className="lg:col-span-1">
           {/* Les requêtes en attente ici */}
-          <PatientRequests requests={pending} />
+          <PatientRequests
+            requests={pending}
+            onStartConsultation={onStartConsultation ? handleStartConsultation : undefined}
+          />
         </div>
       </div>
     </div>
@@ -2586,6 +2675,580 @@ function SettingsView() {
 }
 
 // ============================================================================
+// SUB-VIEW : CONSULTATION SESSION
+// ============================================================================
+
+function ConsultationSessionView({ appointment, onComplete, dk, c, setCurrentPage }) {
+  // ── Vitals ──
+  const [bpSystolic, setBpSystolic] = useState("");
+  const [bpDiastolic, setBpDiastolic] = useState("");
+  const [heartRate, setHeartRate] = useState("");
+  const [temperature, setTemperature] = useState("");
+  const [weight, setWeight] = useState("");
+  const [o2sat, setO2sat] = useState("");
+
+  // ── Clinical notes ──
+  const [symptoms, setSymptoms] = useState("");
+  const [clinicalNotes, setClinicalNotes] = useState("");
+  const [diagnosis, setDiagnosis] = useState("");
+  const [icd10Code, setIcd10Code] = useState("");
+  const [diagnosisError, setDiagnosisError] = useState(false);
+
+  // ── Follow-up ──
+  const [followUpDate, setFollowUpDate] = useState("");
+  const [followUpNotes, setFollowUpNotes] = useState("");
+
+  // ── Prescription ──
+  const [medSearch, setMedSearch] = useState("");
+  const [medResults, setMedResults] = useState([]);
+  const [medSearching, setMedSearching] = useState(false);
+  const [selectedMeds, setSelectedMeds] = useState([]);
+  const [prescriptionNotes, setPrescriptionNotes] = useState("");
+  const [showMedDropdown, setShowMedDropdown] = useState(false);
+
+  // ── Submission ──
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
+  const [sessionResult, setSessionResult] = useState(null);
+
+  const diagnosisRef = useRef(null);
+  const medSearchTimeout = useRef(null);
+
+  // Medication search debounce
+  const handleMedSearchChange = (val) => {
+    setMedSearch(val);
+    clearTimeout(medSearchTimeout.current);
+    if (val.length < 2) {
+      setMedResults([]);
+      setShowMedDropdown(false);
+      return;
+    }
+    medSearchTimeout.current = setTimeout(async () => {
+      setMedSearching(true);
+      try {
+        const results = await api.searchMedications(val);
+        const arr = Array.isArray(results) ? results : (results?.results || []);
+        setMedResults(arr.slice(0, 5));
+        setShowMedDropdown(true);
+      } catch {
+        setMedResults([]);
+      } finally {
+        setMedSearching(false);
+      }
+    }, 350);
+  };
+
+  const addMedication = (med) => {
+    if (selectedMeds.find((m) => m.medication_id === med.id)) {
+      setShowMedDropdown(false);
+      setMedSearch("");
+      return;
+    }
+    setSelectedMeds((prev) => [
+      ...prev,
+      {
+        medication_id: med.id,
+        name: med.name,
+        strength: med.strength || "",
+        dosage: "",
+        frequency: "1x",
+        duration_days: 7,
+        instructions: "",
+      },
+    ]);
+    setShowMedDropdown(false);
+    setMedSearch("");
+    setMedResults([]);
+  };
+
+  const updateMed = (idx, field, value) => {
+    setSelectedMeds((prev) => {
+      const copy = [...prev];
+      copy[idx] = { ...copy[idx], [field]: value };
+      return copy;
+    });
+  };
+
+  const removeMed = (idx) => {
+    setSelectedMeds((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const FREQ_OPTIONS = [
+    { value: "1x", label: "1x/j" },
+    { value: "2x", label: "2x/j" },
+    { value: "3x", label: "3x/j" },
+    { value: "4x", label: "4x/j" },
+    { value: "asNeeded", label: "Si besoin" },
+  ];
+
+  const handleSubmit = async () => {
+    if (!diagnosis.trim()) {
+      setDiagnosisError(true);
+      diagnosisRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      diagnosisRef.current?.focus();
+      return;
+    }
+    setDiagnosisError(false);
+    setSubmitError(null);
+    setSubmitting(true);
+
+    const payload = {
+      appointment_id: appointment?.id,
+      symptoms,
+      clinical_notes: clinicalNotes,
+      diagnosis,
+      icd10_code: icd10Code || undefined,
+      follow_up_date: followUpDate || undefined,
+      follow_up_notes: followUpNotes || undefined,
+      blood_pressure_systolic: bpSystolic ? Number(bpSystolic) : undefined,
+      blood_pressure_diastolic: bpDiastolic ? Number(bpDiastolic) : undefined,
+      heart_rate: heartRate ? Number(heartRate) : undefined,
+      temperature: temperature ? Number(temperature) : undefined,
+      weight: weight ? Number(weight) : undefined,
+      oxygen_saturation: o2sat ? Number(o2sat) : undefined,
+      prescription_notes: prescriptionNotes,
+      medications: selectedMeds.map((m) => ({
+        medication_id: m.medication_id,
+        dosage: m.dosage,
+        frequency: m.frequency,
+        duration_days: Number(m.duration_days),
+        instructions: m.instructions || "",
+      })),
+    };
+
+    try {
+      const result = await api.completeSession(payload);
+      setSessionResult(result);
+    } catch (err) {
+      setSubmitError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const inputStyle = {
+    borderColor: c.border,
+    background: dk ? "#0D1117" : "#F8FAFC",
+    color: c.txt,
+    appearance: "none",
+    MozAppearance: "textfield",
+    WebkitAppearance: "none",
+  };
+
+  const inputClass = "w-full px-3 py-2.5 rounded-xl border text-sm outline-none transition-all";
+  const labelClass = "block text-xs font-semibold mb-1";
+
+  return (
+    <div className="animate-in fade-in duration-500 space-y-6 relative">
+      {/* Loading overlay */}
+      {submitting && (
+        <div
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center"
+          style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(4px)" }}
+        >
+          <div
+            className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin"
+            style={{ borderColor: c.blue + "40", borderTopColor: c.blue }}
+          />
+          <p className="mt-4 font-bold text-lg" style={{ color: c.blue }}>
+            Génération de l'ordonnance...
+          </p>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {sessionResult && (
+        <div
+          className="fixed inset-0 z-[9998] flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl shadow-2xl border overflow-hidden"
+            style={{ background: dk ? "#141B27" : "#fff", borderColor: c.border }}
+          >
+            {/* Header */}
+            <div className="flex flex-col items-center px-8 pt-8 pb-4 text-center">
+              <div
+                className="w-16 h-16 rounded-full flex items-center justify-center mb-4"
+                style={{ background: c.green + "20" }}
+              >
+                <Check size={32} style={{ color: c.green }} />
+              </div>
+              <p className="text-xl font-bold mb-1" style={{ color: c.txt }}>Consultation terminée !</p>
+              <p className="text-sm" style={{ color: c.txt2 }}>L'ordonnance a été générée avec succès.</p>
+            </div>
+
+            {/* QR Code */}
+            {sessionResult.prescription_qr_url && (
+              <div className="flex flex-col items-center px-8 py-4">
+                <div
+                  className="p-3 rounded-xl border mb-3"
+                  style={{ background: "#fff", borderColor: c.border }}
+                >
+                  <img
+                    src={sessionResult.prescription_qr_url}
+                    alt="QR Code ordonnance"
+                    style={{ width: 160, height: 160, display: "block" }}
+                  />
+                </div>
+                {sessionResult.prescription_token && (
+                  <p
+                    className="font-mono text-xs mb-1 px-3 py-1 rounded-lg"
+                    style={{ background: c.bg || c.blueLight, color: c.txt2 }}
+                  >
+                    {sessionResult.prescription_token.slice(0, 8)}...
+                  </p>
+                )}
+                <p className="text-xs text-center" style={{ color: c.txt3 }}>
+                  Le patient peut scanner ce QR code à la pharmacie
+                </p>
+              </div>
+            )}
+
+            {/* Summary chips */}
+            <div className="flex flex-wrap gap-2 px-8 py-3 justify-center">
+              {diagnosis && (
+                <span className="text-xs font-bold px-3 py-1 rounded-full" style={{ background: c.blue + "18", color: c.blue }}>
+                  📋 {diagnosis}
+                </span>
+              )}
+              {selectedMeds.length > 0 && (
+                <span className="text-xs font-bold px-3 py-1 rounded-full" style={{ background: c.green + "18", color: c.green }}>
+                  {selectedMeds.length} médicament(s) prescrit(s)
+                </span>
+              )}
+              {followUpDate && (
+                <span className="text-xs font-bold px-3 py-1 rounded-full" style={{ background: c.amber + "18", color: c.amber }}>
+                  📅 Suivi le {followUpDate}
+                </span>
+              )}
+            </div>
+
+            {/* Footer buttons */}
+            <div className="flex gap-3 px-8 pb-8 pt-2">
+              <button
+                onClick={() => { setSessionResult(null); setCurrentPage("prescriptions"); }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold border transition-all hover:opacity-80"
+                style={{ borderColor: c.border, color: c.txt2 }}
+              >
+                Voir l'ordonnance complète
+              </button>
+              <button
+                onClick={() => {
+                  setSessionResult(null);
+                  setCurrentPage("schedule");
+                  onComplete();
+                }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
+                style={{ background: c.blue }}
+              >
+                Retour au planning
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error banner */}
+      {submitError && (
+        <div
+          className="flex items-center gap-3 px-5 py-3 rounded-xl border text-sm font-semibold"
+          style={{ background: c.red + "15", borderColor: c.red + "44", color: c.red }}
+        >
+          <X size={16} />
+          {submitError}
+        </div>
+      )}
+
+      {/* Page header */}
+      <div className="flex items-center gap-3 mb-2">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: c.blue + "18" }}>
+          <Activity size={18} style={{ color: c.blue }} />
+        </div>
+        <div>
+          <h1 className="text-xl font-bold" style={{ color: c.txt }}>Session de consultation</h1>
+          <p className="text-sm" style={{ color: c.txt2 }}>
+            {appointment?.patient_name || appointment?.patient || appointment?.name || "Patient"} — RDV #{appointment?.id}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* ── Left column: Clinical form ── */}
+        <div className="lg:col-span-2 space-y-5">
+
+          {/* Section 1: Constantes vitales */}
+          <Card dk={dk}>
+            <h2 className="text-base font-bold mb-4" style={{ color: c.txt }}>Constantes vitales</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div>
+                <label className={labelClass} style={{ color: c.txt2 }}>Tension systolique (mmHg)</label>
+                <input type="number" value={bpSystolic} onChange={(e) => setBpSystolic(e.target.value)}
+                  placeholder="120" className={inputClass} style={inputStyle} />
+              </div>
+              <div>
+                <label className={labelClass} style={{ color: c.txt2 }}>Tension diastolique (mmHg)</label>
+                <input type="number" value={bpDiastolic} onChange={(e) => setBpDiastolic(e.target.value)}
+                  placeholder="80" className={inputClass} style={inputStyle} />
+              </div>
+              <div>
+                <label className={labelClass} style={{ color: c.txt2 }}>Fréquence cardiaque (bpm)</label>
+                <input type="number" value={heartRate} onChange={(e) => setHeartRate(e.target.value)}
+                  placeholder="72" className={inputClass} style={inputStyle} />
+              </div>
+              <div>
+                <label className={labelClass} style={{ color: c.txt2 }}>Température (°C)</label>
+                <input type="number" step="0.1" value={temperature} onChange={(e) => setTemperature(e.target.value)}
+                  placeholder="37.0" className={inputClass} style={inputStyle} />
+              </div>
+              <div>
+                <label className={labelClass} style={{ color: c.txt2 }}>Poids (kg)</label>
+                <input type="number" step="0.1" value={weight} onChange={(e) => setWeight(e.target.value)}
+                  placeholder="70" className={inputClass} style={inputStyle} />
+              </div>
+              <div>
+                <label className={labelClass} style={{ color: c.txt2 }}>Saturation O₂ (%)</label>
+                <input type="number" value={o2sat} onChange={(e) => setO2sat(e.target.value)}
+                  placeholder="98" className={inputClass} style={inputStyle} />
+              </div>
+            </div>
+          </Card>
+
+          {/* Section 2: Notes cliniques */}
+          <Card dk={dk}>
+            <h2 className="text-base font-bold mb-4" style={{ color: c.txt }}>Notes cliniques</h2>
+            <div className="space-y-4">
+              <div>
+                <label className={labelClass} style={{ color: c.txt2 }}>Symptômes</label>
+                <textarea rows={4} value={symptoms} onChange={(e) => setSymptoms(e.target.value)}
+                  placeholder="Décrire les symptômes rapportés par le patient..."
+                  className={`${inputClass} resize-none`} style={inputStyle} />
+              </div>
+              <div>
+                <label className={labelClass} style={{ color: c.txt2 }}>Notes d'examen</label>
+                <textarea rows={4} value={clinicalNotes} onChange={(e) => setClinicalNotes(e.target.value)}
+                  placeholder="Notes d'examen clinique..."
+                  className={`${inputClass} resize-none`} style={inputStyle} />
+              </div>
+              <div ref={diagnosisRef}>
+                <label className={labelClass} style={{ color: diagnosisError ? c.red : c.txt2 }}>
+                  Diagnostic <span style={{ color: c.red }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={diagnosis}
+                  onChange={(e) => { setDiagnosis(e.target.value); if (e.target.value.trim()) setDiagnosisError(false); }}
+                  placeholder="Ex: Rhinopharyngite aiguë"
+                  className={inputClass}
+                  style={{ ...inputStyle, borderColor: diagnosisError ? c.red : c.border }}
+                />
+                {diagnosisError && (
+                  <p className="text-xs font-semibold mt-1" style={{ color: c.red }}>Le diagnostic est obligatoire</p>
+                )}
+              </div>
+              <div>
+                <label className={labelClass} style={{ color: c.txt2 }}>Code CIM-10 (optionnel)</label>
+                <input type="text" value={icd10Code} onChange={(e) => setIcd10Code(e.target.value)}
+                  placeholder="ex: J06.9" className={inputClass} style={inputStyle} />
+              </div>
+            </div>
+          </Card>
+
+          {/* Section 3: Suivi */}
+          <Card dk={dk}>
+            <h2 className="text-base font-bold mb-4" style={{ color: c.txt }}>Suivi</h2>
+            <div className="space-y-4">
+              <div>
+                <label className={labelClass} style={{ color: c.txt2 }}>Date de suivi (optionnel)</label>
+                <input type="date" value={followUpDate} onChange={(e) => setFollowUpDate(e.target.value)}
+                  className={inputClass} style={inputStyle} />
+              </div>
+              <div>
+                <label className={labelClass} style={{ color: c.txt2 }}>Notes de suivi (optionnel)</label>
+                <textarea rows={2} value={followUpNotes} onChange={(e) => setFollowUpNotes(e.target.value)}
+                  placeholder="Instructions pour le prochain rendez-vous..."
+                  className={`${inputClass} resize-none`} style={inputStyle} />
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* ── Right column: Prescription builder ── */}
+        <div className="lg:col-span-1 space-y-5">
+          <Card dk={dk}>
+            <div className="flex items-center gap-2 mb-4">
+              <FileText size={16} style={{ color: c.blue }} />
+              <h2 className="text-base font-bold" style={{ color: c.txt }}>Ordonnance</h2>
+            </div>
+
+            {/* Medication search */}
+            <div className="relative mb-4">
+              <label className={labelClass} style={{ color: c.txt2 }}>Rechercher un médicament...</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={medSearch}
+                  onChange={(e) => handleMedSearchChange(e.target.value)}
+                  onFocus={() => medResults.length > 0 && setShowMedDropdown(true)}
+                  placeholder="Paracétamol, Amoxicilline..."
+                  className={inputClass}
+                  style={inputStyle}
+                />
+                {medSearching && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <span className="w-3.5 h-3.5 border-2 border-t-transparent rounded-full animate-spin inline-block" style={{ borderColor: c.blue + "80", borderTopColor: c.blue }} />
+                  </div>
+                )}
+              </div>
+              {showMedDropdown && medResults.length > 0 && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowMedDropdown(false)} />
+                  <div
+                    className="absolute top-full left-0 right-0 mt-1 rounded-xl border shadow-xl z-50 py-1 overflow-hidden"
+                    style={{ background: dk ? "#141B27" : "#fff", borderColor: c.border }}
+                  >
+                    {medResults.map((med) => (
+                      <button
+                        key={med.id}
+                        type="button"
+                        onClick={() => addMedication(med)}
+                        className="w-full text-left px-4 py-2.5 text-sm transition-all"
+                        style={{ color: c.txt }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = c.blue + "12"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                      >
+                        <span className="font-semibold">{med.name}</span>
+                        {med.strength && <span style={{ color: c.txt3 }}> — {med.strength}</span>}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Selected medications */}
+            <div className="space-y-3">
+              {selectedMeds.map((med, idx) => (
+                <div
+                  key={idx}
+                  className="p-3 rounded-xl border relative"
+                  style={{ borderColor: c.border, background: dk ? "#0D1117" : c.blueLight }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => removeMed(idx)}
+                    className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-all hover:opacity-80"
+                    style={{ background: c.red + "20", color: c.red }}
+                  >
+                    ✕
+                  </button>
+                  <p className="text-sm font-bold mb-2 pr-6" style={{ color: c.txt }}>
+                    {med.name}{med.strength ? ` (${med.strength})` : ""}
+                  </p>
+                  <div className="space-y-2">
+                    <div>
+                      <label className={labelClass} style={{ color: c.txt3, fontSize: 10 }}>Posologie</label>
+                      <input
+                        type="text"
+                        value={med.dosage}
+                        onChange={(e) => updateMed(idx, "dosage", e.target.value)}
+                        placeholder="500mg"
+                        className="w-full px-2.5 py-1.5 rounded-lg border text-xs outline-none"
+                        style={inputStyle}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass} style={{ color: c.txt3, fontSize: 10 }}>Fréquence</label>
+                      <div className="flex gap-1 flex-wrap">
+                        {FREQ_OPTIONS.map((opt) => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => updateMed(idx, "frequency", opt.value)}
+                            className="px-2 py-1 rounded-lg text-xs font-bold border transition-all"
+                            style={{
+                              background: med.frequency === opt.value ? c.blue : "transparent",
+                              color: med.frequency === opt.value ? "#fff" : c.txt2,
+                              borderColor: med.frequency === opt.value ? c.blue : c.border,
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className={labelClass} style={{ color: c.txt3, fontSize: 10 }}>Durée (jours)</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={med.duration_days}
+                        maxLength={3}
+                        onKeyDown={(e) => {
+                          const allowed = ["Backspace","Delete","Tab","ArrowLeft","ArrowRight"];
+                          if (!allowed.includes(e.key) && !/^\d$/.test(e.key)) e.preventDefault();
+                        }}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/\D/g, "").slice(0, 3);
+                          updateMed(idx, "duration_days", v);
+                        }}
+                        className="w-full px-2.5 py-1.5 rounded-lg border text-xs outline-none"
+                        style={inputStyle}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass} style={{ color: c.txt3, fontSize: 10 }}>Instructions (optionnel)</label>
+                      <input
+                        type="text"
+                        value={med.instructions}
+                        onChange={(e) => updateMed(idx, "instructions", e.target.value)}
+                        placeholder="À prendre après le repas..."
+                        className="w-full px-2.5 py-1.5 rounded-lg border text-xs outline-none"
+                        style={inputStyle}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Prescription notes */}
+            <div className="mt-4">
+              <label className={labelClass} style={{ color: c.txt2 }}>Notes ordonnance (optionnel)</label>
+              <textarea rows={2} value={prescriptionNotes} onChange={(e) => setPrescriptionNotes(e.target.value)}
+                placeholder="Recommandations générales..."
+                className={`${inputClass} resize-none`} style={inputStyle} />
+            </div>
+          </Card>
+        </div>
+      </div>
+
+      {/* ── Bottom action buttons ── */}
+      <div className="flex flex-col sm:flex-row gap-3 pt-2 pb-8">
+        <button
+          onClick={() => setCurrentPage("schedule")}
+          className="px-6 py-3 rounded-xl text-sm font-bold border transition-all hover:opacity-80"
+          style={{ borderColor: c.border, color: c.txt2 }}
+        >
+          Annuler
+        </button>
+        <button
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="flex-1 py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-60 flex items-center justify-center gap-2"
+          style={{ background: c.blue }}
+        >
+          {submitting ? (
+            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />
+          ) : null}
+          Terminer et générer l'ordonnance →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // COMPOSANT PRINCIPAL
 // ============================================================================
 
@@ -2602,6 +3265,7 @@ export default function DoctorDashboard({ onLogout }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [activeConsultation, setActiveConsultation] = useState(null);
 
   const firstName = user?.first_name || user?.firstName || "";
   const lastName = user?.last_name || user?.lastName || "";
@@ -2625,10 +3289,33 @@ export default function DoctorDashboard({ onLogout }) {
     { id: "statistics", label: "Statistics" },
   ];
 
+  const isInConsultation = currentPage === "consultation-session";
+
   const renderContent = () => {
     switch (currentPage.toLowerCase()) {
+      case "consultation-session":
+        return (
+          <ConsultationSessionView
+            appointment={activeConsultation}
+            onComplete={() => {
+              setActiveConsultation(null);
+              setCurrentPage("schedule");
+            }}
+            dk={dk}
+            c={c}
+            setCurrentPage={setCurrentPage}
+          />
+        );
       case "schedule":
-        return <ScheduleView dk={dk} />;
+        return (
+          <ScheduleView
+            dk={dk}
+            onStartConsultation={(appointment) => {
+              setActiveConsultation(appointment);
+              setCurrentPage("consultation-session");
+            }}
+          />
+        );
       case "patients":
         return (
           <PatientsView
@@ -2765,6 +3452,8 @@ export default function DoctorDashboard({ onLogout }) {
                   style={{
                     color: isActive ? "#fff" : c.txt2,
                     background: isActive ? c.blue : "transparent",
+                    opacity: isInConsultation ? 0.4 : 1,
+                    pointerEvents: isInConsultation ? "none" : "auto",
                   }}
                 >
                   {item.label}
@@ -2951,6 +3640,8 @@ export default function DoctorDashboard({ onLogout }) {
                     style={{
                       color: isActive ? "#fff" : c.txt2,
                       background: isActive ? c.blue : c.bg + "44",
+                      opacity: isInConsultation ? 0.4 : 1,
+                      pointerEvents: isInConsultation ? "none" : "auto",
                     }}
                   >
                     {item.label}
@@ -2961,6 +3652,18 @@ export default function DoctorDashboard({ onLogout }) {
           </div>
         )}
       </nav>
+
+      {isInConsultation && (
+        <div
+          className="w-full px-6 py-2 flex items-center gap-3 border-b"
+          style={{ background: c.amber + "18", borderColor: c.amber + "44" }}
+        >
+          <span style={{ color: c.amber }}>⚠</span>
+          <p className="text-xs font-semibold" style={{ color: c.amber }}>
+            Consultation en cours — terminez la session avant de naviguer.
+          </p>
+        </div>
+      )}
 
       <main className="max-w-7xl mx-auto px-6 py-8 pb-24">
         <ErrorBoundary>{renderContent()}</ErrorBoundary>

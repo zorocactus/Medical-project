@@ -346,7 +346,7 @@ function SendToPharmacyModal({ rx, onClose, onConfirm, dk }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}>
       <div className="rounded-2xl p-6 w-full max-w-md shadow-2xl border"
-        style={{ background: c.card, borderColor: c.border }}>
+        style={{ background: c.card, borderColor: c.border, paddingBottom: "128px" }}>
 
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
@@ -2639,12 +2639,24 @@ function AppointmentsPage({
               {/* Contact */}
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt3 }}>Contact</p>
-                <p className="text-sm font-medium flex items-center gap-2" style={{ color: c.txt }}>
-                  <Phone size={13} style={{ color: c.blue }} /> {profileDoctor.phone}
-                </p>
-                <p className="text-xs mt-1 flex items-center gap-2" style={{ color: c.txt2 }}>
-                  <MapPin size={12} style={{ color: c.txt3 }} /> {profileDoctor.loc}
-                </p>
+                <div className="space-y-2">
+                  <a 
+                    href={"tel:" + (profileDoctor.phone || "").replace(/\s/g, "")}
+                    className="text-sm font-medium flex items-center gap-2 transition-all hover:underline hover:opacity-80" 
+                    style={{ color: c.txt }}
+                  >
+                    <Phone size={13} style={{ color: c.blue }} /> {profileDoctor.phone}
+                  </a>
+                  <a 
+                    href={"https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(profileDoctor.name + " " + (profileDoctor.loc || ""))} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-xs flex items-center gap-2 transition-all hover:underline hover:opacity-80" 
+                    style={{ color: c.txt2 }}
+                  >
+                    <MapPin size={12} style={{ color: c.txt3 }} /> {profileDoctor.loc}
+                  </a>
+                </div>
               </div>
 
               {/* Avis des patients */}
@@ -3587,9 +3599,9 @@ function AppointmentsPage({
           )}
 
           {/* Subtle separator before doctor list */}
-          <div className="h-px w-full my-10" style={{ background: c.border, opacity: 0.4 }} />
+          <div className="h-px w-full mb-4 mt-2" style={{ background: c.border, opacity: 0.4 }} />
 
-          <div className="space-y-4 mb-10 pt-4" ref={docListRef}>
+          <div className="space-y-4 mb-10" ref={docListRef}>
             {filteredDoctors.map((doc) => {
               const live = getLiveRating(doc);
               return (

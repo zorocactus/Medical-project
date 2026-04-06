@@ -558,6 +558,43 @@ export async function getUsers() {
   return apiFetch("/admin/users/");
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 8. CONSULTATION SESSION  →  /api/appointments/ + /api/consultations/
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * (Médecin) Démarre une consultation — verrouille le créneau (status → in_progress)
+ * @param {number} appointmentId
+ * Returns: updated Appointment object
+ */
+export async function startConsultation(appointmentId) {
+  return apiFetch(`/appointments/${appointmentId}/start/`, {
+    method: "PATCH",
+    body: JSON.stringify({}),
+  });
+}
+
+/**
+ * (Médecin) Complète une session de consultation en créant la consultation + l'ordonnance
+ * @param {object} payload — voir shape dans la doc
+ * Returns: Consultation object with prescription_token + prescription_qr_url
+ */
+export async function completeSession(payload) {
+  return apiFetch("/consultations/complete-session/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Recherche de médicaments par nom
+ * @param {string} query — terme de recherche (min 2 chars)
+ * Returns: array of { id, name, dosage_form, strength }
+ */
+export async function searchMedications(query) {
+  return apiFetch(`/medications/?search=${encodeURIComponent(query)}`);
+}
+
 /**
  * Exporte clearTokens pour que AuthContext puisse l'utiliser
  */

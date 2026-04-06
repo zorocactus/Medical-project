@@ -15,10 +15,15 @@
       "Bash(curl -s \"https://raw.githubusercontent.com/DavidHDev/react-bits/main/src/content/Backgrounds/Threads/Threads.css\")",
       "Bash(npm install:*)",
       "Bash(npm run:*)",
-      "Bash(netstat -ano)"
+      "Bash(netstat -ano)",
+      "Read(//c/Users/yassi/OneDrive/Bureau/**)"
     ],
     "additionalDirectories": [
-      "c:\\Users\\yassi\\OneDrive\\Bureau\\Front\\Website\\src\\components\\Auth\\RegisterStep2"
+      "c:\\Users\\yassi\\OneDrive\\Bureau\\Front\\Website\\src\\components\\Auth\\RegisterStep2",
+      "C:\\Users\\yassi\\OneDrive\\Bureau\\backend_pfe - Copie (2)\\appointments",
+      "C:\\Users\\yassi\\OneDrive\\Bureau\\backend_pfe - Copie (2)\\medications",
+      "C:\\Users\\yassi\\OneDrive\\Bureau\\backend_pfe - Copie (2)\\prescriptions",
+      "C:\\Users\\yassi\\OneDrive\\Bureau\\backend_pfe - Copie (2)\\consultations"
     ]
   }
 }

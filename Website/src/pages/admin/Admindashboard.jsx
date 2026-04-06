@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useAuth } from "../../context/AuthContext";
 import * as api from "../../services/api";
 import ErrorBoundary from "../../components/ErrorBoundary";
 import { ParticlesHero } from '../../components/backgrounds/MedParticles';
@@ -81,11 +82,7 @@ const ROLE_META = {
   "garde-malade":{ color: "#7B5EA7", bg: "#F3EEFF",  icon: Heart },
 };
 
-const STATUS_META = {
-  active:    { label: "Actif",     color: "#2D8C6F", bg: "#2D8C6F18" },
-  pending:   { label: "En attente",color: "#E8A838", bg: "#E8A83818" },
-  suspended: { label: "Suspendu",  color: "#E05555", bg: "#E0555518" },
-};
+// ─── Shared Components ────────────────────────────────────────────────────────
 
 // ─── Shared Components ────────────────────────────────────────────────────────
 function Card({ children, className = "", style = {}, dk }) {
@@ -297,7 +294,12 @@ function OverviewPage({ dk, onNav }) {
           <div className="space-y-3">
             {USERS_DATA.filter(u => u.status === "pending" || !u.verified).concat(USERS_DATA.slice(0, 3)).slice(0, 5).map(u => {
               const rm = ROLE_META[u.role] || ROLE_META["patient"];
-              const sm = STATUS_META[u.status] || STATUS_META["active"];
+              const STATUS_META_LOCAL = {
+                active:    { label: "Actif",     color: c.green, bg: c.green + "18" },
+                pending:   { label: "En attente",color: c.amber, bg: c.amber + "18" },
+                suspended: { label: "Suspendu",  color: c.red,   bg: c.red + "18" },
+              };
+              const sm = STATUS_META_LOCAL[u.status] || STATUS_META_LOCAL["active"];
               return (
                 <div key={u.id} className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0"
@@ -351,6 +353,11 @@ const PAGE_SIZE = 7;
 
 function UtilisateursPage({ dk }) {
   const c = dk ? T.dark : T.light;
+  const STATUS_META_LOCAL = {
+    active:    { label: "Actif",     color: c.green, bg: c.green + "18" },
+    pending:   { label: "En attente",color: c.amber, bg: c.amber + "18" },
+    suspended: { label: "Suspendu",  color: c.red,   bg: c.red + "18" },
+  };
   const [users, setUsers] = useState(USERS_DATA);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -484,7 +491,7 @@ function UtilisateursPage({ dk }) {
             <tbody>
               {paginated.map(u => {
                 const rm = ROLE_META[u.role] || ROLE_META["patient"];
-                const sm = STATUS_META[u.status] || STATUS_META["active"];
+                const sm = STATUS_META_LOCAL[u.status] || STATUS_META_LOCAL["active"];
                 return (
                   <tr key={u.id}
                     style={{ borderBottom: `1px solid ${c.border}`, background: selected.includes(u.id) ? (dk ? "rgba(74,111,165,0.08)" : "#F0F5FF") : "transparent" }}
@@ -1011,11 +1018,19 @@ function AdminSettingsPage({ dk, onToggleDark }) {
 
 // ─── MAIN ADMIN SHELL ─────────────────────────────────────────────────────────
 export default function AdminDashboard({ onLogout }) {
+  const { userData } = useAuth();
+  const [dk, setDk] = useState(() => localStorage.getItem("medDk") === "true");
   const [page, setPage] = useState("overview");
-  const [dk, setDk] = useState(false); // Admin starts in light mode as requested
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+
+  const userInitials = useMemo(() => {
+    if (!userData) return "AD";
+    const f = userData.first_name?.[0] || "";
+    const l = userData.last_name?.[0] || "";
+    return (f + l).toUpperCase() || "AD";
+  }, [userData]);
   const c = dk ? T.dark : T.light;
 
   const alertCount = useMemo(
@@ -1122,11 +1137,11 @@ export default function AdminDashboard({ onLogout }) {
                 style={{ border: `1px solid ${c.border}`, background: "transparent" }}>
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"
                   style={{ background: "linear-gradient(135deg, #E05555, #c93535)" }}>
-                  AD
+                  {userInitials}
                 </div>
                 <div className="hidden sm:block text-left">
-                  <p className="text-sm font-semibold leading-tight" style={{ color: c.txt }}>Super Admin</p>
-                  <p className="text-xs" style={{ color: c.txt3 }}>Accès complet</p>
+                  <p className="text-sm font-semibold leading-tight" style={{ color: c.txt }}>{userData?.first_name || "Admin"}</p>
+                  <p className="text-xs" style={{ color: c.txt3 }}>{userData?.role || "Accès complet"}</p>
                 </div>
                 <ChevronDown size={13} style={{ color: c.txt3 }} />
               </button>
@@ -1139,10 +1154,10 @@ export default function AdminDashboard({ onLogout }) {
                   <div className="px-4 py-3 border-b" style={{ borderColor: dk ? c.border : "#F1F5F9" }}>
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold shrink-0"
-                        style={{ background: "linear-gradient(135deg, #E05555, #c93535)" }}>AD</div>
+                        style={{ background: "linear-gradient(135deg, #E05555, #c93535)" }}>{userInitials}</div>
                       <div>
-                        <p className="text-sm font-bold" style={{ color: c.txt }}>Super Admin</p>
-                        <p className="text-xs" style={{ color: c.txt3 }}>admin@medsmart.dz</p>
+                        <p className="text-sm font-bold" style={{ color: c.txt }}>{userData?.first_name} {userData?.last_name}</p>
+                        <p className="text-xs" style={{ color: c.txt3 }}>{userData?.email}</p>
                       </div>
                     </div>
                   </div>
@@ -1207,15 +1222,36 @@ export default function AdminDashboard({ onLogout }) {
         </div>
 
         {mobileMenu && (
-          <div className="lg:hidden border-t px-4 py-3 flex flex-wrap gap-2"
-            style={{ borderColor: c.border, background: c.nav }}>
-            {NAV.map(item => (
-              <button key={item.id} onClick={() => { setPage(item.id); setMobileMenu(false); }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all"
-                style={{ color: page === item.id ? "#fff" : c.txt2, background: page === item.id ? c.blue : "transparent" }}>
-                {item.label}
-              </button>
-            ))}
+          <div className="lg:hidden border-t px-4 py-8 flex flex-col gap-4 animate-in slide-in-from-top duration-300"
+            style={{ borderColor: c.border, background: c.nav, boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)" }}>
+            <div className="flex flex-col gap-2">
+              <p className="px-4 text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: c.txt3 }}>Menu Principal</p>
+              {NAV.map(item => (
+                <button key={item.id} onClick={() => { setPage(item.id); setMobileMenu(false); }}
+                  className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold transition-all"
+                  style={{ 
+                    color: page === item.id ? "#fff" : c.txt, 
+                    background: page === item.id ? c.blue : "transparent",
+                    boxShadow: page === item.id ? `0 4px 12px ${c.blue}40` : "none"
+                  }}>
+                  <div className="flex items-center gap-3">
+                    {item.label}
+                  </div>
+                  {item.badge && (
+                    <span className="w-5 h-5 rounded-full text-white text-[10px] font-black flex items-center justify-center"
+                      style={{ background: c.red }}>{item.badge}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+            
+            <div className="h-px w-full my-2" style={{ background: c.border }} />
+            
+            <button onClick={onLogout}
+              className="flex items-center gap-3 px-4 py-4 rounded-xl text-sm font-bold transition-all"
+              style={{ color: "#E05555", background: "#E0555510" }}>
+              <LogOut size={18} /> Se déconnecter
+            </button>
           </div>
         )}
       </nav>
