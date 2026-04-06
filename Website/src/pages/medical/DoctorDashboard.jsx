@@ -182,13 +182,13 @@ function TodaysSchedule({ appointments = [], onStartConsultation }) {
   const [startErrors, setStartErrors] = useState({});
 
   const defaultData = [
-    { time: "08:00", name: "Ahmed Meziane", type: "In-Person" },
+    { id: 1, time: "08:00", name: "Ahmed Meziane", type: "In-Person", status: "confirmed" },
     { time: "09:00", type: "empty" },
-    { time: "10:00", name: "Nadia Khelifa", type: "Teleconsultation" },
-    { time: "10:30", name: "Alex Johnson", type: "In-Person" },
+    { id: 2, time: "10:00", name: "Nadia Khelifa", type: "Teleconsultation", status: "confirmed" },
+    { id: 3, time: "10:30", name: "Alex Johnson", type: "In-Person", status: "scheduled" },
     { time: "11:30", type: "empty" },
-    { time: "14:00", name: "Youcef Belaid", type: "Home Visit" },
-    { time: "15:30", name: "Sara Ait", type: "In-Person" },
+    { id: 4, time: "14:00", name: "Youcef Belaid", type: "Home Visit", status: "confirmed" },
+    { id: 5, time: "15:30", name: "Sara Ait", type: "In-Person", status: "scheduled" },
     { time: "17:00", type: "empty" },
   ];
 
@@ -275,7 +275,7 @@ function TodaysSchedule({ appointments = [], onStartConsultation }) {
                       {item.name || item.patient}{" "}
                       <span className="mx-1 opacity-40">·</span> {item.type}
                     </p>
-                    {onStartConsultation && (item.status === "confirmed" || item.status === "scheduled") && (
+                    {onStartConsultation && (item.status?.toLowerCase() === "confirmed" || item.status?.toLowerCase() === "scheduled") && (
                       <div className="flex flex-col items-end gap-1 shrink-0">
                         <button
                           disabled={startingId === item.id}
@@ -317,28 +317,34 @@ function TodaysSchedule({ appointments = [], onStartConsultation }) {
 
 const MOCK_REQUESTS = [
   {
+    id: 101,
     initials: "MK",
     name: "Meriem Kaci",
     detail: "First visit",
     date: "Oct 26",
     time: "09:45",
     color: "bg-[#6492C9]",
+    status: "confirmed",
   },
   {
+    id: 102,
     initials: "RB",
     name: "Riad Bensalem",
     detail: "Follow-up",
     date: "Oct 27",
     time: "14:30",
     color: "bg-[#3DAA73]",
+    status: "scheduled",
   },
   {
+    id: 103,
     initials: "LB",
     name: "Lynda Boudaoud",
     detail: "First visit",
     date: "Oct 28",
     time: "11:00",
     color: "bg-[#F0A500]",
+    status: "confirmed",
   },
 ];
 
@@ -435,7 +441,7 @@ function PatientRequests({ requests = MOCK_REQUESTS, onStartConsultation }) {
                     <X size={16} strokeWidth={2.5} />
                   </button>
                 </div>
-                {onStartConsultation && (req.status === "confirmed" || req.status === "scheduled") && (
+                {onStartConsultation && (req.status?.toLowerCase() === "confirmed" || req.status?.toLowerCase() === "scheduled") && (
                   <div className="flex flex-col items-end gap-1">
                     <button
                       disabled={startingId === req.id}
@@ -480,6 +486,7 @@ function DashboardHome({
   patients,
   appointments,
   patientRequests,
+  onStartConsultation,
 }) {
   const { theme } = useTheme();
   const dk = theme === "dark";
@@ -572,11 +579,11 @@ function DashboardHome({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <div className="lg:col-span-2">
           {/* Le planning du jour ici */}
-          <TodaysSchedule appointments={appointments} />
+          <TodaysSchedule appointments={scheduleItems} onStartConsultation={onStartConsultation} />
         </div>
         <div className="lg:col-span-1">
           {/* Les requêtes en attente ici */}
-          <PatientRequests requests={patientRequests} />
+          <PatientRequests requests={patientRequests} onStartConsultation={onStartConsultation} />
         </div>
       </div>
     </div>
@@ -606,22 +613,28 @@ function ScheduleView({ dk, onStartConsultation }) {
   // MOCK DATA if needed
   const SAMPLE = [
     {
+      id: 1,
       time: "08:00",
       name: "Ahmed Meziane",
       type: "in-person",
       date: format(new Date(), "yyyy-MM-dd"),
+      status: "confirmed",
     },
     {
+      id: 2,
       time: "08:45",
       name: "Meriem Kaci",
       type: "in-person",
       date: format(new Date(), "yyyy-MM-dd"),
+      status: "scheduled",
     },
     {
+      id: 3,
       time: "10:00",
       name: "Nadia Khelifa",
       type: "tele",
       date: format(new Date(), "yyyy-MM-dd"),
+      status: "confirmed",
     },
     { time: "12:00", type: "break" },
   ];
@@ -3349,6 +3362,10 @@ export default function DoctorDashboard({ onLogout }) {
             patients={safePatients}
             appointments={safeAppointments}
             patientRequests={safeRequests}
+            onStartConsultation={(appointment) => {
+              setActiveConsultation(appointment);
+              setCurrentPage("consultation-session");
+            }}
           />
         );
     }
