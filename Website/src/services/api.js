@@ -5,8 +5,7 @@
 // dans les composants React.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BASE_URL = "http://localhost:8000/api";
-
+const BASE_URL = "http://127.0.0.1:8000/api"; // Assure-toi que le "/api" correspond bien à tes routes Django
 // ─── Helpers internes ─────────────────────────────────────────────────────────
 
 /** Récupère le token JWT sauvegardé au login */

@@ -2695,9 +2695,18 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
   }, [appointment]);
 
   useEffect(() => {
-    if (patientData.history) setHistory(patientData.history);
-    if (patientData.labs) setLabs(patientData.labs);
-    if (patientData.prescriptions) setPrescriptions(patientData.prescriptions);
+    setHistory(prev => {
+      const localOnly = prev.filter(h => h._local);
+      return [...localOnly, ...(patientData.history || [])];
+    });
+    setLabs(prev => {
+      const localOnly = prev.filter(l => l._local);
+      return [...localOnly, ...(patientData.labs || [])];
+    });
+    setPrescriptions(prev => {
+      const localOnly = prev.filter(p => p._local);
+      return [...localOnly, ...(patientData.prescriptions || [])];
+    });
   }, [patientData]);
 
   const [showAddHistory, setShowAddHistory] = useState(false);
@@ -2723,7 +2732,7 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
   const handleAddHistory = (e) => {
     e.preventDefault();
     if (!newHist.title) return;
-    setHistory(prev => [{ ...newHist, doc: doctorName || "Dr. Current", note: "Ajouté pendant la consultation." }, ...prev]);
+    setHistory(prev => [{ ...newHist, doc: doctorName || "Dr. Current", note: "Ajouté pendant la consultation.", _local: true }, ...prev]);
     setNewHist({ title: "", date: "", type: "Chronic" });
     setShowAddHistory(false);
   };
@@ -2732,7 +2741,7 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
   const handleAddLab = (e) => {
     e.preventDefault();
     if (!newLab.test) return;
-    setLabs(prev => [{ test: newLab.test, result: "Pending", ref: "—", status: "Requested" }, ...prev]);
+    setLabs(prev => [{ test: newLab.test, result: "Pending", ref: "—", status: "Requested", _local: true }, ...prev]);
     setNewLab({ test: "", note: "" });
     setShowAddLab(false);
   };
@@ -2754,13 +2763,13 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
       setPrescriptions(prev => [saved || payload, ...prev]);
     } catch {
       // fallback silencieux : ajout local uniquement
-      setPrescriptions(prev => [{ ...payload, id: Date.now(), status: "Active" }, ...prev]);
+      setPrescriptions(prev => [{ ...payload, id: Date.now(), status: "Active", _local: true }, ...prev]);
     }
     setNewRx({ medication: "", dosage: "", frequency: "Once daily", duration: "7" });
     setShowAddPrescription(false);
   };
 
-  const handleTerminate = () => {
+  const handleTerminate = async () => {
     if (!diagnosis.trim()) {
       setDiagnosisError(true);
       diagnosisRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -2768,17 +2777,31 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
       return;
     }
     setDiagnosisError(false);
-    const entry = {
-      date: new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }),
-      title: diagnosis,
-      doc: doctorName || "Dr. Current",
-      note: symptoms || "Consultation terminée.",
-      type: "Normal",
-    };
-    setHistory(prev => [entry, ...prev]);
-    setSuccessBanner(true);
-    setTimeout(() => setSuccessBanner(false), 3000);
-    setTimeout(() => onComplete(), 1500);
+
+    try {
+      const payload = {
+        appointment_id: appointment?.id,
+        symptoms,
+        diagnosis
+      };
+      await api.completeSession(payload);
+
+      const entry = {
+        date: new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }),
+        title: diagnosis,
+        doc: doctorName || "Dr. Current",
+        note: symptoms || "Consultation terminée.",
+        type: "Normal",
+        _local: true,
+      };
+
+      setHistory(prev => [entry, ...prev]);
+      setSuccessBanner(true);
+      setTimeout(() => setSuccessBanner(false), 3000);
+      setTimeout(() => onComplete(), 1500);
+    } catch (err) {
+      alert("Erreur lors de la clôture de la session : " + (err.message || "Erreur inconnue"));
+    }
   };
 
   return (
