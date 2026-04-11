@@ -271,17 +271,47 @@ export default function AppRouter() {
       auth: (
         <AuthTransition
           initialActive={true}
-          onLogin={(t) => console.log("Auth login:", t)}
+          onLogin={(t) => {
+            if (import.meta.env.DEV) console.log("Auth login:", t);
+          }}
           onBack={() => {}}
         />
       ),
-      patient: <PatientDashboard onLogout={() => console.log("Logout!")} />,
-      doctor: <DoctorDashboard onLogout={() => console.log("Logout!")} />,
-      pharmacist: (
-        <PharmacistDashboard onLogout={() => console.log("Logout!")} />
+      patient: (
+        <PatientDashboard
+          onLogout={() => {
+            if (import.meta.env.DEV) console.log("Logout!");
+          }}
+        />
       ),
-      admin: <AdminDashboard onLogout={() => console.log("Logout!")} />,
-      caretaker: <CaretakerDashboard onLogout={() => console.log("Logout!")} />,
+      doctor: (
+        <DoctorDashboard
+          onLogout={() => {
+            if (import.meta.env.DEV) console.log("Logout!");
+          }}
+        />
+      ),
+      pharmacist: (
+        <PharmacistDashboard
+          onLogout={() => {
+            if (import.meta.env.DEV) console.log("Logout!");
+          }}
+        />
+      ),
+      admin: (
+        <AdminDashboard
+          onLogout={() => {
+            if (import.meta.env.DEV) console.log("Logout!");
+          }}
+        />
+      ),
+      caretaker: (
+        <CaretakerDashboard
+          onLogout={() => {
+            if (import.meta.env.DEV) console.log("Logout!");
+          }}
+        />
+      ),
     };
     const devRoles = [
       "landing",

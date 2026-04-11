@@ -5,7 +5,8 @@
 // dans les composants React.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BASE_URL = "http://127.0.0.1:8000/api"; // Assure-toi que le "/api" correspond bien à tes routes Django
+// IMP-01 fix : BASE_URL via variable d'environnement Vite (définie dans .env)
+const BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
 // ─── Helpers internes ─────────────────────────────────────────────────────────
 
 /** Récupère le token JWT sauvegardé au login */
@@ -75,7 +76,10 @@ async function apiFetch(endpoint, options = {}) {
     try {
       const errorData = await response.json();
       errorMsg = errorData.detail || errorData.message || JSON.stringify(errorData);
-    } catch (_) {}
+    } catch (e) {
+      // IMP-11 : ne pas avaler les erreurs qui ne sont pas liées au parsing JSON
+      if (!(e instanceof SyntaxError)) throw e;
+    }
     throw new Error(errorMsg);
   }
 
@@ -148,11 +152,33 @@ export async function registerPatient(userData) {
 }
 
 /**
- * Inscription médecin / personnel médical
- * @param {object} userData — { email, email, password, specialite, ... }
+ * Inscription médecin
+ * @param {object} userData — { email, password, password_confirm, role, specialty, license_number, experience_years, ... }
  */
 export async function registerDoctor(userData) {
   return apiFetch("/auth/register/doctor/", {
+    method: "POST",
+    body: JSON.stringify(userData),
+  });
+}
+
+/**
+ * Inscription pharmacien (BUG-18 fix)
+ * @param {object} userData — { email, password, password_confirm, role, ... }
+ */
+export async function registerPharmacist(userData) {
+  return apiFetch("/auth/register/pharmacist/", {
+    method: "POST",
+    body: JSON.stringify(userData),
+  });
+}
+
+/**
+ * Inscription garde-malade (BUG-18 fix)
+ * @param {object} userData — { email, password, password_confirm, role, ... }
+ */
+export async function registerCaretaker(userData) {
+  return apiFetch("/auth/register/caretaker/", {
     method: "POST",
     body: JSON.stringify(userData),
   });
@@ -201,12 +227,14 @@ export async function getDoctorById(doctorId) {
 
 /**
  * Créneaux disponibles d'un médecin
+ * BUG-02 fix : URL corrigée de /doctors/{id}/slots/ → /doctors/{id}/availability/
  * @param {number} doctorId
  * @param {string} date — format "YYYY-MM-DD" (optionnel)
+ * Retourne : { doctor_id, date, slots: [{ start_time, end_time }] }
  */
 export async function getDoctorSlots(doctorId, date = null) {
   const query = date ? `?date=${date}` : "";
-  return apiFetch(`/doctors/${doctorId}/slots/${query}`);
+  return apiFetch(`/doctors/${doctorId}/availability/${query}`);
 }
 
 /**
@@ -238,40 +266,45 @@ export async function updateDoctorProfile(data) {
 }
 
 /**
- * (Médecin) Liste ses créneaux de disponibilité
+ * (Médecin) Liste son planning hebdomadaire
+ * BUG-03 fix : URL corrigée de /doctors/slots/ → /doctors/my-schedule/
+ * Champs backend : { day_of_week, start_time, end_time, slot_duration, is_active }
  */
 export async function getMySlots() {
-  return apiFetch("/doctors/slots/");
+  return apiFetch("/doctors/my-schedule/");
 }
 
 /**
- * (Médecin) Crée un nouveau créneau de disponibilité
- * @param {object} slotData — { date, heure_debut, heure_fin, ... }
+ * (Médecin) Crée une plage horaire hebdomadaire
+ * BUG-03 fix : URL corrigée de /doctors/slots/ → /doctors/my-schedule/
+ * @param {object} slotData — { day_of_week, start_time, end_time, slot_duration, is_active }
  */
 export async function createSlot(slotData) {
-  return apiFetch("/doctors/slots/", {
+  return apiFetch("/doctors/my-schedule/", {
     method: "POST",
     body: JSON.stringify(slotData),
   });
 }
 
 /**
- * (Médecin) Supprime un créneau
+ * (Médecin) Supprime une plage horaire
+ * BUG-03 fix : URL corrigée de /doctors/slots/{id}/ → /doctors/my-schedule/{id}/
  * @param {number} slotId
  */
 export async function deleteSlot(slotId) {
-  return apiFetch(`/doctors/slots/${slotId}/`, {
+  return apiFetch(`/doctors/my-schedule/${slotId}/`, {
     method: "DELETE",
   });
 }
 
 /**
- * (Médecin) Modifie un créneau
+ * (Médecin) Modifie une plage horaire
+ * BUG-03 fix : URL corrigée de /doctors/slots/{id}/ → /doctors/my-schedule/{id}/
  * @param {number} slotId
  * @param {object} data
  */
 export async function updateSlot(slotId, data) {
-  return apiFetch(`/doctors/slots/${slotId}/`, {
+  return apiFetch(`/doctors/my-schedule/${slotId}/`, {
     method: "PUT",
     body: JSON.stringify(data),
   });
@@ -360,7 +393,9 @@ export async function getMyAppointments() {
 
 /**
  * Prendre un nouveau rendez-vous
- * @param {object} data — { doctor_id, slot_id, motif, ... }
+ * BUG-14/21 fix : le backend attend { doctor_id, date, start_time, end_time, motif }
+ * et non { doctor_id, slot_id, motif }.
+ * @param {object} data — { doctor_id, date, start_time, end_time, motif }
  */
 export async function bookAppointment(data) {
   return apiFetch("/appointments/", {
@@ -401,8 +436,9 @@ export async function rescheduleAppointment(appointmentId, data) {
 
 /**
  * Laisser un avis sur une consultation terminée
+ * BUG-15 fix : les champs backend sont { rating, comment } et non { note, commentaire }.
  * @param {number} appointmentId
- * @param {object} data — { note, commentaire }
+ * @param {object} data — { rating (1-5), comment }
  */
 export async function leaveReview(appointmentId, data) {
   return apiFetch(`/appointments/${appointmentId}/review/`, {
@@ -415,9 +451,11 @@ export async function leaveReview(appointmentId, data) {
 
 /**
  * (Médecin) Planning du jour
+ * BUG-04 fix : URL corrigée — le backend expose /doctor/schedule/ (sans /today/).
+ * Filtrer par date du jour est le comportement par défaut du backend.
  */
 export async function getTodaySchedule() {
-  return apiFetch("/doctor/schedule/today/");
+  return apiFetch("/doctor/schedule/");
 }
 
 /**
@@ -503,23 +541,7 @@ export async function getPharmacyBranches() {
   return apiFetch("/pharmacy/branches/");
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 7. CARETAKER  →  /api/caretaker/
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Liste des gardes-malades disponibles
- */
-export async function getCaretakers() {
-  return apiFetch("/caretaker/search/");
-}
-
-/**
- * Types de services proposés
- */
-export async function getCaretakerServices() {
-  return apiFetch("/caretaker/services/");
-}
+// IMP-02 : getCaretakerServices supprimée car non utilisée.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // UTILITAIRES EXPORTÉS
@@ -545,9 +567,11 @@ export async function changePassword(data) {
 
 /**
  * (Admin) Liste des médecins/pros en attente de validation
+ * BUG-09 fix : /admin/doctors/pending/ n'existe pas.
+ * On filtre /admin/users/ par role=doctor et verification_status=pending.
  */
 export async function getPendingDoctors() {
-  return apiFetch("/admin/doctors/pending/");
+  return apiFetch("/admin/users/?role=doctor&verification_status=pending");
 }
 
 /**

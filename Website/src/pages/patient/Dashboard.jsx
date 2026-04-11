@@ -2279,7 +2279,7 @@ function AppointmentsPage({
           setDoctors(normalized);
         }
       } catch (err) {
-        console.error("Error fetching doctors:", err);
+        if (import.meta.env.DEV) console.error("Error fetching doctors:", err);
       } finally {
         setLoading(false);
       }
@@ -2307,7 +2307,7 @@ function AppointmentsPage({
             }));
           setAvailableSlots(slots);
         } catch (err) {
-          console.error("Error fetching slots:", err);
+          if (import.meta.env.DEV) console.error("Error fetching slots:", err);
         } finally {
           setSlotsLoading(false);
         }
@@ -5353,15 +5353,15 @@ export default function PatientDashboard({ onLogout }) {
         // on ne bloque pas tout le dashboard.
         const [appts, profile, notifs] = await Promise.all([
           api.getMyAppointments().catch((err) => {
-            console.warn("Appointments fetch failed:", err);
+            if (import.meta.env.DEV) console.warn("Appointments fetch failed:", err);
             return [];
           }),
           api.getMedicalProfile().catch((err) => {
-            console.warn("Medical Profile not found or error:", err);
+            if (import.meta.env.DEV) console.warn("Medical Profile not found or error:", err);
             return null;
           }),
           api.getNotifications().catch((err) => {
-            console.warn("Notifications fetch failed:", err);
+            if (import.meta.env.DEV) console.warn("Notifications fetch failed:", err);
             return [];
           }),
         ]);
@@ -5369,7 +5369,7 @@ export default function PatientDashboard({ onLogout }) {
         setMedicalProfile(profile);
         setNotifications(Array.isArray(notifs) ? notifs : []);
       } catch (err) {
-        console.error("Critical error in PatientDashboard fetchData:", err);
+        if (import.meta.env.DEV) console.error("Critical error in PatientDashboard fetchData:", err);
       } finally {
         setLoading(false);
       }

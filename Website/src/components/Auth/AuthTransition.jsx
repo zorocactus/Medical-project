@@ -32,19 +32,23 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
   const handleCompletedStep3 = async (additionalData) => {
     const data = { ...tempUser, ...additionalData };
     setTempUser(data);
-    
+
     if (data.accountType === "patient") {
       try {
         setIsSubmitting(true);
+        // BUG-12 fix : champs alignés sur RegisterPatientSerializer du backend.
+        // password_confirm ajouté, role ajouté, gender→sex, birth_date→date_of_birth.
         await api.registerPatient({
-          email: data.email,
-          password: data.password,
-          first_name: data.firstName,
-          last_name: data.lastName,
-          phone: data.phone,
-          birth_date: data.birthDate,
-          gender: data.sex === "Masculin" ? "M" : "F",
-          address: data.address || "",
+          email:          data.email,
+          password:       data.password,
+          password_confirm: data.password,
+          role:           "patient",
+          first_name:     data.firstName,
+          last_name:      data.lastName,
+          phone:          data.phone || "",
+          date_of_birth:  data.birthDate || null,
+          sex:            data.sex === "Masculin" ? "M" : data.sex === "Féminin" ? "F" : "",
+          address:        data.address || "",
         });
         setStep(4);
       } catch (err) {
@@ -65,27 +69,43 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
   const handleCompletedStep5 = async (additionalData) => {
     const data = { ...tempUser, ...additionalData };
     setTempUser(data);
-    
+
     if (data.accountType === "personnel médical") {
       try {
         setIsSubmitting(true);
-        // Mapping role value properly based on UI selection
-        const roleMap = {
-          "Médecin": "doctor",
-          "Pharmacien": "pharmacist",
-          "Garde-malade": "caretaker"
+
+        // BUG-13/18 fix : routage vers l'endpoint d'inscription correct selon le rôle.
+        // password_confirm ajouté, gender→sex.
+        const roleMap = { "Médecin": "doctor", "Pharmacien": "pharmacist", "Garde-malade": "caretaker" };
+        const backendRole = roleMap[data.medicalRole] || "doctor";
+        const sexValue = data.sex === "Masculin" ? "M" : data.sex === "Féminin" ? "F" : "";
+
+        const basePayload = {
+          email:            data.email,
+          password:         data.password,
+          password_confirm: data.password,
+          role:             backendRole,
+          first_name:       data.firstName,
+          last_name:        data.lastName,
+          phone:            data.phone || "",
+          sex:              sexValue,
         };
-        await api.registerDoctor({
-          email: data.email,
-          password: data.password,
-          first_name: data.firstName,
-          last_name: data.lastName,
-          phone: data.phone,
-          gender: data.sex === "Masculin" ? "M" : "F",
-          role: roleMap[data.medicalRole] || "doctor",
-          specialty: data.specialite || "Généraliste",
-          experience_years: parseInt(data.experienceYears || data.experience) || 0,
-        });
+
+        if (backendRole === "doctor") {
+          await api.registerDoctor({
+            ...basePayload,
+            specialty:        data.specialite || "Généraliste",
+            license_number:   data.licenseNumber || "",
+            experience_years: parseInt(data.experienceYears || data.experience) || 0,
+          });
+        } else if (backendRole === "pharmacist") {
+          // BUG-18 fix : endpoint dédié /auth/register/pharmacist/
+          await api.registerPharmacist(basePayload);
+        } else if (backendRole === "caretaker") {
+          // BUG-18 fix : endpoint dédié /auth/register/caretaker/
+          await api.registerCaretaker(basePayload);
+        }
+
         setStep(6);
       } catch (err) {
         alert("Erreur lors de l'inscription médicale : " + err.message);

@@ -67,11 +67,13 @@ export function AuthProvider({ children }) {
     window.location.replace("/");
   }
 
-  // Derived: medical professionals must be approved before accessing dashboard
+  // Derived: medical professionals must be approved before accessing dashboard.
+  // BUG-17 fix : le backend retourne verification_status (string), pas is_approved (boolean).
+  // Valeurs possibles : "pending", "approved", "rejected".
   const isApproved = (() => {
     if (!userData) return true;
-    // Explicitly false only when is_approved field is set to false
-    if (userData.is_approved === false) return false;
+    const vs = userData.verification_status;
+    if (vs && vs !== 'approved') return false;
     return true;
   })();
 
