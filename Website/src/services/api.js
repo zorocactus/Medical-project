@@ -358,6 +358,22 @@ export async function getAntecedents() {
 }
 
 /**
+ * Ordonnances du patient connecté
+ * Returns: [{ id, status, notes, valid_until, created_at, items: [{drug_name, dosage, frequency, duration}], qr_token: {token}, doctor_name }]
+ */
+export async function getMyPrescriptions() {
+  return apiFetch("/prescriptions/");
+}
+
+/**
+ * Consultations du patient connecté
+ * Returns: [{ id, doctor_name, patient_name, chief_complaint, diagnosis, status, consulted_at }]
+ */
+export async function getMyConsultations() {
+  return apiFetch("/consultations/");
+}
+
+/**
  * Traitements en cours
  */
 export async function getTreatments() {
@@ -640,6 +656,15 @@ export async function completeSession(payload) {
  */
 export async function searchMedications(query) {
   return apiFetch(`/medications/?search=${encodeURIComponent(query)}`);
+}
+
+/**
+ * Liste des gardes-malades disponibles (vue patient)
+ * Returns: array of caretaker profiles
+ */
+export async function getCaretakers(filters = {}) {
+  const params = new URLSearchParams(filters).toString();
+  return apiFetch(`/caretaker/search/${params ? "?" + params : ""}`);
 }
 
 /**

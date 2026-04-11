@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import ErrorBoundary from "../../components/ErrorBoundary";
+import DashSelect from "../../components/ui/DashSelect";
 import { ParticlesHero } from '../../components/backgrounds/MedParticles';
 import { useData } from "../../context/DataContext";
 import {
@@ -106,45 +107,6 @@ function Badge({ color, bg, children }) {
   );
 }
 
-// ─── CustomSelect thémé (dark/light) ─────────────────────────────────────────
-function DashSelect({ label, value, options, onSelect, dk, c, placeholder = "Sélectionner..." }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div>
-      {label && (
-        <label className="block text-xs font-bold uppercase tracking-wide mb-1.5"
-          style={{ color: c.txt2 }}>{label}</label>
-      )}
-      <div className="relative">
-        <button type="button" onClick={() => setOpen(!open)}
-          className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm outline-none transition-all"
-          style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: open ? c.blue : c.border, color: value ? c.txt : c.txt3 }}>
-          <span>{value || placeholder}</span>
-          <ChevronDown size={16} className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
-            style={{ color: c.txt3 }} />
-        </button>
-        {open && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-            <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl border shadow-xl z-50 py-2 max-h-56 overflow-y-auto"
-              style={{ background: dk ? "#141B27" : "#fff", borderColor: c.border }}>
-              {options.map(opt => (
-                <button key={opt} type="button"
-                  onClick={() => { onSelect(opt); setOpen(false); }}
-                  className="w-full flex items-center px-5 py-2.5 text-sm font-medium transition-all text-left"
-                  style={{ color: value === opt ? c.blue : c.txt, background: value === opt ? c.blue + "15" : "transparent" }}
-                  onMouseEnter={e => { if (value !== opt) e.currentTarget.style.background = c.blue + "10"; }}
-                  onMouseLeave={e => { if (value !== opt) e.currentTarget.style.background = "transparent"; }}>
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function StatCard({ label, value, sub, icon: Icon, color, trend, dk }) {
   const c = dk ? T.dark : T.light;

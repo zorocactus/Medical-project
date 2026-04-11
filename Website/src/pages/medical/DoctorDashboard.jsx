@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import ErrorBoundary from "../../components/ErrorBoundary";
+import DashSelect from "../../components/ui/DashSelect";
 import { ParticlesHero } from '../../components/backgrounds/MedParticles';
 import {
   Users,
@@ -28,6 +29,7 @@ import {
   Trash2,
   MapPin,
   Link as LinkIcon,
+  Download,
 } from "lucide-react";
 
 import { useAuth } from "../../context/AuthContext";
@@ -247,20 +249,26 @@ function TodaysSchedule({ appointments = [], onStartConsultation }) {
 
       {/* Timeline */}
       <div className="space-y-4">
-        {data.map((item, idx) => (
+        {data.map((item, idx) => {
+          // Normalize field names: API returns patient_name + start_time; mock uses name/patient + time
+          const displayName = item.patient_name || item.name || item.patient || "—";
+          const displayTime = item.time || (item.start_time ? item.start_time.slice(0, 5) : "");
+          const displayType = item.type || item.motif || "Consultation";
+          const itemStatus  = item.status?.toLowerCase() || "";
+          return (
           <div key={idx} className="flex items-start gap-4">
             {/* Time Column */}
             <div className="w-12 shrink-0 py-2">
               <span
                 className={`text-sm font-bold ${dk ? "text-[#8AAEE0]" : "text-[#5A6E8A]"}`}
               >
-                {item.time}
+                {displayTime}
               </span>
             </div>
 
             {/* Entry Column */}
             <div className="flex-1">
-              {item.type === "empty" ? (
+              {displayType === "empty" ? (
                 <div className="h-full flex items-center min-h-[40px]">
                   <div
                     className={`w-full border-b border-dashed ${dk ? "border-[#638ECB]/20" : "border-[#E4EAF5]"}`}
@@ -268,14 +276,14 @@ function TodaysSchedule({ appointments = [], onStartConsultation }) {
                 </div>
               ) : (
                 <div
-                  className={`py-3 px-4 border-l-[3px] rounded-r-lg shadow-sm transition-all hover:translate-x-1 ${getTypeStyles(item.type)}`}
+                  className={`py-3 px-4 border-l-[3px] rounded-r-lg shadow-sm transition-all hover:translate-x-1 ${getTypeStyles(displayType)}`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-bold truncate">
-                      {item.name || item.patient}{" "}
-                      <span className="mx-1 opacity-40">·</span> {item.type}
+                      {displayName}{" "}
+                      <span className="mx-1 opacity-40">·</span> {displayType}
                     </p>
-                    {onStartConsultation && (item.status?.toLowerCase() === "confirmed" || item.status?.toLowerCase() === "scheduled") && (
+                    {onStartConsultation && (itemStatus === "confirmed" || itemStatus === "scheduled") && (
                       <div className="flex flex-col items-end gap-1 shrink-0">
                         <button
                           disabled={startingId === item.id}
@@ -286,7 +294,7 @@ function TodaysSchedule({ appointments = [], onStartConsultation }) {
                               const updated = await api.startConsultation(item.id);
                               onStartConsultation(updated || { ...item, status: "in_progress" });
                             } catch (err) {
-                              setStartErrors((p) => ({ ...p, [item.id]: err.message }));
+                              setStartErrors((p) => ({ ...p, [item.id]: err.message || "Erreur" }));
                               setStartingId(null);
                             }
                           }}
@@ -298,7 +306,7 @@ function TodaysSchedule({ appointments = [], onStartConsultation }) {
                           ) : "▶"} Commencer
                         </button>
                         {startErrors[item.id] && (
-                          <p className="text-[10px] font-semibold" style={{ color: c.red }}>{startErrors[item.id]}</p>
+                          <p className="text-xs font-semibold mt-1 px-2 py-1 rounded-lg" style={{ color: c.red, background: c.red + "15" }}>{startErrors[item.id]}</p>
                         )}
                       </div>
                     )}
@@ -307,7 +315,8 @@ function TodaysSchedule({ appointments = [], onStartConsultation }) {
               )}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -348,10 +357,12 @@ const MOCK_REQUESTS = [
   },
 ];
 
-function PatientRequests({ requests = MOCK_REQUESTS }) {
+function PatientRequests({ requests = MOCK_REQUESTS, onStartConsultation }) {
   const { theme } = useTheme();
   const dk = theme === "dark";
   const c = dk ? T.dark : T.light;
+  const [startingId, setStartingId] = useState(null);
+  const [startErrors, setStartErrors] = useState({});
   const safeRequests =
     Array.isArray(requests) && requests.length > 0 ? requests : MOCK_REQUESTS;
 
@@ -401,43 +412,46 @@ function PatientRequests({ requests = MOCK_REQUESTS }) {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              {/* Requested Slot Badge */}
-              <div
-                className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
-                  dk
-                    ? "bg-[#1A2333]/50 border-[#638ECB]/15 text-[#8AAEE0]"
-                    : "bg-[#EEF3FB] border-[#E4EAF5] text-[#4A6FA5]"
-                }`}
-              >
-                <Clock size={12} strokeWidth={2.5} />
-                <span className="text-[11px] font-bold whitespace-nowrap">
-                  {req.date} · {req.time}
-                </span>
+            <div className="flex flex-col items-end gap-1.5">
+              <div className="flex items-center gap-3">
+                {/* Requested Slot Badge */}
+                <div
+                  className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
+                    dk
+                      ? "bg-[#1A2333]/50 border-[#638ECB]/15 text-[#8AAEE0]"
+                      : "bg-[#EEF3FB] border-[#E4EAF5] text-[#4A6FA5]"
+                  }`}
+                >
+                  <Clock size={12} strokeWidth={2.5} />
+                  <span className="text-[11px] font-bold whitespace-nowrap">
+                    {req.date} · {req.time}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all hover:bg-emerald-500 hover:text-white ${
+                      dk
+                        ? "bg-emerald-900/20 text-emerald-400 border-emerald-800/30"
+                        : "bg-emerald-50 text-emerald-600 border-emerald-100"
+                    }`}
+                    title="Accept"
+                  >
+                    <Check size={16} strokeWidth={2.5} />
+                  </button>
+                  <button
+                    className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all hover:bg-red-500 hover:text-white ${
+                      dk
+                        ? "bg-red-900/20 text-red-400 border-red-800/30"
+                        : "bg-red-50 text-red-500 border-red-100"
+                    }`}
+                    title="Decline"
+                  >
+                    <X size={16} strokeWidth={2.5} />
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center gap-1.5">
-                <button
-                  className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all hover:bg-emerald-500 hover:text-white ${
-                    dk
-                      ? "bg-emerald-900/20 text-emerald-400 border-emerald-800/30"
-                      : "bg-emerald-50 text-emerald-600 border-emerald-100"
-                  }`}
-                  title="Accept"
-                >
-                  <Check size={16} strokeWidth={2.5} />
-                </button>
-                <button
-                  className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all hover:bg-red-500 hover:text-white ${
-                    dk
-                      ? "bg-red-900/20 text-red-400 border-red-800/30"
-                      : "bg-red-50 text-red-500 border-red-100"
-                  }`}
-                  title="Decline"
-                >
-                  <X size={16} strokeWidth={2.5} />
-                </button>
-              </div>
             </div>
           </div>
         ))}
@@ -500,6 +514,7 @@ function DashboardHome({
       ? appointments
       : [
           {
+            id: 1,
             time: "08:30",
             patient: "Mounir Benali",
             type: "in-person",
@@ -507,24 +522,27 @@ function DashboardHome({
             detail: "Monthly Checkup",
           },
           {
+            id: 2,
             time: "10:15",
             patient: "Sonia Ghomari",
             type: "tele",
-            status: "Confirmed",
+            status: "confirmed",
             detail: "Follow-up",
           },
           {
+            id: 3,
             time: "11:00",
             patient: "Karim Brahimi",
             type: "in-person",
-            status: "In Progress",
+            status: "scheduled",
             detail: "New Consultation",
           },
           {
+            id: 4,
             time: "14:30",
             patient: "Amel Ziani",
             type: "tele",
-            status: "Confirmed",
+            status: "confirmed",
             detail: "Results Analysis",
           },
         ];
@@ -700,8 +718,6 @@ function PatientsView({ onSelectPatient }) {
 
   // ── Add Patient Modal state ──
   const [showAddModal, setShowAddModal] = useState(false);
-  const [conditionOpen, setConditionOpen] = useState(false);
-  const [statusOpen, setStatusOpen] = useState(false);
   const [newPatient, setNewPatient] = useState({
     firstName: "", lastName: "", age: "", condition: "", status: "",
   });
@@ -849,77 +865,23 @@ function PatientsView({ onSelectPatient }) {
 
 
 
-              {/* Condition — RÈGLE 1 : dropdown exact template */}
-              <div className="relative">
-                <span className="absolute -top-2.5 left-3 px-1 text-[11px] font-medium z-10" style={{ color: c.txt3, background: dk ? "#141B27" : "#fff" }}>Condition</span>
-                <button
-                  type="button"
-                  onClick={() => { setConditionOpen(!conditionOpen); setStatusOpen(false); }}
-                  className="w-full flex items-center justify-between px-3 py-3 rounded-xl border text-sm text-left outline-none transition-all"
-                  style={{ borderColor: conditionOpen ? c.blue : c.border, background: dk ? "#0D1117" : "#fff", color: newPatient.condition ? c.txt : c.txt3 }}
-                >
-                  <span>{newPatient.condition || "Sélectionner..."}</span>
-                  <ChevronDown size={18} className={`transition-transform shrink-0 ${conditionOpen ? "rotate-180" : ""}`} style={{ color: c.txt3 }} />
-                </button>
-                {conditionOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setConditionOpen(false)} />
-                    <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl border shadow-xl z-50 py-2 max-h-60 overflow-y-auto" style={{ background: dk ? "#141B27" : "#fff", borderColor: c.border }}>
-                      {CONDITION_OPTIONS.map((opt) => (
-                        <button
-                          key={opt} type="button"
-                          onClick={() => { setNewPatient((p) => ({ ...p, condition: opt })); setConditionOpen(false); }}
-                          className="w-full flex items-center px-5 py-3 text-sm font-medium transition-all text-left"
-                          style={{
-                            color: newPatient.condition === opt ? c.blue : c.txt,
-                            background: newPatient.condition === opt ? c.blue + "15" : "transparent",
-                          }}
-                          onMouseEnter={(e) => { if (newPatient.condition !== opt) e.currentTarget.style.background = c.blue + "10"; }}
-                          onMouseLeave={(e) => { if (newPatient.condition !== opt) e.currentTarget.style.background = "transparent"; }}
-                        >
-                          {opt}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
+              <DashSelect
+                label="Condition"
+                value={newPatient.condition}
+                options={CONDITION_OPTIONS}
+                onSelect={v => setNewPatient(p => ({ ...p, condition: v }))}
+                dk={dk}
+                c={c}
+              />
 
-              {/* Statut — RÈGLE 1 : dropdown exact template */}
-              <div className="relative">
-                <span className="absolute -top-2.5 left-3 px-1 text-[11px] font-medium z-10" style={{ color: c.txt3, background: dk ? "#141B27" : "#fff" }}>Statut</span>
-                <button
-                  type="button"
-                  onClick={() => { setStatusOpen(!statusOpen); setConditionOpen(false); }}
-                  className="w-full flex items-center justify-between px-3 py-3 rounded-xl border text-sm text-left outline-none transition-all"
-                  style={{ borderColor: statusOpen ? c.blue : c.border, background: dk ? "#0D1117" : "#fff", color: newPatient.status ? c.txt : c.txt3 }}
-                >
-                  <span>{newPatient.status || "Sélectionner..."}</span>
-                  <ChevronDown size={18} className={`transition-transform shrink-0 ${statusOpen ? "rotate-180" : ""}`} style={{ color: c.txt3 }} />
-                </button>
-                {statusOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setStatusOpen(false)} />
-                    <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl border shadow-xl z-50 py-2 max-h-60 overflow-y-auto" style={{ background: dk ? "#141B27" : "#fff", borderColor: c.border }}>
-                      {STATUS_OPTIONS.map((opt) => (
-                        <button
-                          key={opt} type="button"
-                          onClick={() => { setNewPatient((p) => ({ ...p, status: opt })); setStatusOpen(false); }}
-                          className="w-full flex items-center px-5 py-3 text-sm font-medium transition-all text-left"
-                          style={{
-                            color: newPatient.status === opt ? c.blue : c.txt,
-                            background: newPatient.status === opt ? c.blue + "15" : "transparent",
-                          }}
-                          onMouseEnter={(e) => { if (newPatient.status !== opt) e.currentTarget.style.background = c.blue + "10"; }}
-                          onMouseLeave={(e) => { if (newPatient.status !== opt) e.currentTarget.style.background = "transparent"; }}
-                        >
-                          {opt}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
+              <DashSelect
+                label="Statut"
+                value={newPatient.status}
+                options={STATUS_OPTIONS}
+                onSelect={v => setNewPatient(p => ({ ...p, status: v }))}
+                dk={dk}
+                c={c}
+              />
             </div>
 
             {/* Modal Footer */}
@@ -1175,7 +1137,6 @@ function PrescriptionsView() {
   const [errors, setErrors] = useState({});
   const [success, setSuccess] = useState("");
   const [focusedField, setFocusedField] = useState(null);
-  const [freqOpen, setFreqOpen] = useState(false);
   const [showPatientSuggestions, setShowPatientSuggestions] = useState(false);
 
   const handleChange = (e) => {
@@ -1394,70 +1355,14 @@ function PrescriptionsView() {
               </FieldWrapper>
 
               <div className="space-y-2">
-                <label
-                  className="text-[13px] font-bold uppercase tracking-wider ml-1"
-                  style={{ color: c.txt3 }}
-                >
-                  Frequency
-                </label>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setFreqOpen(!freqOpen)}
-                    className="w-full flex items-center justify-between px-5 py-3 rounded-2xl border transition-all duration-300 min-h-[56px]"
-                    style={{
-                      background: dk ? c.bg + "22" : "#F8FAFC",
-                      borderColor: freqOpen ? "#6492C9" : c.border,
-                      boxShadow: freqOpen
-                        ? "0 0 0 4px rgba(100,146,201,0.1)"
-                        : "none",
-                      color: c.txt,
-                    }}
-                  >
-                    <span className="text-sm font-semibold">
-                      {form.frequency}
-                    </span>
-                    <ChevronDown
-                      size={16}
-                      className={`transition-transform duration-300 ${freqOpen ? "rotate-180" : ""}`}
-                      style={{ color: c.txt3 }}
-                    />
-                  </button>
-
-                  {freqOpen && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-40"
-                        onClick={() => setFreqOpen(false)}
-                      />
-                      <div
-                        className="absolute top-full left-0 right-0 mt-2 rounded-2xl border shadow-xl z-50 py-2 animate-in fade-in slide-in-from-top-2 overflow-hidden"
-                        style={{ background: c.card, borderColor: c.border }}
-                      >
-                        {FREQUENCY_OPTIONS.map((f) => {
-                          const isS = form.frequency === f;
-                          return (
-                            <button
-                              key={f}
-                              type="button"
-                              onClick={() => {
-                                setForm((p) => ({ ...p, frequency: f }));
-                                setFreqOpen(false);
-                              }}
-                              className="w-full flex items-center px-5 py-3 text-sm font-bold transition-all text-left hover:bg-opacity-5"
-                              style={{
-                                background: isS ? c.blue + "15" : "transparent",
-                                color: isS ? c.blue : c.txt,
-                              }}
-                            >
-                              {f}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </>
-                  )}
-                </div>
+                <DashSelect
+                  label="Frequency"
+                  value={form.frequency}
+                  options={FREQUENCY_OPTIONS}
+                  onSelect={f => setForm(p => ({ ...p, frequency: f }))}
+                  dk={dk}
+                  c={c}
+                />
               </div>
             </div>
 
@@ -1679,7 +1584,7 @@ function PatientDetailView({ patient, onBack, dk }) {
               <Badge color={c.txt3} bg={c.bg + "44"}>
                 {age} years old
               </Badge>
-              <Badge color="#EF4444" bg="#EF444415">
+              <Badge color={c.red} bg={c.red + "15"}>
                 O+ Positive
               </Badge>
               <Badge color="#8B5CF6" bg="#8B5CF615">
@@ -1774,7 +1679,7 @@ function PatientDetailView({ patient, onBack, dk }) {
                             value={newHist.title}
                             onChange={e => setNewHist({...newHist, title: e.target.value})}
                             className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
-                            style={{ background: dk ? "#111827" : "#fff", borderColor: c.border, color: c.txt }}
+                            style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt }}
                           />
                         </div>
                         <div className="space-y-1.5">
@@ -1785,7 +1690,7 @@ function PatientDetailView({ patient, onBack, dk }) {
                             onChange={e => setNewHist({...newHist, date: e.target.value})}
                             className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500 font-sans"
                             style={{ 
-                              background: dk ? "#111827" : "#fff", 
+                              background: dk ? c.blueLight : "#fff", 
                               borderColor: c.border, 
                               color: c.txt,
                               fontFamily: 'inherit'
@@ -1795,22 +1700,23 @@ function PatientDetailView({ patient, onBack, dk }) {
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">Type d'Antécédent</label>
-                        <select
+                        <DashSelect
+                          label="Type d'Antécédent"
                           value={newHist.type}
-                          onChange={e => setNewHist({...newHist, type: e.target.value})}
-                          className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
-                          style={{ background: dk ? "#111827" : "#fff", borderColor: c.border, color: c.txt }}
-                        >
-                          <option value="Chronic">Chronique</option>
-                          <option value="Acute">Aigu</option>
-                          <option value="Surgical">Chirurgical</option>
-                          <option value="Allergy">Allergie</option>
-                        </select>
+                          options={[
+                            { value: "Chronic", label: "Chronique" },
+                            { value: "Acute", label: "Aigu" },
+                            { value: "Surgical", label: "Chirurgical" },
+                            { value: "Allergy", label: "Allergie" },
+                          ]}
+                          onSelect={v => setNewHist({ ...newHist, type: v })}
+                          dk={dk}
+                          c={c}
+                        />
                       </div>
 
                       <div className="flex gap-4 pt-3">
-                        <button 
+                        <button
                           onClick={() => setShowAddHistory(false)} 
                           className="flex-1 py-4 rounded-xl text-xs font-black transition-all hover:bg-opacity-5" 
                           style={{ color: c.txt2 }}
@@ -1857,9 +1763,9 @@ function PatientDetailView({ patient, onBack, dk }) {
                         {h.type && (
                           <span 
                             className="text-[9px] font-black uppercase px-2 py-0.5 rounded-md" 
-                            style={{ 
-                              background: h.type === "Chronic" ? "#EF444415" : c.blue + "15", 
-                              color: h.type === "Chronic" ? "#EF4444" : c.blue 
+                            style={{
+                              background: h.type === "Chronic" ? c.red + "15" : c.blue + "15",
+                              color: h.type === "Chronic" ? c.red : c.blue
                             }}
                           >
                             {h.type}
@@ -1915,7 +1821,7 @@ function PatientDetailView({ patient, onBack, dk }) {
                           value={newLab.test}
                           onChange={e => setNewLab({...newLab, test: e.target.value})}
                           className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
-                          style={{ background: dk ? "#111827" : "#fff", borderColor: c.border, color: c.txt }}
+                          style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt }}
                         />
                       </div>
 
@@ -1926,7 +1832,7 @@ function PatientDetailView({ patient, onBack, dk }) {
                           value={newLab.note}
                           onChange={e => setNewLab({...newLab, note: e.target.value})}
                           className="w-full px-4 py-4 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500 resize-none h-24"
-                          style={{ background: dk ? "#111827" : "#fff", borderColor: c.border, color: c.txt }}
+                          style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt }}
                         />
                       </div>
 
@@ -1950,60 +1856,31 @@ function PatientDetailView({ patient, onBack, dk }) {
                   )}
 
                   {labs.map((l, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between p-5 rounded-2xl border-2 transition-all hover:shadow-md group relative overflow-hidden"
-                      style={{
-                        borderColor: c.border,
-                        background: dk ? "#ffffff03" : "#00000002",
-                      }}
-                    >
-                      {/* Delete Button */}
-                      <button 
-                        onClick={() => handleDeleteLab(i)}
-                        className="absolute -right-12 group-hover:right-2 top-2 p-2 rounded-lg transition-all hover:bg-red-500/10 text-red-500"
-                        title="Supprimer la demande"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-
-                      <div className="flex items-center gap-4">
-                        <div className="p-3 rounded-xl bg-opacity-10" style={{ background: l.status === "Requested" ? "#E8A83822" : c.blue + "15" }}>
-                          <Activity size={20} style={{ color: l.status === "Requested" ? "#E8A838" : c.blue }} />
-                        </div>
-                        <div>
-                          <p
-                            className="text-base font-black"
-                            style={{ color: c.txt }}
-                          >
-                            {l.test}
-                          </p>
-                          <p
-                            className="text-xs opacity-50 font-bold mt-1"
-                            style={{ color: c.txt }}
-                          >
-                            Valeur de réf: {l.ref}
-                          </p>
-                        </div>
+                    <div key={i} style={{
+                      display: "flex", alignItems: "center", gap: "12px",
+                      padding: "16px", borderRadius: "16px",
+                      border: `2px solid ${c.border}`,
+                      marginBottom: "10px",
+                    }}>
+                      {/* Icône */}
+                      <div style={{ padding: "10px", borderRadius: "12px", background: l.status === "Requested" ? c.amber + "22" : c.blue + "15", flexShrink: 0 }}>
+                        <Activity size={20} style={{ color: l.status === "Requested" ? c.amber : c.blue }} />
                       </div>
-                      <div className="text-right">
-                        <p
-                          className="text-base font-black"
-                          style={{
-                            color: l.status === "Requested" ? "#E8A838" : (l.status === "Normal" ? c.green : "#EF4444"),
-                          }}
-                        >
-                          {l.result}
-                        </p>
-                        <span
-                          className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md"
-                          style={{
-                            background: l.status === "Requested" ? "#E8A83815" : (l.status === "Normal" ? c.green + "15" : "#EF444415"),
-                            color: l.status === "Requested" ? "#E8A838" : (l.status === "Normal" ? c.green : "#EF4444"),
-                          }}
-                        >
-                          {l.status}
-                        </span>
+                      {/* Nom + réf */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 15, fontWeight: 600, color: c.txt, margin: 0, lineHeight: 1.3 }}>{l.test}</p>
+                        <p style={{ fontSize: 12, opacity: 0.5, fontStyle: "italic", color: c.txt, margin: 0, marginTop: 3 }}>Réf : {l.ref}</p>
+                      </div>
+                      {/* Résultat + badge + trash dans un seul bloc */}
+                      <div style={{ display: "flex", alignItems: "center", gap: "16px", flexShrink: 0 }}>
+                        <div style={{ textAlign: "right" }}>
+                          <p style={{ fontSize: 16, fontWeight: 700, color: l.status === "Requested" ? c.amber : l.status === "Normal" ? c.green : l.status === "Borderline" ? c.amber : c.red, margin: 0 }}>{l.result}</p>
+                          <span style={{ fontSize: 10, letterSpacing: "0.5px", fontWeight: 700, textTransform: "uppercase", padding: "2px 8px", borderRadius: 6, display: "inline-block", marginTop: 4, background: (l.status === "Requested" ? c.amber : l.status === "Normal" ? c.green : l.status === "Borderline" ? c.amber : c.red) + "18", color: l.status === "Requested" ? c.amber : l.status === "Normal" ? c.green : l.status === "Borderline" ? c.amber : c.red }}>{l.status}</span>
+                        </div>
+                        <button onClick={() => handleDeleteLab(i)}
+                          style={{ padding: "8px", borderRadius: "8px", background: c.red + "15", border: "none", cursor: "pointer", flexShrink: 0 }}>
+                          <Trash2 size={15} color={c.red} />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -2082,7 +1959,7 @@ function PatientDetailView({ patient, onBack, dk }) {
                 <textarea
                   className="w-full rounded-[20px] p-5 text-sm font-bold border-2 outline-none transition-all focus:border-blue-500 min-h-[120px] resize-none"
                   style={{
-                    background: dk ? "#111827" : "#F8FAFC",
+                    background: dk ? c.blueLight : "#F8FAFC",
                     borderColor: c.border,
                     color: c.txt,
                   }}
@@ -2099,7 +1976,7 @@ function PatientDetailView({ patient, onBack, dk }) {
                 <input
                   className="w-full rounded-2xl px-5 py-4 text-sm font-bold border-2 outline-none focus:border-blue-500"
                   style={{
-                    background: dk ? "#111827" : "#F8FAFC",
+                    background: dk ? c.blueLight : "#F8FAFC",
                     borderColor: c.border,
                     color: c.txt,
                   }}
@@ -2249,7 +2126,6 @@ function SettingsView() {
   const c = dk ? T.dark : T.light;
   const { userData: user } = useAuth();
   const [showPwd, setShowPwd] = useState(false);
-  const [wilayaOpen, setWilayaOpen] = useState(false);
   const [locSaved, setLocSaved] = useState(false);
 
   const [form, setForm] = useState({
@@ -2465,43 +2341,16 @@ function SettingsView() {
               />
             </div>
 
-            {/* Wilaya — Custom dropdown */}
+            {/* Wilaya */}
             <div>
-              <label className={labelCls} style={{ color: c.txt2 }}>Wilaya</label>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setWilayaOpen(!wilayaOpen)}
-                  className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm outline-none transition-all"
-                  style={{ ...inputStyle, borderColor: wilayaOpen ? c.blue : c.border }}
-                >
-                  <span style={{ color: locForm.wilaya ? c.txt : c.txt3 }}>{locForm.wilaya || "Sélectionner..."}</span>
-                  <ChevronDown size={16} className={`shrink-0 transition-transform ${wilayaOpen ? "rotate-180" : ""}`} style={{ color: c.txt3 }} />
-                </button>
-                {wilayaOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setWilayaOpen(false)} />
-                    <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl border shadow-xl z-50 py-2 max-h-56 overflow-y-auto"
-                      style={{ background: dk ? "#141B27" : "#fff", borderColor: c.border }}>
-                      {WILAYAS_LIST.map((w) => (
-                        <button
-                          key={w} type="button"
-                          onClick={() => { setLocForm((f) => ({ ...f, wilaya: w })); setWilayaOpen(false); }}
-                          className="w-full flex items-center px-5 py-2.5 text-sm font-medium transition-all text-left"
-                          style={{
-                            color: locForm.wilaya === w ? c.blue : c.txt,
-                            background: locForm.wilaya === w ? c.blue + "15" : "transparent",
-                          }}
-                          onMouseEnter={(e) => { if (locForm.wilaya !== w) e.currentTarget.style.background = c.blue + "10"; }}
-                          onMouseLeave={(e) => { if (locForm.wilaya !== w) e.currentTarget.style.background = "transparent"; }}
-                        >
-                          {w}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
+              <DashSelect
+                label="Wilaya"
+                value={locForm.wilaya}
+                options={WILAYAS_LIST}
+                onSelect={w => setLocForm(f => ({ ...f, wilaya: w }))}
+                dk={dk}
+                c={c}
+              />
             </div>
 
             {/* Google Maps URL */}
@@ -2685,27 +2534,65 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
   const [history, setHistory] = useState(FALLBACK_PATIENT.history);
   const [labs, setLabs] = useState(FALLBACK_PATIENT.labs);
   const [prescriptions, setPrescriptions] = useState(FALLBACK_PATIENT.prescriptions);
+  const [isDataFallback, setIsDataFallback] = useState(false);
 
   useEffect(() => {
     const pid = appointment?.patient_id ?? appointment?.id ?? null;
-    if (!pid) { setPatientData(FALLBACK_PATIENT); return; }
+    if (!pid) {
+      setPatientData(FALLBACK_PATIENT);
+      setIsDataFallback(true);
+      return;
+    }
     api.getPatientRecord(pid)
-      .then(data => setPatientData(data || FALLBACK_PATIENT))
-      .catch(() => setPatientData(FALLBACK_PATIENT));
+      .then(data => {
+        if (data) {
+          setPatientData(data);
+          setIsDataFallback(false);
+        } else {
+          setPatientData(FALLBACK_PATIENT);
+          setIsDataFallback(true);
+        }
+      })
+      .catch(() => {
+        setPatientData(FALLBACK_PATIENT);
+        setIsDataFallback(true);
+      });
   }, [appointment]);
 
   useEffect(() => {
+    const normalizeHistory = (h) => ({
+      ...h,
+      date:  h.date  || h.diagnosis_date || "",
+      note:  h.note  || h.description   || "",
+      doc:   h.doc   || h.doctor_name   || "",
+      title: h.title || h.condition     || "",
+      type:  h.type  || "Chronic",
+    });
+    const normalizeLab = (l) => ({
+      ...l,
+      test:   l.test   || l.test_name || "",
+      ref:    l.ref    || l.lab_name  || "—",
+      result: l.result != null ? l.result : "—",
+      status: l.status || "Requested",
+    });
+    const normalizeRx = (p) => ({
+      ...p,
+      med:  p.med  || p.medication        || "",
+      freq: p.freq || p.frequency         || "",
+      dur:  p.dur  || p.duration          || "",
+      date: p.date || p.prescription_date || "",
+    });
     setHistory(prev => {
       const localOnly = prev.filter(h => h._local);
-      return [...localOnly, ...(patientData.history || [])];
+      return [...localOnly, ...(patientData.history || []).map(normalizeHistory)];
     });
     setLabs(prev => {
       const localOnly = prev.filter(l => l._local);
-      return [...localOnly, ...(patientData.labs || [])];
+      return [...localOnly, ...(patientData.lab_results || patientData.labs || []).map(normalizeLab)];
     });
     setPrescriptions(prev => {
       const localOnly = prev.filter(p => p._local);
-      return [...localOnly, ...(patientData.prescriptions || [])];
+      return [...localOnly, ...(patientData.prescriptions || []).map(normalizeRx)];
     });
   }, [patientData]);
 
@@ -2714,19 +2601,37 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
   const [showAddLab, setShowAddLab] = useState(false);
   const [newLab, setNewLab] = useState({ test: "", note: "" });
   const [showAddPrescription, setShowAddPrescription] = useState(false);
-  const [freqOpen, setFreqOpen] = useState(false);
   const [newRx, setNewRx] = useState({ medication: "", dosage: "", frequency: "Once daily", duration: "7" });
+  const [isRxSaving, setIsRxSaving] = useState(false);
+  const [rxError, setRxError] = useState(null);
 
   // ── Right column ──
+  const [vitals, setVitals] = useState({ bp: "", hr: "", temp: "", spo2: "" });
   const [symptoms, setSymptoms] = useState("");
   const [diagnosis, setDiagnosis] = useState("");
   const [diagnosisError, setDiagnosisError] = useState(false);
   const [successBanner, setSuccessBanner] = useState(false);
+  const [isTerminating, setIsTerminating] = useState(false);
+  const [terminateError, setTerminateError] = useState(null);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [sessionResult, setSessionResult] = useState(null);
   const diagnosisRef = useRef(null);
 
   // ── Patient info (from appointment or API) ──
   const patientName = appointment?.patient_name || appointment?.patient || appointment?.name || "Patient";
-  const patientAge = appointment?.age || "—";
+  const patientAge = (() => {
+    if (appointment?.age) return appointment.age;
+    const bd = patientData?.profile?.birth_date || appointment?.birth_date;
+    if (!bd) return "—";
+    const birth = new Date(bd);
+    const now = new Date();
+    let age = now.getFullYear() - birth.getFullYear();
+    const m = now.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
+    return age;
+  })();
+  const bloodType = patientData?.medical_profile?.blood_type;
+  const patientAllergies = patientData?.medical_profile?.allergies;
 
   // ── Handlers ──
   const handleAddHistory = (e) => {
@@ -2750,6 +2655,8 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
   const handleAddPrescription = async (e) => {
     e.preventDefault();
     if (!newRx.medication) return;
+    setRxError(null);
+    setIsRxSaving(true);
     const payload = {
       med: newRx.medication + (newRx.dosage ? ` ${newRx.dosage}` : ""),
       freq: newRx.frequency,
@@ -2761,12 +2668,13 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
     try {
       const saved = await api.addPrescription(payload);
       setPrescriptions(prev => [saved || payload, ...prev]);
-    } catch {
-      // fallback silencieux : ajout local uniquement
-      setPrescriptions(prev => [{ ...payload, id: Date.now(), status: "Active", _local: true }, ...prev]);
+      setNewRx({ medication: "", dosage: "", frequency: "Once daily", duration: "7" });
+      setShowAddPrescription(false);
+    } catch (err) {
+      setRxError(err.message || "Impossible d'enregistrer l'ordonnance. Vérifiez votre connexion.");
+    } finally {
+      setIsRxSaving(false);
     }
-    setNewRx({ medication: "", dosage: "", frequency: "Once daily", duration: "7" });
-    setShowAddPrescription(false);
   };
 
   const handleTerminate = async () => {
@@ -2777,14 +2685,35 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
       return;
     }
     setDiagnosisError(false);
+    setTerminateError(null);
+    setIsTerminating(true);
 
     try {
       const payload = {
         appointment_id: appointment?.id,
         symptoms,
-        diagnosis
+        diagnosis,
+        vitals: {
+          blood_pressure:    vitals.bp   || null,
+          heart_rate:        vitals.hr   ? Number(vitals.hr)   : null,
+          temperature:       vitals.temp ? Number(vitals.temp) : null,
+          oxygen_saturation: vitals.spo2 ? Number(vitals.spo2) : null,
+        },
+        prescriptions: prescriptions
+          .filter(p => p._local)
+          .map(p => ({
+            medication: p.med,
+            frequency:  p.freq,
+            duration:   p.dur,
+          })),
+        lab_requests: labs
+          .filter(l => l._local)
+          .map(l => ({
+            test:  l.test,
+            notes: l.note || "",
+          })),
       };
-      await api.completeSession(payload);
+      const result = await api.completeSession(payload);
 
       const entry = {
         date: new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }),
@@ -2794,26 +2723,121 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
         type: "Normal",
         _local: true,
       };
-
       setHistory(prev => [entry, ...prev]);
-      setSuccessBanner(true);
-      setTimeout(() => setSuccessBanner(false), 3000);
-      setTimeout(() => onComplete(), 1500);
+      setSessionResult(result || {});
+      setShowSummaryModal(true);
     } catch (err) {
-      alert("Erreur lors de la clôture de la session : " + (err.message || "Erreur inconnue"));
+      setTerminateError(err.message || "Erreur lors de la clôture de la session.");
+    } finally {
+      setIsTerminating(false);
     }
   };
+
+  // ── Base URL pour les ressources relatives du backend ──
+  const API_ORIGIN = import.meta.env.VITE_API_URL
+    ? import.meta.env.VITE_API_URL.replace("/api", "")
+    : "http://127.0.0.1:8000";
+
+  const localPrescriptions = prescriptions.filter(p => p._local);
+  const qrUrl = sessionResult?.prescription_qr_url
+    ? (sessionResult.prescription_qr_url.startsWith("http")
+        ? sessionResult.prescription_qr_url
+        : `${API_ORIGIN}${sessionResult.prescription_qr_url}`)
+    : null;
 
   return (
     <div className="animate-in fade-in duration-500 space-y-6 pb-10">
 
-      {/* Success banner */}
-      {successBanner && (
-        <div
-          className="flex items-center gap-3 px-5 py-3 rounded-xl border font-semibold text-sm animate-in fade-in duration-300"
-          style={{ background: c.green + "18", borderColor: c.green + "44", color: c.green }}
-        >
-          <Check size={16} /> Consultation enregistrée ✅
+      {/* ── Modal résumé post-consultation ── */}
+      {showSummaryModal && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: "24px",
+        }}>
+          <div style={{
+            background: dk ? "#141B27" : "#fff",
+            borderRadius: 28, padding: 36, maxWidth: 520, width: "100%",
+            boxShadow: "0 32px 80px rgba(0,0,0,0.35)",
+            border: `1px solid ${c.border}`,
+            maxHeight: "90vh", overflowY: "auto",
+          }}>
+            {/* En-tête */}
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 28 }}>
+              <div style={{ width: 52, height: 52, borderRadius: 16, background: c.green + "20", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Check size={26} style={{ color: c.green }} />
+              </div>
+              <div>
+                <p style={{ fontSize: 18, fontWeight: 800, color: c.txt, margin: 0 }}>Consultation enregistrée</p>
+                <p style={{ fontSize: 13, color: c.txt3, margin: 0, marginTop: 2 }}>
+                  {sessionResult?.consultation_id ? `#${sessionResult.consultation_id}` : ""}
+                </p>
+              </div>
+            </div>
+
+            {/* Patient */}
+            <div style={{ padding: "14px 18px", borderRadius: 14, background: c.blue + "10", marginBottom: 14 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: c.txt3, margin: 0, marginBottom: 4 }}>Patient</p>
+              <p style={{ fontSize: 16, fontWeight: 700, color: c.txt, margin: 0 }}>{patientName}</p>
+            </div>
+
+            {/* Diagnostic */}
+            <div style={{ padding: "14px 18px", borderRadius: 14, background: c.blueLight, marginBottom: 14 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: c.txt3, margin: 0, marginBottom: 6 }}>Diagnostic</p>
+              <p style={{ fontSize: 14, fontWeight: 600, color: c.txt, margin: 0, lineHeight: 1.5 }}>{diagnosis}</p>
+            </div>
+
+            {/* Symptômes */}
+            {symptoms.trim() && (
+              <div style={{ padding: "14px 18px", borderRadius: 14, background: c.blueLight, marginBottom: 14 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: c.txt3, margin: 0, marginBottom: 6 }}>Symptômes</p>
+                <p style={{ fontSize: 13, color: c.txt2, margin: 0, lineHeight: 1.6 }}>{symptoms}</p>
+              </div>
+            )}
+
+            {/* Prescriptions ajoutées */}
+            {localPrescriptions.length > 0 && (
+              <div style={{ padding: "14px 18px", borderRadius: 14, background: c.blueLight, marginBottom: 14 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: c.txt3, margin: 0, marginBottom: 10 }}>
+                  Prescriptions ({localPrescriptions.length})
+                </p>
+                {localPrescriptions.map((p, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: i < localPrescriptions.length - 1 ? 8 : 0 }}>
+                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: c.blue, flexShrink: 0 }} />
+                    <p style={{ fontSize: 13, fontWeight: 600, color: c.txt, margin: 0 }}>
+                      {p.med} <span style={{ color: c.txt3, fontWeight: 400 }}>— {p.freq} · {p.dur}</span>
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* QR Code */}
+            {qrUrl && (
+              <div style={{ padding: "14px 18px", borderRadius: 14, border: `2px solid ${c.border}`, marginBottom: 20, display: "flex", alignItems: "center", gap: 16 }}>
+                <img src={qrUrl} alt="QR ordonnance" style={{ width: 80, height: 80, borderRadius: 10, background: "#fff", padding: 4, flexShrink: 0 }} />
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: c.txt, margin: 0 }}>QR Code ordonnance</p>
+                  <p style={{ fontSize: 11, color: c.txt3, margin: 0, marginTop: 3 }}>
+                    Token : {sessionResult?.prescription_token || "—"}
+                  </p>
+                  <a href={qrUrl} target="_blank" rel="noreferrer"
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "6px 14px", borderRadius: 8, background: c.blue + "15", color: c.blue, fontSize: 12, fontWeight: 700, textDecoration: "none" }}>
+                    <Download size={13} /> Télécharger l'ordonnance
+                  </a>
+                </div>
+              </div>
+            )}
+
+            {/* Bouton fermer → redirection */}
+            <button
+              onClick={() => { setShowSummaryModal(false); onComplete(); }}
+              style={{ width: "100%", padding: "14px", borderRadius: 16, background: `linear-gradient(135deg, ${c.blue}, #304B71)`, color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", letterSpacing: "0.5px" }}
+            >
+              Retour au planning →
+            </button>
+          </div>
         </div>
       )}
 
@@ -2825,9 +2849,18 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
           </div>
           <div>
             <h1 className="text-2xl font-black" style={{ color: c.txt }}>{patientName}</h1>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               <Badge color={c.txt3} bg={c.bg + "44"}>{patientAge} ans</Badge>
               <Badge color={c.blue} bg={c.blue + "15"}>RDV #{appointment?.id}</Badge>
+              {bloodType && (
+                <Badge color={c.red} bg={c.red + "15"}>{bloodType}</Badge>
+              )}
+              {patientAllergies && (
+                <Badge color={c.amber} bg={c.amber + "15"}>⚠ {patientAllergies}</Badge>
+              )}
+              {isDataFallback && (
+                <Badge color={c.amber} bg={c.amber + "18"}>⚠ Données non disponibles</Badge>
+              )}
             </div>
           </div>
         </div>
@@ -2897,25 +2930,29 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                           <input placeholder="ex: Hypertension" value={newHist.title}
                             onChange={e => setNewHist({ ...newHist, title: e.target.value })}
                             className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
-                            style={{ background: dk ? "#111827" : "#fff", borderColor: c.border, color: c.txt }} />
+                            style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt }} />
                         </div>
                         <div className="space-y-1.5">
                           <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">Date diagnostic</label>
                           <input type="date" value={newHist.date} onChange={e => setNewHist({ ...newHist, date: e.target.value })}
                             className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
-                            style={{ background: dk ? "#111827" : "#fff", borderColor: c.border, color: c.txt, fontFamily: "inherit" }} />
+                            style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt, fontFamily: "inherit" }} />
                         </div>
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">Type d'Antécédent</label>
-                        <select value={newHist.type} onChange={e => setNewHist({ ...newHist, type: e.target.value })}
-                          className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none"
-                          style={{ background: dk ? "#111827" : "#fff", borderColor: c.border, color: c.txt }}>
-                          <option value="Chronic">Chronique</option>
-                          <option value="Acute">Aigu</option>
-                          <option value="Surgical">Chirurgical</option>
-                          <option value="Allergy">Allergie</option>
-                        </select>
+                        <DashSelect
+                          label="Type d'Antécédent"
+                          value={newHist.type}
+                          options={[
+                            { value: "Chronic", label: "Chronique" },
+                            { value: "Acute", label: "Aigu" },
+                            { value: "Surgical", label: "Chirurgical" },
+                            { value: "Allergy", label: "Allergie" },
+                          ]}
+                          onSelect={v => setNewHist({ ...newHist, type: v })}
+                          dk={dk}
+                          c={c}
+                        />
                       </div>
                       <div className="flex gap-4 pt-3">
                         <button onClick={() => setShowAddHistory(false)} className="flex-1 py-4 rounded-xl text-xs font-black" style={{ color: c.txt2 }}>ANNULER</button>
@@ -2935,7 +2972,7 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                         <p className="text-[11px] font-black uppercase tracking-widest opacity-40" style={{ color: c.txt }}>{h.date}</p>
                         {h.type && (
                           <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-md"
-                            style={{ background: h.type === "Chronic" ? "#EF444415" : c.blue + "15", color: h.type === "Chronic" ? "#EF4444" : c.blue }}>
+                            style={{ background: h.type === "Chronic" ? c.red + "15" : c.blue + "15", color: h.type === "Chronic" ? c.red : c.blue }}>
                             {h.type}
                           </span>
                         )}
@@ -2950,7 +2987,7 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
 
               {/* ── Lab tab ── */}
               {activeTab === "lab" && (
-                <div className="space-y-6">
+                <div className="space-y-2.5">
                   {showAddLab && (
                     <div className="p-6 rounded-[28px] border-2 mb-10 space-y-5 animate-in zoom-in-95 duration-300 shadow-2xl relative overflow-hidden"
                       style={{ borderColor: c.blue + "33", background: dk ? "#1A2333" : "#F8FAFC" }}>
@@ -2964,14 +3001,14 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                         <input placeholder="ex: Bilan Lipidique Complet" value={newLab.test}
                           onChange={e => setNewLab({ ...newLab, test: e.target.value })}
                           className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
-                          style={{ background: dk ? "#111827" : "#fff", borderColor: c.border, color: c.txt }} />
+                          style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt }} />
                       </div>
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">Notes / Urgence</label>
                         <textarea placeholder="Indications cliniques..." value={newLab.note}
                           onChange={e => setNewLab({ ...newLab, note: e.target.value })}
                           className="w-full px-4 py-4 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500 resize-none h-24"
-                          style={{ background: dk ? "#111827" : "#fff", borderColor: c.border, color: c.txt }} />
+                          style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt }} />
                       </div>
                       <div className="flex gap-4 pt-3">
                         <button onClick={() => setShowAddLab(false)} className="flex-1 py-4 rounded-xl text-xs font-black" style={{ color: c.txt2 }}>ANNULER</button>
@@ -2981,30 +3018,31 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                     </div>
                   )}
                   {labs.map((l, i) => (
-                    <div key={i} className="flex items-center justify-between p-5 rounded-2xl border-2 transition-all hover:shadow-md group relative overflow-hidden"
-                      style={{ borderColor: c.border, background: dk ? "#ffffff03" : "#00000002" }}>
-                      <button onClick={() => handleDeleteLab(i)}
-                        className="absolute -right-12 group-hover:right-2 top-2 p-2 rounded-lg transition-all hover:bg-red-500/10 text-red-500">
-                        <Trash2 size={16} />
-                      </button>
-                      <div className="flex items-center gap-4">
-                        <div className="p-3 rounded-xl" style={{ background: l.status === "Requested" ? "#E8A83822" : c.blue + "15" }}>
-                          <Activity size={20} style={{ color: l.status === "Requested" ? "#E8A838" : c.blue }} />
-                        </div>
-                        <div>
-                          <p className="text-base font-black" style={{ color: c.txt }}>{l.test}</p>
-                          <p className="text-xs opacity-50 font-bold mt-1" style={{ color: c.txt }}>Valeur de réf: {l.ref}</p>
-                        </div>
+                    <div key={i} style={{
+                      display: "flex", alignItems: "center", gap: "12px",
+                      padding: "16px", borderRadius: "16px",
+                      border: `2px solid ${c.border}`,
+                      marginBottom: "10px",
+                    }}>
+                      {/* Icône */}
+                      <div style={{ padding: "10px", borderRadius: "12px", background: l.status === "Requested" ? c.amber + "22" : c.blue + "15", flexShrink: 0 }}>
+                        <Activity size={20} style={{ color: l.status === "Requested" ? c.amber : c.blue }} />
                       </div>
-                      <div className="text-right">
-                        <p className="text-base font-black"
-                          style={{ color: l.status === "Requested" ? "#E8A838" : l.status === "Normal" ? c.green : "#EF4444" }}>
-                          {l.result}
-                        </p>
-                        <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md"
-                          style={{ background: l.status === "Requested" ? "#E8A83815" : l.status === "Normal" ? c.green + "15" : "#EF444415", color: l.status === "Requested" ? "#E8A838" : l.status === "Normal" ? c.green : "#EF4444" }}>
-                          {l.status}
-                        </span>
+                      {/* Nom + réf */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 15, fontWeight: 600, color: c.txt, margin: 0, lineHeight: 1.3 }}>{l.test}</p>
+                        <p style={{ fontSize: 12, opacity: 0.5, fontStyle: "italic", color: c.txt, margin: 0, marginTop: 3 }}>Réf : {l.ref}</p>
+                      </div>
+                      {/* Résultat + badge + trash dans un seul bloc */}
+                      <div style={{ display: "flex", alignItems: "center", gap: "16px", flexShrink: 0 }}>
+                        <div style={{ textAlign: "right" }}>
+                          <p style={{ fontSize: 16, fontWeight: 700, color: l.status === "Requested" ? c.amber : l.status === "Normal" ? c.green : l.status === "Borderline" ? c.amber : c.red, margin: 0 }}>{l.result}</p>
+                          <span style={{ fontSize: 10, letterSpacing: "0.5px", fontWeight: 700, textTransform: "uppercase", padding: "2px 8px", borderRadius: 6, display: "inline-block", marginTop: 4, background: (l.status === "Requested" ? c.amber : l.status === "Normal" ? c.green : l.status === "Borderline" ? c.amber : c.red) + "18", color: l.status === "Requested" ? c.amber : l.status === "Normal" ? c.green : l.status === "Borderline" ? c.amber : c.red }}>{l.status}</span>
+                        </div>
+                        <button onClick={() => setLabs(prev => prev.filter((_, j) => j !== i))}
+                          style={{ padding: "8px", borderRadius: "8px", background: c.red + "15", border: "none", cursor: "pointer", flexShrink: 0 }}>
+                          <Trash2 size={15} color={c.red} />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -3028,42 +3066,25 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                           <input placeholder="ex: Paracétamol" value={newRx.medication}
                             onChange={e => setNewRx({ ...newRx, medication: e.target.value })}
                             className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
-                            style={{ background: dk ? "#111827" : "#fff", borderColor: c.border, color: c.txt }} />
+                            style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt }} />
                         </div>
                         <div className="space-y-1.5">
                           <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">Dosage</label>
                           <input placeholder="ex: 500mg" value={newRx.dosage}
                             onChange={e => setNewRx({ ...newRx, dosage: e.target.value })}
                             className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
-                            style={{ background: dk ? "#111827" : "#fff", borderColor: c.border, color: c.txt }} />
+                            style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt }} />
                         </div>
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">Fréquence</label>
-                        <div className="relative">
-                          <button type="button" onClick={() => setFreqOpen(!freqOpen)}
-                            className="w-full flex items-center justify-between px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all"
-                            style={{ background: dk ? "#111827" : "#fff", borderColor: freqOpen ? c.blue : c.border, color: c.txt }}>
-                            <span>{newRx.frequency}</span>
-                            <ChevronDown size={16} className={`transition-transform ${freqOpen ? "rotate-180" : ""}`} style={{ color: c.txt3 }} />
-                          </button>
-                          {freqOpen && (
-                            <>
-                              <div className="fixed inset-0 z-40" onClick={() => setFreqOpen(false)} />
-                              <div className="absolute top-full left-0 right-0 mt-1 rounded-2xl border shadow-xl z-50 py-2 overflow-hidden"
-                                style={{ background: dk ? "#141B27" : "#fff", borderColor: c.border }}>
-                                {FREQUENCY_OPTIONS.map((f) => (
-                                  <button key={f} type="button"
-                                    onClick={() => { setNewRx(r => ({ ...r, frequency: f })); setFreqOpen(false); }}
-                                    className="w-full text-left px-5 py-3 text-sm font-bold transition-all"
-                                    style={{ background: newRx.frequency === f ? c.blue + "15" : "transparent", color: newRx.frequency === f ? c.blue : c.txt }}>
-                                    {f}
-                                  </button>
-                                ))}
-                              </div>
-                            </>
-                          )}
-                        </div>
+                        <DashSelect
+                          label="Fréquence"
+                          value={newRx.frequency}
+                          options={FREQUENCY_OPTIONS}
+                          onSelect={f => setNewRx(r => ({ ...r, frequency: f }))}
+                          dk={dk}
+                          c={c}
+                        />
                       </div>
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">Durée (jours)</label>
@@ -3071,27 +3092,85 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                           onKeyDown={(e) => { const ok = ["Backspace","Delete","Tab","ArrowLeft","ArrowRight"]; if (!ok.includes(e.key) && !/^\d$/.test(e.key)) e.preventDefault(); }}
                           onChange={e => setNewRx({ ...newRx, duration: e.target.value.replace(/\D/g, "").slice(0, 3) })}
                           className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
-                          style={{ background: dk ? "#111827" : "#fff", borderColor: c.border, color: c.txt }} />
+                          style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt }} />
                       </div>
+                      {rxError && (
+                        <div
+                          className="flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-semibold animate-in fade-in duration-200"
+                          style={{ background: c.red + "15", borderColor: c.red + "40", color: c.red }}
+                        >
+                          <X size={13} /> {rxError}
+                        </div>
+                      )}
                       <div className="flex gap-4 pt-3">
-                        <button onClick={() => setShowAddPrescription(false)} className="flex-1 py-4 rounded-xl text-xs font-black" style={{ color: c.txt2 }}>ANNULER</button>
-                        <button onClick={handleAddPrescription} className="flex-[2] py-4 rounded-xl text-white text-xs font-black shadow-xl transition-all hover:scale-[1.02] active:scale-95"
-                          style={{ background: c.blue, boxShadow: `0 8px 25px ${c.blue}44` }}>ENREGISTRER L'ORDONNANCE</button>
+                        <button
+                          onClick={() => { setShowAddPrescription(false); setRxError(null); }}
+                          disabled={isRxSaving}
+                          className="flex-1 py-4 rounded-xl text-xs font-black disabled:opacity-40"
+                          style={{ color: c.txt2 }}
+                        >ANNULER</button>
+                        <button
+                          onClick={handleAddPrescription}
+                          disabled={isRxSaving}
+                          className="flex-[2] py-4 rounded-xl text-white text-xs font-black shadow-xl transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100 flex items-center justify-center gap-2"
+                          style={{ background: c.blue, boxShadow: `0 8px 25px ${c.blue}44` }}
+                        >
+                          {isRxSaving ? (
+                            <><span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Enregistrement...</>
+                          ) : "ENREGISTRER L'ORDONNANCE"}
+                        </button>
                       </div>
                     </div>
                   )}
                   {prescriptions.map((p, i) => (
-                    <div key={i} className="flex items-center gap-4 p-5 rounded-2xl border-2 hover:shadow-md transition-all"
+                    <div key={i} className="p-5 rounded-2xl border-2 hover:shadow-md transition-all space-y-3"
                       style={{ borderColor: c.border }}>
-                      <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
-                        style={{ background: c.blue + "15", color: c.blue }}>
-                        <FileText size={22} />
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
+                          style={{ background: c.blue + "15", color: c.blue }}>
+                          <FileText size={22} />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-base font-black" style={{ color: c.txt }}>{p.med}</p>
+                          <p className="text-xs opacity-50 font-bold mt-0.5" style={{ color: c.txt }}>{p.freq} · {p.dur}</p>
+                        </div>
+                        <p className="text-xs font-black opacity-30" style={{ color: c.txt }}>{p.date}</p>
                       </div>
-                      <div className="flex-1">
-                        <p className="text-base font-black" style={{ color: c.txt }}>{p.med}</p>
-                        <p className="text-xs opacity-50 font-bold mt-0.5" style={{ color: c.txt }}>{p.freq} · {p.dur}</p>
+                      <div className="flex items-center gap-3 pt-2 border-t" style={{ borderColor: c.border }}>
+                        {p.prescription_qr_url ? (
+                          <img
+                            src={p.prescription_qr_url}
+                            alt="QR ordonnance"
+                            className="w-14 h-14 rounded-lg object-contain shrink-0"
+                            style={{ background: "#fff", padding: 2 }}
+                          />
+                        ) : (
+                          <div className="w-14 h-14 rounded-lg shrink-0 flex items-center justify-center border-2 border-dashed"
+                            style={{ borderColor: c.border, color: c.txt3 }}>
+                            <span className="text-[9px] font-bold text-center leading-tight">QR<br/>EN ATTENTE</span>
+                          </div>
+                        )}
+                        <div className="flex flex-col gap-1.5">
+                          <p className="text-[10px] font-black uppercase tracking-wider" style={{ color: c.txt3 }}>
+                            {p.prescription_qr_url ? "QR Code disponible" : "QR généré après validation"}
+                          </p>
+                          {p.prescription_qr_url ? (
+                            <a
+                              href={p.prescription_qr_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all hover:opacity-80 active:scale-95 w-fit"
+                              style={{ background: c.blue + "15", color: c.blue }}
+                            >
+                              <Download size={12} /> Télécharger
+                            </a>
+                          ) : (
+                            <span className="text-[10px] font-medium" style={{ color: c.txt3 }}>
+                              #{p.prescription_token || "—"}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <p className="text-xs font-black opacity-30" style={{ color: c.txt }}>{p.date}</p>
                     </div>
                   ))}
                 </div>
@@ -3105,6 +3184,37 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
           <Card dk={dk} className="p-8 shadow-xl border-0">
             <h2 className="text-xl font-black mb-8" style={{ color: c.txt }}>Compte-rendu</h2>
             <div className="space-y-6">
+              {/* ── Constantes vitales ── */}
+              <div className="space-y-3">
+                <label className="text-[11px] font-black uppercase tracking-widest ml-1 opacity-40" style={{ color: c.txt }}>
+                  Constantes vitales
+                </label>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {[
+                    { key: "bp",   label: "Tension",  placeholder: "120/80", unit: "mmHg" },
+                    { key: "hr",   label: "FC",        placeholder: "72",     unit: "bpm"  },
+                    { key: "temp", label: "Temp.",     placeholder: "37.2",   unit: "°C"   },
+                    { key: "spo2", label: "SpO2",      placeholder: "98",     unit: "%"    },
+                  ].map(({ key, label, placeholder, unit }) => (
+                    <div key={key} className="rounded-2xl border-2 px-3 py-2.5 flex items-center gap-2 transition-all focus-within:border-blue-400"
+                      style={{ borderColor: c.border, background: dk ? c.blueLight : "#F8FAFC" }}>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[9px] font-black uppercase tracking-wider mb-0.5" style={{ color: c.txt3 }}>{label}</p>
+                        <input
+                          type="text"
+                          placeholder={placeholder}
+                          value={vitals[key]}
+                          onChange={e => setVitals(v => ({ ...v, [key]: e.target.value }))}
+                          className="w-full bg-transparent outline-none text-sm font-bold"
+                          style={{ color: c.txt }}
+                        />
+                      </div>
+                      <span className="text-[10px] font-bold shrink-0" style={{ color: c.txt3 }}>{unit}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase tracking-widest ml-1 opacity-40" style={{ color: c.txt }}>
                   Symptômes actuels
@@ -3113,7 +3223,7 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                   value={symptoms}
                   onChange={e => setSymptoms(e.target.value)}
                   className="w-full rounded-[20px] p-5 text-sm font-bold border-2 outline-none transition-all focus:border-blue-500 min-h-[120px] resize-none"
-                  style={{ background: dk ? "#111827" : "#F8FAFC", borderColor: c.border, color: c.txt }}
+                  style={{ background: dk ? c.blueLight : "#F8FAFC", borderColor: c.border, color: c.txt }}
                   placeholder="Notes cliniques..."
                 />
               </div>
@@ -3125,19 +3235,35 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                   value={diagnosis}
                   onChange={e => { setDiagnosis(e.target.value); if (e.target.value.trim()) setDiagnosisError(false); }}
                   className="w-full rounded-2xl px-5 py-4 text-sm font-bold border-2 outline-none focus:border-blue-500"
-                  style={{ background: dk ? "#111827" : "#F8FAFC", borderColor: diagnosisError ? c.red : c.border, color: c.txt }}
+                  style={{ background: dk ? c.blueLight : "#F8FAFC", borderColor: diagnosisError ? c.red : c.border, color: c.txt }}
                   placeholder="Recherche de diagnostic..."
                 />
                 {diagnosisError && (
                   <p className="text-xs font-semibold ml-1" style={{ color: c.red }}>Le diagnostic est obligatoire</p>
                 )}
               </div>
+              {terminateError && (
+                <div
+                  className="flex items-center gap-2 px-4 py-3 rounded-xl border text-xs font-semibold animate-in fade-in duration-200"
+                  style={{ background: c.red + "15", borderColor: c.red + "40", color: c.red }}
+                >
+                  <X size={14} /> {terminateError}
+                </div>
+              )}
               <button
                 onClick={handleTerminate}
-                className="w-full py-4 rounded-2xl text-white font-black text-[15px] shadow-2xl transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3 mt-4"
+                disabled={isTerminating || !symptoms.trim() || !diagnosis.trim()}
+                className="w-full py-4 rounded-2xl text-white font-black text-[15px] shadow-2xl transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none flex items-center justify-center gap-3 mt-4"
                 style={{ background: `linear-gradient(135deg, ${c.blue}, #304B71)`, boxShadow: `0 12px 30px ${c.blue}44` }}
               >
-                <Send size={20} /> TERMINER LA CONSULTATION
+                {isTerminating ? (
+                  <>
+                    <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Enregistrement...
+                  </>
+                ) : (
+                  <><Send size={20} /> TERMINER LA CONSULTATION</>
+                )}
               </button>
             </div>
           </Card>
@@ -3472,7 +3598,7 @@ export default function DoctorDashboard({ onLogout }) {
                     <div className="pd-item w-full flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-xl">
                       <Sun
                         size={14}
-                        style={{ color: dk ? c.txt3 : "#E8A838" }}
+                        style={{ color: dk ? c.txt3 : c.amber }}
                       />
                       <button
                         onClick={toggleTheme}

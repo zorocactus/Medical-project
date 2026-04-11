@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import ErrorBoundary from "../../components/ErrorBoundary";
+import DashSelect from "../../components/ui/DashSelect";
 import { ParticlesHero } from '../../components/backgrounds/MedParticles';
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
@@ -62,53 +63,6 @@ function Card({ children, className = "", style = {}, dk }) {
   );
 }
 
-// ─── DashSelect (menu déroulant thémé) ────────────────────────────────────────
-function DashSelect({ label, value, options, onSelect, dk, c, placeholder = "Sélectionner..." }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div>
-      {label && (
-        <label className="block text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt2 }}>
-          {label}
-        </label>
-      )}
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => setOpen(!open)}
-          className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm outline-none transition-all"
-          style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: open ? c.blue : c.border, color: value ? c.txt : c.txt3 }}
-        >
-          <span>{value || placeholder}</span>
-          <ChevronDown size={16} className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`} style={{ color: c.txt3 }} />
-        </button>
-        {open && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-            <div
-              className="absolute top-full left-0 right-0 mt-2 rounded-2xl border shadow-xl z-50 py-2 max-h-56 overflow-y-auto"
-              style={{ background: dk ? "#141B27" : "#fff", borderColor: c.border }}
-            >
-              {options.map((opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  onClick={() => { onSelect(opt); setOpen(false); }}
-                  className="w-full flex items-center px-5 py-2.5 text-sm font-medium transition-all text-left"
-                  style={{ color: value === opt ? c.blue : c.txt, background: value === opt ? c.blue + "15" : "transparent" }}
-                  onMouseEnter={(e) => { if (value !== opt) e.currentTarget.style.background = c.blue + "10"; }}
-                  onMouseLeave={(e) => { if (value !== opt) e.currentTarget.style.background = "transparent"; }}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // ─── StatCard component ───────────────────────────────────────────────────────
 function StatCard({ label, value, sub, icon: Icon, color, dk }) {
@@ -1351,12 +1305,19 @@ function TreatmentsView({ dk, c }) {
                 <input type="text" placeholder="Dosage" value={newMed.dosage}
                   onChange={e => setNewMed(m => ({ ...m, dosage: e.target.value }))}
                   className={`w-28 ${inputCls}`} style={inputStyle} />
-                <select value={newMed.slot} onChange={e => setNewMed(m => ({ ...m, slot: e.target.value }))}
-                  className={inputCls} style={inputStyle}>
-                  <option value="morning">Matin</option>
-                  <option value="afternoon">Après-midi</option>
-                  <option value="evening">Soir</option>
-                </select>
+                <div className="w-36">
+                  <DashSelect
+                    value={newMed.slot}
+                    options={[
+                      { value: "morning", label: "Matin" },
+                      { value: "afternoon", label: "Après-midi" },
+                      { value: "evening", label: "Soir" },
+                    ]}
+                    onSelect={v => setNewMed(m => ({ ...m, slot: v }))}
+                    dk={dk}
+                    c={c}
+                  />
+                </div>
                 <button onClick={handleAddMed} disabled={!newMed.name.trim()}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-white transition-all active:scale-95"
                   style={{ background: newMed.name.trim() ? c.blue : c.border }}>

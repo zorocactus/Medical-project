@@ -68,12 +68,12 @@ export function AuthProvider({ children }) {
   }
 
   // Derived: medical professionals must be approved before accessing dashboard.
-  // BUG-17 fix : le backend retourne verification_status (string), pas is_approved (boolean).
-  // Valeurs possibles : "pending", "approved", "rejected".
+  // Backend sets verification_status = 'verified' (admin_panel/views.py line 33).
   const isApproved = (() => {
     if (!userData) return true;
     const vs = userData.verification_status;
-    if (vs && vs !== 'approved') return false;
+    // 'unverified' or 'pending' → blocked; 'verified' → allowed; null/undefined → allowed (patient)
+    if (vs === 'pending' || vs === 'unverified' || vs === 'rejected') return false;
     return true;
   })();
 

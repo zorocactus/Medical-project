@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import ErrorBoundary from "../../components/ErrorBoundary";
+import DashSelect from "../../components/ui/DashSelect";
 import { ParticlesHero } from '../../components/backgrounds/MedParticles';
 import { useAuth } from "../../context/AuthContext";
 import { useData } from "../../context/DataContext";
@@ -282,45 +283,6 @@ function Badge({ color, bg, children }) {
   );
 }
 
-// ─── DashSelect (CustomSelect thémé) ─────────────────────────────────────────
-function DashSelect({ label, value, options, onSelect, dk, c, placeholder = "Sélectionner..." }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div>
-      {label && (
-        <label className="block text-xs font-bold uppercase tracking-wide mb-1.5"
-          style={{ color: c.txt2 }}>{label}</label>
-      )}
-      <div className="relative">
-        <button type="button" onClick={() => setOpen(!open)}
-          className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm outline-none transition-all"
-          style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: open ? c.blue : c.border, color: value ? c.txt : c.txt3 }}>
-          <span>{value || placeholder}</span>
-          <ChevronDown size={16} className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
-            style={{ color: c.txt3 }} />
-        </button>
-        {open && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-            <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl border shadow-xl z-50 py-2 max-h-56 overflow-y-auto"
-              style={{ background: dk ? "#141B27" : "#fff", borderColor: c.border }}>
-              {options.map(opt => (
-                <button key={opt} type="button"
-                  onClick={() => { onSelect(opt); setOpen(false); }}
-                  className="w-full flex items-center px-5 py-2.5 text-sm font-medium transition-all text-left"
-                  style={{ color: value === opt ? c.blue : c.txt, background: value === opt ? c.blue + "15" : "transparent" }}
-                  onMouseEnter={e => { if (value !== opt) e.currentTarget.style.background = c.blue + "10"; }}
-                  onMouseLeave={e => { if (value !== opt) e.currentTarget.style.background = "transparent"; }}>
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // ─── Modal : Transmettre ordonnance à une pharmacie ───────────────────────────
 const PHARMACIES_LIST = [
@@ -1063,7 +1025,7 @@ function DashboardPage({
 }
 
 // ─── MEDICAL PROFILE PAGE ─────────────────────────────────────────────────────
-function MedicalProfilePage({ dk, profile, userId }) {
+function MedicalProfilePage({ dk, profile, userId, userData }) {
   const c = dk ? T.dark : T.light;
   const [tab, setTab] = useState("antecedents");
   const [data, setData] = useState({
@@ -1072,17 +1034,35 @@ function MedicalProfilePage({ dk, profile, userId }) {
     diagnostics: [],
     prescriptions: [],
     analyses: [],
+    "symptom-history": [],
   });
   const [loading, setLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editForm, setEditForm] = useState({});
-  const [status, setStatus] = useState({ type: "", msg: "" }); // { type: "success"|"error", msg: "" }
+  const [status, setStatus] = useState({ type: "", msg: "" });
   const loadedTabs = useRef(new Set());
 
+  const FETCH_TABS = {
+    antecedents: true,
+    treatments: true,
+    analyses: true,
+    diagnostics: true,
+    prescriptions: true,
+    "symptom-history": true,
+  };
+
+  const TAB_LABELS = {
+    antecedents: "Antécédents",
+    diagnostics: "Diagnostics",
+    prescriptions: "Prescriptions",
+    analyses: "Analyses",
+    treatments: "Traitements",
+    "symptom-history": "Symptômes IA",
+  };
+
   useEffect(() => {
-    const FETCH_TABS = { antecedents: true, treatments: true, analyses: true };
-    if (!FETCH_TABS[tab]) return; // diagnostics/prescriptions need no fetch
-    if (loadedTabs.current.has(tab)) return; // already loaded, skip
+    if (!FETCH_TABS[tab]) return;
+    if (loadedTabs.current.has(tab)) return;
     async function fetchTabData() {
       setLoading(true);
       try {
@@ -1095,8 +1075,20 @@ function MedicalProfilePage({ dk, profile, userId }) {
         } else if (tab === "analyses") {
           const res = await api.getLabResults().catch(() => []);
           setData((d) => ({ ...d, analyses: Array.isArray(res) ? res : [] }));
+        } else if (tab === "diagnostics") {
+          const res = await api.getMyConsultations().catch(() => []);
+          const diags = Array.isArray(res)
+            ? res.filter((c) => c.status === "completed" && c.diagnosis)
+            : [];
+          setData((d) => ({ ...d, diagnostics: diags }));
+        } else if (tab === "prescriptions") {
+          const res = await api.getMyPrescriptions().catch(() => []);
+          setData((d) => ({ ...d, prescriptions: Array.isArray(res) ? res : [] }));
+        } else if (tab === "symptom-history") {
+          const res = await api.getSymptomHistory().catch(() => []);
+          setData((d) => ({ ...d, "symptom-history": Array.isArray(res) ? res : [] }));
         }
-      } catch (err) {}
+      } catch (_) {}
       loadedTabs.current.add(tab);
       setLoading(false);
     }
@@ -1109,6 +1101,7 @@ function MedicalProfilePage({ dk, profile, userId }) {
     "prescriptions",
     "analyses",
     "treatments",
+    "symptom-history",
   ];
   const safeProfile = profile || {};
 
@@ -1161,39 +1154,46 @@ function MedicalProfilePage({ dk, profile, userId }) {
           <div className="flex-1 min-w-[250px]">
             {editMode ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                {[
-                  { label: "Nom complet", key: "name", type: "text", placeholder: "Ex: Ahmed Benali" },
-                  { label: "Date de naissance", key: "dob", type: "date", placeholder: "" },
-                  { label: "Téléphone", key: "phone", type: "tel", placeholder: "+213 5XX XX XX XX" },
-                  { label: "Groupe sanguin", key: "blood_type", type: "text", placeholder: "A+, B−, O+…" },
-                ].map(({ label, key, type, placeholder }) => (
-                  <div key={key}>
-                    <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>{label}</label>
-                    <input
-                      type={type}
-                      placeholder={placeholder}
-                      value={editForm[key] ?? safeProfile[key] ?? ""}
-                      onChange={(e) => setEditForm({ ...editForm, [key]: e.target.value })}
-                      className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
-                      style={{ background: dk ? "#1A2333" : "#fff", borderColor: c.border, color: c.txt }}
-                    />
-                  </div>
-                ))}
+                {/* Infos fixes (depuis l'inscription) — lecture seule */}
+                <div className="sm:col-span-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>
+                    Informations personnelles (depuis l'inscription)
+                  </p>
+                  <p className="text-sm font-semibold px-3 py-2 rounded-xl border"
+                    style={{ background: c.blueLight, borderColor: c.border, color: c.txt2 }}>
+                    {userData?.first_name || safeProfile.first_name || ""}{" "}
+                    {userData?.last_name || safeProfile.last_name || ""} ·{" "}
+                    {userData?.phone || safeProfile.phone || "—"} ·{" "}
+                    {safeProfile.city || "—"}{safeProfile.wilaya ? `, ${safeProfile.wilaya}` : ""} ·{" "}
+                    Né(e) le {safeProfile.dob || "—"}
+                  </p>
+                </div>
+
+                {/* Seuls champs éditables : infos médicales spécifiques */}
                 <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Ville</label>
-                  <input type="text" placeholder="Ex: Alger"
-                    value={editForm.city ?? safeProfile.city ?? ""}
-                    onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
-                    className="px-3 py-2 border rounded-xl text-sm w-full outline-none"
-                    style={{ background: dk ? "#1A2333" : "#fff", borderColor: c.border, color: c.txt }} />
+                  <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Groupe sanguin</label>
+                  <input
+                    type="text"
+                    placeholder="A+, B−, O+…"
+                    value={editForm.blood_type ?? safeProfile.blood_type ?? ""}
+                    onChange={(e) => setEditForm({ ...editForm, blood_type: e.target.value })}
+                    className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                    style={{ background: c.card, borderColor: c.border, color: c.txt }}
+                  />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Wilaya</label>
-                  <input type="text" placeholder="Ex: Alger"
-                    value={editForm.wilaya ?? safeProfile.wilaya ?? ""}
-                    onChange={(e) => setEditForm({ ...editForm, wilaya: e.target.value })}
-                    className="px-3 py-2 border rounded-xl text-sm w-full outline-none"
-                    style={{ background: dk ? "#1A2333" : "#fff", borderColor: c.border, color: c.txt }} />
+                  <DashSelect
+                    label="Sexe"
+                    value={editForm.sex ?? safeProfile.sex ?? userData?.sex ?? ""}
+                    options={[
+                      { value: "", label: "Non spécifié" },
+                      { value: "M", label: "Masculin" },
+                      { value: "F", label: "Féminin" },
+                    ]}
+                    onSelect={(v) => setEditForm({ ...editForm, sex: v })}
+                    dk={dk}
+                    c={c}
+                  />
                 </div>
                 <div className="sm:col-span-2">
                   <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Allergies (séparées par des virgules)</label>
@@ -1201,45 +1201,43 @@ function MedicalProfilePage({ dk, profile, userId }) {
                     value={editForm.allergies ?? safeProfile.allergies ?? ""}
                     onChange={(e) => setEditForm({ ...editForm, allergies: e.target.value })}
                     className="px-3 py-2 border rounded-xl text-sm w-full outline-none"
-                    style={{ background: dk ? "#1A2333" : "#fff", borderColor: c.border, color: c.txt }} />
+                    style={{ background: c.card, borderColor: c.border, color: c.txt }} />
                 </div>
               </div>
             ) : (
               <>
                 <h2 className="text-xl font-bold" style={{ color: c.txt }}>
-                  {safeProfile.name || "Mon Profil Médical"}
+                  {userData?.first_name || safeProfile.first_name || ""}{" "}
+                  {userData?.last_name || safeProfile.last_name || safeProfile.name || "Mon Profil Médical"}
                 </h2>
                 <p className="text-sm mt-1 mb-3" style={{ color: c.txt2 }}>
                   ID Patient: #{userId || "---"}
-                  {safeProfile.dob && ` · Né(e) le: ${safeProfile.dob}`}
-                  {safeProfile.city &&
-                    ` · ${safeProfile.city}, ${safeProfile.wilaya || ""}`}
-                  {safeProfile.phone && ` · 📞 ${safeProfile.phone}`}
+                  {safeProfile.dob && ` · Né(e) le : ${safeProfile.dob}`}
+                  {(safeProfile.sex || userData?.sex) && ` · ${(safeProfile.sex || userData?.sex) === "M" ? "Homme" : "Femme"}`}
+                  {safeProfile.city && ` · ${safeProfile.city}${safeProfile.wilaya ? `, ${safeProfile.wilaya}` : ""}`}
+                  {(userData?.phone || safeProfile.phone) && ` · 📞 ${userData?.phone || safeProfile.phone}`}
                 </p>
                 <div className="flex flex-wrap gap-2 mb-3">
                   <span
                     className="text-xs font-bold px-3 py-1 rounded-full"
                     style={{
-                      background: "rgba(224,85,85,0.12)",
-                      color: "#E05555",
-                      border: "1px solid rgba(224,85,85,0.25)",
+                      background: c.red + "18",
+                      color: c.red,
+                      border: `1px solid ${c.red}40`,
                     }}
                   >
                     Groupe Sanguin: {safeProfile.blood_type || "Non spécifié"}
                   </span>
-                  {(safeProfile.allergies
-                    ? safeProfile.allergies.split(",")
-                    : []
-                  )
+                  {(safeProfile.allergies ? safeProfile.allergies.split(",") : [])
                     .filter((v) => v.trim())
                     .map((a, i) => (
                       <span
                         key={i}
                         className="text-xs font-bold px-3 py-1 rounded-full"
                         style={{
-                          background: "rgba(224,85,85,0.1)",
-                          color: "#E05555",
-                          border: "1px solid rgba(224,85,85,0.2)",
+                          background: c.red + "15",
+                          color: c.red,
+                          border: `1px solid ${c.red}30`,
                         }}
                       >
                         ⚠ {a.trim()}
@@ -1302,7 +1300,7 @@ function MedicalProfilePage({ dk, profile, userId }) {
           <button
             key={t}
             onClick={() => setTab(t)}
-            className="px-4 py-2.5 text-sm font-semibold capitalize transition-all"
+            className="px-4 py-2.5 text-sm font-semibold whitespace-nowrap transition-all"
             style={{
               color: tab === t ? c.blue : c.txt2,
               borderBottom:
@@ -1310,7 +1308,7 @@ function MedicalProfilePage({ dk, profile, userId }) {
               marginBottom: -1,
             }}
           >
-            {t}
+            {TAB_LABELS[t] || t}
           </button>
         ))}
       </div>
@@ -1443,13 +1441,153 @@ function MedicalProfilePage({ dk, profile, userId }) {
               )}
             </div>
           )}
-          {["diagnostics", "prescriptions"].includes(tab) && (
-            <EmptyState
-              dk={dk}
-              icon={FileText}
-              title={`Aucun ${tab === "diagnostics" ? "diagnostic" : "prescription"} enregistré`}
-              message="Les dossiers apparaîtront ici suite à vos consultations avec un spécialiste."
-            />
+          {tab === "diagnostics" && (
+            <div className="space-y-4">
+              {data.diagnostics.length === 0 ? (
+                <EmptyState
+                  dk={dk}
+                  icon={FileText}
+                  title="Aucun diagnostic enregistré"
+                  message="Vos diagnostics apparaîtront ici suite à vos consultations avec un spécialiste."
+                />
+              ) : (
+                data.diagnostics.map((item, i) => (
+                  <Card key={item.id || i} dk={dk}>
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold" style={{ color: c.txt }}>{item.diagnosis}</p>
+                        <p className="text-xs mt-1" style={{ color: c.txt2 }}>
+                          Dr. {item.doctor_name || "—"} · {item.consulted_at ? new Date(item.consulted_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                        </p>
+                        {item.chief_complaint && (
+                          <p className="text-xs mt-2 italic" style={{ color: c.txt3 }}>Motif : {item.chief_complaint}</p>
+                        )}
+                      </div>
+                      <Badge color={c.blue} bg={c.blue + "18"}>Terminée</Badge>
+                    </div>
+                  </Card>
+                ))
+              )}
+            </div>
+          )}
+
+          {tab === "prescriptions" && (
+            <div className="space-y-4">
+              {data.prescriptions.length === 0 ? (
+                <EmptyState
+                  dk={dk}
+                  icon={FileText}
+                  title="Aucune prescription enregistrée"
+                  message="Vos ordonnances apparaîtront ici suite à vos consultations."
+                />
+              ) : (
+                data.prescriptions.map((rx, i) => {
+                  const API_ORIGIN = "http://127.0.0.1:8000";
+                  const qrUrl = rx.id ? `${API_ORIGIN}/api/prescriptions/${rx.id}/qr-image/` : null;
+                  const pdfUrl = rx.id ? `${API_ORIGIN}/api/prescriptions/${rx.id}/pdf-download/` : null;
+                  const rxDate = rx.created_at
+                    ? new Date(rx.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })
+                    : "—";
+                  return (
+                    <Card key={rx.id || i} dk={dk}>
+                      {/* Header */}
+                      <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+                        <div>
+                          <p className="font-bold text-sm" style={{ color: c.txt }}>
+                            Ordonnance du {rxDate}
+                          </p>
+                          <p className="text-xs mt-0.5" style={{ color: c.txt2 }}>
+                            Dr. {rx.doctor_name || "—"}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge color={rx.status === "active" ? c.green : c.txt3} bg={(rx.status === "active" ? c.green : c.txt3) + "18"}>
+                            {rx.status === "active" ? "Active" : rx.status || "—"}
+                          </Badge>
+                        </div>
+                      </div>
+                      {/* Items */}
+                      {Array.isArray(rx.items) && rx.items.length > 0 && (
+                        <div className="space-y-2 mb-3">
+                          {rx.items.map((it, j) => (
+                            <div key={j} className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: c.blueLight }}>
+                              <Pill size={14} style={{ color: c.blue, flexShrink: 0 }} />
+                              <div className="flex-1 min-w-0">
+                                <span className="text-xs font-semibold" style={{ color: c.txt }}>{it.drug_name}</span>
+                                {(it.dosage || it.frequency || it.duration) && (
+                                  <span className="text-xs ml-1" style={{ color: c.txt3 }}>
+                                    {[it.dosage, it.frequency, it.duration].filter(Boolean).join(" · ")}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {/* QR + PDF actions */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {qrUrl && rx.qr_token && (
+                          <a
+                            href={qrUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-opacity hover:opacity-75"
+                            style={{ color: c.blue, borderColor: c.border, textDecoration: "none" }}
+                          >
+                            <QrCode size={13} />
+                            QR Code
+                          </a>
+                        )}
+                        {pdfUrl && (
+                          <a
+                            href={pdfUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-opacity hover:opacity-75"
+                            style={{ color: c.txt2, borderColor: c.border, textDecoration: "none" }}
+                          >
+                            <Download size={13} />
+                            PDF
+                          </a>
+                        )}
+                      </div>
+                    </Card>
+                  );
+                })
+              )}
+            </div>
+          )}
+
+          {tab === "symptom-history" && (
+            <div className="space-y-4">
+              {data["symptom-history"].length === 0 ? (
+                <EmptyState
+                  dk={dk}
+                  icon={Activity}
+                  title="Aucun historique de symptômes"
+                  message="Vos analyses de symptômes IA apparaîtront ici après utilisation du module de diagnostic."
+                />
+              ) : (
+                data["symptom-history"].map((item, i) => (
+                  <Card key={item.id || i} dk={dk}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-bold" style={{ color: c.txt }}>
+                          {item.title || item.symptoms || "Analyse de symptômes"}
+                        </p>
+                        <p className="text-xs mt-1" style={{ color: c.txt2 }}>
+                          {item.date || item.created_at || "—"}
+                        </p>
+                        {item.result && (
+                          <p className="text-xs mt-2" style={{ color: c.txt3 }}>{item.result}</p>
+                        )}
+                      </div>
+                      <Badge color={c.purple} bg={c.purple + "18"}>IA</Badge>
+                    </div>
+                  </Card>
+                ))
+              )}
+            </div>
           )}
         </>
       )}
@@ -2941,7 +3079,7 @@ function AppointmentsPage({
           <div
             className="relative z-20 flex items-center px-4 py-2 rounded-2xl border transition-all mb-4"
             style={{
-              borderColor: searchFocused ? "#4A6FA5" : c.border,
+              borderColor: searchFocused ? c.blue : c.border,
               background: c.card,
               boxShadow: searchFocused
                 ? `0 0 0 4px ${c.blue}1A`
@@ -2952,7 +3090,7 @@ function AppointmentsPage({
             <div className="flex items-center gap-3 flex-1 min-w-0 pr-10 md:pr-40">
               <Search
                 size={18}
-                style={{ color: searchFocused ? "#4A6FA5" : c.txt3 }}
+                style={{ color: searchFocused ? c.blue : c.txt3 }}
               />
               <input
                 type="text"
@@ -2977,7 +3115,7 @@ function AppointmentsPage({
                 >
                   <MapPin
                     size={16}
-                    style={{ color: locationOpen ? "#4A6FA5" : c.txt3 }}
+                    style={{ color: locationOpen ? c.blue : c.txt3 }}
                   />
                   <span
                     className="text-[.87rem] whitespace-nowrap font-medium"
@@ -3029,9 +3167,9 @@ function AppointmentsPage({
                           style={{
                             background:
                               selectedCity === city
-                                ? "#4A6FA518"
+                                ? c.blue + "18"
                                 : "transparent",
-                            color: selectedCity === city ? "#4A6FA5" : c.txt,
+                            color: selectedCity === city ? c.blue : c.txt,
                             fontWeight: selectedCity === city ? 700 : 400,
                           }}
                         >
@@ -3046,7 +3184,7 @@ function AppointmentsPage({
 
             <button
               className="hidden md:block shrink-0 px-8 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 z-10"
-              style={{ background: "#4A6FA5" }}
+              style={{ background: c.blue }}
             >
               Rechercher
             </button>
@@ -3057,10 +3195,10 @@ function AppointmentsPage({
             {/* Date Filter */}
             <div
               onClick={() => dateInputRef.current?.showPicker?.()}
-              className="relative flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs cursor-pointer transition-all hover:border-[#4A6FA5]"
+              className="relative flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs cursor-pointer transition-all"
               style={{ borderColor: c.border, background: c.card }}
             >
-              <Calendar size={14} style={{ color: "#4A6FA5" }} />
+              <Calendar size={14} style={{ color: c.blue }} />
               <span
                 className="text-xs font-medium select-none"
                 style={{
@@ -3098,14 +3236,14 @@ function AppointmentsPage({
             <div className="relative">
               <button
                 onClick={() => setSpecOpen((o) => !o)}
-                className="flex items-center gap-2 px-4 py-1.5 rounded-full border text-xs font-medium transition-all hover:border-[#4A6FA5]"
+                className="flex items-center gap-2 px-4 py-1.5 rounded-full border text-xs font-medium transition-all"
                 style={{
-                  borderColor: specOpen ? "#4A6FA5" : c.border,
+                  borderColor: specOpen ? c.blue : c.border,
                   background: c.card,
                   color: specFilter === "All" ? c.txt3 : c.txt,
                 }}
               >
-                <Zap size={14} style={{ color: "#4A6FA5" }} />
+                <Zap size={14} style={{ color: c.blue }} />
                 <span>{specFilter !== "All" ? specFilter : "Spécialité"}</span>
                 <ChevronDown
                   size={13}
@@ -3148,14 +3286,14 @@ function AppointmentsPage({
                         className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-medium text-left transition-all hover:opacity-80"
                         style={{
                           background:
-                            specFilter === s ? "#4A6FA518" : "transparent",
-                          color: specFilter === s ? "#4A6FA5" : c.txt,
+                            specFilter === s ? c.blue + "18" : "transparent",
+                          color: specFilter === s ? c.blue : c.txt,
                           fontWeight: specFilter === s ? 700 : 400,
                         }}
                       >
                         <span className="flex-1">{s}</span>
                         {specFilter === s && (
-                          <span className="text-[#4A6FA5]">✓</span>
+                          <span style={{ color: c.blue }}>✓</span>
                         )}
                       </button>
                     ))}
@@ -3168,14 +3306,14 @@ function AppointmentsPage({
             <div className="relative">
               <button
                 onClick={() => setGenderOpen((o) => !o)}
-                className="flex items-center gap-2 px-4 py-1.5 rounded-full border text-xs font-medium transition-all hover:border-[#4A6FA5]"
+                className="flex items-center gap-2 px-4 py-1.5 rounded-full border text-xs font-medium transition-all"
                 style={{
-                  borderColor: genderOpen ? "#4A6FA5" : c.border,
+                  borderColor: genderOpen ? c.blue : c.border,
                   background: c.card,
                   color: selectedGender === "Any Gender" ? c.txt3 : c.txt,
                 }}
               >
-                <User size={14} style={{ color: "#4A6FA5" }} />
+                <User size={14} style={{ color: c.blue }} />
                 <span>{selectedGender}</span>
                 <ChevronDown
                   size={13}
@@ -3213,14 +3351,14 @@ function AppointmentsPage({
                         style={{
                           background:
                             selectedGender === opt
-                              ? "#4A6FA518"
+                              ? c.blue + "18"
                               : "transparent",
-                          color: selectedGender === opt ? "#4A6FA5" : c.txt,
+                          color: selectedGender === opt ? c.blue : c.txt,
                           fontWeight: selectedGender === opt ? 700 : 400,
                         }}
                       >
                         {selectedGender === opt && (
-                          <span className="text-[#4A6FA5]">✓</span>
+                          <span style={{ color: c.blue }}>✓</span>
                         )}
                         {opt}
                       </button>
@@ -5429,6 +5567,7 @@ export default function PatientDashboard({ onLogout }) {
             dk={dk}
             profile={medicalProfile}
             userId={userData?.id}
+            userData={userData}
           />
         );
       case "ai-diagnosis":
