@@ -511,7 +511,7 @@ export async function getPharmacyBranches() {
  * Liste des gardes-malades disponibles
  */
 export async function getCaretakers() {
-  return apiFetch("/caretaker/list/");
+  return apiFetch("/caretaker/search/");
 }
 
 /**

@@ -23,31 +23,141 @@ import BackgroundTest from "../pages/BackgroundTest";
 
 function PendingApprovalPage({ logout }) {
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F0F4F8", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-      <div style={{ background: "#fff", borderRadius: 24, padding: "48px 40px", maxWidth: 440, width: "100%", textAlign: "center", boxShadow: "0 8px 40px rgba(74,111,165,0.12)" }}>
-        <div style={{ width: 72, height: 72, borderRadius: 20, background: "linear-gradient(135deg, #E8A838, #c8891a)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#F0F4F8",
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
+      }}
+    >
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 24,
+          padding: "48px 40px",
+          maxWidth: 440,
+          width: "100%",
+          textAlign: "center",
+          boxShadow: "0 8px 40px rgba(74,111,165,0.12)",
+        }}
+      >
+        <div
+          style={{
+            width: 72,
+            height: 72,
+            borderRadius: 20,
+            background: "linear-gradient(135deg, #E8A838, #c8891a)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 24px",
+          }}
+        >
+          <svg
+            width="36"
+            height="36"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            strokeWidth="2"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
           </svg>
         </div>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0D1B2E", marginBottom: 12 }}>Compte en attente de validation</h1>
-        <p style={{ fontSize: 14, color: "#5A6E8A", lineHeight: 1.7, marginBottom: 8 }}>
-          Votre inscription a été reçue avec succès. Notre équipe administrative vérifie vos documents et informations professionnelles.
+        <h1
+          style={{
+            fontSize: 22,
+            fontWeight: 800,
+            color: "#0D1B2E",
+            marginBottom: 12,
+          }}
+        >
+          Compte en attente de validation
+        </h1>
+        <p
+          style={{
+            fontSize: 14,
+            color: "#5A6E8A",
+            lineHeight: 1.7,
+            marginBottom: 8,
+          }}
+        >
+          Votre inscription a été reçue avec succès. Notre équipe administrative
+          vérifie vos documents et informations professionnelles.
         </p>
         <p style={{ fontSize: 13, color: "#9AACBE", marginBottom: 32 }}>
-          Vous recevrez une confirmation par e-mail sous <strong style={{ color: "#E8A838" }}>24–48 heures</strong>.
+          Vous recevrez une confirmation par e-mail sous{" "}
+          <strong style={{ color: "#E8A838" }}>24–48 heures</strong>.
         </p>
-        <div style={{ background: "#FFF8EC", border: "1px solid #E8A83840", borderRadius: 14, padding: "16px 20px", marginBottom: 28, textAlign: "left" }}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: "#E8A838", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Documents requis vérifiés</p>
-          {["Diplôme ou titre professionnel", "Pièce d'identité nationale", "Registre professionnel / Numéro RPPS"].map(d => (
-            <div key={d} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E8A838" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        <div
+          style={{
+            background: "#FFF8EC",
+            border: "1px solid #E8A83840",
+            borderRadius: 14,
+            padding: "16px 20px",
+            marginBottom: 28,
+            textAlign: "left",
+          }}
+        >
+          <p
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: "#E8A838",
+              textTransform: "uppercase",
+              letterSpacing: 1,
+              marginBottom: 8,
+            }}
+          >
+            Documents requis vérifiés
+          </p>
+          {[
+            "Diplôme ou titre professionnel",
+            "Pièce d'identité nationale",
+            "Registre professionnel / Numéro RPPS",
+          ].map((d) => (
+            <div
+              key={d}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 6,
+              }}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#E8A838"
+                strokeWidth="2.5"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
               <span style={{ fontSize: 13, color: "#5A6E8A" }}>{d}</span>
             </div>
           ))}
         </div>
-        <button onClick={logout}
-          style={{ width: "100%", padding: "14px", borderRadius: 14, background: "linear-gradient(135deg, #304B71, #6492C9)", color: "#fff", fontWeight: 700, fontSize: 15, border: "none", cursor: "pointer" }}>
+        <button
+          onClick={logout}
+          style={{
+            width: "100%",
+            padding: "14px",
+            borderRadius: 14,
+            background: "linear-gradient(135deg, #304B71, #6492C9)",
+            color: "#fff",
+            fontWeight: 700,
+            fontSize: 15,
+            border: "none",
+            cursor: "pointer",
+          }}
+        >
           Se déconnecter
         </button>
       </div>
@@ -79,8 +189,7 @@ function RoleRouter() {
     if (isPharmacist) return <PharmacistDashboard onLogout={logout} />;
     if (isDoctor)
       return <DoctorDashboard role={userData?.role} onLogout={logout} />;
-    if (isCaretaker)
-      return <CaretakerDashboard onLogout={logout} />;
+    if (isCaretaker) return <CaretakerDashboard onLogout={logout} />;
 
     // Rôle médical non précisé → DoctorDashboard par défaut
     return <DoctorDashboard role="Médecin" onLogout={logout} />;
@@ -142,7 +251,7 @@ function RoleRouter() {
 
 // ─── Main Router ──────────────────────────────────────────────────────────────
 export default function AppRouter() {
-  if (window.location.hash === '#/test-bg') {
+  if (window.location.hash === "#/test-bg") {
     return <BackgroundTest />;
   }
 
@@ -153,31 +262,49 @@ export default function AppRouter() {
   // ⚡ BYPASS RAPIDE POUR TESTS (Décommenter pour utiliser) ⚡
   // =========================================================================
 
-  const FORCE_TEST = true; // Mettre à true pour activer le bypass
+  const FORCE_TEST = false; // Mettre à true pour activer le bypass
   const [forcedRole, setForcedRole] = useState("patient"); // Choix: "patient", "doctor", "pharmacist", "admin", "caretaker"
 
   if (FORCE_TEST) {
     const ROLE_MAP = {
-      landing:    <LandingPage         onLogin={() => {}} onRegister={() => {}} />,
-      auth:       <AuthTransition      initialActive={true} onLogin={(t) => console.log("Auth login:", t)} onBack={() => {}} />,
-      patient:    <PatientDashboard    onLogout={() => console.log("Logout!")} />,
-      doctor:     <DoctorDashboard     onLogout={() => console.log("Logout!")} />,
-      pharmacist: <PharmacistDashboard onLogout={() => console.log("Logout!")} />,
-      admin:      <AdminDashboard      onLogout={() => console.log("Logout!")} />,
-      caretaker:  <CaretakerDashboard  onLogout={() => console.log("Logout!")} />,
+      landing: <LandingPage onLogin={() => {}} onRegister={() => {}} />,
+      auth: (
+        <AuthTransition
+          initialActive={true}
+          onLogin={(t) => console.log("Auth login:", t)}
+          onBack={() => {}}
+        />
+      ),
+      patient: <PatientDashboard onLogout={() => console.log("Logout!")} />,
+      doctor: <DoctorDashboard onLogout={() => console.log("Logout!")} />,
+      pharmacist: (
+        <PharmacistDashboard onLogout={() => console.log("Logout!")} />
+      ),
+      admin: <AdminDashboard onLogout={() => console.log("Logout!")} />,
+      caretaker: <CaretakerDashboard onLogout={() => console.log("Logout!")} />,
     };
-    const devRoles = ["landing", "auth", "patient", "doctor", "pharmacist", "admin", "caretaker"];
+    const devRoles = [
+      "landing",
+      "auth",
+      "patient",
+      "doctor",
+      "pharmacist",
+      "admin",
+      "caretaker",
+    ];
     return (
       <>
         {ROLE_MAP[forcedRole]}
         {/* ⚡ Dev Menu Flottant */}
         <div className="fixed bottom-4 right-4 z-[9999] flex gap-2 p-2 bg-[#0D2644] rounded-2xl shadow-2xl border border-white/10">
-          {devRoles.map(role => (
+          {devRoles.map((role) => (
             <button
               key={role}
               onClick={() => setForcedRole(role)}
               className="px-3 py-1.5 rounded-xl text-xs font-bold text-white capitalize transition-all hover:opacity-90"
-              style={{ background: forcedRole === role ? "#6492C9" : "transparent" }}
+              style={{
+                background: forcedRole === role ? "#6492C9" : "transparent",
+              }}
             >
               {role}
             </button>
@@ -186,7 +313,6 @@ export default function AppRouter() {
       </>
     );
   }
-  
 
   // =========================================================================
 
