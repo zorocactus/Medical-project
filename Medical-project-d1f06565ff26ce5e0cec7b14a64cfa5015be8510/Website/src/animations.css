@@ -1,0 +1,443 @@
+/* ═══════════════════════════════════════════════════════════════════
+   MedSmart – Global Interactive Animations
+   Appliqué sur tout le site via main.jsx import
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ─── Curseurs ─────────────────────────────────────────────────────── */
+button,
+a,
+[role="button"],
+select,
+label[for],
+input[type="checkbox"],
+input[type="radio"] {
+  cursor: pointer !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   GLOBAL BUTTONS ANIMATION FALLBACK
+   ═══════════════════════════════════════════════════════════════════ */
+button {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, background-color 0.15s ease !important;
+}
+@media (hover: hover) {
+  button:not(.btn-primary):not(.btn-secondary):not(.btn-filter):not(.btn-icon):not(.chip-btn):not([role="switch"]):not(.nav-link):hover {
+    transform: translateY(-1.5px) scale(1.015);
+  }
+}
+button:not(.btn-primary):not(.btn-secondary):not(.btn-filter):not(.btn-icon):not(.chip-btn):not([role="switch"]):not(.nav-link):active {
+  transform: scale(0.96) !important;
+  transition: transform 0.05s ease !important;
+}
+
+/* ─── Keyframes ──────────────────────────────────────────────────────── */
+
+/* Ripple */
+@keyframes ms-ripple {
+  to { transform: scale(4); opacity: 0; }
+}
+
+/* Barre de graphique (grow depuis le bas) */
+@keyframes ms-bar-grow {
+  from { transform: scaleY(0); opacity: 0; }
+  to   { transform: scaleY(1); opacity: 1; }
+}
+
+/* Apparition carte (fade + slide) */
+@keyframes ms-card-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+/* Pulse doux pour badge/dot */
+@keyframes ms-pulse-soft {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+/* ─── Ripple Element ─────────────────────────────────────────────────── */
+.ms-ripple-el {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.32);
+  transform: scale(0);
+  animation: ms-ripple 0.58s linear;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   BOUTONS PRIMAIRES (.btn-primary, ou boutons avec bg coloré)
+   ═══════════════════════════════════════════════════════════════════ */
+.btn-primary {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease !important;
+}
+@media (hover: hover) {
+  .btn-primary:hover {
+    transform: translateY(-2px) scale(1.03) !important;
+    box-shadow: 0 8px 24px rgba(74, 111, 165, 0.38) !important;
+    opacity: 0.93;
+  }
+}
+.btn-primary:active {
+  transform: scale(0.96) !important;
+  transition: transform 0.07s ease !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   BOUTONS SECONDAIRES / OUTLINE (.btn-secondary)
+   ═══════════════════════════════════════════════════════════════════ */
+.btn-secondary {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease !important;
+}
+@media (hover: hover) {
+  .btn-secondary:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 14px rgba(74, 111, 165, 0.16) !important;
+    background-color: rgba(74, 111, 165, 0.07) !important;
+  }
+}
+.btn-secondary:active {
+  transform: scale(0.97) !important;
+  transition: transform 0.07s ease !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   BOUTONS FILTRE / TABS (.btn-filter)
+   ═══════════════════════════════════════════════════════════════════ */
+.btn-filter {
+  transition: transform 0.15s ease, background-color 0.15s ease,
+    color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease !important;
+}
+@media (hover: hover) {
+  .btn-filter:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 3px 10px rgba(74, 111, 165, 0.16) !important;
+  }
+}
+.btn-filter:active {
+  transform: scale(0.94) !important;
+  transition: transform 0.07s ease !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   BOUTONS ICÔNES / ACTIONS PETITES (.btn-icon)
+   ═══════════════════════════════════════════════════════════════════ */
+.btn-icon {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease !important;
+}
+@media (hover: hover) {
+  .btn-icon:hover {
+    transform: scale(1.2) !important;
+    opacity: 0.85;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12) !important;
+  }
+}
+.btn-icon:active {
+  transform: scale(0.88) !important;
+  transition: transform 0.06s ease !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CARTES INTERACTIVES (.interactive-card)
+   ═══════════════════════════════════════════════════════════════════ */
+.interactive-card {
+  transition:
+    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.22s ease,
+    border-color 0.22s ease !important;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .interactive-card:hover {
+    transform: translateY(-5px) scale(1.025) !important;
+    box-shadow: 0 20px 40px -12px rgba(74, 111, 165, 0.26) !important;
+    border-color: #4a6fa5 !important;
+  }
+  /* Icône dans la carte tourne doucement au hover */
+  .interactive-card:hover .kpi-icon {
+    transform: scale(1.18) rotate(-5deg);
+    transition: transform 0.22s ease;
+  }
+}
+.interactive-card:active {
+  transform: scale(0.97) !important;
+  transition: transform 0.08s ease !important;
+}
+.kpi-icon {
+  transition: transform 0.22s ease;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   LIENS DE NAVIGATION (.nav-link)
+   ═══════════════════════════════════════════════════════════════════ */
+.nav-link {
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.15s ease,
+    box-shadow 0.18s ease !important;
+}
+@media (hover: hover) {
+  .nav-link:not(.active-nav):hover {
+    background-color: rgba(90, 135, 197, 0.13) !important;
+    color: #5a87c5 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 12px rgba(90, 135, 197, 0.14) !important;
+  }
+}
+.nav-link:active {
+  transform: scale(0.95) !important;
+  transition: transform 0.07s ease !important;
+}
+.active-nav {
+  box-shadow: 0 4px 14px rgba(74, 111, 165, 0.35) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   BARRES DE GRAPHIQUE (.chart-bar)
+   ═══════════════════════════════════════════════════════════════════ */
+.chart-bar {
+  animation: ms-bar-grow 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transform-origin: bottom;
+  transition: filter 0.18s ease, transform 0.18s ease !important;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .chart-bar:hover {
+    filter: brightness(1.25) saturate(1.2) !important;
+    transform: scaleY(1.05) !important;
+    transform-origin: bottom !important;
+  }
+}
+.chart-bar:active {
+  filter: brightness(0.9) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   LIGNES DE PROGRESS BAR / WILAYA (.progress-row)
+   ═══════════════════════════════════════════════════════════════════ */
+.progress-row {
+  border-radius: 8px;
+  padding: 4px 4px;
+  transition: opacity 0.18s ease, transform 0.18s ease !important;
+}
+@media (hover: hover) {
+  .progress-row:hover {
+    opacity: 0.82;
+    transform: translateX(4px) !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   LIGNES DE TABLE (.table-row)
+   ═══════════════════════════════════════════════════════════════════ */
+.table-row {
+  transition: background-color 0.15s ease !important;
+}
+@media (hover: hover) {
+  .table-row:hover {
+    background-color: rgba(74, 111, 165, 0.05) !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   LOGS D'AUDIT (.audit-row)
+   ═══════════════════════════════════════════════════════════════════ */
+.audit-row {
+  transition: background-color 0.15s ease, padding-left 0.15s ease !important;
+}
+@media (hover: hover) {
+  .audit-row:hover {
+    padding-left: 28px !important;
+    background-color: rgba(250, 251, 253, 0.8) !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   BOUTONS DOCUMENT / TAGS (.doc-btn)
+   ═══════════════════════════════════════════════════════════════════ */
+.doc-btn {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease !important;
+}
+@media (hover: hover) {
+  .doc-btn:hover {
+    transform: translateY(-2px) scale(1.04) !important;
+    box-shadow: 0 4px 14px rgba(74, 111, 165, 0.18) !important;
+  }
+}
+.doc-btn:active {
+  transform: scale(0.96) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ITEMS DROPDOWN PROFIL (.pd-item, .pd-item-danger)
+   ═══════════════════════════════════════════════════════════════════ */
+.pd-item {
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease !important;
+}
+@media (hover: hover) {
+  .pd-item:hover {
+    transform: translateX(3px) !important;
+  }
+}
+.pd-item-danger {
+  transition: background-color 0.15s ease, transform 0.15s ease !important;
+}
+@media (hover: hover) {
+  .pd-item-danger:hover {
+    transform: translateX(3px) !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   LANDING PAGE — HERO BUTTONS (classes Tailwind déjà présentes)
+   On cible les boutons inline du Hero sans modifier leur markup
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Bouton "Démarrer le diagnostic" */
+#hero button,
+#features button,
+#booking button,
+#doctors button {
+  position: relative;
+  overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CARDS LANDING (Features, Doctors, AI…)
+   ═══════════════════════════════════════════════════════════════════ */
+@media (hover: hover) {
+  /* Carte de feature / médecin / pharmacie qui ont shadow */
+  .landing-card {
+    transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 0.22s ease !important;
+  }
+  .landing-card:hover {
+    transform: translateY(-6px) scale(1.02) !important;
+    box-shadow: 0 24px 48px -12px rgba(57, 88, 134, 0.22) !important;
+  }
+}
+.landing-card:active {
+  transform: scale(0.97) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   INPUTS (focus ring animation)
+   ═══════════════════════════════════════════════════════════════════ */
+input:not([type="checkbox"]):not([type="radio"]),
+textarea,
+select {
+  transition: border-color 0.18s ease, box-shadow 0.18s ease !important;
+}
+input:not([type="checkbox"]):not([type="radio"]):focus,
+textarea:focus {
+  box-shadow: 0 0 0 3px rgba(74, 111, 165, 0.18) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CHIPS / TAGS QUICK-CHAT (Landing Hero)
+   ═══════════════════════════════════════════════════════════════════ */
+@media (hover: hover) {
+  button.chip-btn:hover {
+    transform: translateY(-1px) scale(1.05) !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SWITCHES / TOGGLES
+   ═══════════════════════════════════════════════════════════════════ */
+button[role="switch"],
+.toggle-btn {
+  transition: background-color 0.25s ease !important;
+}
+@media (hover: hover) {
+  button[role="switch"]:hover,
+  .toggle-btn:hover {
+    opacity: 0.88;
+    filter: brightness(1.1);
+  }
+}
+button[role="switch"]:active,
+.toggle-btn:active {
+  transform: scale(0.95) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   AVATAR / INITIALES
+   ═══════════════════════════════════════════════════════════════════ */
+@media (hover: hover) {
+  .avatar-btn:hover {
+    transform: scale(1.08) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18) !important;
+  }
+}
+.avatar-btn {
+  transition: transform 0.18s ease, box-shadow 0.18s ease !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CHECK / BADGE STATUT
+   ═══════════════════════════════════════════════════════════════════ */
+@media (hover: hover) {
+  .status-badge:hover {
+    transform: scale(1.08) !important;
+  }
+}
+.status-badge {
+  transition: transform 0.15s ease !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MOBILE / TACTILE — Désactive hover, remplace par :active
+   ═══════════════════════════════════════════════════════════════════ */
+@media (hover: none) {
+  .interactive-card:active {
+    transform: scale(0.97) !important;
+    transition: transform 0.09s ease !important;
+  }
+  .btn-primary:active,
+  .btn-secondary:active,
+  .btn-filter:active {
+    transform: scale(0.95) !important;
+    transition: transform 0.07s ease !important;
+  }
+  .nav-link:active {
+    background-color: rgba(90, 135, 197, 0.15) !important;
+    transform: scale(0.97) !important;
+  }
+  .landing-card:active {
+    transform: scale(0.97) !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SCROLLBAR GLOBALE
+   ═══════════════════════════════════════════════════════════════════ */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(90, 135, 197, 0.28);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(90, 135, 197, 0.5);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SELECTION COLOR
+   ═══════════════════════════════════════════════════════════════════ */
+::selection {
+  background: rgba(74, 111, 165, 0.25);
+  color: inherit;
+}

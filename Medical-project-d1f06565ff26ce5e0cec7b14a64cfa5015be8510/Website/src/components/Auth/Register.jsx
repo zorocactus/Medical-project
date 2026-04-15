@@ -1,0 +1,302 @@
+import { useState, useEffect } from "react";
+import { User, EyeOff, Eye, Facebook } from "lucide-react";
+
+export default function RegisterForm({ onLogin, onNextStep, isVisible }) {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [errors, setErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [accountType, setAccountType] = useState("patient");
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isFacebookLoading, setIsFacebookLoading] = useState(false);
+  const [oauthMessage, setOauthMessage] = useState("");
+
+  // Réinitialise tous les champs quand la page devient invisible
+  useEffect(() => {
+    if (!isVisible) {
+      setFirstName("");
+      setLastName("");
+      setEmail("");
+      setPassword("");
+      setConfirmPassword("");
+      setErrors({});
+      setShowPassword(false);
+      setShowConfirmPassword(false);
+      setAccountType("patient");
+    }
+  }, [isVisible]);
+
+  function handleSubmit() {
+    const newErrors = {};
+    if (!firstName.trim()) newErrors.firstName = true;
+    if (!lastName.trim()) newErrors.lastName = true;
+    if (!email.trim()) newErrors.email = true;
+    if (!password.trim()) newErrors.password = true;
+    if (!confirmPassword.trim()) newErrors.confirmPassword = true;
+
+    // Vérification mots de passe identiques
+    if (password.trim() && confirmPassword.trim() && password !== confirmPassword) {
+      newErrors.confirmPassword = "mismatch";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    setErrors({});
+    if (onNextStep) {
+      onNextStep({ firstName, lastName, email, accountType, password, confirmPassword });
+    } else {
+      onLogin(accountType);
+    }
+  }
+
+  function handleDevFill() {
+    const ts = Date.now();
+    if (onNextStep) {
+      onNextStep({
+        firstName: "Dev",
+        lastName: "Test",
+        email: `dev${ts}@test.com`,
+        password: "DevTest@123",
+        confirmPassword: "DevTest@123",
+        accountType,
+      });
+    } else {
+      onLogin(accountType);
+    }
+  }
+
+  const handleGoogleLogin = async () => {
+    if (isGoogleLoading || isFacebookLoading) return;
+    setIsGoogleLoading(true);
+    setTimeout(() => {
+      setIsGoogleLoading(false);
+      setOauthMessage("L'authentification Google n'est pas encore disponible. (À lier au Backend)");
+      // window.location.href = "http://localhost:8000/api/auth/login/google/";
+    }, 1000);
+  };
+
+  const handleFacebookLogin = async () => {
+    if (isGoogleLoading || isFacebookLoading) return;
+    setIsFacebookLoading(true);
+    setTimeout(() => {
+      setIsFacebookLoading(false);
+      setOauthMessage("L'authentification Facebook n'est pas encore disponible. (À lier au Backend)");
+      // window.location.href = "http://localhost:8000/api/auth/login/facebook/";
+    }, 1000);
+  };
+
+  return (
+    <div className="flex flex-col justify-center px-4 sm:px-16 py-6 w-full min-h-screen bg-white">
+      <div className="max-w-xl w-full mx-auto text-center">
+        <h2 className="text-4xl font-semibold text-black mb-6">Registration</h2>
+
+        <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+          <div className="space-y-4">
+
+            {/* First & Last Name */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="relative group text-left">
+                <span className="absolute -top-3 left-6 px-2 bg-white text-sm font-medium text-[#365885] z-10">
+                  First name
+                </span>
+                <input
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  className={`w-full px-6 py-3.5 rounded-[20px] border-[1.5px] ${errors.firstName ? "border-red-400" : "border-[#365885]/60"} hover:border-[#365885] focus:border-[#365885] focus:ring-0 transition-all outline-none text-gray-700 text-base`}
+                  placeholder="First name"
+                />
+                {errors.firstName && (
+                  <p className="text-red-400 text-xs mt-1 ml-2">This field is required</p>
+                )}
+              </div>
+              <div className="relative group text-left">
+                <span className="absolute -top-3 left-6 px-2 bg-white text-sm font-medium text-[#365885] z-10">
+                  Last name
+                </span>
+                <input
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  className={`w-full px-6 py-3.5 rounded-[20px] border-[1.5px] ${errors.lastName ? "border-red-400" : "border-[#365885]/60"} hover:border-[#365885] focus:border-[#365885] focus:ring-0 transition-all outline-none text-gray-700 text-base`}
+                  placeholder="Last name"
+                />
+                {errors.lastName && (
+                  <p className="text-red-400 text-xs mt-1 ml-2">This field is required</p>
+                )}
+              </div>
+            </div>
+
+            {/* Email */}
+            <div className="relative group">
+              <span className="absolute -top-3 left-6 px-2 bg-white text-sm font-medium text-[#365885] z-10">
+                Email
+              </span>
+              <div className="relative">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={`w-full pl-6 pr-14 py-3.5 rounded-[20px] border-[1.5px] ${errors.email ? "border-red-400" : "border-[#365885]/60"} hover:border-[#365885] focus:border-[#365885] focus:ring-0 transition-all outline-none text-gray-700 text-base`}
+                  placeholder="Enter your Email"
+                />
+                <div className="absolute right-5 top-1/2 -translate-y-1/2 text-[#365885]">
+                  <User size={24} />
+                </div>
+              </div>
+              {errors.email && (
+                <p className="text-red-400 text-xs mt-1 ml-2">This field is required</p>
+              )}
+            </div>
+
+            {/* Password */}
+            <div className="relative group">
+              <label className="absolute -top-3 left-6 px-1.5 bg-white text-sm font-medium text-[#365885] z-10">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className={`w-full pl-6 pr-14 py-3.5 rounded-[20px] border-[1.5px] ${errors.password ? "border-red-400" : "border-[#365885]/60"} hover:border-[#365885] focus:border-[#365885] focus:ring-0 transition-all outline-none text-gray-700 text-base`}
+                  placeholder="•••••••••••"
+                />
+                <div
+                  className="absolute right-5 top-1/2 -translate-y-1/2 text-[#365885] cursor-pointer"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <Eye size={24} /> : <EyeOff size={24} />}
+                </div>
+              </div>
+              {errors.password && (
+                <p className="text-red-400 text-xs mt-1 ml-2">This field is required</p>
+              )}
+            </div>
+
+            {/* Confirm Password */}
+            <div className="relative group">
+              <label className="absolute -top-3 left-6 px-1.5 bg-white text-sm font-medium text-[#365885] z-10">
+                Confirm Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className={`w-full pl-6 pr-14 py-3.5 rounded-[20px] border-[1.5px] ${errors.confirmPassword ? "border-red-400" : "border-[#365885]/60"} hover:border-[#365885] focus:border-[#365885] focus:ring-0 transition-all outline-none text-gray-700 text-base`}
+                  placeholder="•••••••••••"
+                />
+                <div
+                  className="absolute right-5 top-1/2 -translate-y-1/2 text-[#365885] cursor-pointer"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  {showConfirmPassword ? <Eye size={24} /> : <EyeOff size={24} />}
+                </div>
+              </div>
+              {/* Message différent selon le type d'erreur */}
+              {errors.confirmPassword === true && (
+                <p className="text-red-400 text-xs mt-1 ml-2">This field is required</p>
+              )}
+              {errors.confirmPassword === "mismatch" && (
+                <p className="text-red-400 text-xs mt-1 ml-2">Passwords do not match</p>
+              )}
+            </div>
+
+            {/* Account Type */}
+            <div className="relative group">
+              <span className="absolute -top-7 left-6 px-2 bg-white text-sm font-medium text-[#365885] z-10">
+                Account type :
+              </span>
+              <div className="grid grid-cols-2 gap-3 mt-10">
+                {["patient", "personnel médical"].map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setAccountType(type)}
+                    className={`w-full py-3.5 rounded-[20px] border-[1.5px] transition-all text-sm font-medium cursor-pointer capitalize flex items-center justify-center hover:scale-105 hover:shadow-sm
+                      ${accountType === type
+                        ? "bg-[#6492C9] border-[#6492C9] text-white shadow-sm"
+                        : "bg-white border-[#365885]/60 text-[#365885] hover:border-[#365885] hover:bg-cyan-200/20"
+                      }`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Continue */}
+            <div className="space-y-4 pt-2">
+              <button
+                type="submit"
+                className="w-full py-3.5 bg-[#6492C9] hover:bg-[#537db1] text-white text-lg font-semibold rounded-[20px] transition-all duration-200 shadow-sm cursor-pointer hover:scale-105"
+              >
+                Continue
+              </button>
+            </div>
+
+          </div>
+        </form>
+
+        {/* Socials — en dehors du form */}
+        <div className="flex flex-col items-center gap-4 mt-4">
+          {oauthMessage && (
+            <div className="w-full p-3 rounded-xl bg-blue-50 text-blue-700 text-xs font-medium border border-blue-200">
+              {oauthMessage}
+            </div>
+          )}
+          <p className="text-xs font-medium text-gray-500">
+            or register with social platforms
+          </p>
+          <div className="flex gap-4">
+            <button 
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={isGoogleLoading || isFacebookLoading}
+              className="w-12 h-12 flex items-center justify-center bg-white border border-gray-200 rounded-[15px] hover:bg-gray-50 active:scale-95 transition-all cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isGoogleLoading ? (
+                <div className="w-5 h-5 border-2 border-gray-300 border-t-[#365885] rounded-full animate-spin" />
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="24" height="24">
+                  <path fill="#0a0a0aff" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
+                </svg>
+              )}
+            </button>
+            <button 
+              type="button"
+              onClick={handleFacebookLogin}
+              disabled={isGoogleLoading || isFacebookLoading}
+              className="w-12 h-12 flex items-center justify-center bg-white border border-gray-200 rounded-[15px] hover:bg-gray-50 active:scale-95 transition-all cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isFacebookLoading ? (
+                <div className="w-5 h-5 border-2 border-gray-300 border-t-[#365885] rounded-full animate-spin" />
+              ) : (
+                <Facebook size={24} fill="#000000ff" strokeWidth={0} />
+              )}
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      {import.meta.env.DEV && (
+        <button
+          type="button"
+          onClick={handleDevFill}
+          className="fixed bottom-4 left-4 z-50 bg-black/80 text-yellow-400 text-[10px] px-3 py-1.5 rounded border border-yellow-400/50 hover:bg-black font-mono cursor-pointer"
+        >
+          ⚡ DEV: Auto-Fill
+        </button>
+      )}
+    </div>
+  );
+}

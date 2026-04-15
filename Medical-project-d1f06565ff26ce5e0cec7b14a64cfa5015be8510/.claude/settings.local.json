@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(npx vite:*)",
+      "Bash(node -e ':*)",
+      "Bash(npx jsrepo:*)",
+      "Bash(curl -s \"https://raw.githubusercontent.com/DavidHDev/react-bits/main/src/backgrounds/Aurora/Aurora.jsx\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/DavidHDev/react-bits/main/src/backgrounds/Particles/Particles.jsx\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/DavidHDev/react-bits/main/src/content/Backgrounds/Silk/Silk.jsx\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/DavidHDev/react-bits/main/src/content/Backgrounds/Aurora/Aurora.css\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/DavidHDev/react-bits/main/src/content/Backgrounds/Particles/Particles.css\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/DavidHDev/react-bits/main/src/content/Backgrounds/Waves/Waves.css\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/DavidHDev/react-bits/main/src/content/Backgrounds/DotGrid/DotGrid.css\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/DavidHDev/react-bits/main/src/content/Backgrounds/Threads/Threads.css\")",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(netstat -ano)",
+      "Read(//c/Users/yassi/OneDrive/Bureau/**)",
+      "Bash(grep -v \"^[0-9]*:.*//.*ConsultationSession\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\yassi\\OneDrive\\Bureau\\Front\\Website\\src\\components\\Auth\\RegisterStep2",
+      "C:\\Users\\yassi\\OneDrive\\Bureau\\backend_pfe - Copie (2)\\appointments",
+      "C:\\Users\\yassi\\OneDrive\\Bureau\\backend_pfe - Copie (2)\\medications",
+      "C:\\Users\\yassi\\OneDrive\\Bureau\\backend_pfe - Copie (2)\\prescriptions",
+      "C:\\Users\\yassi\\OneDrive\\Bureau\\backend_pfe - Copie (2)\\consultations"
+    ]
+  }
+}
