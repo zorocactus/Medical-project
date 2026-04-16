@@ -262,7 +262,7 @@ export default function AppRouter() {
   // ⚡ BYPASS RAPIDE POUR TESTS (Décommenter pour utiliser) ⚡
   // =========================================================================
 
-  const FORCE_TEST = true ; // Mettre à true pour activer le bypass
+  const FORCE_TEST = true; // Mettre à true pour activer le bypass
   const [forcedRole, setForcedRole] = useState("patient"); // Choix: "patient", "doctor", "pharmacist", "admin", "caretaker"
 
   if (FORCE_TEST) {

@@ -1,132 +1,116 @@
 import { useState } from "react";
-import { CreditCard, User, Check } from "lucide-react";
+import { CreditCard, User } from "lucide-react";
+import StepBar from "./StepBar";
+import { MEDICAL_STEPS } from "./MedicalForm";
+import { useTheme } from "../../../context/ThemeContext";
+
+function UploadZone({ id, label, hint, file, error, onChange, c }) {
+  return (
+    <div className="space-y-1">
+      <label className="text-[12px] font-medium block" style={{ color: c.txt2 }}>{label}</label>
+      <div className="relative">
+        <input type="file" id={`med-${id}`} accept=".jpg,.jpeg,.png,.pdf" onChange={onChange} className="hidden" />
+        <label htmlFor={`med-${id}`}
+          className="flex flex-col items-center justify-center w-full h-32 rounded-xl border-2 border-dashed cursor-pointer transition-all"
+          style={{
+            borderColor: error ? "#f87171" : file ? c.blue : c.border,
+            background:  error ? "rgba(248,113,113,0.05)" : file ? `${c.blue}18` : "transparent",
+          }}
+        >
+          {id === "profilePhoto"
+            ? <User size={24} strokeWidth={1.5} className="mb-2" style={{ color: file ? c.blue : error ? "#f87171" : c.txt3 }} />
+            : <CreditCard size={24} strokeWidth={1.5} className="mb-2" style={{ color: file ? c.blue : error ? "#f87171" : c.txt3 }} />
+          }
+          <span className="font-semibold text-[13px] mb-0.5" style={{ color: file ? c.blue : c.txt2 }}>
+            {file ? "✓ Ajouté" : hint}
+          </span>
+          <span className="text-[11px]" style={{ color: c.txt3 }}>JPG, PNG, PDF — 5MB max</span>
+        </label>
+      </div>
+      {error && <p className="text-[11px] text-red-400 text-center">{error}</p>}
+    </div>
+  );
+}
 
 export default function MedicalIdentityForm({ onComplete, onBack }) {
-  const [files, setFiles] = useState({
-    cinRecto: null,
-    cinVerso: null,
-    profilePhoto: null,
-  });
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
 
+  const c = {
+    bg:    isDark ? "#0D1117" : "#F0F4F8",
+    input: isDark ? "#141B27" : "#ffffff",
+    border:isDark ? "#2A4A7F" : "#E4EAF5",
+    txt:   isDark ? "#F0F3FA" : "#0D1B2E",
+    txt2:  isDark ? "#8AAEE0" : "#5A6E8A",
+    txt3:  isDark ? "#4A6080" : "#9AACBE",
+    blue:  isDark ? "#638ECB" : "#4A6FA5",
+    div:   isDark ? "#2A4A7F" : "#E4EAF5",
+  };
+
+  const [files, setFiles] = useState({ cinRecto: null, cinVerso: null, profilePhoto: null });
   const [errors, setErrors] = useState({});
 
-  const handleFileChange = (e, fileType) => {
-    setFiles((prev) => ({ ...prev, [fileType]: e.target.files[0] }));
-    if (errors[fileType]) setErrors((prev) => ({ ...prev, [fileType]: "" }));
+  const handleFile = (e, key) => {
+    setFiles((prev) => ({ ...prev, [key]: e.target.files[0] }));
+    if (errors[key]) setErrors((prev) => ({ ...prev, [key]: "" }));
   };
 
   const handleSubmit = () => {
     const newErrors = {};
-    if (!files.cinRecto) newErrors.cinRecto = "Ce champ est obligatoire";
-    if (!files.cinVerso) newErrors.cinVerso = "Ce champ est obligatoire";
+    if (!files.cinRecto)     newErrors.cinRecto     = "Ce champ est obligatoire";
+    if (!files.cinVerso)     newErrors.cinVerso     = "Ce champ est obligatoire";
     if (!files.profilePhoto) newErrors.profilePhoto = "Ce champ est obligatoire";
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
+    if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
     onComplete(files);
   };
 
-  const handleDevFill = () => {
-    onComplete({
-      cinRecto: new File([""], "cin_recto_dev.jpg", { type: "image/jpeg" }),
-      cinVerso: new File([""], "cin_verso_dev.jpg", { type: "image/jpeg" }),
-      profilePhoto: new File([""], "profile_dev.jpg", { type: "image/jpeg" }),
-    });
-  };
-
   return (
-    <div className="min-h-screen bg-[#D1DFEC] flex items-center justify-center p-6 font-sans">
-      <div className="bg-white rounded-[24px] shadow-xl w-full max-w-[800px] px-[60px] py-[50px] relative">
-        <h2 className="text-[28px] font-bold text-[#0D2644] text-center mb-10">
-          Créer votre compte
-        </h2>
+    <div
+      className="w-full min-h-screen flex flex-col items-center justify-center py-8 px-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+      style={{ background: c.bg }}
+    >
+      <div className="w-full max-w-[480px]">
 
-        {/* 5-Step Indicator */}
-        <div className="flex flex-col items-center mb-10">
-          <div className="flex items-center w-full max-w-[600px] justify-between relative px-2">
-            <div className="absolute left-[30px] right-[75%] h-[2px] bg-[#6492C9] z-0 top-1/2 -translate-y-1/2"></div>
-            <div className="absolute left-[25%] right-[50%] h-[2px] bg-[#D1DFEC] z-0 top-1/2 -translate-y-1/2"></div>
-            <div className="absolute left-[50%] right-[25%] h-[2px] bg-[#D1DFEC] z-0 top-1/2 -translate-y-1/2"></div>
-            <div className="absolute left-[75%] right-[30px] h-[2px] bg-[#D1DFEC] z-0 top-1/2 -translate-y-1/2"></div>
-            <div className="w-[32px] h-[32px] rounded-full bg-[#6492C9] text-white flex items-center justify-center font-bold text-[13px] z-10 shadow-sm relative"><Check size={16} strokeWidth={3} /></div>
-            <div className="w-[32px] h-[32px] rounded-full bg-[#6492C9] text-white flex items-center justify-center font-bold text-[13px] z-10 relative">2</div>
-            <div className="w-[32px] h-[32px] rounded-full bg-white border-2 border-[#D1DFEC] text-[#D1DFEC] flex items-center justify-center font-bold text-[13px] z-10 relative">3</div>
-            <div className="w-[32px] h-[32px] rounded-full bg-white border-2 border-[#D1DFEC] text-[#D1DFEC] flex items-center justify-center font-bold text-[13px] z-10 relative">4</div>
-            <div className="w-[32px] h-[32px] rounded-full bg-white border-2 border-[#D1DFEC] text-[#D1DFEC] flex items-center justify-center font-bold text-[13px] z-10 relative">5</div>
-          </div>
+        <StepBar steps={MEDICAL_STEPS} current={2} />
+
+        <div className="flex items-center gap-3 mb-5">
+          <div className="flex-1 h-px" style={{ background: c.div }} />
+          <span className="text-[12px] font-semibold tracking-wide uppercase" style={{ color: c.txt2 }}>Vérification d'identité</span>
+          <div className="flex-1 h-px" style={{ background: c.div }} />
         </div>
 
-        {/* Identity Verification */}
-        <div className="mb-8">
-          <div className="flex items-center justify-center mb-6">
-            <div className="flex-1 h-px bg-[#D1DFEC]"></div>
-            <div className="mx-4 text-[#365885] text-[15px] font-semibold tracking-wide">Vérification d'identité</div>
-            <div className="flex-1 h-px bg-[#D1DFEC]"></div>
-          </div>
+        <p className="text-center text-[13px] mb-6" style={{ color: c.txt3 }}>
+          Téléchargez vos documents d'identité pour valider votre compte.
+        </p>
 
-          <p className="text-center text-[#5C738A] text-[15px] mb-8">
-            Veuillez télécharger vos documents d'identité pour valider votre compte.
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* CIN Recto */}
-            <div className="relative">
-              <input type="file" id="cinRecto" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => handleFileChange(e, "cinRecto")} className="hidden" />
-              <label htmlFor="cinRecto"
-                className={`flex flex-col items-center justify-center w-full h-40 rounded-2xl border-2 border-dashed ${errors.cinRecto ? 'border-red-400' : files.cinRecto ? 'border-[#6492C9] bg-[#F4F8FB]' : 'border-[#D1DFEC] hover:border-[#89AEDB]'} cursor-pointer transition-colors group`}>
-                <CreditCard size={32} strokeWidth={1.5} className={`mb-3 ${files.cinRecto ? 'text-[#6492C9]' : errors.cinRecto ? 'text-red-400' : 'text-[#89AEDB] group-hover:text-[#6492C9]'}`} />
-                <span className="text-[#0D2644] font-semibold text-[15px] mb-1">{files.cinRecto ? 'Recto Ajouté' : 'CIN Recto'}</span>
-                <span className="text-[#A0B5CD] text-[12px]">JPG, PNG, PDF - 5MB max</span>
-              </label>
-              {errors.cinRecto && <p className="text-red-500 text-[12px] mt-1 text-center">{errors.cinRecto}</p>}
-            </div>
-
-            {/* CIN Verso */}
-            <div className="relative">
-              <input type="file" id="cinVerso" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => handleFileChange(e, "cinVerso")} className="hidden" />
-              <label htmlFor="cinVerso"
-                className={`flex flex-col items-center justify-center w-full h-40 rounded-2xl border-2 border-dashed ${errors.cinVerso ? 'border-red-400' : files.cinVerso ? 'border-[#6492C9] bg-[#F4F8FB]' : 'border-[#D1DFEC] hover:border-[#89AEDB]'} cursor-pointer transition-colors group`}>
-                <CreditCard size={32} strokeWidth={1.5} className={`mb-3 ${files.cinVerso ? 'text-[#6492C9]' : errors.cinVerso ? 'text-red-400' : 'text-[#89AEDB] group-hover:text-[#6492C9]'}`} />
-                <span className="text-[#0D2644] font-semibold text-[15px] mb-1">{files.cinVerso ? 'Verso Ajouté' : 'CIN Verso'}</span>
-                <span className="text-[#A0B5CD] text-[12px]">JPG, PNG, PDF - 5MB max</span>
-              </label>
-              {errors.cinVerso && <p className="text-red-500 text-[12px] mt-1 text-center">{errors.cinVerso}</p>}
-            </div>
-
-            {/* Photo de profil */}
-            <div className="relative">
-              <input type="file" id="profilePhoto" accept=".jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, "profilePhoto")} className="hidden" />
-              <label htmlFor="profilePhoto"
-                className={`flex flex-col items-center justify-center w-full h-40 rounded-2xl border-2 border-dashed ${errors.profilePhoto ? 'border-red-400' : files.profilePhoto ? 'border-[#6492C9] bg-[#F4F8FB]' : 'border-[#D1DFEC] hover:border-[#89AEDB]'} cursor-pointer transition-colors group`}>
-                <User size={32} strokeWidth={1.5} className={`mb-3 ${files.profilePhoto ? 'text-[#6492C9]' : errors.profilePhoto ? 'text-red-400' : 'text-[#89AEDB] group-hover:text-[#6492C9]'}`} />
-                <span className="text-[#0D2644] font-semibold text-[15px] mb-1">{files.profilePhoto ? 'Photo Ajoutée' : 'Photo de profil'}</span>
-                <span className="text-[#A0B5CD] text-[12px]">Photo claire - 5MB max</span>
-              </label>
-              {errors.profilePhoto && <p className="text-red-500 text-[12px] mt-1 text-center">{errors.profilePhoto}</p>}
-            </div>
-          </div>
-          <div className="w-full h-px bg-[#D1DFEC]/50 mt-10 mb-8"></div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          <UploadZone id="cinRecto"     label="CIN Recto"       hint="CIN Recto"       file={files.cinRecto}     error={errors.cinRecto}     onChange={(e) => handleFile(e, "cinRecto")}     c={c} />
+          <UploadZone id="cinVerso"     label="CIN Verso"       hint="CIN Verso"       file={files.cinVerso}     error={errors.cinVerso}     onChange={(e) => handleFile(e, "cinVerso")}     c={c} />
+          <UploadZone id="profilePhoto" label="Photo de profil"  hint="Photo de profil"  file={files.profilePhoto} error={errors.profilePhoto} onChange={(e) => handleFile(e, "profilePhoto")} c={c} />
         </div>
 
-        {/* Buttons */}
-        <div className="flex items-center gap-4">
-          <button onClick={onBack}
-            className="w-[120px] bg-white border border-[#D1DFEC] hover:border-[#A0B5CD] hover:bg-gray-50 text-[#365885] py-3 rounded-xl text-[15px] font-medium transition-all cursor-pointer flex items-center justify-center gap-1">
-            &larr; Retour
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={onBack}
+            className="px-5 py-2.5 rounded-xl border text-sm font-medium transition-all cursor-pointer"
+            style={{ borderColor: c.border, color: c.txt2 }}>
+            ← Retour
           </button>
-          <button onClick={handleSubmit}
-            className="flex-1 bg-[#6492C9] hover:bg-[#304B71] text-white py-3 rounded-xl text-[15px] font-medium transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1">
-            Continuer &rarr;
+          <button type="button" onClick={handleSubmit}
+            className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold transition-all cursor-pointer"
+            style={{ background: c.blue }}>
+            Continuer →
           </button>
         </div>
+
       </div>
 
       {import.meta.env.DEV && (
-        <button
-          onClick={handleDevFill}
-          className="fixed bottom-4 left-4 z-50 bg-black/80 text-yellow-400 text-[10px] px-3 py-1.5 rounded border border-yellow-400/50 hover:bg-black font-mono cursor-pointer"
-        >
+        <button onClick={() => onComplete({
+          cinRecto: new File([""], "cin_recto.jpg", { type: "image/jpeg" }),
+          cinVerso: new File([""], "cin_verso.jpg", { type: "image/jpeg" }),
+          profilePhoto: new File([""], "photo.jpg", { type: "image/jpeg" }),
+        })}
+          className="fixed bottom-4 left-4 z-50 bg-black/80 text-[#8AAEE0] text-[10px] px-3 py-1.5 rounded border border-[#2A4A7F] hover:bg-[#173253] font-mono cursor-pointer">
           ⚡ DEV: Auto-Fill
         </button>
       )}

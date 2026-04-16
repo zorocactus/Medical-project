@@ -1,136 +1,144 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+// ─────────────────────────────────────────────────────────────────────────────
+// AdminDashboard.jsx  —  Shell principal (Layout only)
+// Les vues individuelles sont dans ./views/
+// ─────────────────────────────────────────────────────────────────────────────
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useAuth } from "../../context/AuthContext";
 import * as api from "../../services/api";
 import ErrorBoundary from "../../components/ErrorBoundary";
-import { ParticlesHero } from '../../components/backgrounds/MedParticles';
+import { ParticlesHero } from "../../components/backgrounds/MedParticles";
 import {
-  LayoutDashboard, Users, Stethoscope, Pill, Heart, Shield,
-  Bell, Settings, LogOut, ChevronDown, Sun, Moon, Search,
-  TrendingUp, TrendingDown, AlertTriangle, CheckCircle,
-  XCircle, Clock, Activity,
-  Trash2, Plus, Download, RefreshCw,
-  Lock, Unlock, UserCheck,
-  FileText, MapPin,
-  Check, X, Menu,
+  Sun,
+  Moon,
+  Menu,
+  Bell,
+  Settings,
+  LogOut,
+  LayoutDashboard,
+  Users,
+  Stethoscope,
+  Pill,
+  Heart,
+  Shield,
+  Calendar,
+  ShoppingBag,
+  UserCheck,
+  Download,
+  RefreshCw,
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Activity,
+  Trash2,
+  Plus,
+  Lock,
+  Unlock,
+  FileText,
+  MapPin,
+  Phone,
+  Check,
+  X,
+  Star,
+  Package,
+  Building2,
+  ClipboardList,
+  Search,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  MoreHorizontal,
+  Copy,
+  Eye,
+  Pencil,
+  Pin,
 } from "lucide-react";
 
-// ─── Theme ────────────────────────────────────────────────────────────────────
-const T = {
-  light: {
-    bg: "#F0F4F8", card: "#ffffff", nav: "#ffffff", sidebar: "#ffffff",
-    border: "#E4EAF5", txt: "#0D1B2E", txt2: "#5A6E8A", txt3: "#9AACBE",
-    blue: "#4A6FA5", blueLight: "#EEF3FB", green: "#2D8C6F", greenLight: "#EEF8F4",
-    amber: "#E8A838", amberLight: "#FFF8EC", red: "#E05555", redLight: "#FFF0F0",
-    purple: "#7B5EA7", purpleLight: "#F3EEFF",
-  },
-  dark: {
-    bg: "#080D14", card: "#0F1824", nav: "#0F1824", sidebar: "#0A1220",
-    border: "rgba(99,142,203,0.12)", txt: "#E8F0FA", txt2: "#7A9CC8", txt3: "#3A5070",
-    blue: "#5A87C5", blueLight: "#111E30", green: "#3AAA80", greenLight: "#0F2820",
-    amber: "#E8A838", amberLight: "#1E1500", red: "#E05555", redLight: "#1E0A0A",
-    purple: "#9B7FD4", purpleLight: "#1A1030",
-  },
-};
+// ─── Shared theme & primitives ────────────────────────────────────────────────
+import {
+  T,
+  HMS,
+  ROLE_META as ROLE_COLORS,
+  getAdminTheme,
+} from "./adminTheme.js";
+import { Card, Badge } from "./AdminPrimitives.jsx";
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-const USERS_DATA = [
-  { id: 1,  name: "Alex Johnson",      email: "alex@medsmart.dz",      role: "patient",    wilaya: "Alger",      status: "active",   joined: "2024-03-15", verified: true  },
-  { id: 2,  name: "Dr. Sarah Smith",   email: "sarah@medsmart.dz",     role: "médecin",    wilaya: "Oran",       status: "active",   joined: "2024-01-08", verified: true  },
-  { id: 3,  name: "Pharmacie El Shifa",email: "elshifa@medsmart.dz",   role: "pharmacien", wilaya: "Alger",      status: "active",   joined: "2024-02-20", verified: true  },
-  { id: 4,  name: "Fatima Benali",     email: "fatima@medsmart.dz",    role: "garde-malade",wilaya:"Constantine", status: "pending",  joined: "2024-10-12", verified: false },
-  { id: 5,  name: "Dr. Karim Benali",  email: "karim@medsmart.dz",     role: "médecin",    wilaya: "Blida",      status: "active",   joined: "2024-04-05", verified: true  },
-  { id: 6,  name: "Samira Meziane",    email: "samira@medsmart.dz",    role: "patient",    wilaya: "Sétif",      status: "suspended",joined: "2024-05-18", verified: true  },
-  { id: 7,  name: "Pharmacie Rahma",   email: "rahma@medsmart.dz",     role: "pharmacien", wilaya: "Annaba",     status: "pending",  joined: "2024-10-28", verified: false },
-  { id: 8,  name: "Dr. Amira Boudali", email: "amira@medsmart.dz",     role: "médecin",    wilaya: "Alger",      status: "active",   joined: "2024-03-22", verified: true  },
-  { id: 9,  name: "Omar Meziani",      email: "omar@medsmart.dz",      role: "patient",    wilaya: "Tlemcen",    status: "active",   joined: "2024-06-10", verified: true  },
-  { id: 10, name: "Nadia Boumediene",  email: "nadia@medsmart.dz",     role: "garde-malade",wilaya:"Béjaïa",     status: "active",   joined: "2024-07-03", verified: true  },
-];
+// ─── New modular views ────────────────────────────────────────────────────────
+import AdminSidebar from "./views/AdminSidebar";
+import OverviewPage from "./views/Overview";
+import PatientsView from "./views/users/PatientsView";
+import DoctorsView from "./views/users/DoctorsView";
+import CaretakersView from "./views/users/CaretakersView";
+import PharmacistsView from "./views/users/PharmacistsView";
+import ScheduleView from "./views/ScheduleView";
+import VisitQueueView from "./views/VisitQueueView";
 
-const AUDIT_LOGS = [
-  { id: 1,  action: "Compte médecin approuvé",     user: "Dr. Sarah Smith",   ip: "41.111.192.14",  time: "Il y a 2 min",   type: "success" },
-  { id: 2,  action: "Tentative de connexion échouée",user:"Unknown",          ip: "197.200.82.55",  time: "Il y a 8 min",   type: "warning" },
-  { id: 3,  action: "Ordonnance CNAS validée",     user: "Pharmacie El Shifa",ip: "41.111.204.88",  time: "Il y a 15 min",  type: "success" },
-  { id: 4,  action: "Utilisateur suspendu",        user: "Admin System",      ip: "10.0.0.1",       time: "Il y a 32 min",  type: "danger"  },
-  { id: 5,  action: "Mise à jour IA modèle v2.2",  user: "Admin System",      ip: "10.0.0.1",       time: "Il y a 1h",      type: "info"    },
-  { id: 6,  action: "Export données CNAS",         user: "Admin System",      ip: "10.0.0.1",       time: "Il y a 2h",      type: "info"    },
-  { id: 7,  action: "Nouvelle pharmacie inscrite", user: "Pharmacie Rahma",   ip: "41.111.220.31",  time: "Il y a 3h",      type: "success" },
-  { id: 8,  action: "Alerte: CPU > 85%",           user: "System Monitor",    ip: "—",              time: "Il y a 4h",      type: "warning" },
-];
+// ─────────────────────────────────────────────────────────────────────────────
+// SHARED HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
 
-const WILAYAS_DATA = [
-  { name: "Alger",       users: 1248, growth: 14 },
-  { name: "Oran",        users: 842,  growth: 9  },
-  { name: "Constantine", users: 631,  growth: 11 },
-  { name: "Blida",       users: 412,  growth: 7  },
-  { name: "Sétif",       users: 388,  growth: 18 },
-  { name: "Annaba",      users: 291,  growth: 5  },
-  { name: "Tlemcen",     users: 234,  growth: 12 },
-  { name: "Béjaïa",      users: 198,  growth: 16 },
-];
-
-const LOG_COLORS = {
-  success: { color: "#2D8C6F", bg: "#EEF8F4", bgDk: "#0F2820", icon: CheckCircle },
-  warning: { color: "#E8A838", bg: "#FFF8EC", bgDk: "#1E1500", icon: AlertTriangle },
-  danger:  { color: "#E05555", bg: "#FFF0F0", bgDk: "#1E0A0A", icon: XCircle },
-  info:    { color: "#4A6FA5", bg: "#EEF3FB", bgDk: "#111E30", icon: Activity },
-};
-
-const ROLE_META = {
-  "patient":     { color: "#4A6FA5", bg: "#EEF3FB",  icon: Users },
-  "médecin":     { color: "#2D8C6F", bg: "#EEF8F4",  icon: Stethoscope },
-  "pharmacien":  { color: "#E8A838", bg: "#FFF8EC",  icon: Pill },
-  "garde-malade":{ color: "#7B5EA7", bg: "#F3EEFF",  icon: Heart },
-};
-
-// ─── Shared Components ────────────────────────────────────────────────────────
-
-// ─── Shared Components ────────────────────────────────────────────────────────
-function Card({ children, className = "", style = {}, dk }) {
-  const c = dk ? T.dark : T.light;
-  return (
-    <div className={`rounded-2xl border ${className}`}
-      style={{ background: c.card, borderColor: c.border, boxShadow: dk ? "0 1px 3px rgba(0,0,0,0.4)" : "0 1px 4px rgba(74,111,165,0.06)", ...style }}>
-      {children}
-    </div>
-  );
-}
-
-function Badge({ color, bg, children, className = "" }) {
-  return (
-    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${className}`}
-      style={{ color, background: bg }}>
-      {children}
-    </span>
-  );
-}
-
-function KpiCard({ label, value, sub, icon: Icon, color, trend, trendLabel, dk }) {
-  const c = dk ? T.dark : T.light;
+function KpiCard({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  color,
+  trend,
+  trendLabel,
+  dk,
+}) {
+  const c = getAdminTheme(dk);
   const up = trend >= 0;
   return (
     <Card dk={dk} style={{ padding: 20 }}>
       <div className="flex items-start justify-between mb-3">
-        <div className="w-11 h-11 rounded-xl flex items-center justify-center"
-          style={{ background: color + "18" }}>
+        <div
+          className="w-11 h-11 rounded-xl flex items-center justify-center"
+          style={{ background: color + "18" }}
+        >
           <Icon size={20} style={{ color }} />
         </div>
         {trend !== undefined && (
-          <div className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg"
-            style={{ background: up ? "#2D8C6F18" : "#E0555518", color: up ? "#2D8C6F" : "#E05555" }}>
+          <div
+            className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg"
+            style={{
+              background: up ? "#2D8C6F18" : "#E0555518",
+              color: up ? "#2D8C6F" : "#E05555",
+            }}
+          >
             {up ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
             {Math.abs(trend)}%
           </div>
         )}
       </div>
-      <p className="text-2xl font-black tracking-tight" style={{ color: c.txt }}>{value}</p>
-      <p className="text-sm font-semibold mt-0.5" style={{ color: c.txt2 }}>{label}</p>
-      {sub && <p className="text-xs mt-1" style={{ color: c.txt3 }}>{sub}</p>}
-      {trendLabel && <p className="text-xs mt-1 font-semibold" style={{ color: up ? "#2D8C6F" : "#E05555" }}>{trendLabel}</p>}
+      <p
+        className="text-2xl font-black tracking-tight"
+        style={{ color: c.txt }}
+      >
+        {value}
+      </p>
+      <p className="text-sm font-semibold mt-0.5" style={{ color: c.txt2 }}>
+        {label}
+      </p>
+      {sub && (
+        <p className="text-xs mt-1" style={{ color: c.txt3 }}>
+          {sub}
+        </p>
+      )}
+      {trendLabel && (
+        <p
+          className="text-xs mt-1 font-semibold"
+          style={{ color: up ? "#2D8C6F" : "#E05555" }}
+        >
+          {trendLabel}
+        </p>
+      )}
     </Card>
   );
 }
 
-// ─── Animated Counter ─────────────────────────────────────────────────────────
 function AnimCounter({ target, suffix = "" }) {
   const [val, setVal] = useState(0);
   useEffect(() => {
@@ -138,465 +146,238 @@ function AnimCounter({ target, suffix = "" }) {
     const step = target / 40;
     const timer = setInterval(() => {
       start += step;
-      if (start >= target) { setVal(target); clearInterval(timer); }
-      else setVal(Math.floor(start));
+      if (start >= target) {
+        setVal(target);
+        clearInterval(timer);
+      } else setVal(Math.floor(start));
     }, 25);
     return () => clearInterval(timer);
   }, [target]);
-  return <>{val.toLocaleString()}{suffix}</>;
-}
-
-
-// ─── PAGE: OVERVIEW ───────────────────────────────────────────────────────────
-function OverviewPage({ dk, onNav }) {
-  const c = dk ? T.dark : T.light;
-
-  const kpis = [
-    { label: "Utilisateurs totaux",  value: <AnimCounter target={6482} />,  icon: Users,       color: c.blue,   trend: 14, trendLabel: "+821 ce mois" },
-    { label: "Médecins vérifiés",    value: <AnimCounter target={342} />,   icon: Stethoscope, color: c.green,  trend: 8,  trendLabel: "+28 ce mois" },
-    { label: "Pharmacies actives",   value: <AnimCounter target={148} />,   icon: Pill,        color: c.amber,  trend: 5,  trendLabel: "+8 ce mois" },
-    { label: "Ordonnances CNAS",     value: <AnimCounter target={8841} />,  icon: Shield,      color: c.green,  trend: 12, trendLabel: "62% de couverture" },
-  ];
-
   return (
     <>
-      {/* Hero header */}
-      <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-xs font-bold uppercase tracking-widest" style={{ color: c.green }}>Système opérationnel</span>
-          </div>
-          <h1 className="text-3xl font-black tracking-tight" style={{ color: c.txt }}>
-            Centre de Contrôle <span style={{ color: c.blue }}>MedSmart</span>
-          </h1>
-          <p className="text-sm mt-1" style={{ color: c.txt2 }}>
-            Vue globale de la plateforme · {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · {new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:opacity-80"
-            style={{ borderColor: c.border, color: c.txt2 }}>
-            <Download size={14} /> Export rapport
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
-            style={{ background: "linear-gradient(135deg, #304B71, #6492C9)", boxShadow: "0 4px 16px rgba(74,111,165,0.35)" }}>
-            <RefreshCw size={14} /> Actualiser
-          </button>
-        </div>
-      </div>
-
-      {/* KPIs grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {kpis.map((k, i) => <KpiCard key={i} {...k} dk={dk} />)}
-      </div>
-
-      {/* Charts + Activity */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 mb-5">
-
-        {/* Growth chart */}
-        <Card dk={dk} style={{ padding: 20, gridColumn: "span 2" }}>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="font-bold" style={{ color: c.txt }}>Croissance des inscriptions</h3>
-              <p className="text-xs" style={{ color: c.txt2 }}>12 derniers mois · Tous rôles confondus</p>
-            </div>
-            <div className="flex gap-2">
-              {["1S", "1M", "3M", "1A"].map((p, i) => (
-                <button key={p} className="px-2.5 py-1 rounded-lg text-xs font-semibold transition-all"
-                  style={{ background: i === 3 ? c.blue : "transparent", color: i === 3 ? "#fff" : c.txt3 }}>
-                  {p}
-                </button>
-              ))}
-            </div>
-          </div>
-          {/* Bar chart */}
-          <div className="flex items-end gap-2 h-32 mb-2">
-            {[38, 52, 45, 61, 58, 74, 69, 82, 77, 91, 86, 96].map((h, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                <div className="w-full rounded-t transition-all duration-500"
-                  style={{ height: `${h}%`, background: i === 11 ? c.blue : (dk ? "rgba(74,111,165,0.3)" : "#D5E3F5") }} />
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-between">
-            {["Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc","Jan","Fév","Mar"].map(m => (
-              <span key={m} className="text-xs flex-1 text-center" style={{ color: c.txt3 }}>{m}</span>
-            ))}
-          </div>
-        </Card>
-
-        {/* Role distribution */}
-        <Card dk={dk} style={{ padding: 20 }}>
-          <h3 className="font-bold mb-4" style={{ color: c.txt }}>Répartition des rôles</h3>
-          <div className="space-y-3">
-            {[
-              { role: "Patients",     count: 5248, pct: 81, ...ROLE_META["patient"] },
-              { role: "Médecins",     count: 342,  pct: 5,  ...ROLE_META["médecin"] },
-              { role: "Pharmaciens",  count: 148,  pct: 2,  ...ROLE_META["pharmacien"] },
-              { role: "Garde-malades",count: 744,  pct: 12, ...ROLE_META["garde-malade"] },
-            ].map(r => (
-              <div key={r.role}>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: r.bg }}>
-                      <r.icon size={11} style={{ color: r.color }} />
-                    </div>
-                    <span className="text-sm font-semibold" style={{ color: c.txt }}>{r.role}</span>
-                  </div>
-                  <span className="text-xs font-bold" style={{ color: r.color }}>{r.count.toLocaleString()}</span>
-                </div>
-                <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: c.blueLight }}>
-                  <div className="h-full rounded-full transition-all" style={{ width: `${r.pct}%`, background: r.color }} />
-                </div>
-              </div>
-            ))}
-          </div>
-          {/* Donut visual */}
-          <div className="mt-4 p-3 rounded-xl text-center" style={{ background: c.blueLight }}>
-            <p className="text-2xl font-black" style={{ color: c.txt }}>6 482</p>
-            <p className="text-xs" style={{ color: c.txt2 }}>utilisateurs totaux</p>
-          </div>
-        </Card>
-      </div>
-
-      {/* Wilaya map + recent users + audit */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-
-        {/* Wilaya coverage */}
-        <Card dk={dk} style={{ padding: 20 }}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold" style={{ color: c.txt }}>Couverture par wilaya</h3>
-            <Badge color={c.blue} bg={c.blueLight}>48 / 58</Badge>
-          </div>
-          <div className="space-y-2">
-            {WILAYAS_DATA.map(w => (
-              <div key={w.name} className="flex items-center gap-3">
-                <span className="text-xs font-medium w-24 shrink-0" style={{ color: c.txt2 }}>{w.name}</span>
-                <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: c.blueLight }}>
-                  <div className="h-full rounded-full" style={{ width: `${(w.users / 1248) * 100}%`, background: c.blue }} />
-                </div>
-                <span className="text-xs font-bold w-12 text-right" style={{ color: c.txt }}>{w.users}</span>
-                <span className="text-xs font-bold w-8 text-right" style={{ color: c.green }}>+{w.growth}%</span>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        {/* Recent signups */}
-        <Card dk={dk} style={{ padding: 20 }}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold" style={{ color: c.txt }}>Inscriptions récentes</h3>
-            <button onClick={() => onNav("utilisateurs")} className="text-xs font-semibold hover:underline" style={{ color: c.blue }}>
-              Voir tout
-            </button>
-          </div>
-          <div className="space-y-3">
-            {USERS_DATA.filter(u => u.status === "pending" || !u.verified).concat(USERS_DATA.slice(0, 3)).slice(0, 5).map(u => {
-              const rm = ROLE_META[u.role] || ROLE_META["patient"];
-              const STATUS_META_LOCAL = {
-                active:    { label: "Actif",     color: c.green, bg: c.green + "18" },
-                pending:   { label: "En attente",color: c.amber, bg: c.amber + "18" },
-                suspended: { label: "Suspendu",  color: c.red,   bg: c.red + "18" },
-              };
-              const sm = STATUS_META_LOCAL[u.status] || STATUS_META_LOCAL["active"];
-              return (
-                <div key={u.id} className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0"
-                    style={{ background: rm.color }}>
-                    {u.name.split(" ").map(n => n[0]).slice(0,2).join("")}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate" style={{ color: c.txt }}>{u.name}</p>
-                    <p className="text-xs" style={{ color: c.txt3 }}>{u.wilaya} · {u.role}</p>
-                  </div>
-                  <Badge color={sm.color} bg={sm.bg}>{sm.label}</Badge>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-
-        {/* Audit log mini */}
-        <Card dk={dk} style={{ padding: 20 }}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold" style={{ color: c.txt }}>Journal d'activité</h3>
-            <button onClick={() => onNav("audit")} className="text-xs font-semibold hover:underline" style={{ color: c.blue }}>
-              Voir tout
-            </button>
-          </div>
-          <div className="space-y-3">
-            {AUDIT_LOGS.slice(0, 5).map(log => {
-              const lm = LOG_COLORS[log.type];
-              return (
-                <div key={log.id} className="flex items-start gap-3">
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-                    style={{ background: lm.bg }}>
-                    <lm.icon size={13} style={{ color: lm.color }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold" style={{ color: c.txt }}>{log.action}</p>
-                    <p className="text-xs" style={{ color: c.txt3 }}>{log.user} · {log.time}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      </div>
+      {val.toLocaleString()}
+      {suffix}
     </>
   );
 }
 
-// ─── PAGE: UTILISATEURS ───────────────────────────────────────────────────────
-const PAGE_SIZE = 7;
+// ─────────────────────────────────────────────────────────────────────────────
+// MOCK DATA  (kept for legacy pages — will be removed as views are migrated)
+// ─────────────────────────────────────────────────────────────────────────────
 
-function UtilisateursPage({ dk }) {
-  const c = dk ? T.dark : T.light;
-  const STATUS_META_LOCAL = {
-    active:    { label: "Actif",     color: c.green, bg: c.green + "18" },
-    pending:   { label: "En attente",color: c.amber, bg: c.amber + "18" },
-    suspended: { label: "Suspendu",  color: c.red,   bg: c.red + "18" },
-  };
-  const [users, setUsers] = useState(USERS_DATA);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [selected, setSelected] = useState([]);
-  const [page, setPage] = useState(1);
-  const [modal, setModal] = useState(null); // { type: "approve"|"suspend"|"delete", user }
+const USERS_DATA = [
+  {
+    id: 1,
+    name: "Alex Johnson",
+    email: "alex@medsmart.dz",
+    role: "patient",
+    wilaya: "Alger",
+    status: "active",
+    joined: "2024-03-15",
+    verified: true,
+  },
+  {
+    id: 2,
+    name: "Dr. Sarah Smith",
+    email: "sarah@medsmart.dz",
+    role: "médecin",
+    wilaya: "Oran",
+    status: "active",
+    joined: "2024-01-08",
+    verified: true,
+  },
+  {
+    id: 3,
+    name: "Pharmacie El Shifa",
+    email: "elshifa@medsmart.dz",
+    role: "pharmacien",
+    wilaya: "Alger",
+    status: "active",
+    joined: "2024-02-20",
+    verified: true,
+  },
+  {
+    id: 4,
+    name: "Fatima Benali",
+    email: "fatima@medsmart.dz",
+    role: "garde-malade",
+    wilaya: "Constantine",
+    status: "pending",
+    joined: "2024-10-12",
+    verified: false,
+  },
+  {
+    id: 5,
+    name: "Dr. Karim Benali",
+    email: "karim@medsmart.dz",
+    role: "médecin",
+    wilaya: "Blida",
+    status: "active",
+    joined: "2024-04-05",
+    verified: true,
+  },
+  {
+    id: 6,
+    name: "Samira Meziane",
+    email: "samira@medsmart.dz",
+    role: "patient",
+    wilaya: "Sétif",
+    status: "suspended",
+    joined: "2024-05-18",
+    verified: true,
+  },
+  {
+    id: 7,
+    name: "Pharmacie Rahma",
+    email: "rahma@medsmart.dz",
+    role: "pharmacien",
+    wilaya: "Annaba",
+    status: "pending",
+    joined: "2024-10-28",
+    verified: false,
+  },
+  {
+    id: 8,
+    name: "Dr. Amira Boudali",
+    email: "amira@medsmart.dz",
+    role: "médecin",
+    wilaya: "Alger",
+    status: "active",
+    joined: "2024-03-22",
+    verified: true,
+  },
+  {
+    id: 9,
+    name: "Omar Meziani",
+    email: "omar@medsmart.dz",
+    role: "patient",
+    wilaya: "Tlemcen",
+    status: "active",
+    joined: "2024-06-10",
+    verified: true,
+  },
+  {
+    id: 10,
+    name: "Nadia Boumediene",
+    email: "nadia@medsmart.dz",
+    role: "garde-malade",
+    wilaya: "Béjaïa",
+    status: "active",
+    joined: "2024-07-03",
+    verified: true,
+  },
+];
 
-  useEffect(() => {
-    api.getUsers()
-      .then(data => {
-        if (Array.isArray(data) && data.length > 0) {
-          const normalized = data.map(u => ({
-            id: u.id,
-            name: `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.name || "—",
-            email: u.email || "—",
-            role: u.role || "patient",
-            wilaya: u.wilaya || u.city || "—",
-            status: u.status || u.is_active === false ? "suspended" : "active",
-            joined: u.date_joined?.slice(0, 10) || u.joined || "—",
-            verified: u.is_verified ?? u.verified ?? false,
-          }));
-          setUsers(normalized);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+const AUDIT_LOGS = [
+  {
+    id: 1,
+    action: "Compte médecin approuvé",
+    user: "Dr. Sarah Smith",
+    ip: "41.111.192.14",
+    time: "Il y a 2 min",
+    type: "success",
+  },
+  {
+    id: 2,
+    action: "Tentative de connexion échouée",
+    user: "Unknown",
+    ip: "197.200.82.55",
+    time: "Il y a 8 min",
+    type: "warning",
+  },
+  {
+    id: 3,
+    action: "Ordonnance CNAS validée",
+    user: "Pharmacie El Shifa",
+    ip: "41.111.204.88",
+    time: "Il y a 15 min",
+    type: "success",
+  },
+  {
+    id: 4,
+    action: "Utilisateur suspendu",
+    user: "Admin System",
+    ip: "10.0.0.1",
+    time: "Il y a 32 min",
+    type: "danger",
+  },
+  {
+    id: 5,
+    action: "Mise à jour IA modèle v2.2",
+    user: "Admin System",
+    ip: "10.0.0.1",
+    time: "Il y a 1h",
+    type: "info",
+  },
+  {
+    id: 6,
+    action: "Export données CNAS",
+    user: "Admin System",
+    ip: "10.0.0.1",
+    time: "Il y a 2h",
+    type: "info",
+  },
+  {
+    id: 7,
+    action: "Nouvelle pharmacie inscrite",
+    user: "Pharmacie Rahma",
+    ip: "41.111.220.31",
+    time: "Il y a 3h",
+    type: "success",
+  },
+  {
+    id: 8,
+    action: "Alerte: CPU > 85%",
+    user: "System Monitor",
+    ip: "—",
+    time: "Il y a 4h",
+    type: "warning",
+  },
+];
 
-  const filtered = users.filter(u => {
-    const matchSearch = u.name.toLowerCase().includes(search.toLowerCase()) ||
-                        u.email.toLowerCase().includes(search.toLowerCase()) ||
-                        u.wilaya.toLowerCase().includes(search.toLowerCase());
-    const matchRole = roleFilter === "all" || u.role === roleFilter;
-    const matchStatus = statusFilter === "all" || u.status === statusFilter;
-    return matchSearch && matchRole && matchStatus;
-  });
+const LOG_COLORS = {
+  success: {
+    color: "#2D8C6F",
+    bg: "#EEF8F4",
+    bgDk: "#0F2820",
+    icon: CheckCircle,
+  },
+  warning: {
+    color: "#E8A838",
+    bg: "#FFF8EC",
+    bgDk: "#1E1500",
+    icon: AlertTriangle,
+  },
+  danger: { color: "#E05555", bg: "#FFF0F0", bgDk: "#1E0A0A", icon: XCircle },
+  info: { color: "#4A6FA5", bg: "#EEF3FB", bgDk: "#111E30", icon: Activity },
+};
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+// Étend ROLE_COLORS (adminTheme.js) avec les icônes Lucide
+const ROLE_META = {
+  ...ROLE_COLORS,
+  patient: { ...ROLE_COLORS.patient, icon: Users },
+  doctor: { ...ROLE_COLORS.doctor, icon: Stethoscope },
+  médecin: { ...ROLE_COLORS["médecin"], icon: Stethoscope },
+  pharmacist: { ...ROLE_COLORS.pharmacist, icon: Pill },
+  pharmacien: { ...ROLE_COLORS["pharmacien"], icon: Pill },
+  caretaker: { ...ROLE_COLORS.caretaker, icon: Heart },
+  "garde-malade": { ...ROLE_COLORS["garde-malade"], icon: Heart },
+  admin: { ...ROLE_COLORS.admin, icon: Shield },
+};
 
-  const handleFilterChange = useCallback((setter) => (val) => { setter(val); setPage(1); }, []);
-
-  const approve = (id) => setUsers(prev => prev.map(u => u.id === id ? { ...u, status: "active", verified: true } : u));
-  const suspend = (id) => setUsers(prev => prev.map(u => u.id === id ? { ...u, status: u.status === "suspended" ? "active" : "suspended" } : u));
-  const deleteUser = (id) => setUsers(prev => prev.filter(u => u.id !== id));
-
-  const toggleSelect = (id) => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  const allSelected = paginated.length > 0 && paginated.every(u => selected.includes(u.id));
-
-  return (
-    <>
-      <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-black" style={{ color: c.txt }}>Gestion Utilisateurs</h1>
-          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>{users.length} utilisateurs · {users.filter(u => u.status === "pending").length} en attente de validation</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {selected.length > 0 && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl border" style={{ borderColor: c.border }}>
-              <span className="text-xs font-bold" style={{ color: c.txt2 }}>{selected.length} sélectionnés</span>
-              <button onClick={() => selected.forEach(id => suspend(id))}
-                className="text-xs font-bold px-2 py-1 rounded-lg" style={{ background: c.amberLight, color: c.amber }}>
-                Suspendre
-              </button>
-              <button onClick={() => { selected.forEach(id => deleteUser(id)); setSelected([]); }}
-                className="text-xs font-bold px-2 py-1 rounded-lg" style={{ background: c.redLight, color: c.red }}>
-                Supprimer
-              </button>
-            </div>
-          )}
-          <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold"
-            style={{ background: c.blue }}>
-            <Plus size={14} /> Ajouter utilisateur
-          </button>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <Card dk={dk} className="mb-5" style={{ padding: "12px 16px" }}>
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2 flex-1 min-w-52 rounded-xl px-3 py-2" style={{ background: c.blueLight }}>
-            <Search size={14} style={{ color: c.txt3 }} />
-            <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Rechercher par nom, email, wilaya…"
-              className="outline-none text-sm bg-transparent flex-1" style={{ color: c.txt }} />
-          </div>
-          <div className="flex items-center gap-1 flex-wrap">
-            {[["all", "Tous"], ["patient", "Patients"], ["médecin", "Médecins"], ["pharmacien", "Pharmaciens"], ["garde-malade", "Gardes"]].map(([val, label]) => (
-              <button key={val} onClick={() => handleFilterChange(setRoleFilter)(val)}
-                className="px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all"
-                style={{ background: roleFilter === val ? c.blue : "transparent", color: roleFilter === val ? "#fff" : c.txt2, borderColor: roleFilter === val ? c.blue : c.border }}>
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-1 flex-wrap">
-            {[["all", "Tous"], ["active", "Actifs"], ["pending", "En attente"], ["suspended", "Suspendus"]].map(([val, label]) => (
-              <button key={val} onClick={() => handleFilterChange(setStatusFilter)(val)}
-                className="px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all"
-                style={{ background: statusFilter === val ? c.blue : "transparent", color: statusFilter === val ? "#fff" : c.txt2, borderColor: statusFilter === val ? c.blue : c.border }}>
-                {label}
-              </button>
-            ))}
-          </div>
-          <button className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm border transition-all hover:opacity-80"
-            style={{ borderColor: c.border, color: c.txt2 }}>
-            <Download size={13} /> Exporter CSV
-          </button>
-        </div>
-      </Card>
-
-      {/* Table */}
-      <Card dk={dk} style={{ padding: 0, overflow: "hidden" }}>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr style={{ borderBottom: `1px solid ${c.border}`, background: dk ? "rgba(255,255,255,0.02)" : "#FAFBFD" }}>
-                <th className="px-4 py-3">
-                  <input type="checkbox" checked={allSelected}
-                    onChange={() => allSelected ? setSelected([]) : setSelected(paginated.map(u => u.id))}
-                    className="w-4 h-4 rounded" />
-                </th>
-                {["Utilisateur", "Rôle", "Wilaya", "Statut", "Vérifié", "Inscrit le", "Actions"].map(h => (
-                  <th key={h} className="text-left text-xs font-bold uppercase tracking-wide px-4 py-3"
-                    style={{ color: c.txt3 }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {paginated.map(u => {
-                const rm = ROLE_META[u.role] || ROLE_META["patient"];
-                const sm = STATUS_META_LOCAL[u.status] || STATUS_META_LOCAL["active"];
-                return (
-                  <tr key={u.id}
-                    style={{ borderBottom: `1px solid ${c.border}`, background: selected.includes(u.id) ? (dk ? "rgba(74,111,165,0.08)" : "#F0F5FF") : "transparent" }}
-                    onMouseEnter={e => { if (!selected.includes(u.id)) e.currentTarget.style.background = dk ? "rgba(255,255,255,0.02)" : "#FAFBFD"; }}
-                    onMouseLeave={e => { if (!selected.includes(u.id)) e.currentTarget.style.background = selected.includes(u.id) ? (dk ? "rgba(74,111,165,0.08)" : "#F0F5FF") : "transparent"; }}>
-                    <td className="px-4 py-3">
-                      <input type="checkbox" checked={selected.includes(u.id)}
-                        onChange={() => toggleSelect(u.id)} className="w-4 h-4 rounded" />
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0"
-                          style={{ background: rm.color }}>
-                          {u.name.split(" ").map(n => n[0]).slice(0,2).join("")}
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold" style={{ color: c.txt }}>{u.name}</p>
-                          <p className="text-xs" style={{ color: c.txt3 }}>{u.email}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-5 h-5 rounded-md flex items-center justify-center" style={{ background: rm.bg }}>
-                          <rm.icon size={10} style={{ color: rm.color }} />
-                        </div>
-                        <span className="text-xs font-semibold capitalize" style={{ color: c.txt2 }}>{u.role}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm" style={{ color: c.txt2 }}>{u.wilaya}</td>
-                    <td className="px-4 py-3"><Badge color={sm.color} bg={sm.bg}>{sm.label}</Badge></td>
-                    <td className="px-4 py-3">
-                      {u.verified
-                        ? <CheckCircle size={16} style={{ color: c.green }} />
-                        : <XCircle size={16} style={{ color: c.txt3 }} />}
-                    </td>
-                    <td className="px-4 py-3 text-xs" style={{ color: c.txt3 }}>
-                      {new Date(u.joined).toLocaleDateString("fr-FR")}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        {u.status === "pending" && (
-                          <button onClick={() => approve(u.id)}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:opacity-70"
-                            title="Approuver" style={{ background: c.greenLight }}>
-                            <Check size={13} style={{ color: c.green }} />
-                          </button>
-                        )}
-                        <button onClick={() => suspend(u.id)}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center border transition-all hover:opacity-70"
-                          title={u.status === "suspended" ? "Réactiver" : "Suspendre"}
-                          style={{ borderColor: c.border, color: u.status === "suspended" ? c.green : c.amber }}>
-                          {u.status === "suspended" ? <Unlock size={12} /> : <Lock size={12} />}
-                        </button>
-                        <button onClick={() => deleteUser(u.id)}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center border transition-all hover:opacity-70"
-                          title="Supprimer" style={{ borderColor: c.border, color: c.red }}>
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {filtered.length === 0 && (
-            <div className="py-16 text-center">
-              <Users size={36} className="mx-auto mb-3" style={{ color: c.txt3 }} />
-              <p style={{ color: c.txt3 }}>Aucun utilisateur trouvé</p>
-            </div>
-          )}
-        </div>
-        {/* Pagination */}
-        <div className="flex items-center justify-between px-4 py-3 border-t" style={{ borderColor: c.border }}>
-          <p className="text-xs" style={{ color: c.txt3 }}>
-            {filtered.length === 0 ? "Aucun résultat" : `${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, filtered.length)} sur ${filtered.length} utilisateurs`}
-          </p>
-          <div className="flex gap-1">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-              className="w-8 h-8 rounded-lg text-xs font-bold transition-all disabled:opacity-30"
-              style={{ color: c.txt3 }}>‹</button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-              <button key={p} onClick={() => setPage(p)}
-                className="w-8 h-8 rounded-lg text-xs font-bold transition-all"
-                style={{ background: p === page ? c.blue : "transparent", color: p === page ? "#fff" : c.txt3 }}>
-                {p}
-              </button>
-            ))}
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-              className="w-8 h-8 rounded-lg text-xs font-bold transition-all disabled:opacity-30"
-              style={{ color: c.txt3 }}>›</button>
-          </div>
-        </div>
-      </Card>
-    </>
-  );
-}
-
-// ─── PAGE: VALIDATION DES INSCRIPTIONS ───────────────────────────────────────
+// ─── PENDING PROS (validation mock) ─────────────────────────────────────────
 const PENDING_PROS = [
   {
-    id: 1, name: "Dr. Ramzi Boudiaf", role: "médecin", specialty: "Cardiologie",
-    wilaya: "Alger", email: "ramzi.boudiaf@email.dz", phone: "+213 550 12 34 56",
-    submittedAt: "2026-04-03", initials: "RB", color: "#2D8C6F",
+    id: 1,
+    name: "Dr. Ramzi Boudiaf",
+    role: "médecin",
+    specialty: "Cardiologie",
+    wilaya: "Alger",
+    email: "ramzi.boudiaf@email.dz",
+    phone: "+213 550 12 34 56",
+    submittedAt: "2026-04-03",
+    initials: "RB",
+    color: "#2D8C6F",
     docs: [
       { label: "Diplôme de médecine", key: "diplome" },
       { label: "Ordre des médecins", key: "ordre" },
@@ -604,9 +385,16 @@ const PENDING_PROS = [
     ],
   },
   {
-    id: 2, name: "Pharmacie Al Amal", role: "pharmacien", specialty: "Pharmacie",
-    wilaya: "Oran", email: "alalampharm@email.dz", phone: "+213 561 98 76 54",
-    submittedAt: "2026-04-02", initials: "PA", color: "#E8A838",
+    id: 2,
+    name: "Pharmacie Al Amal",
+    role: "pharmacien",
+    specialty: "Pharmacie",
+    wilaya: "Oran",
+    email: "alalampharm@email.dz",
+    phone: "+213 561 98 76 54",
+    submittedAt: "2026-04-02",
+    initials: "PA",
+    color: "#E8A838",
     docs: [
       { label: "Registre du commerce", key: "registre" },
       { label: "Licence d'exploitation", key: "licence" },
@@ -614,9 +402,16 @@ const PENDING_PROS = [
     ],
   },
   {
-    id: 3, name: "Amira Djoudi", role: "garde-malade", specialty: "Soins à domicile",
-    wilaya: "Constantine", email: "amira.djoudi@email.dz", phone: "+213 540 55 66 77",
-    submittedAt: "2026-04-04", initials: "AD", color: "#7B5EA7",
+    id: 3,
+    name: "Amira Djoudi",
+    role: "garde-malade",
+    specialty: "Soins à domicile",
+    wilaya: "Constantine",
+    email: "amira.djoudi@email.dz",
+    phone: "+213 540 55 66 77",
+    submittedAt: "2026-04-04",
+    initials: "AD",
+    color: "#7B5EA7",
     docs: [
       { label: "Certificat de formation", key: "certif" },
       { label: "Pièce d'identité", key: "cni" },
@@ -624,28 +419,496 @@ const PENDING_PROS = [
   },
 ];
 
+// ─── MOCK APPOINTMENTS ────────────────────────────────────────────────────────
+const MOCK_APPOINTMENTS = [
+  {
+    id: 1,
+    patient: "Samir Hadj",
+    doctor: "Dr. Amel Zerrouk",
+    specialty: "Cardiologie",
+    date: "2026-04-14",
+    time: "09:00–09:30",
+    motif: "Contrôle tension",
+    status: "confirmed",
+  },
+  {
+    id: 2,
+    patient: "Fatima Bensalah",
+    doctor: "Dr. Karim Benali",
+    specialty: "Pédiatrie",
+    date: "2026-04-14",
+    time: "10:00–10:20",
+    motif: "Fièvre persistante",
+    status: "pending",
+  },
+  {
+    id: 3,
+    patient: "Omar Meziani",
+    doctor: "Dr. Sarah Smith",
+    specialty: "Dermatologie",
+    date: "2026-04-13",
+    time: "14:30–15:00",
+    motif: "Éruption cutanée",
+    status: "completed",
+  },
+  {
+    id: 4,
+    patient: "Nadia Boumediene",
+    doctor: "Dr. Ramzi Boudiaf",
+    specialty: "Gynécologie",
+    date: "2026-04-12",
+    time: "11:00–11:30",
+    motif: "Suivi grossesse",
+    status: "completed",
+  },
+  {
+    id: 5,
+    patient: "Yacine Ferhat",
+    doctor: "Dr. Amira Boudali",
+    specialty: "Neurologie",
+    date: "2026-04-15",
+    time: "08:30–09:00",
+    motif: "Migraines répétées",
+    status: "confirmed",
+  },
+  {
+    id: 6,
+    patient: "Leila Rezgui",
+    doctor: "Dr. Amel Zerrouk",
+    specialty: "Cardiologie",
+    date: "2026-04-11",
+    time: "16:00–16:30",
+    motif: "Palpitations",
+    status: "cancelled",
+  },
+  {
+    id: 7,
+    patient: "Hamza Touati",
+    doctor: "Dr. Karim Benali",
+    specialty: "Pédiatrie",
+    date: "2026-04-10",
+    time: "09:30–09:50",
+    motif: "Vaccination",
+    status: "refused",
+  },
+  {
+    id: 8,
+    patient: "Meriem Daoud",
+    doctor: "Dr. Sarah Smith",
+    specialty: "Dermatologie",
+    date: "2026-04-16",
+    time: "15:00–15:30",
+    motif: "Acné sévère",
+    status: "pending",
+  },
+];
+
+const APPT_STATUS = {
+  pending: { label: "En attente", color: "#E8A838", bg: "#FFF8EC" },
+  confirmed: { label: "Confirmé", color: "#4A6FA5", bg: "#EEF3FB" },
+  completed: { label: "Terminé", color: "#2D8C6F", bg: "#EEF8F4" },
+  cancelled: { label: "Annulé", color: "#9AACBE", bg: "#F0F4F8" },
+  refused: { label: "Refusé", color: "#E05555", bg: "#FFF0F0" },
+};
+
+// ─── MOCK MEDICATIONS ─────────────────────────────────────────────────────────
+const MOCK_MEDICATIONS = [
+  {
+    id: "1",
+    name: "Amoxicilline",
+    molecule: "Amoxicilline trihydrate",
+    category: "antibiotic",
+    form: "Comprimé",
+    dosage_forms: ["250mg", "500mg", "1g"],
+    price_dzd: 180,
+    cnas_covered: true,
+    requires_prescription: true,
+    manufacturer: "Saidal",
+    is_active: true,
+  },
+  {
+    id: "2",
+    name: "Paracétamol Sandoz",
+    molecule: "Paracétamol",
+    category: "analgesic",
+    form: "Comprimé",
+    dosage_forms: ["500mg", "1g"],
+    price_dzd: 90,
+    cnas_covered: true,
+    requires_prescription: false,
+    manufacturer: "Sandoz",
+    is_active: true,
+  },
+  {
+    id: "3",
+    name: "Amlodipine",
+    molecule: "Amlodipine bésylate",
+    category: "cardio",
+    form: "Comprimé",
+    dosage_forms: ["5mg", "10mg"],
+    price_dzd: 320,
+    cnas_covered: true,
+    requires_prescription: true,
+    manufacturer: "Pfizer",
+    is_active: true,
+  },
+  {
+    id: "4",
+    name: "Metformine",
+    molecule: "Metformine HCl",
+    category: "diabetes",
+    form: "Comprimé",
+    dosage_forms: ["500mg", "850mg", "1g"],
+    price_dzd: 210,
+    cnas_covered: true,
+    requires_prescription: true,
+    manufacturer: "Saidal",
+    is_active: true,
+  },
+  {
+    id: "5",
+    name: "Ibuprofène",
+    molecule: "Ibuprofène",
+    category: "anti_inflam",
+    form: "Comprimé",
+    dosage_forms: ["200mg", "400mg", "600mg"],
+    price_dzd: 120,
+    cnas_covered: false,
+    requires_prescription: false,
+    manufacturer: "Bayer",
+    is_active: true,
+  },
+  {
+    id: "6",
+    name: "Oméprazole",
+    molecule: "Oméprazole",
+    category: "gastro",
+    form: "Gélule",
+    dosage_forms: ["20mg", "40mg"],
+    price_dzd: 280,
+    cnas_covered: true,
+    requires_prescription: true,
+    manufacturer: "AstraZeneca",
+    is_active: true,
+  },
+  {
+    id: "7",
+    name: "Sertraline",
+    molecule: "Sertraline HCl",
+    category: "neuro",
+    form: "Comprimé",
+    dosage_forms: ["50mg", "100mg"],
+    price_dzd: 450,
+    cnas_covered: true,
+    requires_prescription: true,
+    manufacturer: "Pfizer",
+    is_active: true,
+  },
+  {
+    id: "8",
+    name: "Doliprane",
+    molecule: "Paracétamol",
+    category: "analgesic",
+    form: "Sirop",
+    dosage_forms: ["150mg/5ml"],
+    price_dzd: 140,
+    cnas_covered: false,
+    requires_prescription: false,
+    manufacturer: "Sanofi",
+    is_active: true,
+  },
+  {
+    id: "9",
+    name: "Lisinopril",
+    molecule: "Lisinopril",
+    category: "cardio",
+    form: "Comprimé",
+    dosage_forms: ["5mg", "10mg", "20mg"],
+    price_dzd: 380,
+    cnas_covered: true,
+    requires_prescription: true,
+    manufacturer: "Merck",
+    is_active: true,
+  },
+  {
+    id: "10",
+    name: "Ciprofloxacine",
+    molecule: "Ciprofloxacine HCl",
+    category: "antibiotic",
+    form: "Comprimé",
+    dosage_forms: ["250mg", "500mg", "750mg"],
+    price_dzd: 520,
+    cnas_covered: true,
+    requires_prescription: true,
+    manufacturer: "Bayer",
+    is_active: true,
+  },
+];
+
+const MED_CATEGORY = {
+  cardio: { label: "Cardiologie", color: "#E05555", bg: "#FFF0F0" },
+  diabetes: { label: "Diabétologie", color: "#E8A838", bg: "#FFF8EC" },
+  antibiotic: { label: "Antibiotique", color: "#4A6FA5", bg: "#EEF3FB" },
+  analgesic: { label: "Analgésique", color: "#2D8C6F", bg: "#EEF8F4" },
+  anti_inflam: { label: "Anti-inflammatoire", color: "#7B5EA7", bg: "#F3EEFF" },
+  gastro: { label: "Gastro-entérologie", color: "#E8A838", bg: "#FFF8EC" },
+  neuro: { label: "Neurologie", color: "#4A6FA5", bg: "#EEF3FB" },
+  other: { label: "Autre", color: "#9AACBE", bg: "#F0F4F8" },
+};
+
+// ─── MOCK PHARMACIES & ORDERS ────────────────────────────────────────────────
+const MOCK_PHARMACIES = [
+  {
+    id: 1,
+    name: "Pharmacie El Shifa",
+    pharmacist: "Dr. Amira Benali",
+    city: "Alger",
+    wilaya: "Alger",
+    phone: "+213 21 45 67 89",
+    is_verified: true,
+    stock_count: 312,
+  },
+  {
+    id: 2,
+    name: "Pharmacie Al Amal",
+    pharmacist: "Dr. Karim Ouaret",
+    city: "Oran",
+    wilaya: "Oran",
+    phone: "+213 41 23 45 67",
+    is_verified: true,
+    stock_count: 198,
+  },
+  {
+    id: 3,
+    name: "Pharmacie Rahma",
+    pharmacist: "Mme. Fatima Bensalah",
+    city: "Annaba",
+    wilaya: "Annaba",
+    phone: "+213 38 56 78 90",
+    is_verified: false,
+    stock_count: 0,
+  },
+  {
+    id: 4,
+    name: "Pharmacie Saha",
+    pharmacist: "Dr. Mohamed Zerrouk",
+    city: "Constantine",
+    wilaya: "Constantine",
+    phone: "+213 31 98 76 54",
+    is_verified: true,
+    stock_count: 245,
+  },
+  {
+    id: 5,
+    name: "Pharmacie Chifa",
+    pharmacist: "Dr. Lynda Touati",
+    city: "Blida",
+    wilaya: "Blida",
+    phone: "+213 25 12 34 56",
+    is_verified: true,
+    stock_count: 178,
+  },
+];
+
+const MOCK_ORDERS = [
+  {
+    id: "ORD-001",
+    patient: "Samir Hadj",
+    pharmacy: "Pharmacie El Shifa",
+    type: "prescription",
+    status: "preparing",
+    total: 1250,
+    created: "2026-04-14",
+  },
+  {
+    id: "ORD-002",
+    patient: "Nadia Boumediene",
+    pharmacy: "Pharmacie Al Amal",
+    type: "direct",
+    status: "ready",
+    total: 450,
+    created: "2026-04-14",
+  },
+  {
+    id: "ORD-003",
+    patient: "Omar Meziani",
+    pharmacy: "Pharmacie Saha",
+    type: "prescription",
+    status: "pending",
+    total: 890,
+    created: "2026-04-13",
+  },
+  {
+    id: "ORD-004",
+    patient: "Leila Rezgui",
+    pharmacy: "Pharmacie El Shifa",
+    type: "prescription",
+    status: "delivered",
+    total: 2100,
+    created: "2026-04-12",
+  },
+  {
+    id: "ORD-005",
+    patient: "Hamza Touati",
+    pharmacy: "Pharmacie Chifa",
+    type: "direct",
+    status: "cancelled",
+    total: 320,
+    created: "2026-04-11",
+  },
+];
+
+const ORDER_STATUS = {
+  pending: { label: "En attente", color: "#E8A838", bg: "#FFF8EC" },
+  preparing: { label: "Préparation", color: "#4A6FA5", bg: "#EEF3FB" },
+  ready: { label: "Prête", color: "#2D8C6F", bg: "#EEF8F4" },
+  delivered: { label: "Livrée", color: "#9AACBE", bg: "#F0F4F8" },
+  cancelled: { label: "Annulée", color: "#E05555", bg: "#FFF0F0" },
+};
+
+// ─── MOCK CARETAKERS ─────────────────────────────────────────────────────────
+const MOCK_CARETAKERS = [
+  {
+    id: 1,
+    name: "Nadia Boumediene",
+    city: "Béjaïa",
+    experience_years: 5,
+    is_verified: true,
+    is_available: true,
+    services: ["Soins post-op", "Injection", "Perfusion"],
+    rating: 4.8,
+  },
+  {
+    id: 2,
+    name: "Amira Djoudi",
+    city: "Constantine",
+    experience_years: 3,
+    is_verified: false,
+    is_available: true,
+    services: ["Soins à domicile", "Aide médicale"],
+    rating: 0,
+  },
+  {
+    id: 3,
+    name: "Sofiane Belkacemi",
+    city: "Alger",
+    experience_years: 7,
+    is_verified: true,
+    is_available: false,
+    services: ["Perfusion", "Suivi post-op", "Prise de sang"],
+    rating: 4.5,
+  },
+  {
+    id: 4,
+    name: "Yasmine Hadjadj",
+    city: "Oran",
+    experience_years: 4,
+    is_verified: true,
+    is_available: true,
+    services: ["Injection", "Soins de plaie"],
+    rating: 4.2,
+  },
+  {
+    id: 5,
+    name: "Karim Bouziane",
+    city: "Blida",
+    experience_years: 2,
+    is_verified: true,
+    is_available: true,
+    services: ["Aide médicale", "Soins à domicile"],
+    rating: 4.0,
+  },
+];
+
+const MOCK_CARE_REQUESTS = [
+  {
+    id: "CR-001",
+    patient: "Samir Hadj",
+    caretaker: "Nadia Boumediene",
+    status: "accepted",
+    start: "2026-04-10",
+    end: "2026-04-20",
+    message: "Soins post-opératoires genou droit",
+  },
+  {
+    id: "CR-002",
+    patient: "Fatima Bensalah",
+    caretaker: "Yasmine Hadjadj",
+    status: "pending",
+    start: "2026-04-15",
+    end: null,
+    message: "Injections quotidiennes insuline",
+  },
+  {
+    id: "CR-003",
+    patient: "Omar Meziani",
+    caretaker: "Karim Bouziane",
+    status: "completed",
+    start: "2026-03-01",
+    end: "2026-03-15",
+    message: "Aide médicale après AVC",
+  },
+  {
+    id: "CR-004",
+    patient: "Leila Rezgui",
+    caretaker: "Sofiane Belkacemi",
+    status: "cancelled",
+    start: "2026-04-08",
+    end: null,
+    message: "Perfusion à domicile",
+  },
+  {
+    id: "CR-005",
+    patient: "Hamza Touati",
+    caretaker: "Nadia Boumediene",
+    status: "accepted",
+    start: "2026-04-12",
+    end: "2026-04-25",
+    message: "Suivi post-hospitalisation",
+  },
+];
+
+const CARE_STATUS = {
+  pending: { label: "En attente", color: "#E8A838", bg: "#FFF8EC" },
+  accepted: { label: "Acceptée", color: "#2D8C6F", bg: "#EEF8F4" },
+  rejected: { label: "Refusée", color: "#E05555", bg: "#FFF0F0" },
+  completed: { label: "Terminée", color: "#9AACBE", bg: "#F0F4F8" },
+  cancelled: { label: "Annulée", color: "#E05555", bg: "#FFF0F0" },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE: VALIDATION (kept here until migrated to views/)
+// ─────────────────────────────────────────────────────────────────────────────
 function ValidationPage({ dk, onCountChange }) {
-  const c = dk ? T.dark : T.light;
+  const c = getAdminTheme(dk);
   const [pending, setPending] = useState(PENDING_PROS);
   const [loading, setLoading] = useState(true);
-  const [history, setHistory] = useState([]); // { ...pro, decision: "approved"|"rejected" }
+  const [history, setHistory] = useState([]);
+  const [docModal, setDocModal] = useState(null);
+  const [rejectModal, setRejectModal] = useState(null); // { pro } | null
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejecting, setRejecting] = useState(false);
 
   useEffect(() => {
-    api.getPendingDoctors()
-      .then(data => {
+    api
+      .getPendingDoctors()
+      .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
-          const normalized = data.map(d => ({
+          const normalized = data.map((d) => ({
             id: d.id,
-            name: `${d.first_name || ""} ${d.last_name || ""}`.trim() || d.name || "—",
+            name: `${d.first_name || ""} ${d.last_name || ""}`.trim() || "—",
             role: d.role || "médecin",
-            specialty: d.specialty || d.specialite || "—",
+            specialty: d.specialty || "—",
             wilaya: d.wilaya || d.city || "—",
             email: d.email || "—",
             phone: d.phone || "—",
-            submittedAt: d.created_at?.slice(0, 10) || d.submittedAt || "—",
-            initials: ((d.first_name?.[0] || "") + (d.last_name?.[0] || "")).toUpperCase() || "??",
+            submittedAt: d.date_joined?.slice(0, 10) || "—",
+            initials:
+              (
+                (d.first_name?.[0] || "") + (d.last_name?.[0] || "")
+              ).toUpperCase() || "??",
             color: "#4A6FA5",
-            docs: d.docs || [],
+            docs: d.submitted_documents || [],
           }));
           setPending(normalized);
           if (onCountChange) onCountChange(normalized.length);
@@ -654,136 +917,335 @@ function ValidationPage({ dk, onCountChange }) {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
-  const [docModal, setDocModal] = useState(null); // { pro, doc }
 
-  const approve = (id) => {
-    const pro = pending.find(p => p.id === id);
-    const next = pending.filter(p => p.id !== id);
+  const approve = async (id) => {
+    try {
+      await api.verifyUser(id);
+    } catch {}
+    const pro = pending.find((p) => p.id === id);
+    const next = pending.filter((p) => p.id !== id);
     setPending(next);
     if (onCountChange) onCountChange(next.length);
-    setHistory(prev => [{ ...pro, decision: "approved", decidedAt: new Date().toLocaleDateString("fr-FR") }, ...prev]);
+    setHistory((prev) => [
+      {
+        ...pro,
+        decision: "approved",
+        decidedAt: new Date().toLocaleDateString("fr-FR"),
+      },
+      ...prev,
+    ]);
   };
-  const reject = (id) => {
-    const pro = pending.find(p => p.id === id);
-    const next = pending.filter(p => p.id !== id);
+
+  const openRejectModal = (pro) => {
+    setRejectReason("");
+    setRejectModal(pro);
+  };
+
+  const confirmReject = async () => {
+    if (!rejectModal) return;
+    const id = rejectModal.id;
+    const reason = rejectReason.trim() || "Documents insuffisants";
+    setRejecting(true);
+    try {
+      await api.rejectUser(id, reason);
+    } catch {}
+    const pro = pending.find((p) => p.id === id);
+    const next = pending.filter((p) => p.id !== id);
     setPending(next);
     if (onCountChange) onCountChange(next.length);
-    setHistory(prev => [{ ...pro, decision: "rejected", decidedAt: new Date().toLocaleDateString("fr-FR") }, ...prev]);
+    setHistory((prev) => [
+      {
+        ...pro,
+        decision: "rejected",
+        reason,
+        decidedAt: new Date().toLocaleDateString("fr-FR"),
+      },
+      ...prev,
+    ]);
+    setRejectModal(null);
+    setRejecting(false);
   };
 
   const roleMeta = {
-    "médecin":     { color: "#2D8C6F", bg: "#2D8C6F18", label: "Médecin" },
-    "pharmacien":  { color: "#E8A838", bg: "#E8A83818", label: "Pharmacien" },
-    "garde-malade":{ color: "#7B5EA7", bg: "#7B5EA718", label: "Garde-malade" },
+    médecin: { color: "#2D8C6F", bg: "#2D8C6F18", label: "Médecin" },
+    pharmacien: { color: "#E8A838", bg: "#E8A83818", label: "Pharmacien" },
+    "garde-malade": {
+      color: "#7B5EA7",
+      bg: "#7B5EA718",
+      label: "Garde-malade",
+    },
+    doctor: { color: "#2D8C6F", bg: "#2D8C6F18", label: "Médecin" },
+    pharmacist: { color: "#E8A838", bg: "#E8A83818", label: "Pharmacien" },
+    caretaker: { color: "#7B5EA7", bg: "#7B5EA718", label: "Garde-malade" },
   };
 
   return (
     <>
-      {/* Document preview modal */}
-      {docModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      {/* ── Modal rejet avec motif ── */}
+      {rejectModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)" }}
-          onClick={e => { if (e.target === e.currentTarget) setDocModal(null); }}>
-          <div className="rounded-2xl w-full max-w-md p-8 border text-center"
-            style={{ background: c.card, borderColor: c.border }}>
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-              style={{ background: c.blueLight }}>
-              <FileText size={28} style={{ color: c.blue }} />
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !rejecting)
+              setRejectModal(null);
+          }}
+        >
+          <div
+            className="rounded-2xl w-full max-w-md p-8 border"
+            style={{ background: c.card, borderColor: c.border }}
+          >
+            <div
+              className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              style={{ background: c.red + "18" }}
+            >
+              <X size={24} style={{ color: c.red }} />
             </div>
-            <h2 className="text-lg font-bold mb-1" style={{ color: c.txt }}>{docModal.doc.label}</h2>
-            <p className="text-sm mb-6" style={{ color: c.txt3 }}>Soumis par {docModal.pro.name}</p>
-            <div className="rounded-xl border p-6 mb-6 flex flex-col items-center gap-2"
-              style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border }}>
-              <FileText size={40} style={{ color: c.txt3 }} />
-              <p className="text-sm font-medium" style={{ color: c.txt2 }}>document_{docModal.doc.key}.pdf</p>
-              <p className="text-xs" style={{ color: c.txt3 }}>Aperçu non disponible en mode démo</p>
-            </div>
+            <h2
+              className="text-lg font-bold text-center mb-1"
+              style={{ color: c.txt }}
+            >
+              Rejeter la demande
+            </h2>
+            <p className="text-sm text-center mb-6" style={{ color: c.txt3 }}>
+              {rejectModal.name} · {rejectModal.specialty}
+            </p>
+            <label
+              className="block text-xs font-bold uppercase tracking-wide mb-2"
+              style={{ color: c.txt3 }}
+            >
+              Motif du rejet
+            </label>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Ex : Documents illisibles, diplôme non reconnu, informations manquantes…"
+              rows={4}
+              disabled={rejecting}
+              className="w-full rounded-xl border p-3 text-sm resize-none outline-none transition-all"
+              style={{
+                background: dk ? "#1A2333" : "#F8FAFC",
+                borderColor: c.border,
+                color: c.txt,
+                fontFamily: "inherit",
+              }}
+            />
+            <p className="text-xs mt-1 mb-5" style={{ color: c.txt3 }}>
+              Laissez vide pour utiliser le motif par défaut.
+            </p>
             <div className="flex gap-3">
-              <button onClick={() => setDocModal(null)}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold border"
-                style={{ borderColor: c.border, color: c.txt2 }}>
-                Fermer
+              <button
+                onClick={() => setRejectModal(null)}
+                disabled={rejecting}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold border transition-all hover:opacity-80 disabled:opacity-50"
+                style={{ borderColor: c.border, color: c.txt2 }}
+              >
+                Annuler
               </button>
-              <button className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white"
-                style={{ background: c.blue }}>
-                Télécharger
+              <button
+                onClick={confirmReject}
+                disabled={rejecting}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-60"
+                style={{ background: c.red }}
+              >
+                {rejecting ? (
+                  <RefreshCw size={14} className="animate-spin" />
+                ) : (
+                  <X size={14} />
+                )}
+                Confirmer le rejet
               </button>
             </div>
           </div>
         </div>
       )}
 
+      {docModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)" }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDocModal(null);
+          }}
+        >
+          <div
+            className="rounded-2xl w-full max-w-md p-8 border text-center"
+            style={{ background: c.card, borderColor: c.border }}
+          >
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              style={{ background: c.blueLight }}
+            >
+              <FileText size={28} style={{ color: c.blue }} />
+            </div>
+            <h2 className="text-lg font-bold mb-1" style={{ color: c.txt }}>
+              {docModal.doc.label || docModal.doc.title}
+            </h2>
+            <p className="text-sm mb-6" style={{ color: c.txt3 }}>
+              Soumis par {docModal.pro.name}
+            </p>
+            <div
+              className="rounded-xl border p-6 mb-6 flex flex-col items-center gap-2"
+              style={{
+                background: dk ? "#1A2333" : "#F8FAFC",
+                borderColor: c.border,
+              }}
+            >
+              {docModal.doc.url ? (
+                <a
+                  href={docModal.doc.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm font-semibold hover:underline"
+                  style={{ color: c.blue }}
+                >
+                  Ouvrir le document ↗
+                </a>
+              ) : (
+                <>
+                  <FileText size={40} style={{ color: c.txt3 }} />
+                  <p className="text-xs" style={{ color: c.txt3 }}>
+                    Aperçu non disponible
+                  </p>
+                </>
+              )}
+            </div>
+            <button
+              onClick={() => setDocModal(null)}
+              className="w-full py-2.5 rounded-xl text-sm font-bold border"
+              style={{ borderColor: c.border, color: c.txt2 }}
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-black" style={{ color: c.txt }}>Validation des inscriptions</h1>
+          <h1 className="text-2xl font-black" style={{ color: c.txt }}>
+            Validation des inscriptions
+          </h1>
           <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
-            {pending.length} professionnel{pending.length !== 1 ? "s" : ""} en attente · {history.length} traité{history.length !== 1 ? "s" : ""}
+            {pending.length} professionnel{pending.length !== 1 ? "s" : ""} en
+            attente · {history.length} traité{history.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 rounded-xl border font-bold text-sm"
-          style={{ background: c.amberLight, borderColor: c.amber + "40", color: c.amber }}>
+        <div
+          className="flex items-center gap-2 px-4 py-2 rounded-xl border font-bold text-sm"
+          style={{
+            background: c.amberLight,
+            borderColor: c.amber + "40",
+            color: c.amber,
+          }}
+        >
           <Clock size={15} /> {pending.length} en attente
         </div>
       </div>
 
-      {/* Pending list */}
       {pending.length === 0 ? (
         <Card dk={dk} style={{ padding: 48, textAlign: "center" }}>
-          <CheckCircle size={40} style={{ color: c.green, margin: "0 auto 16px" }} />
-          <p className="text-lg font-bold" style={{ color: c.txt }}>Toutes les demandes ont été traitées</p>
-          <p className="text-sm mt-1" style={{ color: c.txt3 }}>Aucune inscription en attente pour le moment.</p>
+          <CheckCircle
+            size={40}
+            style={{ color: c.green, margin: "0 auto 16px" }}
+          />
+          <p className="text-lg font-bold" style={{ color: c.txt }}>
+            Toutes les demandes ont été traitées
+          </p>
+          <p className="text-sm mt-1" style={{ color: c.txt3 }}>
+            Aucune inscription en attente pour le moment.
+          </p>
         </Card>
       ) : (
         <div className="space-y-4 mb-8">
-          {pending.map(pro => {
-            const meta = roleMeta[pro.role] || { color: c.blue, bg: c.blueLight, label: pro.role };
+          {pending.map((pro) => {
+            const meta = roleMeta[pro.role] || {
+              color: c.blue,
+              bg: c.blueLight,
+              label: pro.role,
+            };
             return (
               <Card key={pro.id} dk={dk} style={{ padding: 24 }}>
                 <div className="flex flex-col lg:flex-row lg:items-center gap-6">
-                  {/* Identity */}
                   <div className="flex items-center gap-4 shrink-0">
-                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-lg shrink-0"
-                      style={{ background: pro.color }}>
+                    <div
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-lg shrink-0"
+                      style={{ background: pro.color }}
+                    >
                       {pro.initials}
                     </div>
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-base font-bold" style={{ color: c.txt }}>{pro.name}</h3>
-                        <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: meta.bg, color: meta.color }}>{meta.label}</span>
+                        <h3
+                          className="text-base font-bold"
+                          style={{ color: c.txt }}
+                        >
+                          {pro.name}
+                        </h3>
+                        <span
+                          className="text-xs font-bold px-2 py-0.5 rounded-full"
+                          style={{ background: meta.bg, color: meta.color }}
+                        >
+                          {meta.label}
+                        </span>
                       </div>
-                      <p className="text-sm mt-0.5" style={{ color: c.txt3 }}>{pro.specialty} · {pro.wilaya}</p>
-                      <p className="text-xs mt-1" style={{ color: c.txt3 }}>{pro.email} · {pro.phone}</p>
-                      <p className="text-[10px] mt-1 font-semibold uppercase tracking-wide" style={{ color: c.txt3 }}>
+                      <p className="text-sm mt-0.5" style={{ color: c.txt3 }}>
+                        {pro.specialty} · {pro.wilaya}
+                      </p>
+                      <p className="text-xs mt-1" style={{ color: c.txt3 }}>
+                        {pro.email} · {pro.phone}
+                      </p>
+                      <p
+                        className="text-[10px] mt-1 font-semibold uppercase tracking-wide"
+                        style={{ color: c.txt3 }}
+                      >
                         Soumis le {pro.submittedAt}
                       </p>
                     </div>
                   </div>
-
-                  {/* Documents */}
                   <div className="flex-1">
-                    <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>Documents soumis</p>
+                    <p
+                      className="text-xs font-bold uppercase tracking-wide mb-2"
+                      style={{ color: c.txt3 }}
+                    >
+                      Documents soumis
+                    </p>
                     <div className="flex flex-wrap gap-2">
-                      {pro.docs.map(doc => (
-                        <button key={doc.key}
+                      {(pro.docs || []).map((doc, i) => (
+                        <button
+                          key={i}
                           onClick={() => setDocModal({ pro, doc })}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all hover:opacity-80"
-                          style={{ background: c.blueLight, borderColor: c.blue + "30", color: c.blue }}>
-                          <FileText size={12} /> {doc.label}
+                          style={{
+                            background: c.blueLight,
+                            borderColor: c.blue + "30",
+                            color: c.blue,
+                          }}
+                        >
+                          <FileText size={12} />{" "}
+                          {doc.label || doc.title || "Document"}
                         </button>
                       ))}
+                      {(pro.docs || []).length === 0 && (
+                        <span className="text-xs" style={{ color: c.txt3 }}>
+                          Aucun document soumis
+                        </span>
+                      )}
                     </div>
                   </div>
-
-                  {/* Actions */}
                   <div className="flex items-center gap-3 shrink-0">
-                    <button onClick={() => approve(pro.id)}
+                    <button
+                      onClick={() => approve(pro.id)}
                       className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95"
-                      style={{ background: c.green }}>
+                      style={{ background: c.green }}
+                    >
                       <Check size={15} /> Approuver
                     </button>
-                    <button onClick={() => reject(pro.id)}
+                    <button
+                      onClick={() => openRejectModal(pro)}
                       className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95"
-                      style={{ background: c.red }}>
+                      style={{ background: c.red }}
+                    >
                       <X size={15} /> Rejeter
                     </button>
                   </div>
@@ -794,30 +1256,72 @@ function ValidationPage({ dk, onCountChange }) {
         </div>
       )}
 
-      {/* History */}
       {history.length > 0 && (
         <>
-          <h2 className="text-base font-bold mb-4" style={{ color: c.txt }}>Historique des décisions</h2>
+          <h2 className="text-base font-bold mb-4" style={{ color: c.txt }}>
+            Historique des décisions
+          </h2>
           <div className="space-y-3">
             {history.map((pro, i) => {
-              const meta = roleMeta[pro.role] || { color: c.blue, bg: c.blueLight, label: pro.role };
+              const meta = roleMeta[pro.role] || {
+                color: c.blue,
+                bg: c.blueLight,
+                label: pro.role,
+              };
               const approved = pro.decision === "approved";
               return (
-                <div key={i} className="flex items-center justify-between p-4 rounded-2xl border"
-                  style={{ background: approved ? c.greenLight : c.redLight, borderColor: (approved ? c.green : c.red) + "30" }}>
+                <div
+                  key={i}
+                  className="flex items-center justify-between p-4 rounded-2xl border"
+                  style={{
+                    background: approved ? c.greenLight : c.redLight,
+                    borderColor: (approved ? c.green : c.red) + "30",
+                  }}
+                >
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0"
-                      style={{ background: pro.color }}>{pro.initials}</div>
+                    <div
+                      className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0"
+                      style={{ background: pro.color }}
+                    >
+                      {pro.initials}
+                    </div>
                     <div>
-                      <p className="text-sm font-bold" style={{ color: c.txt }}>{pro.name}</p>
-                      <p className="text-xs" style={{ color: c.txt3 }}>{meta.label} · {pro.wilaya}</p>
+                      <p className="text-sm font-bold" style={{ color: c.txt }}>
+                        {pro.name}
+                      </p>
+                      <p className="text-xs" style={{ color: c.txt3 }}>
+                        {meta.label} · {pro.wilaya}
+                      </p>
+                      {!approved && pro.reason && (
+                        <p
+                          className="text-xs mt-0.5 italic"
+                          style={{ color: c.txt3 }}
+                        >
+                          Motif : {pro.reason}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-xs" style={{ color: c.txt3 }}>{pro.decidedAt}</span>
-                    <span className="flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full"
-                      style={{ background: approved ? c.green + "18" : c.red + "18", color: approved ? c.green : c.red }}>
-                      {approved ? <><Check size={11} /> Approuvé</> : <><X size={11} /> Rejeté</>}
+                    <span className="text-xs" style={{ color: c.txt3 }}>
+                      {pro.decidedAt}
+                    </span>
+                    <span
+                      className="flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full"
+                      style={{
+                        background: approved ? c.green + "18" : c.red + "18",
+                        color: approved ? c.green : c.red,
+                      }}
+                    >
+                      {approved ? (
+                        <>
+                          <Check size={11} /> Approuvé
+                        </>
+                      ) : (
+                        <>
+                          <X size={11} /> Rejeté
+                        </>
+                      )}
                     </span>
                   </div>
                 </div>
@@ -830,28 +1334,2005 @@ function ValidationPage({ dk, onCountChange }) {
   );
 }
 
-// ─── PAGE: AUDIT LOG ──────────────────────────────────────────────────────────
-function AuditPage({ dk }) {
-  const c = dk ? T.dark : T.light;
-  const [logs, setLogs] = useState(AUDIT_LOGS);
-  const [typeFilter, setTypeFilter] = useState("all");
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE: UTILISATEURS  —  HMS Professional Style
+// ─────────────────────────────────────────────────────────────────────────────
 
-  const filtered = typeFilter === "all" ? logs : logs.filter(l => l.type === typeFilter);
+// Deterministic avatar color from name
+function hmsAvatarColor(name = "") {
+  const palette = [
+    "#5B7FFF",
+    "#EF4444",
+    "#10B981",
+    "#A78BFA",
+    "#F59E0B",
+    "#06B6D4",
+    "#EC4899",
+    "#F97316",
+    "#8B5CF6",
+    "#22C55E",
+    "#FF6B6B",
+    "#4ECDC4",
+    "#E879F9",
+    "#34D399",
+  ];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h << 5) - h + name.charCodeAt(i);
+  return palette[Math.abs(h) % palette.length];
+}
+
+// Role pill config
+const USER_ROLE_PILLS = [
+  { value: "all", label: "All" },
+  { value: "admin", label: "Admins" },
+  { value: "doctor", label: "Doctors" },
+  { value: "patient", label: "Patients" },
+  { value: "pharmacist", label: "Pharmacists" },
+  { value: "caretaker", label: "Garde-malades" },
+];
+
+// Status badge config (HMS dark)
+const HMS_USER_STATUS = {
+  active: { label: "Active", color: "#22C55E", bg: "rgba(34,197,94,0.14)" },
+  pending: { label: "Pending", color: "#F59E0B", bg: "rgba(245,158,11,0.14)" },
+  suspended: {
+    label: "Suspended",
+    color: "#EF4444",
+    bg: "rgba(239,68,68,0.14)",
+  },
+};
+
+// Row action dropdown
+function UserRowMenu({ user, onSuspend, dk }) {
+  const c = getAdminTheme(dk);
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  const isSuspended = user.status === "suspended";
+
+  const actions = [
+    {
+      label: "Copy ID",
+      icon: Copy,
+      action: () => navigator.clipboard?.writeText(String(user.id)),
+    },
+    { label: "View", icon: Eye, action: () => {} },
+    { label: "Edit", icon: Pencil, action: () => {} },
+    {
+      label: isSuspended ? "Unban" : "Ban",
+      icon: Lock,
+      danger: true,
+      action: () => onSuspend(user.id),
+    },
+    { label: "Pin Note", icon: Pin, action: () => {} },
+  ];
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        className="w-7 h-7 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-white/10"
+        style={{ color: c.txt3 }}
+      >
+        <MoreHorizontal size={15} />
+      </button>
+      {open && (
+        <div
+          className="absolute right-0 top-8 z-50 rounded-lg border shadow-2xl py-1 w-44 overflow-hidden"
+          style={{
+            background: c.surface,
+            borderColor: c.border,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+          }}
+        >
+          {actions.map(({ label, icon: Icon, action, danger }) => (
+            <button
+              key={label}
+              onClick={() => {
+                action?.();
+                setOpen(false);
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-xs transition-colors hover:bg-white/5"
+              style={{ color: danger ? c.red : c.txt2 }}
+            >
+              <Icon size={13} style={{ opacity: 0.8 }} />
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const HMS_PAGE_SIZE = 10;
+
+function UtilisateursPage({ dk }) {
+  const c = getAdminTheme(dk);
+  const [users, setUsers] = useState(USERS_DATA);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [selected, setSelected] = useState([]);
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    api
+      .getUsers()
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setUsers(
+            data.map((u) => ({
+              id: u.id,
+              name:
+                `${u.first_name || ""} ${u.last_name || ""}`.trim() ||
+                u.email ||
+                "—",
+              email: u.email || "—",
+              role: u.role || "patient",
+              wilaya: u.wilaya || u.city || "—",
+              phone: u.phone || u.phone_number || "—",
+              status:
+                u.is_active === false
+                  ? "suspended"
+                  : u.verification_status === "pending"
+                    ? "pending"
+                    : "active",
+              joined: u.date_joined?.slice(0, 10) || "—",
+              verified: u.verification_status === "verified",
+            })),
+          );
+        }
+      })
+      .catch((err) =>
+        setError(err.message || "Impossible de charger les utilisateurs."),
+      )
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = users.filter((u) => {
+    const q = search.toLowerCase();
+    return (
+      (u.name.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        u.wilaya.toLowerCase().includes(q)) &&
+      (roleFilter === "all" || u.role === roleFilter) &&
+      (statusFilter === "all" || u.status === statusFilter)
+    );
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / HMS_PAGE_SIZE));
+  const paginated = filtered.slice(
+    (page - 1) * HMS_PAGE_SIZE,
+    page * HMS_PAGE_SIZE,
+  );
+  const allSelected =
+    paginated.length > 0 && paginated.every((u) => selected.includes(u.id));
+
+  const suspend = async (id) => {
+    try {
+      await api.toggleSuspendUser(id);
+    } catch {}
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.id === id
+          ? { ...u, status: u.status === "suspended" ? "active" : "suspended" }
+          : u,
+      ),
+    );
+  };
+
+  if (loading)
+    return (
+      <div className="flex items-center justify-center py-32">
+        <RefreshCw
+          size={28}
+          className="animate-spin"
+          style={{ color: c.blue }}
+        />
+      </div>
+    );
+
+  // Pagination range (show max 7 pages, centered on current)
+  const paginationPages = (() => {
+    const delta = 3;
+    const start = Math.max(1, Math.min(page - delta, totalPages - delta * 2));
+    const end = Math.min(totalPages, start + delta * 2);
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  })();
+
+  return (
+    <div style={{ minHeight: "100%" }}>
+      {/* ── Header ── */}
+      <div className="flex items-start justify-between mb-5 gap-4 flex-wrap">
+        <div>
+          <h1
+            className="text-2xl font-bold tracking-tight"
+            style={{ color: c.txt }}
+          >
+            Human Resources
+          </h1>
+          <p className="text-sm mt-0.5" style={{ color: c.txt3 }}>
+            {filtered.length} total user{filtered.length !== 1 ? "s" : ""}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Search */}
+          <div
+            className="flex items-center gap-2 px-3 py-2 rounded-lg border"
+            style={{ background: c.surface, borderColor: c.border, width: 240 }}
+          >
+            <Search size={14} style={{ color: c.txt3, flexShrink: 0 }} />
+            <input
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              placeholder="Search..."
+              className="outline-none text-sm bg-transparent flex-1 min-w-0"
+              style={{ color: c.txt }}
+            />
+          </div>
+          {/* Status filter */}
+          <div
+            className="flex items-center gap-2 px-3 py-2 rounded-lg border"
+            style={{ background: c.surface, borderColor: c.border }}
+          >
+            <span className="text-xs" style={{ color: c.txt3 }}>
+              Status:
+            </span>
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+              className="outline-none text-xs bg-transparent"
+              style={{ color: c.txt2, cursor: "pointer" }}
+            >
+              <option value="all" style={{ background: c.surface }}>
+                All
+              </option>
+              <option value="active" style={{ background: c.surface }}>
+                Active
+              </option>
+              <option value="pending" style={{ background: c.surface }}>
+                Pending
+              </option>
+              <option value="suspended" style={{ background: c.surface }}>
+                Suspended
+              </option>
+            </select>
+          </div>
+          {/* + New User */}
+          <button
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors hover:opacity-90"
+            style={{ background: c.blue }}
+          >
+            <Plus size={15} /> New User
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div
+          className="flex items-center gap-3 px-4 py-3 rounded-lg border mb-4 text-sm"
+          style={{
+            background: c.redBg,
+            borderColor: c.red + "30",
+            color: c.red,
+          }}
+        >
+          <AlertTriangle size={15} />
+          {error}
+          <button
+            onClick={() => setError(null)}
+            className="ml-auto"
+            style={{ color: c.red }}
+          >
+            <X size={15} />
+          </button>
+        </div>
+      )}
+
+      {/* ── Role filter tabs ── */}
+      <div
+        className="flex items-end gap-0 border-b overflow-x-auto"
+        style={{ borderColor: c.border }}
+      >
+        {USER_ROLE_PILLS.map((pill) => {
+          const count =
+            pill.value === "all"
+              ? users.length
+              : users.filter((u) => u.role === pill.value).length;
+          const isActive = roleFilter === pill.value;
+          return (
+            <button
+              key={pill.value}
+              onClick={() => {
+                setRoleFilter(pill.value);
+                setPage(1);
+              }}
+              className="relative flex items-center gap-1.5 px-4 py-3 text-sm whitespace-nowrap transition-colors shrink-0"
+              style={{ color: isActive ? c.blue : c.txt3 }}
+            >
+              {pill.label}
+              <span
+                className="text-xs px-1.5 py-0.5 rounded-full"
+                style={{
+                  background: isActive ? c.blueFaint : "rgba(255,255,255,0.05)",
+                  color: isActive ? c.blue : c.txt3,
+                }}
+              >
+                {count}
+              </span>
+              {isActive && (
+                <span
+                  className="absolute bottom-0 left-0 right-0 h-0.5"
+                  style={{ background: c.blue }}
+                />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Table ── */}
+      <div
+        className="rounded-b-lg border overflow-hidden"
+        style={{ borderColor: c.border, borderTop: "none", background: c.card }}
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full" style={{ borderCollapse: "collapse" }}>
+            <thead>
+              <tr
+                style={{
+                  background: c.header,
+                  borderBottom: `1px solid ${c.border}`,
+                }}
+              >
+                <th className="px-4 py-3 w-10">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={() =>
+                      allSelected
+                        ? setSelected([])
+                        : setSelected(paginated.map((u) => u.id))
+                    }
+                    className="w-4 h-4"
+                    style={{ accentColor: c.blue }}
+                  />
+                </th>
+                {[
+                  { key: "name", label: "Name" },
+                  { key: "phone", label: "Phone" },
+                  { key: "email", label: "Email" },
+                  { key: "role", label: "Role" },
+                  { key: "wilaya", label: "Wilaya" },
+                  { key: "status", label: "Status" },
+                ].map((col) => (
+                  <th
+                    key={col.key}
+                    className="text-left text-xs font-semibold uppercase tracking-wider px-4 py-3"
+                    style={{ color: c.txt3 }}
+                  >
+                    {col.label}
+                  </th>
+                ))}
+                <th className="w-12" />
+              </tr>
+            </thead>
+            <tbody>
+              {paginated.map((u) => {
+                const aColor = hmsAvatarColor(u.name);
+                const initials =
+                  u.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .join("")
+                    .toUpperCase() || "??";
+                const sm = HMS_USER_STATUS[u.status] ?? HMS_USER_STATUS.active;
+                const isSelected = selected.includes(u.id);
+                return (
+                  <tr
+                    key={u.id}
+                    className="group transition-colors"
+                    style={{
+                      borderBottom: `1px solid ${c.border}`,
+                      background: isSelected ? c.blueFaint : "transparent",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isSelected) e.currentTarget.style.background = c.row;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = isSelected
+                        ? c.blueFaint
+                        : "transparent";
+                    }}
+                  >
+                    <td className="px-4 py-3 w-10">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() =>
+                          setSelected((prev) =>
+                            prev.includes(u.id)
+                              ? prev.filter((x) => x !== u.id)
+                              : [...prev, u.id],
+                          )
+                        }
+                        className="w-4 h-4"
+                        style={{ accentColor: c.blue }}
+                      />
+                    </td>
+                    {/* Name + Avatar */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                          style={{ background: aColor }}
+                        >
+                          {initials}
+                        </div>
+                        <span
+                          className="text-sm font-medium whitespace-nowrap"
+                          style={{ color: c.txt }}
+                        >
+                          {u.name}
+                        </span>
+                      </div>
+                    </td>
+                    <td
+                      className="px-4 py-3 text-sm whitespace-nowrap"
+                      style={{ color: c.txt2 }}
+                    >
+                      {u.phone || "—"}
+                    </td>
+                    <td
+                      className="px-4 py-3 text-sm max-w-[200px] truncate"
+                      style={{ color: c.txt2 }}
+                    >
+                      {u.email}
+                    </td>
+                    <td
+                      className="px-4 py-3 text-sm capitalize whitespace-nowrap"
+                      style={{ color: c.txt2 }}
+                    >
+                      {u.role}
+                    </td>
+                    <td
+                      className="px-4 py-3 text-sm whitespace-nowrap"
+                      style={{ color: c.txt2 }}
+                    >
+                      {u.wilaya}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap"
+                        style={{ background: sm.bg, color: sm.color }}
+                      >
+                        {sm.label}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <UserRowMenu user={u} onSuspend={suspend} dk={dk} />
+                    </td>
+                  </tr>
+                );
+              })}
+              {paginated.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={8}
+                    className="px-4 py-16 text-center text-sm"
+                    style={{ color: c.txt3 }}
+                  >
+                    No results.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* ── Pagination ── */}
+        <div
+          className="flex items-center justify-between px-4 py-3 border-t"
+          style={{ borderColor: c.border, background: c.header }}
+        >
+          <p className="text-xs" style={{ color: c.txt3 }}>
+            {filtered.length === 0
+              ? "No results."
+              : `${(page - 1) * HMS_PAGE_SIZE + 1}–${Math.min(page * HMS_PAGE_SIZE, filtered.length)} of ${filtered.length}`}
+          </p>
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="w-8 h-8 rounded-md flex items-center justify-center disabled:opacity-30 hover:bg-white/5 transition-colors"
+              style={{ color: c.txt3 }}
+            >
+              <ChevronLeft size={15} />
+            </button>
+            {paginationPages.map((p) => (
+              <button
+                key={p}
+                onClick={() => setPage(p)}
+                className="w-8 h-8 rounded-md text-xs font-semibold transition-colors"
+                style={{
+                  background: p === page ? c.blue : "transparent",
+                  color: p === page ? "#fff" : c.txt3,
+                }}
+              >
+                {p}
+              </button>
+            ))}
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="w-8 h-8 rounded-md flex items-center justify-center disabled:opacity-30 hover:bg-white/5 transition-colors"
+              style={{ color: c.txt3 }}
+            >
+              <ChevronRight size={15} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE: RENDEZ-VOUS
+// ─────────────────────────────────────────────────────────────────────────────
+function RendezVousPage({ dk }) {
+  const c = getAdminTheme(dk);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [appointments, setAppointments] = useState(MOCK_APPOINTMENTS);
+  const [usingFallback, setUsingFallback] = useState(false);
+  const [page, setPage] = useState(1);
+  const PG = 7;
+
+  useEffect(() => {
+    api
+      .getAdminAppointments()
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setAppointments(data);
+          setUsingFallback(false);
+        } else {
+          setUsingFallback(true);
+        }
+      })
+      .catch(() => {
+        setUsingFallback(true);
+      });
+  }, []);
+
+  const filtered = appointments.filter((a) => {
+    const q = search.toLowerCase();
+    return (
+      (a.patient?.toLowerCase().includes(q) ||
+        a.doctor?.toLowerCase().includes(q) ||
+        a.motif?.toLowerCase().includes(q)) &&
+      (statusFilter === "all" || a.status === statusFilter)
+    );
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PG));
+  const paginated = filtered.slice((page - 1) * PG, page * PG);
+  const statusCounts = Object.fromEntries(
+    ["pending", "confirmed", "completed", "cancelled", "refused"].map((s) => [
+      s,
+      appointments.filter((a) => a.status === s).length,
+    ]),
+  );
 
   return (
     <>
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-black" style={{ color: c.txt }}>Journal d'Audit</h1>
-          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>Toutes les actions administratives et système</p>
+          <h1 className="text-2xl font-black" style={{ color: c.txt }}>
+            Rendez-vous
+          </h1>
+          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
+            {appointments.length} rendez-vous · {statusCounts.pending || 0} en
+            attente
+          </p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border"
-          style={{ borderColor: c.border, color: c.txt2 }}>
+        <button
+          onClick={() => {
+            const headers = [
+              "ID",
+              "Patient",
+              "Médecin",
+              "Spécialité",
+              "Date",
+              "Heure",
+              "Motif",
+              "Statut",
+            ];
+            const rows = filtered.map((a) => [
+              a.id,
+              a.patient,
+              a.doctor,
+              a.specialty,
+              a.date,
+              a.time || a.start_time,
+              a.motif,
+              a.status,
+            ]);
+            const csv = [headers, ...rows]
+              .map((r) =>
+                r
+                  .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
+                  .join(","),
+              )
+              .join("\n");
+            const url = URL.createObjectURL(
+              new Blob([csv], { type: "text/csv;charset=utf-8;" }),
+            );
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "rendez-vous.csv";
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border"
+          style={{ borderColor: c.border, color: c.txt2 }}
+        >
+          <Download size={14} /> Exporter CSV
+        </button>
+      </div>
+      {usingFallback && (
+        <div
+          className="flex items-center gap-3 px-4 py-3 rounded-xl mb-5 border"
+          style={{
+            background: dk ? "#1E1500" : "#FFF8EC",
+            borderColor: "#E8A83855",
+            color: "#E8A838",
+          }}
+        >
+          <AlertTriangle size={15} className="shrink-0" />
+          <p className="text-xs font-semibold">
+            Données simulées — le serveur est inaccessible. Les rendez-vous
+            affichés sont des exemples.
+          </p>
+        </div>
+      )}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+        {[
+          ["pending", "En attente", "#E8A838"],
+          ["confirmed", "Confirmés", "#4A6FA5"],
+          ["completed", "Terminés", "#2D8C6F"],
+          ["cancelled", "Annulés", "#9AACBE"],
+          ["refused", "Refusés", "#E05555"],
+        ].map(([s, label, color]) => (
+          <button
+            key={s}
+            onClick={() => {
+              setStatusFilter(statusFilter === s ? "all" : s);
+              setPage(1);
+            }}
+            className="rounded-2xl border p-4 text-left transition-all hover:opacity-80"
+            style={{
+              background: statusFilter === s ? color + "18" : c.card,
+              borderColor: statusFilter === s ? color + "50" : c.border,
+              boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+            }}
+          >
+            <p className="text-xl font-black" style={{ color }}>
+              {statusCounts[s] || 0}
+            </p>
+            <p
+              className="text-xs font-semibold mt-0.5"
+              style={{ color: c.txt2 }}
+            >
+              {label}
+            </p>
+          </button>
+        ))}
+      </div>
+      <Card dk={dk} className="mb-4" style={{ padding: "10px 14px" }}>
+        <div className="flex items-center gap-2">
+          <Search size={14} style={{ color: c.txt3 }} />
+          <input
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            placeholder="Rechercher par patient, médecin, motif…"
+            className="outline-none text-sm bg-transparent flex-1"
+            style={{ color: c.txt }}
+          />
+        </div>
+      </Card>
+      <Card dk={dk} style={{ padding: 0, overflow: "hidden" }}>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr
+                style={{
+                  borderBottom: `1px solid ${c.border}`,
+                  background: dk ? "rgba(255,255,255,0.02)" : "#FAFBFD",
+                }}
+              >
+                {[
+                  "Patient",
+                  "Médecin / Spécialité",
+                  "Date & Heure",
+                  "Motif",
+                  "Statut",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    className="text-left text-xs font-bold uppercase tracking-wide px-4 py-3"
+                    style={{ color: c.txt3 }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {paginated.map((a) => {
+                const sm = APPT_STATUS[a.status] || APPT_STATUS.pending;
+                return (
+                  <tr
+                    key={a.id}
+                    style={{ borderBottom: `1px solid ${c.border}` }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = dk
+                        ? "rgba(255,255,255,0.02)"
+                        : "#FAFBFD")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "transparent")
+                    }
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"
+                          style={{ background: "#4A6FA5" }}
+                        >
+                          {a.patient
+                            ?.split(" ")
+                            .map((n) => n[0])
+                            .slice(0, 2)
+                            .join("") || "??"}
+                        </div>
+                        <span
+                          className="text-sm font-semibold"
+                          style={{ color: c.txt }}
+                        >
+                          {a.patient}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p
+                        className="text-sm font-semibold"
+                        style={{ color: c.txt }}
+                      >
+                        {a.doctor}
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>
+                        {a.specialty}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p
+                        className="text-sm font-semibold"
+                        style={{ color: c.txt }}
+                      >
+                        {a.date
+                          ? new Date(a.date).toLocaleDateString("fr-FR")
+                          : "—"}
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>
+                        {a.time || a.start_time}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p
+                        className="text-sm max-w-[180px] truncate"
+                        style={{ color: c.txt2 }}
+                      >
+                        {a.motif}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge color={sm.color} bg={dk ? sm.color + "22" : sm.bg}>
+                        {sm.label}
+                      </Badge>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {filtered.length === 0 && (
+            <div className="py-16 text-center">
+              <Calendar
+                size={36}
+                className="mx-auto mb-3"
+                style={{ color: c.txt3 }}
+              />
+              <p style={{ color: c.txt3 }}>Aucun rendez-vous trouvé</p>
+            </div>
+          )}
+        </div>
+        <div
+          className="flex items-center justify-between px-4 py-3 border-t"
+          style={{ borderColor: c.border }}
+        >
+          <p className="text-xs" style={{ color: c.txt3 }}>
+            {filtered.length === 0
+              ? "Aucun résultat"
+              : `${(page - 1) * PG + 1}–${Math.min(page * PG, filtered.length)} sur ${filtered.length}`}
+          </p>
+          <div className="flex gap-1">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="w-8 h-8 rounded-lg text-xs font-bold disabled:opacity-30"
+              style={{ color: c.txt3 }}
+            >
+              ‹
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPage(p)}
+                className="w-8 h-8 rounded-lg text-xs font-bold"
+                style={{
+                  background: p === page ? c.blue : "transparent",
+                  color: p === page ? "#fff" : c.txt3,
+                }}
+              >
+                {p}
+              </button>
+            ))}
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="w-8 h-8 rounded-lg text-xs font-bold disabled:opacity-30"
+              style={{ color: c.txt3 }}
+            >
+              ›
+            </button>
+          </div>
+        </div>
+      </Card>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE: MÉDICAMENTS
+// ─────────────────────────────────────────────────────────────────────────────
+function MedicamentsPage({ dk }) {
+  const c = getAdminTheme(dk);
+  const [meds, setMeds] = useState(MOCK_MEDICATIONS);
+  const [search, setSearch] = useState("");
+  const [catFilter, setCatFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newMed, setNewMed] = useState({
+    name: "",
+    molecule: "",
+    category: "analgesic",
+    form: "Comprimé",
+    price_dzd: "",
+    cnas_covered: false,
+    requires_prescription: false,
+    manufacturer: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const PG = 8;
+
+  const handleAddMed = async () => {
+    if (!newMed.name.trim()) return;
+    setSaving(true);
+    try {
+      await api.createMedication(newMed);
+    } catch (_) {}
+    setMeds((prev) => [
+      { ...newMed, id: Date.now(), is_active: true, dosage_forms: [] },
+      ...prev,
+    ]);
+    setShowAddModal(false);
+    setNewMed({
+      name: "",
+      molecule: "",
+      category: "analgesic",
+      form: "Comprimé",
+      price_dzd: "",
+      cnas_covered: false,
+      requires_prescription: false,
+      manufacturer: "",
+    });
+    setSaving(false);
+  };
+
+  useEffect(() => {
+    api
+      .getMedications()
+      .then((data) => {
+        const list = Array.isArray(data) ? data : data?.results;
+        if (list?.length > 0) setMeds(list);
+      })
+      .catch(() => {});
+  }, []);
+
+  const filtered = meds.filter((m) => {
+    const q = search.toLowerCase();
+    return (
+      (m.name?.toLowerCase().includes(q) ||
+        m.molecule?.toLowerCase().includes(q)) &&
+      (catFilter === "all" || m.category === catFilter) &&
+      m.is_active !== false
+    );
+  });
+  const paginated = filtered.slice((page - 1) * PG, page * PG);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PG));
+
+  return (
+    <>
+      <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-black" style={{ color: c.txt }}>
+            Catalogue Médicaments
+          </h1>
+          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
+            {meds.filter((m) => m.is_active !== false).length} références ·{" "}
+            {meds.filter((m) => m.cnas_covered).length} couvertes CNAS
+          </p>
+        </div>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white"
+          style={{ background: c.blue }}
+        >
+          <Plus size={14} /> Nouveau médicament
+        </button>
+      </div>
+      <Card dk={dk} className="mb-4" style={{ padding: "12px 16px" }}>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div
+            className="flex items-center gap-2 flex-1 min-w-52 rounded-xl px-3 py-2"
+            style={{ background: c.blueLight }}
+          >
+            <Search size={14} style={{ color: c.txt3 }} />
+            <input
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              placeholder="Nom, molécule…"
+              className="outline-none text-sm bg-transparent flex-1"
+              style={{ color: c.txt }}
+            />
+          </div>
+          <div className="flex gap-1 flex-wrap">
+            <button
+              onClick={() => {
+                setCatFilter("all");
+                setPage(1);
+              }}
+              className="px-3 py-1.5 rounded-xl text-xs font-semibold border"
+              style={{
+                background: catFilter === "all" ? c.blue : "transparent",
+                color: catFilter === "all" ? "#fff" : c.txt2,
+                borderColor: catFilter === "all" ? c.blue : c.border,
+              }}
+            >
+              Toutes
+            </button>
+            {Object.entries(MED_CATEGORY).map(([key, { label, color }]) => (
+              <button
+                key={key}
+                onClick={() => {
+                  setCatFilter(key);
+                  setPage(1);
+                }}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold border"
+                style={{
+                  background: catFilter === key ? color + "22" : "transparent",
+                  color: catFilter === key ? color : c.txt2,
+                  borderColor: catFilter === key ? color + "55" : c.border,
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </Card>
+      <Card dk={dk} style={{ padding: 0, overflow: "hidden" }}>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr
+                style={{
+                  borderBottom: `1px solid ${c.border}`,
+                  background: dk ? "rgba(255,255,255,0.02)" : "#FAFBFD",
+                }}
+              >
+                {[
+                  "Médicament",
+                  "Molécule",
+                  "Catégorie",
+                  "Forme / Dosages",
+                  "Prix DZD",
+                  "CNAS",
+                  "Ordonnance",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    className="text-left text-xs font-bold uppercase tracking-wide px-4 py-3"
+                    style={{ color: c.txt3 }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {paginated.map((m) => {
+                const cat = MED_CATEGORY[m.category] || MED_CATEGORY.other;
+                return (
+                  <tr
+                    key={m.id}
+                    style={{ borderBottom: `1px solid ${c.border}` }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = dk
+                        ? "rgba(255,255,255,0.02)"
+                        : "#FAFBFD")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "transparent")
+                    }
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className="w-8 h-8 rounded-lg flex items-center justify-center"
+                          style={{ background: cat.bg }}
+                        >
+                          <Pill size={14} style={{ color: cat.color }} />
+                        </div>
+                        <div>
+                          <p
+                            className="text-sm font-semibold"
+                            style={{ color: c.txt }}
+                          >
+                            {m.name}
+                          </p>
+                          <p className="text-xs" style={{ color: c.txt3 }}>
+                            {m.manufacturer}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm" style={{ color: c.txt2 }}>
+                      {m.molecule || "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge
+                        color={cat.color}
+                        bg={dk ? cat.color + "22" : cat.bg}
+                      >
+                        {cat.label}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p
+                        className="text-xs font-semibold"
+                        style={{ color: c.txt2 }}
+                      >
+                        {m.form}
+                      </p>
+                      <p className="text-[10px]" style={{ color: c.txt3 }}>
+                        {Array.isArray(m.dosage_forms)
+                          ? m.dosage_forms.join(" · ")
+                          : "—"}
+                      </p>
+                    </td>
+                    <td
+                      className="px-4 py-3 text-sm font-bold"
+                      style={{ color: c.txt }}
+                    >
+                      {m.price_dzd ? `${m.price_dzd} DZD` : "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      {m.cnas_covered ? (
+                        <CheckCircle size={16} style={{ color: c.green }} />
+                      ) : (
+                        <XCircle size={16} style={{ color: c.txt3 }} />
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {m.requires_prescription ? (
+                        <Badge
+                          color={c.amber}
+                          bg={dk ? c.amber + "22" : c.amberLight}
+                        >
+                          Requise
+                        </Badge>
+                      ) : (
+                        <Badge
+                          color={c.green}
+                          bg={dk ? c.green + "22" : c.greenLight}
+                        >
+                          Non requise
+                        </Badge>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {filtered.length === 0 && (
+            <div className="py-16 text-center">
+              <Pill
+                size={36}
+                style={{ color: c.txt3 }}
+                className="mx-auto mb-3"
+              />
+              <p style={{ color: c.txt3 }}>Aucun médicament trouvé</p>
+            </div>
+          )}
+        </div>
+        <div
+          className="flex items-center justify-between px-4 py-3 border-t"
+          style={{ borderColor: c.border }}
+        >
+          <p className="text-xs" style={{ color: c.txt3 }}>
+            {(page - 1) * PG + 1}–{Math.min(page * PG, filtered.length)} sur{" "}
+            {filtered.length}
+          </p>
+          <div className="flex gap-1">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="w-8 h-8 rounded-lg text-xs font-bold disabled:opacity-30"
+              style={{ color: c.txt3 }}
+            >
+              ‹
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPage(p)}
+                className="w-8 h-8 rounded-lg text-xs font-bold"
+                style={{
+                  background: p === page ? c.blue : "transparent",
+                  color: p === page ? "#fff" : c.txt3,
+                }}
+              >
+                {p}
+              </button>
+            ))}
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="w-8 h-8 rounded-lg text-xs font-bold disabled:opacity-30"
+              style={{ color: c.txt3 }}
+            >
+              ›
+            </button>
+          </div>
+        </div>
+      </Card>
+
+      {showAddModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <Card dk={dk} className="w-full max-w-md shadow-2xl overflow-hidden">
+            <div
+              className="px-6 py-4 border-b flex justify-between items-center"
+              style={{ borderColor: c.border }}
+            >
+              <h3
+                className="font-black text-sm uppercase tracking-wide"
+                style={{ color: c.txt }}
+              >
+                Nouveau Médicament
+              </h3>
+              <button
+                onClick={() => setShowAddModal(false)}
+                style={{ color: c.txt3 }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-3">
+              {[
+                ["Nom commercial *", "name"],
+                ["Molécule / DCI", "molecule"],
+                ["Fabricant", "manufacturer"],
+                ["Forme", "form"],
+              ].map(([label, key]) => (
+                <div key={key}>
+                  <label
+                    className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1 block"
+                    style={{ color: c.txt }}
+                  >
+                    {label}
+                  </label>
+                  <input
+                    value={newMed[key]}
+                    onChange={(e) =>
+                      setNewMed((p) => ({ ...p, [key]: e.target.value }))
+                    }
+                    className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border mt-1"
+                    style={{
+                      background: dk ? "rgba(255,255,255,0.03)" : "#F8FAFC",
+                      borderColor: c.border,
+                      color: c.txt,
+                    }}
+                  />
+                </div>
+              ))}
+              <div>
+                <label
+                  className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1 block"
+                  style={{ color: c.txt }}
+                >
+                  Prix (DZD)
+                </label>
+                <input
+                  type="number"
+                  value={newMed.price_dzd}
+                  onChange={(e) =>
+                    setNewMed((p) => ({ ...p, price_dzd: e.target.value }))
+                  }
+                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border mt-1"
+                  style={{
+                    background: dk ? "rgba(255,255,255,0.03)" : "#F8FAFC",
+                    borderColor: c.border,
+                    color: c.txt,
+                  }}
+                />
+              </div>
+              <div className="flex gap-4 pt-1">
+                {[
+                  ["cnas_covered", "Couvert CNAS"],
+                  ["requires_prescription", "Ordonnance requise"],
+                ].map(([key, label]) => (
+                  <label
+                    key={key}
+                    className="flex items-center gap-2 text-xs cursor-pointer"
+                    style={{ color: c.txt2 }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={newMed[key]}
+                      onChange={(e) =>
+                        setNewMed((p) => ({ ...p, [key]: e.target.checked }))
+                      }
+                      className="rounded"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div
+              className="px-6 py-4 border-t flex gap-3"
+              style={{ borderColor: c.border }}
+            >
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border"
+                style={{ borderColor: c.border, color: c.txt2 }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleAddMed}
+                disabled={saving || !newMed.name.trim()}
+                className="flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white disabled:opacity-50"
+                style={{ background: c.blue }}
+              >
+                {saving ? "Enregistrement…" : "Ajouter"}
+              </button>
+            </div>
+          </Card>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE: PHARMACIES
+// ─────────────────────────────────────────────────────────────────────────────
+function PharmaciesPage({ dk }) {
+  const c = getAdminTheme(dk);
+  const [tab, setTab] = useState("pharmacies");
+  const [pharmacies, setPharmacies] = useState(MOCK_PHARMACIES);
+  const [orders, setOrders] = useState(MOCK_ORDERS);
+  const [search, setSearch] = useState("");
+  const [orderStatus, setOrderStatus] = useState("all");
+
+  useEffect(() => {
+    api
+      .getAllPharmacies()
+      .then((data) => {
+        const l = Array.isArray(data) ? data : data?.results;
+        if (l?.length > 0) setPharmacies(l);
+      })
+      .catch(() => {});
+    api
+      .getPharmacyOrders()
+      .then((data) => {
+        const l = Array.isArray(data) ? data : data?.results;
+        if (l?.length > 0) setOrders(l);
+      })
+      .catch(() => {});
+  }, []);
+
+  const filteredPharmacies = pharmacies.filter((p) => {
+    const q = search.toLowerCase();
+    return (
+      p.name?.toLowerCase().includes(q) || p.city?.toLowerCase().includes(q)
+    );
+  });
+  const filteredOrders = orders.filter(
+    (o) => orderStatus === "all" || o.status === orderStatus,
+  );
+
+  return (
+    <>
+      <div className="mb-6">
+        <h1 className="text-2xl font-black" style={{ color: c.txt }}>
+          Pharmacies
+        </h1>
+        <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
+          {pharmacies.length} pharmacies ·{" "}
+          {pharmacies.filter((p) => p.is_verified).length} vérifiées
+        </p>
+      </div>
+      <div className="flex gap-2 mb-5">
+        {[
+          ["pharmacies", "Pharmacies"],
+          ["orders", "Commandes"],
+        ].map(([id, label]) => (
+          <button
+            key={id}
+            onClick={() => setTab(id)}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold border"
+            style={{
+              background: tab === id ? c.blue : "transparent",
+              color: tab === id ? "#fff" : c.txt2,
+              borderColor: tab === id ? c.blue : c.border,
+            }}
+          >
+            {id === "pharmacies" ? (
+              <Building2 size={15} />
+            ) : (
+              <Package size={15} />
+            )}
+            {label}
+            <span
+              className="px-2 py-0.5 rounded-full text-[10px] font-bold"
+              style={{
+                background: tab === id ? "rgba(255,255,255,0.2)" : c.blueLight,
+                color: tab === id ? "#fff" : c.blue,
+              }}
+            >
+              {id === "pharmacies" ? pharmacies.length : orders.length}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {tab === "pharmacies" ? (
+        <>
+          <Card dk={dk} className="mb-4" style={{ padding: "10px 14px" }}>
+            <div className="flex items-center gap-2">
+              <Search size={14} style={{ color: c.txt3 }} />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Nom, ville…"
+                className="outline-none text-sm bg-transparent flex-1"
+                style={{ color: c.txt }}
+              />
+            </div>
+          </Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {filteredPharmacies.map((p) => (
+              <Card key={p.id} dk={dk} style={{ padding: 20 }}>
+                <div className="flex items-start justify-between mb-3">
+                  <div
+                    className="w-11 h-11 rounded-xl flex items-center justify-center"
+                    style={{ background: c.amberLight }}
+                  >
+                    <ShoppingBag size={20} style={{ color: c.amber }} />
+                  </div>
+                  {p.is_verified ? (
+                    <Badge
+                      color={c.green}
+                      bg={dk ? c.green + "22" : c.greenLight}
+                    >
+                      Vérifiée
+                    </Badge>
+                  ) : (
+                    <Badge
+                      color={c.amber}
+                      bg={dk ? c.amber + "22" : c.amberLight}
+                    >
+                      En attente
+                    </Badge>
+                  )}
+                </div>
+                <h3 className="text-base font-bold" style={{ color: c.txt }}>
+                  {p.name}
+                </h3>
+                <div className="mt-3 space-y-1.5">
+                  <div
+                    className="flex items-center gap-2 text-xs"
+                    style={{ color: c.txt2 }}
+                  >
+                    <MapPin size={12} style={{ color: c.txt3 }} /> {p.city},{" "}
+                    {p.wilaya}
+                  </div>
+                  <div
+                    className="flex items-center gap-2 text-xs"
+                    style={{ color: c.txt2 }}
+                  >
+                    <Phone size={12} style={{ color: c.txt3 }} /> {p.phone}
+                  </div>
+                </div>
+                <div
+                  className="mt-3 pt-3 border-t text-xs"
+                  style={{ borderColor: c.border, color: c.txt3 }}
+                >
+                  Pharmacien : {p.pharmacist}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="flex gap-2 mb-4 flex-wrap">
+            {[
+              ["all", "Tous"],
+              ...Object.entries(ORDER_STATUS).map(([k, v]) => [k, v.label]),
+            ].map(([v, l]) => (
+              <button
+                key={v}
+                onClick={() => setOrderStatus(v)}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold border"
+                style={{
+                  background: orderStatus === v ? c.blue : "transparent",
+                  color: orderStatus === v ? "#fff" : c.txt2,
+                  borderColor: orderStatus === v ? c.blue : c.border,
+                }}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+          <Card dk={dk} style={{ padding: 0, overflow: "hidden" }}>
+            <table className="w-full">
+              <thead>
+                <tr
+                  style={{
+                    borderBottom: `1px solid ${c.border}`,
+                    background: dk ? "rgba(255,255,255,0.02)" : "#FAFBFD",
+                  }}
+                >
+                  {[
+                    "Référence",
+                    "Patient",
+                    "Pharmacie",
+                    "Type",
+                    "Total",
+                    "Statut",
+                    "Date",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="text-left text-xs font-bold uppercase tracking-wide px-4 py-3"
+                      style={{ color: c.txt3 }}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredOrders.map((o) => {
+                  const sm = ORDER_STATUS[o.status] || ORDER_STATUS.pending;
+                  return (
+                    <tr
+                      key={o.id}
+                      style={{ borderBottom: `1px solid ${c.border}` }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background = dk
+                          ? "rgba(255,255,255,0.02)"
+                          : "#FAFBFD")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.background = "transparent")
+                      }
+                    >
+                      <td
+                        className="px-4 py-3 text-xs font-bold"
+                        style={{ color: c.blue }}
+                      >
+                        {o.id}
+                      </td>
+                      <td
+                        className="px-4 py-3 text-sm"
+                        style={{ color: c.txt }}
+                      >
+                        {o.patient}
+                      </td>
+                      <td
+                        className="px-4 py-3 text-sm"
+                        style={{ color: c.txt2 }}
+                      >
+                        {o.pharmacy}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          color={o.type === "prescription" ? c.blue : c.green}
+                          bg={
+                            dk
+                              ? (o.type === "prescription" ? c.blue : c.green) +
+                                "22"
+                              : o.type === "prescription"
+                                ? c.blueLight
+                                : c.greenLight
+                          }
+                        >
+                          {o.type === "prescription" ? "Ordonnance" : "Direct"}
+                        </Badge>
+                      </td>
+                      <td
+                        className="px-4 py-3 text-sm font-bold"
+                        style={{ color: c.txt }}
+                      >
+                        {o.total} DZD
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          color={sm.color}
+                          bg={dk ? sm.color + "22" : sm.bg}
+                        >
+                          {sm.label}
+                        </Badge>
+                      </td>
+                      <td
+                        className="px-4 py-3 text-xs"
+                        style={{ color: c.txt3 }}
+                      >
+                        {o.created
+                          ? new Date(o.created).toLocaleDateString("fr-FR")
+                          : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </Card>
+        </>
+      )}
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE: GARDE-MALADES
+// ─────────────────────────────────────────────────────────────────────────────
+function GardeMaladesPage({ dk }) {
+  const c = getAdminTheme(dk);
+  const [tab, setTab] = useState("caretakers");
+  const [caretakers, setCaretakers] = useState(MOCK_CARETAKERS);
+  const [requests, setRequests] = useState(MOCK_CARE_REQUESTS);
+  const [search, setSearch] = useState("");
+  const [reqStatus, setReqStatus] = useState("all");
+
+  useEffect(() => {
+    api
+      .getAllCaretakers()
+      .then((data) => {
+        const l = Array.isArray(data) ? data : data?.results;
+        if (l?.length > 0) setCaretakers(l);
+      })
+      .catch(() => {});
+    api
+      .getAdminCareRequests()
+      .then((data) => {
+        const l = Array.isArray(data) ? data : data?.results;
+        if (l?.length > 0) setRequests(l);
+      })
+      .catch(() => {});
+  }, []);
+
+  const filteredCaretakers = caretakers.filter(
+    (ct) =>
+      ct.name?.toLowerCase().includes(search.toLowerCase()) ||
+      ct.city?.toLowerCase().includes(search.toLowerCase()),
+  );
+  const filteredRequests = requests.filter(
+    (r) => reqStatus === "all" || r.status === reqStatus,
+  );
+
+  return (
+    <>
+      <div className="mb-6">
+        <h1 className="text-2xl font-black" style={{ color: c.txt }}>
+          Garde-malades
+        </h1>
+        <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
+          {caretakers.length} garde-malades ·{" "}
+          {caretakers.filter((ct) => ct.is_verified).length} vérifiés
+        </p>
+      </div>
+      <div className="flex gap-2 mb-5">
+        {[
+          ["caretakers", "Garde-malades"],
+          ["requests", "Demandes"],
+        ].map(([id, label]) => (
+          <button
+            key={id}
+            onClick={() => setTab(id)}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold border"
+            style={{
+              background: tab === id ? c.blue : "transparent",
+              color: tab === id ? "#fff" : c.txt2,
+              borderColor: tab === id ? c.blue : c.border,
+            }}
+          >
+            {id === "caretakers" ? (
+              <Heart size={15} />
+            ) : (
+              <ClipboardList size={15} />
+            )}
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "caretakers" ? (
+        <>
+          <Card dk={dk} className="mb-4" style={{ padding: "10px 14px" }}>
+            <div className="flex items-center gap-2">
+              <Search size={14} style={{ color: c.txt3 }} />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Nom ou ville…"
+                className="outline-none text-sm bg-transparent flex-1"
+                style={{ color: c.txt }}
+              />
+            </div>
+          </Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {filteredCaretakers.map((ct) => (
+              <Card key={ct.id} dk={dk} style={{ padding: 20 }}>
+                <div className="flex items-start justify-between mb-3">
+                  <div
+                    className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold"
+                    style={{ background: "#7B5EA7" }}
+                  >
+                    {ct.name
+                      ?.split(" ")
+                      .map((n) => n[0])
+                      .slice(0, 2)
+                      .join("") || "??"}
+                  </div>
+                  <div className="flex flex-col items-end gap-1.5">
+                    {ct.is_verified ? (
+                      <Badge
+                        color={c.green}
+                        bg={dk ? c.green + "22" : c.greenLight}
+                      >
+                        Vérifié
+                      </Badge>
+                    ) : (
+                      <Badge
+                        color={c.amber}
+                        bg={dk ? c.amber + "22" : c.amberLight}
+                      >
+                        En attente
+                      </Badge>
+                    )}
+                    {ct.is_available ? (
+                      <Badge color="#4A6FA5" bg={dk ? "#4A6FA522" : "#EEF3FB"}>
+                        Disponible
+                      </Badge>
+                    ) : (
+                      <Badge color={c.txt3} bg={c.blueLight}>
+                        Indisponible
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                <h3 className="text-base font-bold" style={{ color: c.txt }}>
+                  {ct.name}
+                </h3>
+                <div className="flex items-center gap-2 mt-1">
+                  <MapPin size={12} style={{ color: c.txt3 }} />
+                  <span className="text-xs" style={{ color: c.txt2 }}>
+                    {ct.city}
+                  </span>
+                  {ct.rating > 0 && (
+                    <>
+                      <span style={{ color: c.txt3 }}>·</span>
+                      <Star size={11} style={{ color: "#E8A838" }} />
+                      <span
+                        className="text-xs font-bold"
+                        style={{ color: c.txt }}
+                      >
+                        {ct.rating}
+                      </span>
+                    </>
+                  )}
+                </div>
+                <p className="text-xs mt-1" style={{ color: c.txt3 }}>
+                  {ct.experience_years} ans d'expérience
+                </p>
+                <div className="mt-3 flex flex-wrap gap-1">
+                  {(ct.services || []).map((s) => (
+                    <span
+                      key={s}
+                      className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                      style={{
+                        background: dk ? "#7B5EA722" : "#F3EEFF",
+                        color: "#7B5EA7",
+                      }}
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="flex gap-2 mb-4 flex-wrap">
+            {[
+              ["all", "Toutes"],
+              ...Object.entries(CARE_STATUS).map(([k, v]) => [k, v.label]),
+            ]
+              .filter((v, i, a) => a.findIndex((x) => x[0] === v[0]) === i)
+              .map(([v, l]) => (
+                <button
+                  key={v}
+                  onClick={() => setReqStatus(v)}
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold border"
+                  style={{
+                    background: reqStatus === v ? c.blue : "transparent",
+                    color: reqStatus === v ? "#fff" : c.txt2,
+                    borderColor: reqStatus === v ? c.blue : c.border,
+                  }}
+                >
+                  {l}
+                </button>
+              ))}
+          </div>
+          <Card dk={dk} style={{ padding: 0, overflow: "hidden" }}>
+            <table className="w-full">
+              <thead>
+                <tr
+                  style={{
+                    borderBottom: `1px solid ${c.border}`,
+                    background: dk ? "rgba(255,255,255,0.02)" : "#FAFBFD",
+                  }}
+                >
+                  {[
+                    "Référence",
+                    "Patient",
+                    "Garde-malade",
+                    "Période",
+                    "Mission",
+                    "Statut",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="text-left text-xs font-bold uppercase tracking-wide px-4 py-3"
+                      style={{ color: c.txt3 }}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRequests.map((r) => {
+                  const sm = CARE_STATUS[r.status] || CARE_STATUS.pending;
+                  return (
+                    <tr
+                      key={r.id}
+                      style={{ borderBottom: `1px solid ${c.border}` }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background = dk
+                          ? "rgba(255,255,255,0.02)"
+                          : "#FAFBFD")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.background = "transparent")
+                      }
+                    >
+                      <td
+                        className="px-4 py-3 text-xs font-bold"
+                        style={{ color: "#7B5EA7" }}
+                      >
+                        {r.id}
+                      </td>
+                      <td
+                        className="px-4 py-3 text-sm"
+                        style={{ color: c.txt }}
+                      >
+                        {r.patient}
+                      </td>
+                      <td
+                        className="px-4 py-3 text-sm"
+                        style={{ color: c.txt2 }}
+                      >
+                        {r.caretaker}
+                      </td>
+                      <td className="px-4 py-3">
+                        <p
+                          className="text-xs font-semibold"
+                          style={{ color: c.txt }}
+                        >
+                          {r.start
+                            ? new Date(r.start).toLocaleDateString("fr-FR")
+                            : "—"}
+                        </p>
+                        <p className="text-[10px]" style={{ color: c.txt3 }}>
+                          {r.end
+                            ? `→ ${new Date(r.end).toLocaleDateString("fr-FR")}`
+                            : "→ En cours"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p
+                          className="text-xs max-w-[200px] truncate"
+                          style={{ color: c.txt2 }}
+                        >
+                          {r.message}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          color={sm.color}
+                          bg={dk ? sm.color + "22" : sm.bg}
+                        >
+                          {sm.label}
+                        </Badge>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </Card>
+        </>
+      )}
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE: AUDIT
+// ─────────────────────────────────────────────────────────────────────────────
+function AuditPage({ dk }) {
+  const c = getAdminTheme(dk);
+  const [logs, setLogs] = useState(AUDIT_LOGS);
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [usingFallback, setUsingFallback] = useState(false);
+
+  useEffect(() => {
+    api
+      .getAuditLogs()
+      .then((data) => {
+        const list = Array.isArray(data) ? data : data?.results;
+        if (list?.length > 0) {
+          setLogs(
+            list.map((l) => ({
+              id: l.id,
+              action: l.message,
+              user: l.actor_name || "Système",
+              ip: l.ip_address || "—",
+              time: new Date(l.created_at).toLocaleString("fr-FR"),
+              type: l.level === "error" ? "danger" : l.level,
+            })),
+          );
+          setUsingFallback(false);
+        } else {
+          setUsingFallback(true);
+        }
+      })
+      .catch(() => {
+        setUsingFallback(true);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered =
+    typeFilter === "all" ? logs : logs.filter((l) => l.type === typeFilter);
+
+  return (
+    <>
+      <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-black" style={{ color: c.txt }}>
+            Journal d'Audit
+          </h1>
+          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
+            Toutes les actions administratives et système
+          </p>
+        </div>
+        <button
+          onClick={() => {
+            const json = JSON.stringify(filtered, null, 2);
+            const url = URL.createObjectURL(
+              new Blob([json], { type: "application/json" }),
+            );
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "audit-logs.json";
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border"
+          style={{ borderColor: c.border, color: c.txt2 }}
+        >
           <Download size={14} /> Exporter logs
         </button>
       </div>
-
-      {/* Type filters */}
+      {usingFallback && (
+        <div
+          className="flex items-center gap-3 px-4 py-3 rounded-xl mb-5 border"
+          style={{
+            background: dk ? "#1E1500" : "#FFF8EC",
+            borderColor: "#E8A83855",
+            color: "#E8A838",
+          }}
+        >
+          <AlertTriangle size={15} className="shrink-0" />
+          <p className="text-xs font-semibold">
+            Données simulées — le serveur est inaccessible. Les logs affichés
+            sont des exemples.
+          </p>
+        </div>
+      )}
       <div className="flex gap-2 mb-5 flex-wrap">
         {[
           ["all", "Tous", c.txt2, c.blueLight],
@@ -860,153 +3341,242 @@ function AuditPage({ dk }) {
           ["danger", "Erreurs", c.red, c.redLight],
           ["info", "Info", c.blue, c.blueLight],
         ].map(([val, label, color, bg]) => (
-          <button key={val} onClick={() => setTypeFilter(val)}
+          <button
+            key={val}
+            onClick={() => setTypeFilter(val)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold border transition-all"
-            style={{ background: typeFilter === val ? bg : "transparent", color: typeFilter === val ? color : c.txt3, borderColor: typeFilter === val ? color + "44" : c.border }}>
+            style={{
+              background: typeFilter === val ? bg : "transparent",
+              color: typeFilter === val ? color : c.txt3,
+              borderColor: typeFilter === val ? color + "44" : c.border,
+            }}
+          >
             {label}
-            <span className="px-1.5 py-0.5 rounded-full text-[10px]"
-              style={{ background: color + "22", color }}>
-              {val === "all" ? logs.length : logs.filter(l => l.type === val).length}
+            <span
+              className="px-1.5 py-0.5 rounded-full text-[10px]"
+              style={{ background: color + "22", color }}
+            >
+              {val === "all"
+                ? logs.length
+                : logs.filter((l) => l.type === val).length}
             </span>
           </button>
         ))}
       </div>
-
-      {/* Log entries */}
       <Card dk={dk} style={{ padding: 0, overflow: "hidden" }}>
-        <div className="divide-y" style={{ borderColor: c.border }}>
-          {filtered.map(log => {
-            const lm = LOG_COLORS[log.type];
-            return (
-              <div key={log.id} className="flex items-start gap-4 px-5 py-4 transition-colors"
-                onMouseEnter={e => e.currentTarget.style.background = dk ? "rgba(255,255,255,0.02)" : "#FAFBFD"}
-                onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
-                  style={{ background: dk ? lm.bgDk : lm.bg }}>
-                  <lm.icon size={16} style={{ color: lm.color }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold" style={{ color: c.txt }}>{log.action}</p>
-                  <div className="flex items-center gap-3 mt-1 flex-wrap">
-                    <p className="text-xs" style={{ color: c.txt2 }}>👤 {log.user}</p>
-                    <p className="text-xs" style={{ color: c.txt3 }}>🌐 {log.ip}</p>
-                    <p className="text-xs" style={{ color: c.txt3 }}>⏱ {log.time}</p>
+        {loading ? (
+          <div
+            className="py-16 flex items-center justify-center gap-3"
+            style={{ color: c.txt3 }}
+          >
+            <RefreshCw size={18} className="animate-spin" />
+            <span className="text-sm font-semibold">Chargement des logs…</span>
+          </div>
+        ) : (
+          <div className="divide-y" style={{ borderColor: c.border }}>
+            {filtered.map((log) => {
+              const lm = LOG_COLORS[log.type] || LOG_COLORS.info;
+              const LIcon = lm.icon;
+              return (
+                <div
+                  key={log.id}
+                  className="flex items-start gap-4 px-5 py-4 transition-colors"
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = dk
+                      ? "rgba(255,255,255,0.02)"
+                      : "#FAFBFD")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "transparent")
+                  }
+                >
+                  <div
+                    className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                    style={{ background: dk ? lm.bgDk : lm.bg }}
+                  >
+                    {LIcon && <LIcon size={16} style={{ color: lm.color }} />}
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className="text-sm font-semibold"
+                      style={{ color: c.txt }}
+                    >
+                      {log.action}
+                    </p>
+                    <div className="flex items-center gap-3 mt-1 flex-wrap">
+                      <p className="text-xs" style={{ color: c.txt2 }}>
+                        👤 {log.user}
+                      </p>
+                      <p className="text-xs" style={{ color: c.txt3 }}>
+                        🌐 {log.ip}
+                      </p>
+                      <p className="text-xs" style={{ color: c.txt3 }}>
+                        ⏱ {log.time}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge color={lm.color} bg={dk ? lm.bgDk : lm.bg}>
+                    {log.type === "success"
+                      ? "Succès"
+                      : log.type === "warning"
+                        ? "Alerte"
+                        : log.type === "danger"
+                          ? "Erreur"
+                          : "Info"}
+                  </Badge>
                 </div>
-                <Badge color={lm.color} bg={dk ? lm.bgDk : lm.bg}>
-                  {log.type === "success" ? "Succès" : log.type === "warning" ? "Alerte" : log.type === "danger" ? "Erreur" : "Info"}
-                </Badge>
+              );
+            })}
+            {filtered.length === 0 && (
+              <div className="py-16 text-center">
+                <Shield
+                  size={36}
+                  className="mx-auto mb-3"
+                  style={{ color: c.txt3 }}
+                />
+                <p style={{ color: c.txt3 }}>Aucun log trouvé</p>
               </div>
-            );
-          })}
-        </div>
+            )}
+          </div>
+        )}
       </Card>
     </>
   );
 }
 
-// ─── PAGE: PARAMÈTRES ADMIN ───────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE: PARAMÈTRES
+// ─────────────────────────────────────────────────────────────────────────────
 function AdminSettingsPage({ dk, onToggleDark }) {
-  const c = dk ? T.dark : T.light;
+  const c = getAdminTheme(dk);
+  const [secFields, setSecFields] = useState(() => ({
+    timeout: localStorage.getItem("admin_timeout") || "30 minutes",
+    maxLogin: localStorage.getItem("admin_maxLogin") || "5 essais",
+    ipWhitelist: localStorage.getItem("admin_ipWhitelist") || "10.0.0.1/24",
+  }));
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = () => {
+    localStorage.setItem("admin_timeout", secFields.timeout);
+    localStorage.setItem("admin_maxLogin", secFields.maxLogin);
+    localStorage.setItem("admin_ipWhitelist", secFields.ipWhitelist);
+    localStorage.setItem("medDk", String(dk));
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
 
   return (
     <>
       <div className="mb-6">
-        <h1 className="text-2xl font-black" style={{ color: c.txt }}>Paramètres Admin</h1>
-        <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>Configuration globale de la plateforme MedSmart</p>
+        <h1 className="text-2xl font-black" style={{ color: c.txt }}>
+          Paramètres Admin
+        </h1>
+        <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
+          Configuration globale de la plateforme MedSmart
+        </p>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* Plateforme */}
         <Card dk={dk} style={{ padding: 20 }}>
-          <p className="font-bold mb-5" style={{ color: c.txt }}>Paramètres plateforme</p>
+          <p className="font-bold mb-5" style={{ color: c.txt }}>
+            Paramètres plateforme
+          </p>
           <div className="space-y-4">
             {[
-              { label: "Inscription ouverte",     on: true  },
-              { label: "Vérification obligatoire",on: true  },
-              { label: "2FA pour médecins",        on: true  },
-              { label: "Mode maintenance",         on: false },
-              { label: "Logs détaillés",           on: true  },
-              { label: "Mode sombre par défaut",   on: dk, toggle: true },
-            ].map((item, i) => (
-              <div key={item.label} className="flex items-center justify-between py-2 border-b last:border-0"
-                style={{ borderColor: c.border }}>
-                <span className="text-sm" style={{ color: c.txt }}>{item.label}</span>
-                <button onClick={item.toggle ? onToggleDark : undefined}
+              { label: "Inscription ouverte", on: true },
+              { label: "Vérification obligatoire", on: true },
+              { label: "2FA pour médecins", on: true },
+              { label: "Mode maintenance", on: false },
+              { label: "Logs détaillés", on: true },
+              { label: "Mode sombre", on: dk, toggle: true },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="flex items-center justify-between py-2 border-b last:border-0"
+                style={{ borderColor: c.border }}
+              >
+                <span className="text-sm" style={{ color: c.txt }}>
+                  {item.label}
+                </span>
+                <button
+                  onClick={item.toggle ? onToggleDark : undefined}
                   className="relative w-10 h-5 rounded-full transition-all"
-                  style={{ background: item.on ? c.blue : c.border }}>
-                  <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all"
-                    style={{ left: item.on ? "22px" : "2px" }} />
+                  style={{ background: item.on ? c.blue : c.border }}
+                >
+                  <div
+                    className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all"
+                    style={{ left: item.on ? "22px" : "2px" }}
+                  />
                 </button>
               </div>
             ))}
           </div>
         </Card>
-
-        {/* Sécurité */}
         <Card dk={dk} style={{ padding: 20 }}>
-          <p className="font-bold mb-5" style={{ color: c.txt }}>Sécurité & Accès</p>
+          <p className="font-bold mb-5" style={{ color: c.txt }}>
+            Sécurité & Accès
+          </p>
           <div className="space-y-4">
             {[
-              { label: "Session timeout",    value: "30 minutes",   input: true },
-              { label: "Max tentatives login",value: "5 essais",     input: true },
-              { label: "IP whitelist admin",  value: "10.0.0.1/24", input: true },
-            ].map(item => (
+              { label: "Session timeout", key: "timeout" },
+              { label: "Max tentatives login", key: "maxLogin" },
+              { label: "IP whitelist admin", key: "ipWhitelist" },
+            ].map((item) => (
               <div key={item.label} className="mb-3">
-                <label className="block text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt2 }}>{item.label}</label>
-                <input defaultValue={item.value}
+                <label
+                  className="block text-xs font-bold uppercase tracking-wide mb-1.5"
+                  style={{ color: c.txt2 }}
+                >
+                  {item.label}
+                </label>
+                <input
+                  value={secFields[item.key]}
+                  onChange={(e) =>
+                    setSecFields((p) => ({ ...p, [item.key]: e.target.value }))
+                  }
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
-                  style={{ background: dk ? "#0A1220" : "#F8FAFC", borderColor: c.border, color: c.txt }} />
+                  style={{
+                    background: dk ? "#0A1220" : "#F8FAFC",
+                    borderColor: c.border,
+                    color: c.txt,
+                  }}
+                />
               </div>
             ))}
-            <button className="w-full py-2.5 rounded-xl text-sm font-semibold text-white" style={{ background: c.blue }}>
-              Enregistrer
+            <button
+              onClick={handleSave}
+              className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
+              style={{ background: saved ? c.green : c.blue }}
+            >
+              {saved ? "✓ Sauvegardé" : "Enregistrer"}
             </button>
           </div>
         </Card>
-
-        {/* CNAS Integration */}
         <Card dk={dk} style={{ padding: 20 }}>
-          <p className="font-bold mb-4" style={{ color: c.txt }}>Intégration CNAS</p>
-          <div className="flex items-center gap-3 p-3 rounded-xl mb-4"
-            style={{ background: c.greenLight, border: `1px solid ${c.green}30` }}>
-            <CheckCircle size={18} style={{ color: c.green }} />
-            <div>
-              <p className="text-sm font-semibold" style={{ color: c.green }}>API CNAS connectée</p>
-              <p className="text-xs" style={{ color: c.txt3 }}>Endpoint: api.cnas.dz/v2 · TLS 1.3</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: "Remboursements traités", value: "8 841" },
-              { label: "Montant total",          value: "4.2M DZD" },
-              { label: "Taux approbation",       value: "94.2%" },
-              { label: "Délai moyen",            value: "2.4 jours" },
-            ].map(s => (
-              <div key={s.label} className="p-3 rounded-xl" style={{ background: c.blueLight }}>
-                <p className="text-lg font-black" style={{ color: c.txt }}>{s.value}</p>
-                <p className="text-xs" style={{ color: c.txt2 }}>{s.label}</p>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        {/* About */}
-        <Card dk={dk} style={{ padding: 20 }}>
-          <p className="font-bold mb-4" style={{ color: c.txt }}>À propos de la plateforme</p>
+          <p className="font-bold mb-4" style={{ color: c.txt }}>
+            À propos de la plateforme
+          </p>
           <div className="space-y-3">
             {[
-              ["Version",         "MedSmart Admin v2.2.0"],
-              ["Build",           "#20260328-stable"],
-              ["Environnement",   "Production · Algérie"],
+              ["Version", "MedSmart Admin v2.2.0"],
+              ["Build", "#20260328-stable"],
+              ["Environnement", "Production · Algérie"],
               ["Base de données", "PostgreSQL 16.2"],
-              ["IA Engine",       "MedSmart-LM v2.2"],
-              ["CNAS",            "Certifié 2024"],
-              ["Conformité",      "RGPD · ISO 27001"],
+              ["Conformité", "RGPD · ISO 27001"],
             ].map(([k, v]) => (
-              <div key={k} className="flex items-center justify-between py-1.5 border-b last:border-0" style={{ borderColor: c.border }}>
-                <span className="text-xs font-semibold" style={{ color: c.txt3 }}>{k}</span>
-                <span className="text-xs font-bold" style={{ color: c.txt2 }}>{v}</span>
+              <div
+                key={k}
+                className="flex items-center justify-between py-1.5 border-b last:border-0"
+                style={{ borderColor: c.border }}
+              >
+                <span
+                  className="text-xs font-semibold"
+                  style={{ color: c.txt3 }}
+                >
+                  {k}
+                </span>
+                <span className="text-xs font-bold" style={{ color: c.txt2 }}>
+                  {v}
+                </span>
               </div>
             ))}
           </div>
@@ -1016,251 +3586,195 @@ function AdminSettingsPage({ dk, onToggleDark }) {
   );
 }
 
-// ─── MAIN ADMIN SHELL ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN ADMIN SHELL  ──  Layout : Sidebar + Main content
+// ─────────────────────────────────────────────────────────────────────────────
 export default function AdminDashboard({ onLogout }) {
   const { userData } = useAuth();
   const [dk, setDk] = useState(() => localStorage.getItem("medDk") === "true");
-  const [page, setPage] = useState("overview");
-  const [profileOpen, setProfileOpen] = useState(false);
+  const [activePage, setActivePage] = useState("overview");
   const [mobileMenu, setMobileMenu] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const c = getAdminTheme(dk);
 
-  const userInitials = useMemo(() => {
-    if (!userData) return "AD";
-    const f = userData.first_name?.[0] || "";
-    const l = userData.last_name?.[0] || "";
-    return (f + l).toUpperCase() || "AD";
-  }, [userData]);
-  const c = dk ? T.dark : T.light;
+  // Persist dark mode
+  useEffect(() => {
+    localStorage.setItem("medDk", dk);
+  }, [dk]);
 
-  const alertCount = useMemo(
-    () => AUDIT_LOGS.filter(l => l.type === "warning" || l.type === "danger").length,
-    []
-  );
-
-  const NAV = [
-    { id: "overview",    label: "Vue globale",  icon: LayoutDashboard },
-    { id: "validation",  label: "Validation",   icon: UserCheck,       badge: pendingCount },
-    { id: "utilisateurs",label: "Utilisateurs", icon: Users },
-    { id: "audit",       label: "Audit",        icon: Shield,          badge: alertCount },
-  ];
+  const handleNav = useCallback((page) => {
+    setActivePage(page);
+    setMobileMenu(false);
+  }, []);
 
   const renderPage = () => {
-    switch (page) {
-      case "overview":     return <OverviewPage dk={dk} onNav={setPage} />;
-      case "validation":   return <ValidationPage dk={dk} onCountChange={setPendingCount} />;
-      case "utilisateurs": return <UtilisateursPage dk={dk} />;
-      case "audit":        return <AuditPage dk={dk} />;
-      case "parametres":   return <AdminSettingsPage dk={dk} onToggleDark={() => setDk(!dk)} />;
-      default:             return <OverviewPage dk={dk} onNav={setPage} />;
+    switch (activePage) {
+      case "overview":
+        return <OverviewPage dk={dk} onNav={handleNav} />;
+      case "validation":
+        return <ValidationPage dk={dk} onCountChange={setPendingCount} />;
+      case "utilisateurs":
+        return <UtilisateursPage dk={dk} />;
+      case "rendezvous":
+        return <RendezVousPage dk={dk} />;
+      case "medicaments":
+        return <MedicamentsPage dk={dk} />;
+      case "pharmacies":
+        return <PharmaciesPage dk={dk} />;
+      case "gardemalades":
+        return <GardeMaladesPage dk={dk} />;
+      case "audit":
+        return <AuditPage dk={dk} />;
+      case "parametres":
+        return (
+          <AdminSettingsPage dk={dk} onToggleDark={() => setDk((d) => !d)} />
+        );
+      // ── Gestion des Comptes ──
+      case "patients":
+        return <PatientsView dk={dk} />;
+      case "doctors":
+        return <DoctorsView dk={dk} />;
+      case "caretakers":
+        return <CaretakersView dk={dk} />;
+      case "pharmacists":
+        return <PharmacistsView dk={dk} />;
+
+      // ── Activité (Planning & Queue) ──
+      case "rdv":
+      case "planning":
+        return <ScheduleView dk={dk} />;
+      case "queue":
+        return <VisitQueueView dk={dk} />;
+
+      default:
+        return <OverviewPage dk={dk} onNav={handleNav} />;
     }
   };
 
   return (
-    <div className="min-h-screen relative" style={{ background: c.bg, fontFamily: "'Plus Jakarta Sans', sans-serif", color: c.txt, transition: "background 0.3s, color 0.2s" }}>
+    <div
+      className="min-h-screen"
+      style={{
+        background: c.bg,
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
+        color: c.txt,
+        transition: "background 0.3s, color 0.2s",
+      }}
+    >
+      {/* ── Subtle background particles ── */}
       <ParticlesHero darkMode={dk} />
-      <div className="relative z-10">
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
         * { transition: background-color 0.2s, border-color 0.2s; }
         button, select, label, a { cursor: pointer !important; }
-        input[type=checkbox] { cursor: pointer !important; }
-        .nav-link:not(.active-nav):hover {
-          background: rgba(90,135,197,0.12) !important;
-          color: #5A87C5 !important;
+        @keyframes slideInLeft {
+          from { transform: translateX(-100%); }
+          to   { transform: translateX(0); }
         }
-        @keyframes dropdownIn {
-          from { opacity:0; transform:translateY(-8px) scale(0.97); }
-          to   { opacity:1; transform:translateY(0) scale(1); }
-        }
-        .pd-item { color:${c.txt2}; background:transparent; transition:background 0.15s,color 0.15s; }
-        .pd-item:hover { background:${dk ? "rgba(255,255,255,0.05)" : "rgba(90,135,197,0.08)"}; color:${dk ? "#E8F0FA" : c.blue}; }
-        .pd-item-danger { color:#EF4444; background:transparent; transition:background 0.15s; }
-        .pd-item-danger:hover { background:rgba(239,68,68,0.1); }
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(90,135,197,0.3); border-radius: 4px; }
       `}</style>
 
-      {/* ═══ NAVBAR ═══ */}
-      <nav className="sticky top-0 z-30 border-b shadow-sm" style={{ background: c.nav, borderColor: c.border }}>
-        <div className="w-full px-6 h-[60px] flex items-center gap-3">
+      {/* ── Sidebar ── */}
+      <AdminSidebar
+        dk={dk}
+        activePage={activePage}
+        onNav={handleNav}
+        onLogout={onLogout}
+        userData={userData}
+        pendingCount={pendingCount}
+        mobileOpen={mobileMenu}
+        onCloseMobile={() => setMobileMenu(false)}
+      />
 
-          {/* ── Logo with custom medical cross icon ── */}
-          <div className="flex items-center gap-2 shrink-0 mr-2">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-              style={{ background: "linear-gradient(135deg, #304B71, #6492C9)" }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <rect x="9" y="2" width="6" height="20" rx="2" fill="white" opacity="0.95"/>
-                <rect x="2" y="9" width="20" height="6" rx="2" fill="white" opacity="0.95"/>
-                <path d="M4 14 L6 10 L8 13 L10 7 L12 15 L14 11 L16 13 L18 11"
-                  stroke="#6492C9" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-              </svg>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-base" style={{ color: c.txt }}>
-                MedSmart
-              </span>
-              <span className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider"
-                style={{ background: "linear-gradient(135deg, #E05555, #c93535)", color: "#fff" }}>
-                ADMIN
-              </span>
-            </div>
+      {/* ── Main content (offset by sidebar width on desktop) ── */}
+      <div className="lg:ml-64 relative z-10">
+        {/* ── Top bar ── */}
+        <header
+          className="sticky top-0 z-20 border-b px-6 h-14 flex items-center gap-4"
+          style={{
+            background: c.nav,
+            borderColor: c.border,
+            backdropFilter: "blur(12px)",
+          }}
+        >
+          {/* Mobile hamburger */}
+          <button
+            className="lg:hidden w-8 h-8 flex items-center justify-center rounded-lg"
+            onClick={() => setMobileMenu(true)}
+            style={{ color: c.txt2 }}
+          >
+            <Menu size={18} />
+          </button>
+
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2 flex-1">
+            <span
+              className="text-xs font-bold uppercase tracking-widest"
+              style={{ color: c.txt3 }}
+            >
+              Admin
+            </span>
+            <span style={{ color: c.border }}>/</span>
+            <span
+              className="text-sm font-semibold capitalize"
+              style={{ color: c.txt }}
+            >
+              {{
+                overview: "Tableau de bord",
+                validation: "Validation",
+                utilisateurs: "Utilisateurs",
+                rendezvous: "Rendez-vous",
+                medicaments: "Médicaments",
+                pharmacies: "Pharmacies",
+                gardemalades: "Garde-malades",
+                audit: "Journal d'audit",
+                parametres: "Paramètres",
+                patients: "Patients",
+                doctors: "Médecins",
+                caretakers: "Garde-malades",
+                pharmacists: "Pharmaciens",
+                planning: "Planning",
+                rdv: "Rendez-vous",
+                queue: "File d'attente",
+              }[activePage] ?? activePage}
+            </span>
           </div>
 
-          {/* ── Nav links — centered with spacing ── */}
-          <div className="hidden lg:flex items-center justify-center gap-1 flex-1 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-            {NAV.map(item => (
-              <button key={item.id} onClick={() => setPage(item.id)}
-                className={`nav-link${page === item.id ? " active-nav" : ""} relative flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all`}
-                style={{ color: page === item.id ? "#fff" : c.txt2, background: page === item.id ? c.blue : "transparent" }}>
-                {item.label}
-                {item.badge && (
-                  <span className="ml-1 w-4 h-4 rounded-full text-white text-[9px] font-black flex items-center justify-center"
-                    style={{ background: c.red }}>{item.badge}</span>
-                )}
-              </button>
-            ))}
+          {/* Dark mode toggle */}
+          <button
+            onClick={() => setDk((d) => !d)}
+            className="w-8 h-8 flex items-center justify-center rounded-xl border transition-all hover:opacity-80"
+            title="Basculer thème"
+            style={{ borderColor: c.border, color: c.txt2 }}
+          >
+            {dk ? <Sun size={15} /> : <Moon size={15} />}
+          </button>
+
+          {/* User avatar */}
+          <div
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold"
+            style={{ background: "linear-gradient(135deg, #E05555, #c93535)" }}
+          >
+            {(() => {
+              if (!userData) return "AD";
+              return (
+                (
+                  (userData.first_name?.[0] ?? "") +
+                  (userData.last_name?.[0] ?? "")
+                ).toUpperCase() || "AD"
+              );
+            })()}
           </div>
+        </header>
 
-          {/* ── Right section ── */}
-          <div className="flex items-center gap-3 ml-auto shrink-0">
-            {/* Profile button — red dot on border corner for notifications */}
-            <div className="relative">
-              <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 border-2 z-10 flex items-center justify-center"
-                style={{ borderColor: c.nav, fontSize: 7, color: "#fff", fontWeight: 800, pointerEvents: "none" }}>
-                {alertCount}
-              </div>
-              <button onClick={() => setProfileOpen(!profileOpen)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all hover:opacity-80"
-                style={{ border: `1px solid ${c.border}`, background: "transparent" }}>
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"
-                  style={{ background: "linear-gradient(135deg, #E05555, #c93535)" }}>
-                  {userInitials}
-                </div>
-                <div className="hidden sm:block text-left">
-                  <p className="text-sm font-semibold leading-tight" style={{ color: c.txt }}>{userData?.first_name || "Admin"}</p>
-                  <p className="text-xs" style={{ color: c.txt3 }}>{userData?.role || "Accès complet"}</p>
-                </div>
-                <ChevronDown size={13} style={{ color: c.txt3 }} />
-              </button>
-
-              {/* Profile dropdown — animated slide-down */}
-              {profileOpen && (
-                <div className="absolute right-0 top-12 w-60 rounded-[20px] overflow-hidden z-50"
-                  style={{ background: dk ? c.card : "#ffffff", border: `1px solid ${dk ? c.border : "#F1F5F9"}`,
-                    boxShadow: "0 12px 40px rgba(0,0,0,0.12)", animation: "dropdownIn 0.2s ease forwards" }}>
-                  <div className="px-4 py-3 border-b" style={{ borderColor: dk ? c.border : "#F1F5F9" }}>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold shrink-0"
-                        style={{ background: "linear-gradient(135deg, #E05555, #c93535)" }}>{userInitials}</div>
-                      <div>
-                        <p className="text-sm font-bold" style={{ color: c.txt }}>{userData?.first_name} {userData?.last_name}</p>
-                        <p className="text-xs" style={{ color: c.txt3 }}>{userData?.email}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-2 flex flex-col gap-1 group">
-                    <button onClick={() => { setPage("audit"); setProfileOpen(false); }}
-                      className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer">
-                      <Bell size={16} className="hover:rotate-45 transition-transform" />
-                      Notifications
-                      <span className="ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full"
-                        style={{ background: "#E05555", color: "#fff" }}>{alertCount}</span>
-                    </button>
-                    <button onClick={() => { setPage("parametres"); setProfileOpen(false); }}
-                      className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer">
-                      <Settings size={16} className="hover:rotate-45 transition-transform" /> 
-                      Paramètres
-                    </button>
-                    <button onClick={() => { setPage("audit"); setProfileOpen(false); }}
-                      className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer">
-                      <Shield size={16} className="hover:rotate-45 transition-transform" /> 
-                      Journal d'audit
-                    </button>
-                    
-                    {/* Dark mode */}
-                    <button className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer">
-                      <Sun size={14} style={{ color: dk ? c.txt3 : "#E8A838" }} />
-                      <button
-                        onClick={() => setDk(!dk)}
-                        className="relative rounded-full transition-all duration-300"
-                        style={{
-                          width: 42,
-                          height: 24,
-                          background: dk
-                            ? "linear-gradient(135deg, #304B71, #4A6FA5)"
-                            : "#D5DEEF",
-                          border: `1.5px solid ${dk ? c.blue + "80" : "#BBC8DC"}`,
-                          padding: 0,
-                        }}
-                      >
-                        <div
-                          className="absolute top-0.5 rounded-full bg-white shadow-md transition-all duration-300"
-                          style={{ width: 18, height: 18, left: dk ? 20 : 2 }}
-                        />
-                      </button>
-                      <Moon size={13} style={{ color: dk ? c.blue : c.txt3 }} />
-                    </button>
-
-                    <div className="h-px my-1 mx-2" style={{ background: dk ? c.border : "#F1F5F9" }} />
-                    <button onClick={onLogout}
-                      className="pd-item-danger w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-xl cursor-pointer">
-                      <LogOut size={16} className="hover:translate-x-1 transition-transform" /> Logout
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <button className="lg:hidden w-8 h-8 flex items-center justify-center rounded-lg"
-              style={{ color: c.txt2 }} onClick={() => setMobileMenu(!mobileMenu)}>
-              <Menu size={17} />
-            </button>
-          </div>
-        </div>
-
-        {mobileMenu && (
-          <div className="lg:hidden border-t px-4 py-8 flex flex-col gap-4 animate-in slide-in-from-top duration-300"
-            style={{ borderColor: c.border, background: c.nav, boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)" }}>
-            <div className="flex flex-col gap-2">
-              <p className="px-4 text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: c.txt3 }}>Menu Principal</p>
-              {NAV.map(item => (
-                <button key={item.id} onClick={() => { setPage(item.id); setMobileMenu(false); }}
-                  className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold transition-all"
-                  style={{ 
-                    color: page === item.id ? "#fff" : c.txt, 
-                    background: page === item.id ? c.blue : "transparent",
-                    boxShadow: page === item.id ? `0 4px 12px ${c.blue}40` : "none"
-                  }}>
-                  <div className="flex items-center gap-3">
-                    {item.label}
-                  </div>
-                  {item.badge && (
-                    <span className="w-5 h-5 rounded-full text-white text-[10px] font-black flex items-center justify-center"
-                      style={{ background: c.red }}>{item.badge}</span>
-                  )}
-                </button>
-              ))}
-            </div>
-            
-            <div className="h-px w-full my-2" style={{ background: c.border }} />
-            
-            <button onClick={onLogout}
-              className="flex items-center gap-3 px-4 py-4 rounded-xl text-sm font-bold transition-all"
-              style={{ color: "#E05555", background: "#E0555510" }}>
-              <LogOut size={18} /> Se déconnecter
-            </button>
-          </div>
-        )}
-      </nav>
-
-      {/* Content */}
-      <main className="w-full px-6 py-6"><ErrorBoundary>{renderPage()}</ErrorBoundary></main>
-
-      {profileOpen && <div className="fixed inset-0 z-20" onClick={() => setProfileOpen(false)} />}
-    </div>
+        {/* ── Page content ── */}
+        <main className="px-6 py-6">
+          <ErrorBoundary>{renderPage()}</ErrorBoundary>
+        </main>
+      </div>
     </div>
   );
 }

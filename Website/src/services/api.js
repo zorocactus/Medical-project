@@ -581,21 +581,6 @@ export async function changePassword(data) {
   });
 }
 
-/**
- * (Admin) Liste des médecins/pros en attente de validation
- * BUG-09 fix : /admin/doctors/pending/ n'existe pas.
- * On filtre /admin/users/ par role=doctor et verification_status=pending.
- */
-export async function getPendingDoctors() {
-  return apiFetch("/admin/users/?role=doctor&verification_status=pending");
-}
-
-/**
- * (Admin) Liste de tous les utilisateurs
- */
-export async function getUsers() {
-  return apiFetch("/admin/users/");
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 8. DOSSIER PATIENT (vue médecin)  →  /api/doctor/patients/
@@ -671,3 +656,118 @@ export async function getCaretakers(filters = {}) {
  * Exporte clearTokens pour que AuthContext puisse l'utiliser
  */
 export { clearTokens };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN — fonctions supplémentaires
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** (Admin) Approuver un professionnel (médecin / pharmacien / garde-malade) */
+export async function verifyUser(userId) {
+  return apiFetch(`/admin/users/${userId}/verify_professional/`, { method: "POST" });
+}
+
+/** (Admin) Récupérer tous les utilisateurs avec filtres (role, search, etc.) */
+export async function getAdminUsers(filters = {}) {
+  const params = new URLSearchParams(filters).toString();
+  return apiFetch(`/admin/users/${params ? "?" + params : ""}`);
+}
+
+/** Alias pour compatibilité héritée */
+export const getUsers = getAdminUsers;
+
+/** (Admin) Mettre à jour un utilisateur (admin total access) */
+export async function updateAdminUser(userId, data) {
+  return apiFetch(`/admin/users/${userId}/`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+/** (Admin) Liste des pros en attente de validation */
+export async function getPendingDoctors() {
+  return apiFetch("/admin/users/?verification_status=pending");
+}
+
+/** (Admin) Rejeter un professionnel avec motif */
+export async function rejectUser(userId, reason = "") {
+  return apiFetch(`/admin/users/${userId}/reject_professional/`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+}
+
+/** (Admin) Suspendre / Réactiver un utilisateur */
+export async function toggleSuspendUser(userId) {
+  return apiFetch(`/admin/users/${userId}/toggle_suspend/`, { method: "POST" });
+}
+
+/** (Admin) Journal d'audit — filtres optionnels : ?level=success|warning|error|info */
+export async function getAuditLogs(filters = {}) {
+  const params = new URLSearchParams(filters).toString();
+  return apiFetch(`/admin/audit-logs/${params ? "?" + params : ""}`);
+}
+
+/** (Admin) Dashboard global : KPIs de la plateforme */
+export async function getAdminDashboard() {
+  return apiFetch("/dashboard/admin/");
+}
+
+/** (Admin) Catalogue médicaments — ?search=nom&category=cardio */
+export async function getMedications(filters = {}) {
+  const params = new URLSearchParams(filters).toString();
+  return apiFetch(`/medications/${params ? "?" + params : ""}`);
+}
+
+/** (Admin) Liste des pharmacies */
+export async function getAllPharmacies(filters = {}) {
+  const params = new URLSearchParams(filters).toString();
+  return apiFetch(`/pharmacy/list/${params ? "?" + params : ""}`);
+}
+
+/** (Admin) Commandes pharmacie — filtres optionnels */
+export async function getPharmacyOrders(filters = {}) {
+  const params = new URLSearchParams(filters).toString();
+  return apiFetch(`/pharmacy/orders/${params ? "?" + params : ""}`);
+}
+
+/** (Admin) Demandes de soins garde-malade — filtres optionnels */
+export async function getAdminCareRequests(filters = {}) {
+  const params = new URLSearchParams(filters).toString();
+  return apiFetch(`/caretaker/requests/${params ? "?" + params : ""}`);
+}
+
+/** (Admin) Tous les rendez-vous — filtres : ?status=pending&... */
+export async function getAdminAppointments(filters = {}) {
+  const params = new URLSearchParams(filters).toString();
+  return apiFetch(`/appointments/${params ? "?" + params : ""}`);
+}
+
+/** (Admin) Liste des garde-malades */
+export async function getAllCaretakers(filters = {}) {
+  const params = new URLSearchParams(filters).toString();
+  return apiFetch(`/caretaker/search/${params ? "?" + params : ""}`);
+}
+
+/** (Admin) File d'attente consultation dynamique */
+export async function getAdminQueue(filters = {}) {
+  const params = new URLSearchParams(filters).toString();
+  return apiFetch(`/admin/queue/${params ? "?" + params : ""}`);
+}
+
+/** (Admin) Changer le statut d'une consultation en file d'attente */
+export async function updateQueueStatus(id, status) {
+  return apiFetch(`/admin/queue/${id}/update_status/`, {
+    method: "POST",
+    body: JSON.stringify({ status }),
+  });
+}
+
+/** (Admin) Créer un nouveau médicament dans le catalogue */
+export async function createMedication(data) {
+  return apiFetch("/medications/", { method: "POST", body: JSON.stringify(data) });
+}
+
+/** (Admin) Rejeter un document soumis par un médecin */
+export async function rejectDoctorDocument(doctorId, docId) {
+  return apiFetch(`/admin/doctors/${doctorId}/documents/${docId}/reject/`, { method: "POST" });
+}

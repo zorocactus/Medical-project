@@ -1,15 +1,60 @@
 import { useState, useEffect } from "react";
-import { User, EyeOff, Eye, Facebook } from "lucide-react";
+import { Mail, Lock, EyeOff, Eye, ArrowRight, Facebook, Activity } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 
-export default function LoginForm({ onLogin }) {
+export default function LoginForm({ onLogin, onSwitchToRegister }) {
   const { login } = useAuth();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+
+  // ── Tokens séparés dark / light pour un contraste optimal ─────────────────
+  const c = isDark ? {
+    bg:          "#0D1117",
+    inputBg:     "rgba(255,255,255,0.08)",
+    inputBorder: "border-white/15 focus:border-[#638ECB]",
+    inputTxt:    "#FFFFFF",
+    icon:        "rgba(255,255,255,0.4)",
+    placeholder: "placeholder-white/40",
+    label:       "rgba(255,255,255,0.7)",
+    title:       "#FFFFFF",
+    subtitle:    "rgba(255,255,255,0.6)",
+    blue:        "#638ECB",
+    blueHover:   "#7AABEE",
+    divLine:     "rgba(255,255,255,0.12)",
+    divTxt:      "rgba(255,255,255,0.4)",
+    oauthCls:    "bg-white/8 hover:bg-white/[.12] border-white/20",
+    oauthIcon:   "rgba(255,255,255,0.85)",
+    switchTxt:   "rgba(255,255,255,0.6)",
+    msgBorder:   "rgba(255,255,255,0.15)",
+    msgBg:       "rgba(59,130,246,0.08)",
+  } : {
+    bg:          "#F0F4F8",
+    inputBg:     "#ffffff",
+    inputBorder: "border-[#E4EAF5] focus:border-[#4A6FA5]",
+    inputTxt:    "#0D1B2E",
+    icon:        "#4A6FA5",
+    placeholder: "placeholder-[#9AACBE]",
+    label:       "#5A6E8A",
+    title:       "#0D1B2E",
+    subtitle:    "#5A6E8A",
+    blue:        "#4A6FA5",
+    blueHover:   "#3D5E8F",
+    divLine:     "#E4EAF5",
+    divTxt:      "#9AACBE",
+    oauthCls:    "bg-white hover:bg-[#F8FAFC] border-[#E4EAF5]",
+    oauthIcon:   "#5A6E8A",
+    switchTxt:   "#5A6E8A",
+    msgBorder:   "#D0DBF0",
+    msgBg:       "#EEF3FB",
+  };
+
   const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail]               = useState("");
-  const [password, setPassword]         = useState("");
-  const [errors, setErrors]             = useState({});
-  const [apiError, setApiError]         = useState("");
-  const [loading, setLoading]           = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errors, setErrors] = useState({});
+  const [apiError, setApiError] = useState("");
+  const [loading, setLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isFacebookLoading, setIsFacebookLoading] = useState(false);
   const [oauthMessage, setOauthMessage] = useState("");
@@ -24,16 +69,13 @@ export default function LoginForm({ onLogin }) {
 
   async function handleSubmit() {
     const newErrors = {};
-    if (!email.trim())    newErrors.email    = true;
+    if (!email.trim()) newErrors.email = true;
     if (!password.trim()) newErrors.password = true;
     if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
-    
     setErrors({});
     setApiError("");
     setLoading(true);
-    
     try {
-      // POST /api/auth/token/ → sauvegarde tokens → GET /api/auth/me/
       const me = await login(email, password);
       onLogin(me?.role || "patient", me);
     } catch (err) {
@@ -46,124 +88,181 @@ export default function LoginForm({ onLogin }) {
   const handleGoogleLogin = async () => {
     if (isGoogleLoading || isFacebookLoading) return;
     setIsGoogleLoading(true);
-    setTimeout(() => {
-      setIsGoogleLoading(false);
-      setOauthMessage("L'authentification Google n'est pas encore disponible. (À lier au Backend)");
-      // window.location.href = "http://localhost:8000/api/auth/login/google/";
-    }, 1000);
+    setTimeout(() => { setIsGoogleLoading(false); setOauthMessage("L'authentification Google n'est pas encore disponible. (À lier au Backend)"); }, 1000);
   };
 
   const handleFacebookLogin = async () => {
     if (isGoogleLoading || isFacebookLoading) return;
     setIsFacebookLoading(true);
-    setTimeout(() => {
-      setIsFacebookLoading(false);
-      setOauthMessage("L'authentification Facebook n'est pas encore disponible. (À lier au Backend)");
-      // window.location.href = "http://localhost:8000/api/auth/login/facebook/";
-    }, 1000);
+    setTimeout(() => { setIsFacebookLoading(false); setOauthMessage("L'authentification Facebook n'est pas encore disponible. (À lier au Backend)"); }, 1000);
   };
 
+  // classe commune pour les inputs (sans fond ni border, ajoutés via style + c.inputBorder)
+  const inputBase = (padRight, hasError) =>
+    `w-full pl-10 ${padRight} py-3 rounded-xl text-sm transition-all outline-none border-2 ${c.placeholder} ${hasError ? "border-red-400" : c.inputBorder}`;
+
   return (
-    <div className="flex flex-col justify-center px-16 py-16 w-full h-full">
-      <div className="max-w-md w-full mx-auto text-center">
-        <h2 className="text-5xl font-semibold text-black mb-16">Login</h2>
-        
+    <div
+      className="w-full h-full flex flex-col justify-center px-8 xl:px-14 py-10 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+      style={{ background: c.bg }}
+    >
+      <div className="max-w-sm w-full mx-auto">
+
+        {/* ── Logo ─────────────────────────────────────── */}
+        <div className="flex items-center gap-2.5 mb-9">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: c.blue }}>
+            <Activity size={18} color="white" strokeWidth={2.5} />
+          </div>
+          <span className="font-bold text-lg tracking-tight" style={{ color: c.title }}>MedSmart</span>
+        </div>
+
+        {/* ── Titre ────────────────────────────────────── */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold leading-tight mb-1.5" style={{ color: c.title }}>
+            Connectez-vous à MedSmart
+          </h1>
+          <p className="text-sm" style={{ color: c.subtitle }}>Votre santé, simplifiée.</p>
+        </div>
+
+        {/* ── Messages d'erreur ────────────────────────── */}
         {apiError && (
-          <div className="mb-6 p-4 rounded-xl bg-red-50 text-red-600 text-sm font-medium border border-red-200">
+          <div className="mb-5 p-3.5 rounded-xl text-sm font-medium border bg-red-500/10 text-red-400 border-red-500/20">
             {apiError}
           </div>
         )}
         {oauthMessage && (
-          <div className="mb-6 p-4 rounded-xl bg-blue-50 text-blue-700 text-sm font-medium border border-blue-200">
+          <div className="mb-5 p-3.5 rounded-xl text-sm font-medium border"
+            style={{ color: c.subtitle, borderColor: c.msgBorder, background: c.msgBg }}>
             {oauthMessage}
           </div>
         )}
-        
-        <div className="space-y-10">
 
-          {/* Email */}
-          <div className="relative group">
-            <span className="absolute -top-3 left-6 px-2 bg-white text-base font-medium text-[#365885] z-10">Email</span>
+        <div className="space-y-5">
+
+          {/* ── Email ────────────────────────────────── */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium block" style={{ color: c.label }}>Adresse Email</label>
             <div className="relative">
-              <input 
-                type="email" 
-                value={email} 
-                onChange={e => setEmail(e.target.value)}
-                className={`w-full pl-6 pr-14 py-5 rounded-[20px] border-[1.5px] ${errors.email ? "border-red-400" : "border-[#365885]/60"} hover:border-[#365885] focus:border-[#365885] focus:ring-0 transition-all outline-none text-gray-700 text-lg`}
-                placeholder="Entrez votre email" 
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: c.icon }}>
+                <Mail size={16} />
+              </span>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="votre@email.com"
+                className={inputBase("pr-4", errors.email)}
+                style={{ background: c.inputBg, color: c.inputTxt }}
               />
-              <div className="absolute right-5 top-1/2 -translate-y-1/2 text-[#365885]"><User size={28} /></div>
             </div>
-            {errors.email && <p className="text-red-400 text-xs mt-1 ml-2">Ce champ est requis</p>}
+            {errors.email && <p className="text-xs text-red-400">Ce champ est requis</p>}
           </div>
 
-          {/* Password */}
-          <div className="relative group">
-            <label className="absolute -top-3 left-6 px-1.5 bg-white text-base font-medium text-[#365885] z-10">Mot de passe</label>
+          {/* ── Mot de passe ─────────────────────────── */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium" style={{ color: c.label }}>Mot de passe</label>
+              <a href="#" className="text-xs transition-colors hover:underline" style={{ color: c.blue }}>
+                Mot de passe oublié ?
+              </a>
+            </div>
             <div className="relative">
-              <input 
-                type={showPassword ? "text" : "password"} 
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: c.icon }}>
+                <Lock size={16} />
+              </span>
+              <input
+                type={showPassword ? "text" : "password"}
                 value={password}
-                onChange={e => setPassword(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && handleSubmit()}
-                className={`w-full pl-6 pr-14 py-5 rounded-[20px] border-[1.5px] ${errors.password ? "border-red-400" : "border-[#365885]/60"} hover:border-[#365885] focus:border-[#365885] focus:ring-0 transition-all outline-none text-gray-700 text-lg`}
-                placeholder="•••••••••••" 
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+                placeholder="••••••••"
+                className={inputBase("pr-12", errors.password)}
+                style={{ background: c.inputBg, color: c.inputTxt }}
               />
-              <div className="absolute right-5 top-1/2 -translate-y-1/2 text-[#365885] cursor-pointer"
-                onClick={() => setShowPassword(!showPassword)}>
-                {showPassword ? <Eye size={28} /> : <EyeOff size={28} />}
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 transition-opacity hover:opacity-100"
+                style={{ color: c.icon }}
+              >
+                {showPassword ? <Eye size={16} /> : <EyeOff size={16} />}
+              </button>
             </div>
-            {errors.password && <p className="text-red-400 text-xs mt-1 ml-2">Ce champ est requis</p>}
+            {errors.password && <p className="text-xs text-red-400">Ce champ est requis</p>}
           </div>
 
-          <div className="flex justify-center">
-            <a href="#" className="-mt-4 text-sm font-medium text-gray-500 hover:text-[#365885] hover:underline transition-colors">
-              Mot de passe oublié ?
-            </a>
-          </div>
-
-          <button 
-            onClick={handleSubmit} 
+          {/* ── Bouton connexion ─────────────────────── */}
+          <button
+            onClick={handleSubmit}
             disabled={loading}
-            className="w-full py-4 bg-[#6492C9] hover:bg-[#537db1] text-white text-xl font-semibold rounded-[20px] transition-all duration-200 shadow-sm cursor-pointer hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100 flex items-center justify-center gap-3"
+            className="w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] text-white shadow-lg group cursor-pointer hover:brightness-110 disabled:opacity-70"
+            style={{ background: c.blue }}
           >
             {loading ? (
-              <><div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />Connexion…</>
-            ) : "Se connecter"}
+              <>
+                <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/30 border-t-white" />
+                Connexion…
+              </>
+            ) : (
+              <>
+                Se connecter
+                <ArrowRight size={18} className="transform transition-transform group-hover:translate-x-1" />
+              </>
+            )}
           </button>
 
-          <div className="flex flex-col items-center gap-4">
-            <p className="text-sm font-medium text-gray-500">ou se connecter avec</p>
-            <div className="flex gap-4">
-              <button 
-                type="button"
-                onClick={handleGoogleLogin}
-                disabled={isGoogleLoading || isFacebookLoading || loading}
-                className="w-16 h-16 flex items-center justify-center bg-white border border-gray-200 rounded-[20px] hover:bg-gray-50 active:scale-95 transition-all cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isGoogleLoading ? (
-                  <div className="w-6 h-6 border-2 border-gray-300 border-t-[#365885] rounded-full animate-spin" />
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="30" height="30">
-                    <path fill="#0a0a0aff" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
-                  </svg>
-                )}
-              </button>
-              <button 
-                type="button"
-                onClick={handleFacebookLogin}
-                disabled={isGoogleLoading || isFacebookLoading || loading}
-                className="w-16 h-16 flex items-center justify-center bg-white border border-gray-200 rounded-[20px] hover:bg-gray-50 active:scale-95 transition-all cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isFacebookLoading ? (
-                  <div className="w-6 h-6 border-2 border-gray-300 border-t-[#365885] rounded-full animate-spin" />
-                ) : (
-                  <Facebook size={28} fill="#000000ff" strokeWidth={0} />
-                )}
-              </button>
-            </div>
+          {/* ── Séparateur ──────────────────────────── */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px" style={{ background: c.divLine }} />
+            <span className="text-xs" style={{ color: c.divTxt }}>ou se connecter avec</span>
+            <div className="flex-1 h-px" style={{ background: c.divLine }} />
           </div>
+
+          {/* ── OAuth ────────────────────────────────── */}
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={isGoogleLoading || isFacebookLoading || loading}
+              className={`flex-1 h-12 flex items-center justify-center rounded-xl transition-all disabled:opacity-50 border-2 cursor-pointer group ${c.oauthCls}`}
+            >
+              {isGoogleLoading ? (
+                <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white/60" />
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="20" height="20" className="transition-transform group-hover:scale-110">
+                  <path fill={c.oauthIcon} d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
+                </svg>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={handleFacebookLogin}
+              disabled={isGoogleLoading || isFacebookLoading || loading}
+              className={`flex-1 h-12 flex items-center justify-center rounded-xl transition-all disabled:opacity-50 border-2 cursor-pointer group ${c.oauthCls}`}
+            >
+              {isFacebookLoading ? (
+                <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white/60" />
+              ) : (
+                <Facebook size={20} fill={c.oauthIcon} strokeWidth={0} className="transition-transform group-hover:scale-110" />
+              )}
+            </button>
+          </div>
+
+          {/* ── Switch vers Register ─────────────────── */}
+          {onSwitchToRegister && (
+            <p className="text-center text-sm pt-1" style={{ color: c.switchTxt }}>
+              Pas de compte ?{" "}
+              <button
+                type="button"
+                onClick={onSwitchToRegister}
+                className="font-semibold transition-colors hover:underline cursor-pointer"
+                style={{ color: c.blue }}
+              >
+                S'inscrire
+              </button>
+            </p>
+          )}
+
         </div>
       </div>
     </div>

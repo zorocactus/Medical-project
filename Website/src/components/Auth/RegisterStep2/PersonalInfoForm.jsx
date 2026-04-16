@@ -1,34 +1,37 @@
 import { useState } from "react";
-import { Phone, User, Home, Calendar, ChevronDown } from "lucide-react";
+import { Phone, User, Home, ChevronDown } from "lucide-react";
+import StepBar from "./StepBar";
+import { useTheme } from "../../../context/ThemeContext";
 
 const SEXE_OPTIONS = ["Masculin", "Féminin"];
 const WILAYAS = ["Alger", "Oran", "Constantine", "Annaba", "Blida", "Batna", "Sétif", "Tlemcen", "Tizi Ouzou", "Béjaïa", "Jijel", "Autre"];
 
-function CustomSelect({ label, value, options, onSelect, placeholder = "Sélectionner...", error }) {
+function CustomSelect({ label, value, options, onSelect, placeholder = "Sélectionner...", error, c }) {
   const [isOpen, setIsOpen] = useState(false);
   return (
-    <div className="relative group">
-      <span className="absolute -top-3 left-4 px-1.5 bg-white text-[13px] font-medium text-[#365885] z-10">
-        {label}
-      </span>
+    <div className="space-y-1">
+      <label className="text-[12px] font-medium block" style={{ color: c.label }}>{label}</label>
       <div className="relative">
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border ${
-            error ? "border-red-400" : "border-[#D1DFEC] hover:border-[#89AEDB] focus:border-[#6492C9]"
-          } bg-white text-sm text-gray-700 transition-colors text-left outline-none`}
+          className="w-full flex items-center justify-between px-3.5 py-[10px] rounded-xl border-2 text-sm transition-all outline-none"
+          style={{ background: c.inputBg, borderColor: error ? "#f87171" : c.border }}
         >
-          <span className={value ? "text-gray-700" : "text-[#A0B5CD]"}>{value || placeholder}</span>
-          <ChevronDown size={18} className={`text-[#89AEDB] shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+          <span style={{ color: value ? c.txt : c.txt3 }}>{value || placeholder}</span>
+          <ChevronDown size={16} className={`shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} style={{ color: c.icon }} />
         </button>
         {isOpen && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-            <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl border border-[#D1DFEC] shadow-xl z-50 py-2 bg-white max-h-60 overflow-y-auto">
+            <div className="absolute top-full left-0 right-0 mt-1 rounded-xl border shadow-2xl z-50 py-1 max-h-52 overflow-y-auto"
+              style={{ background: c.dropdown, borderColor: c.border }}>
               {options.map((opt) => (
-                <button key={opt} type="button" onClick={() => { onSelect(opt); setIsOpen(false); }}
-                  className={`w-full flex items-center px-5 py-3 text-sm font-medium transition-all text-left hover:bg-[#6492C9] hover:bg-opacity-10 ${value === opt ? "text-[#6492C9] bg-[#EEF3FB]" : "text-[#0D2644]"}`}>
+                <button key={opt} type="button"
+                  onClick={() => { onSelect(opt); setIsOpen(false); }}
+                  className="w-full px-4 py-2.5 text-sm text-left transition-all"
+                  style={{ color: value === opt ? c.blue : c.txt2, background: value === opt ? c.inputBg : "transparent" }}
+                >
                   {opt}
                 </button>
               ))}
@@ -36,14 +39,67 @@ function CustomSelect({ label, value, options, onSelect, placeholder = "Sélecti
           </>
         )}
       </div>
-      {error && <p className="text-red-500 text-[12px] mt-1 ml-1">{error}</p>}
+      {error && <p className="text-[11px] text-red-400">{error}</p>}
     </div>
   );
 }
 
-export default function PersonalInfoForm({ onComplete, onBack, stepIndicator, devFillData }) {
+function Field({ label, icon, error, children, c }) {
+  return (
+    <div className="space-y-1">
+      <label className="text-[12px] font-medium block" style={{ color: c.label }}>{label}</label>
+      <div className="relative group">
+        {icon && (
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: c.icon }}>
+            {icon}
+          </span>
+        )}
+        {children}
+      </div>
+      {error && <p className="text-[11px] text-red-400">{error}</p>}
+    </div>
+  );
+}
+
+export default function PersonalInfoForm({ onComplete, onBack, steps, currentStep, devFillData }) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+
+  const c = isDark ? {
+    bg:          "#0D1117",
+    inputBg:     "rgba(255,255,255,0.08)",
+    inputBorder: "border-white/15 focus:border-[#638ECB]",
+    border:      "rgba(255,255,255,0.15)",
+    dropdown:    "#0A1220",
+    txt:         "#FFFFFF",
+    txt2:        "rgba(255,255,255,0.7)",
+    txt3:        "rgba(255,255,255,0.4)",
+    icon:        "rgba(255,255,255,0.4)",
+    label:       "rgba(255,255,255,0.7)",
+    blue:        "#638ECB",
+    div:         "rgba(255,255,255,0.12)",
+    divTxt:      "rgba(255,255,255,0.45)",
+    ph:          "placeholder-white/40",
+  } : {
+    bg:          "#F0F4F8",
+    inputBg:     "#ffffff",
+    inputBorder: "border-[#E4EAF5] focus:border-[#4A6FA5]",
+    border:      "#E4EAF5",
+    dropdown:    "#ffffff",
+    txt:         "#0D1B2E",
+    txt2:        "#5A6E8A",
+    txt3:        "#9AACBE",
+    icon:        "#4A6FA5",
+    label:       "#5A6E8A",
+    blue:        "#4A6FA5",
+    div:         "#E4EAF5",
+    divTxt:      "#9AACBE",
+    ph:          "placeholder-[#9AACBE]",
+  };
+
   const [formData, setFormData] = useState({
-    birthDate: "", sex: "Masculin", phone: "", idCardNumber: "", address: "", postalCode: "", city: "", wilaya: "Alger",
+    birthDate: "", sex: "Masculin", phone: "", idCardNumber: "",
+    address: "", postalCode: "", city: "", wilaya: "Alger",
   });
   const [errors, setErrors] = useState({});
 
@@ -67,105 +123,121 @@ export default function PersonalInfoForm({ onComplete, onBack, stepIndicator, de
   };
 
   const handleSubmit = () => {
-    const requiredFields = ["birthDate", "phone", "idCardNumber", "address", "postalCode", "city"];
+    const required = ["birthDate", "phone", "idCardNumber", "address", "postalCode", "city"];
     const newErrors = {};
-    requiredFields.forEach((f) => { if (!formData[f] || formData[f].trim() === "") newErrors[f] = "Ce champ est obligatoire"; });
+    required.forEach((f) => { if (!formData[f]?.trim()) newErrors[f] = "Ce champ est obligatoire"; });
     if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
     onComplete(formData);
   };
 
-  const handleDevFill = () => {
-    onComplete(devFillData);
-  };
+  // border dans className → focus: fonctionne correctement (pas de borderColor inline)
+  const inputCls = (hasIcon, err) =>
+    `w-full ${hasIcon ? "pl-9" : "pl-3.5"} pr-3.5 py-[10px] rounded-xl text-sm outline-none transition-all border-2 ${c.ph} ${err ? "border-red-400" : c.inputBorder}`;
 
   return (
-    <div className="min-h-screen bg-[#D1DFEC] flex items-center justify-center p-6 font-sans">
-      <div className="bg-white rounded-[24px] shadow-xl w-full max-w-[800px] px-[60px] py-[50px] relative">
-        <h2 className="text-[28px] font-bold text-[#0D2644] text-center mb-10">Créer votre compte</h2>
+    <div
+      className="w-full min-h-screen flex flex-col items-center justify-center py-8 px-4 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+      style={{ background: c.bg }}
+    >
+      <div className="w-full max-w-[480px]">
 
-        {stepIndicator}
+        {steps && <StepBar steps={steps} current={currentStep} />}
 
+        {/* Section — Informations personnelles */}
+        <div className="mb-6">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="flex-1 h-px" style={{ background: c.div }} />
+            <span className="text-[12px] font-semibold tracking-wide uppercase" style={{ color: c.divTxt }}>Informations personnelles</span>
+            <div className="flex-1 h-px" style={{ background: c.div }} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <Field label="Date de naissance" error={errors.birthDate} c={c}>
+              <input type="date" name="birthDate" value={formData.birthDate} onChange={handleChange}
+                className={inputCls(false, errors.birthDate)}
+                style={{ background: c.inputBg, color: c.txt, colorScheme: isDark ? "dark" : "light" }}
+              />
+            </Field>
+            <CustomSelect label="Sexe" value={formData.sex} options={SEXE_OPTIONS}
+              onSelect={(v) => handleField("sex", v)} error={errors.sex} c={c} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Téléphone" icon={<Phone size={14} />} error={errors.phone} c={c}>
+              <input type="text" name="phone" placeholder="0555123456"
+                value={formData.phone} onChange={(e) => handleNumberChange(e, "phone", 10)}
+                className={inputCls(true, errors.phone)}
+                style={{ background: c.inputBg, color: c.txt }}
+              />
+            </Field>
+            <Field label="N° Carte d'identité" icon={<User size={14} />} error={errors.idCardNumber} c={c}>
+              <input type="text" name="idCardNumber" placeholder="Ex: 10123456789"
+                value={formData.idCardNumber} onChange={(e) => handleNumberChange(e, "idCardNumber", 18)}
+                className={inputCls(true, errors.idCardNumber)}
+                style={{ background: c.inputBg, color: c.txt }}
+              />
+            </Field>
+          </div>
+        </div>
+
+        {/* Section — Adresse */}
         <div className="mb-8">
-          <div className="flex items-center justify-center mb-8">
-            <div className="flex-1 h-px bg-[#D1DFEC]"></div>
-            <div className="mx-4 text-[#365885] text-[15px] font-semibold tracking-wide">Informations personnelles</div>
-            <div className="flex-1 h-px bg-[#D1DFEC]"></div>
+          <div className="flex items-center gap-3 mb-5">
+            <div className="flex-1 h-px" style={{ background: c.div }} />
+            <span className="text-[12px] font-semibold tracking-wide uppercase" style={{ color: c.divTxt }}>Adresse résidentielle</span>
+            <div className="flex-1 h-px" style={{ background: c.div }} />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-7">
-            <div className="relative group">
-              <span className="absolute -top-3 left-4 px-1.5 bg-white text-[13px] font-medium text-[#365885] z-10">Date de naissance</span>
-              <div className="relative">
-                <input type="date" name="birthDate" value={formData.birthDate} onChange={handleChange} className={`w-full pl-4 pr-10 py-3 rounded-xl border ${errors.birthDate ? "border-red-400" : "border-[#D1DFEC] hover:border-[#89AEDB]"} outline-none text-gray-700 text-sm`} />
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[#89AEDB] pointer-events-none"><Calendar size={18} strokeWidth={1.5} /></div>
-              </div>
+          <div className="space-y-3">
+            <Field label="Adresse" icon={<Home size={14} />} error={errors.address} c={c}>
+              <input type="text" name="address" placeholder="Rue, numéro..."
+                value={formData.address} onChange={handleChange}
+                className={inputCls(true, errors.address)}
+                style={{ background: c.inputBg, color: c.txt }}
+              />
+            </Field>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Code postal" error={errors.postalCode} c={c}>
+                <input type="text" name="postalCode" placeholder="16000"
+                  value={formData.postalCode} onChange={(e) => handleNumberChange(e, "postalCode", 5)}
+                  className={inputCls(false, errors.postalCode)}
+                  style={{ background: c.inputBg, color: c.txt }}
+                />
+              </Field>
+              <Field label="Commune" error={errors.city} c={c}>
+                <input type="text" name="city" placeholder="Rouiba"
+                  value={formData.city} onChange={handleChange}
+                  className={inputCls(false, errors.city)}
+                  style={{ background: c.inputBg, color: c.txt }}
+                />
+              </Field>
             </div>
 
-            <CustomSelect label="Sexe" value={formData.sex} options={SEXE_OPTIONS} onSelect={(v) => handleField("sex", v)} />
-
-            <div className="relative group">
-              <span className="absolute -top-3 left-4 px-1.5 bg-white text-[13px] font-medium text-[#365885] z-10">Numéro de téléphone</span>
-              <div className="relative">
-                <input type="text" name="phone" placeholder="Ex: 0555123456" value={formData.phone} onChange={(e) => handleNumberChange(e, "phone", 10)} className={`w-full pl-4 pr-10 py-3 rounded-xl border ${errors.phone ? "border-red-400" : "border-[#D1DFEC] hover:border-[#89AEDB]"} outline-none text-gray-700 text-sm`} />
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[#89AEDB] pointer-events-none"><Phone size={18} strokeWidth={1.5} /></div>
-              </div>
-            </div>
-
-            <div className="relative group">
-              <span className="absolute -top-3 left-4 px-1.5 bg-white text-[13px] font-medium text-[#365885] z-10">Numéro carte d'identité</span>
-              <div className="relative">
-                <input type="text" name="idCardNumber" placeholder="Ex: 10123456789" value={formData.idCardNumber} onChange={(e) => handleNumberChange(e, "idCardNumber", 18)} className={`w-full pl-4 pr-10 py-3 rounded-xl border ${errors.idCardNumber ? "border-red-400" : "border-[#D1DFEC] hover:border-[#89AEDB]"} outline-none text-gray-700 text-sm`} />
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[#89AEDB] pointer-events-none"><User size={18} strokeWidth={1.5} /></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="mb-10 mt-10">
-          <div className="flex items-center justify-center mb-8">
-            <div className="flex-1 h-px bg-[#D1DFEC]"></div>
-            <div className="mx-4 text-[#365885] text-[15px] font-semibold tracking-wide">Adresse résidentielle</div>
-            <div className="flex-1 h-px bg-[#D1DFEC]"></div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-7">
-            <div className="relative group md:col-span-1">
-              <span className="absolute -top-3 left-4 px-1.5 bg-white text-[13px] font-medium text-[#365885] z-10">Adresse</span>
-              <div className="relative">
-                <input type="text" name="address" placeholder="Rue, numéro..." value={formData.address} onChange={handleChange} className={`w-full pl-4 pr-10 py-3 rounded-xl border ${errors.address ? "border-red-400" : "border-[#D1DFEC] hover:border-[#89AEDB]"} outline-none text-gray-700 text-sm`} />
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[#89AEDB] pointer-events-none"><Home size={18} strokeWidth={1.5} /></div>
-              </div>
-            </div>
-
-            <div className="relative group md:col-span-1">
-              <span className="absolute -top-3 left-4 px-1.5 bg-white text-[13px] font-medium text-[#365885] z-10">Code postal</span>
-              <input type="text" name="postalCode" placeholder="16000" value={formData.postalCode} onChange={(e) => handleNumberChange(e, "postalCode", 5)} className={`w-full pl-4 pr-4 py-3 rounded-xl border ${errors.postalCode ? "border-red-400" : "border-[#D1DFEC] hover:border-[#89AEDB]"} outline-none text-gray-700 text-sm`} />
-            </div>
-
-            <div className="relative group">
-              <span className="absolute -top-3 left-4 px-1.5 bg-white text-[13px] font-medium text-[#365885] z-10">Commune</span>
-              <input type="text" name="city" placeholder="Rouiba" value={formData.city} onChange={handleChange} className={`w-full pl-4 pr-4 py-3 rounded-xl border ${errors.city ? "border-red-400" : "border-[#D1DFEC] hover:border-[#89AEDB]"} outline-none text-gray-700 text-sm`} />
-            </div>
-
-            <CustomSelect label="Wilaya" value={formData.wilaya} options={WILAYAS} onSelect={(v) => handleField("wilaya", v)} />
+            <CustomSelect label="Wilaya" value={formData.wilaya} options={WILAYAS}
+              onSelect={(v) => handleField("wilaya", v)} c={c} />
           </div>
         </div>
 
-        <div className="flex items-center gap-4 mt-8">
-          <button onClick={onBack} className="w-[120px] bg-white border border-[#D1DFEC] hover:bg-gray-50 text-[#365885] py-3 rounded-xl text-[15px] font-medium transition-all">
-            &larr; Retour
+        {/* Navigation */}
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={onBack}
+            className="px-5 py-2.5 rounded-xl border text-sm font-medium transition-all cursor-pointer"
+            style={{ background: isDark ? "rgba(255,255,255,0.06)" : "transparent", borderColor: c.border, color: c.txt2 }}>
+            ← Retour
           </button>
-          <button onClick={handleSubmit} className="flex-1 bg-[#6492C9] hover:bg-[#304B71] text-white py-3 rounded-xl text-[15px] font-medium transition-all shadow-sm">
-            Continuer &rarr;
+          <button type="button" onClick={handleSubmit}
+            className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold transition-all cursor-pointer hover:brightness-110"
+            style={{ background: c.blue }}>
+            Continuer →
           </button>
         </div>
+
       </div>
 
       {import.meta.env.DEV && (
-        <button
-          onClick={handleDevFill}
-          className="fixed bottom-4 left-4 z-50 bg-black/80 text-yellow-400 text-[10px] px-3 py-1.5 rounded border border-yellow-400/50 hover:bg-black font-mono cursor-pointer"
-        >
+        <button onClick={() => onComplete(devFillData)}
+          className="fixed bottom-4 left-4 z-50 bg-black/80 text-[#8AAEE0] text-[10px] px-3 py-1.5 rounded border border-[#2A4A7F] hover:bg-[#173253] font-mono cursor-pointer">
           ⚡ DEV: Auto-Fill
         </button>
       )}

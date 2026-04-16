@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { ArrowLeft, Sun, Moon } from "lucide-react";
 import * as api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 import LoginForm from "./Login";
 import RegisterForm from "./Register";
 import PatientForm from "./RegisterStep2/PatientForm";
@@ -14,14 +16,27 @@ import MedicalSuccess from "./RegisterStep2/MedicalSuccess";
 
 export default function AuthTransition({ onLogin, initialActive = false, onBack }) {
   const { login } = useAuth();
-  const [isActive, setIsActive] = useState(initialActive);
-  const [step, setStep] = useState(1);
-  const [tempUser, setTempUser] = useState(null);
+  const { theme, toggleTheme } = useTheme();
+  const isDark = theme === "dark";
+  const [isActive, setIsActive]       = useState(initialActive);
+  const [isExpanded, setIsExpanded]   = useState(false);
+  const [step, setStep]               = useState(1);
+  const [tempUser, setTempUser]       = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // ── Step handlers ─────────────────────────────────────────────────────────
+
+  // Étape 1 → 2 : expand le panneau gauche
   const handleNextStep = (userData) => {
     setTempUser(userData);
+    setIsExpanded(true);
     setStep(2);
+  };
+
+  // Retour étape 2 → 1 : collapse le panneau (animation inverse)
+  const handleBackFromStep2 = () => {
+    setIsExpanded(false);
+    setStep(1);
   };
 
   const handleCompletedStep2 = (additionalData) => {
@@ -36,19 +51,17 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
     if (data.accountType === "patient") {
       try {
         setIsSubmitting(true);
-        // BUG-12 fix : champs alignés sur RegisterPatientSerializer du backend.
-        // password_confirm ajouté, role ajouté, gender→sex, birth_date→date_of_birth.
         await api.registerPatient({
-          email:          data.email,
-          password:       data.password,
+          email:            data.email,
+          password:         data.password,
           password_confirm: data.password,
-          role:           "patient",
-          first_name:     data.firstName,
-          last_name:      data.lastName,
-          phone:          data.phone || "",
-          date_of_birth:  data.birthDate || null,
-          sex:            data.sex === "Masculin" ? "M" : data.sex === "Féminin" ? "F" : "",
-          address:        data.address || "",
+          role:             "patient",
+          first_name:       data.firstName,
+          last_name:        data.lastName,
+          phone:            data.phone || "",
+          date_of_birth:    data.birthDate || null,
+          sex:              data.sex === "Masculin" ? "M" : data.sex === "Féminin" ? "F" : "",
+          address:          data.address || "",
         });
         setStep(4);
       } catch (err) {
@@ -73,9 +86,6 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
     if (data.accountType === "personnel médical") {
       try {
         setIsSubmitting(true);
-
-        // BUG-13/18 fix : routage vers l'endpoint d'inscription correct selon le rôle.
-        // password_confirm ajouté, gender→sex.
         const roleMap = { "Médecin": "doctor", "Pharmacien": "pharmacist", "Garde-malade": "caretaker" };
         const backendRole = roleMap[data.medicalRole] || "doctor";
         const sexValue = data.sex === "Masculin" ? "M" : data.sex === "Féminin" ? "F" : "";
@@ -99,10 +109,8 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
             experience_years: parseInt(data.experienceYears || data.experience) || 0,
           });
         } else if (backendRole === "pharmacist") {
-          // BUG-18 fix : endpoint dédié /auth/register/pharmacist/
           await api.registerPharmacist(basePayload);
         } else if (backendRole === "caretaker") {
-          // BUG-18 fix : endpoint dédié /auth/register/caretaker/
           await api.registerCaretaker(basePayload);
         }
 
@@ -117,227 +125,275 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
     }
   };
 
-  if (step === 2) {
-    if (tempUser?.accountType === "patient") {
-      return <PatientForm onComplete={handleCompletedStep2} onBack={() => setStep(1)} />;
+  // ── Rendu des étapes 2+ à l'intérieur du panneau étendu ───────────────────
+
+  const renderCurrentStep = () => {
+    if (step === 2) {
+      if (tempUser?.accountType === "patient") {
+        return <PatientForm onComplete={handleCompletedStep2} onBack={handleBackFromStep2} />;
+      }
+      if (tempUser?.accountType === "personnel médical") {
+        return <MedicalForm onComplete={handleCompletedStep2} onBack={handleBackFromStep2} />;
+      }
+      // Fallback : type inconnu → connexion directe
+      onLogin(tempUser?.accountType || "patient");
+      return null;
     }
-    if (tempUser?.accountType === "personnel médical") {
-      return <MedicalForm onComplete={handleCompletedStep2} onBack={() => setStep(1)} />;
+
+    if (step === 3) {
+      if (tempUser?.accountType === "patient") {
+        return <PatientIdentityForm onComplete={handleCompletedStep3} onBack={() => setStep(2)} />;
+      }
+      if (tempUser?.accountType === "personnel médical") {
+        return <MedicalIdentityForm onComplete={handleCompletedStep3} onBack={() => setStep(2)} />;
+      }
     }
-    // For other account types, we log them in immediately since no step 2 is provided yet
-    onLogin(tempUser?.accountType || "patient");
+
+    if (step === 4) {
+      if (tempUser?.accountType === "patient") {
+        return (
+          <PatientSuccess onComplete={() => {
+            login(tempUser.email, tempUser.password)
+              .then((me) => onLogin(me?.role || "patient"))
+              .catch(() => onLogin("patient"));
+          }} />
+        );
+      }
+      if (tempUser?.accountType === "personnel médical") {
+        return <MedicalRoleForm onComplete={handleCompletedStep4} onBack={() => setStep(3)} />;
+      }
+    }
+
+    if (step === 5) {
+      if (tempUser?.accountType === "personnel médical") {
+        return (
+          <MedicalInfoForm
+            onComplete={handleCompletedStep5}
+            onBack={() => setStep(4)}
+            medicalRole={tempUser?.medicalRole || tempUser?.role || "Médecin"}
+          />
+        );
+      }
+    }
+
+    if (step === 6) {
+      if (tempUser?.accountType === "personnel médical") {
+        return (
+          <MedicalSuccess onComplete={() => {
+            login(tempUser.email, tempUser.password)
+              .then((me) => onLogin(me?.role || "doctor", { ...me, is_approved: false }))
+              .catch(() => onLogin("doctor", { is_approved: false }));
+          }} />
+        );
+      }
+    }
+
     return null;
-  }
+  };
 
-  if (step === 3) {
-    if (tempUser?.accountType === "patient") {
-      return <PatientIdentityForm onComplete={handleCompletedStep3} onBack={() => setStep(2)} />;
-    }
-    if (tempUser?.accountType === "personnel médical") {
-      return <MedicalIdentityForm onComplete={handleCompletedStep3} onBack={() => setStep(2)} />;
-    }
-  }
+  // ── Rendu principal ────────────────────────────────────────────────────────
 
-  if (step === 4) {
-    if (tempUser?.accountType === "patient") {
-      return <PatientSuccess onComplete={() => {
-        login(tempUser.email, tempUser.password)
-          .then((me) => onLogin(me?.role || "patient"))
-          .catch(() => onLogin("patient"));
-      }} />;
-    }
-    if (tempUser?.accountType === "personnel médical") {
-      return <MedicalRoleForm onComplete={handleCompletedStep4} onBack={() => setStep(3)} />;
-    }
-  }
-
-  if (step === 5) {
-    if (tempUser?.accountType === "personnel médical") {
-      return <MedicalInfoForm onComplete={handleCompletedStep5} onBack={() => setStep(4)} medicalRole={tempUser?.medicalRole || tempUser?.role || "Médecin"} />;
-    }
-  }
-
-  if (step === 6) {
-    if (tempUser?.accountType === "personnel médical") {
-      return <MedicalSuccess onComplete={() => {
-        login(tempUser.email, tempUser.password)
-          .then((me) => onLogin(me?.role || "doctor", { ...me, is_approved: false }))
-          .catch(() => onLogin("doctor", { is_approved: false }));
-      }} />
-    }
-  }
-
-  // Loading overlay wrapper if submitting
   return (
-    <div className="relative">
+    <div
+      className="relative w-full min-h-screen font-sans flex flex-col lg:flex-row overflow-x-hidden transition-colors duration-300"
+      style={{ background: isDark ? "#0D1117" : "#F0F4F8" }}
+    >
+
+      {/* ── Overlay de chargement (inscription en cours) ───────────────── */}
       {isSubmitting && (
-        <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-[9999] flex flex-col items-center justify-center">
-          <div className="w-12 h-12 border-4 border-[#6492C9]/30 border-t-[#6492C9] rounded-full animate-spin"></div>
-          <p className="mt-4 font-bold text-[#365885]">Création de votre compte...</p>
+        <div
+          className="fixed inset-0 backdrop-blur-sm z-[9999] flex flex-col items-center justify-center"
+          style={{ background: isDark ? "rgba(13,17,23,0.85)" : "rgba(240,244,248,0.85)" }}
+        >
+          <div className="w-12 h-12 border-4 border-[#638ECB]/30 border-t-[#638ECB] rounded-full animate-spin" />
+          <p className="mt-4 font-bold" style={{ color: isDark ? "#F0F3FA" : "#0D1B2E" }}>Création de votre compte...</p>
         </div>
       )}
-      <div className="flex flex-col items-center justify-center min-h-screen bg-[#D1DFEC] font-sans relative">
-        {onBack && (
-          <button 
+
+      {/* ── PANNEAU GAUCHE ─────────────────────────────────────────────────
+          - width: lg:50% par défaut (Tailwind)
+          - Quand isExpanded: override inline width: 100% → animation 400ms
+          - flex-shrink-0 empêche le panneau de se comprimer
+      ─────────────────────────────────────────────────────────────────── */}
+      <div
+        className="relative min-h-screen flex-shrink-0 w-full lg:w-1/2"
+        style={{
+          background: isDark ? "#0D1117" : "#F0F4F8",
+          width: isExpanded ? "100%" : undefined,
+          transition: "width 400ms ease-in-out",
+        }}
+      >
+        {/* ── Boutons flottants — visibles sur toutes les étapes ──────────── */}
+        <div className="absolute top-3 left-0 right-0 z-50 flex items-center justify-between px-4 pointer-events-none">
+
+          {/* Retour à l'accueil */}
+          <button
+            type="button"
             onClick={onBack}
-            className="absolute top-6 left-6 flex items-center gap-2 px-4 py-2 bg-white/50 hover:bg-white/80 backdrop-blur-sm rounded-xl text-[#304B71] font-semibold shadow-sm transition-all z-50"
+            className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all cursor-pointer backdrop-blur-sm"
+            style={{
+              background:  isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)",
+              border:      `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)"}`,
+              color:       isDark ? "#8AAEE0" : "#5A6E8A",
+            }}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 12H5M12 19l-7-7 7-7"/>
-            </svg>
-            Retour à l'accueil
+            <ArrowLeft size={13} />
+            Accueil
           </button>
-        )}
-      <div className="bg-white w-[1200px] h-[650px] shadow-2xl relative rounded-xl border border-[#D1DFEC] overflow-hidden">  
-      <style>{`
-        .auth-container {
-          position: relative;
-          width: 100%;
-          height: 100%;
-          overflow: hidden;
-        }
 
-        .form-box {
-          position: absolute;
-          top: 0;
-          width: 50%;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: #fff;
-          z-index: 1;
-          transition: left 0.6s ease-in-out 1.2s;
-        }
+          {/* Toggle dark / light */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            title={isDark ? "Passer en mode clair" : "Passer en mode sombre"}
+            className="pointer-events-auto w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer backdrop-blur-sm"
+            style={{
+              background:  isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)",
+              border:      `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)"}`,
+              color:       isDark ? "#8AAEE0" : "#5A6E8A",
+            }}
+          >
+            {isDark ? <Sun size={15} /> : <Moon size={15} />}
+          </button>
+        </div>
 
-        .form-box.login {
-          left: 0;
-          visibility: visible;
-          transition: left 0.6s ease-in-out 1.2s, visibility 0s 0s;
-        }
-        .auth-container.active .form-box.login {
-          left: 50%;
-          visibility: hidden;
-          transition: left 0.6s ease-in-out 1.2s, visibility 0s 1s;
-        }
+        {/* CSS pour la transition login ↔ register (étape 1 uniquement) */}
+        <style>{`
+          .form-transition {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+          }
+          .form-login {
+            opacity: 1;
+            transform: translateX(0);
+            z-index: 2;
+            pointer-events: auto;
+          }
+          .form-login.hidden-form {
+            opacity: 0;
+            transform: translateX(-30px);
+            z-index: 1;
+            pointer-events: none;
+          }
+          .form-register {
+            opacity: 1;
+            transform: translateX(0);
+            z-index: 2;
+            pointer-events: auto;
+          }
+          .form-register.hidden-form {
+            opacity: 0;
+            transform: translateX(30px);
+            z-index: 1;
+            pointer-events: none;
+          }
+        `}</style>
 
-        .form-box.register {
-          left: 100%;
-          visibility: hidden;
-          transition: left 0.6s ease-in-out 1.2s, visibility 0s 1s;
-        }
-        .auth-container.active .form-box.register {
-          left: 50%;
-          visibility: visible;
-          transition: left 0.6s ease-in-out 1.2s, visibility 0s 0s;
-        }
-
-        .toggle-box {
-          position: absolute;
-          top: 0; left: 0;
-          width: 100%; height: 100%;
-          pointer-events: none;
-          z-index: 2;
-        }
-        .toggle-box::before {
-          content: "";
-          position: absolute;
-          left: 50%;
-          top: 0;
-          width: 300%;
-          height: 100%;
-          background: linear-gradient(135deg, #304B71, #6492C9);
-          border-radius: 150px;
-          z-index: 2;
-          transition: left 1.8s ease-in-out;
-        }
-        .auth-container.active .toggle-box::before {
-          left: -250%;
-        }
-
-        .toggle-panel {
-          position: absolute;
-          top: 0;
-          width: 50%;
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          z-index: 3;
-          pointer-events: auto;
-          transition: 0.6s ease-in-out;
-        }
-
-        .toggle-panel.toggle-right {
-          right: 0;
-          transition-delay: 1.2s;
-        }
-        .auth-container.active .toggle-panel.toggle-right {
-          right: -50%;
-          transition-delay: 0.6s;
-        }
-
-        .toggle-panel.toggle-left {
-          left: -50%;
-          transition-delay: 0.6s;
-        }
-        .auth-container.active .toggle-panel.toggle-left {
-          left: 0;
-          transition-delay: 1.2s;
-        }
-      `}</style>
-
-      <div className={`auth-container${isActive ? " active" : ""}`}>
-
-        <div className="form-box login">
-  <LoginForm key="login" onLogin={onLogin} isVisible={isActive} />
-</div>
-
-<div className="form-box register">
-  <RegisterForm key="register" onLogin={onLogin} onNextStep={handleNextStep} isVisible={!isActive} />
-</div>
-
-        <div className="toggle-box">
-
-          <div className="toggle-panel toggle-left">
-            <div className="text-center flex flex-col items-center px-12 -space-y-16">
-              <div className="max-w-[380px] xl:max-w-[450px]">
-                <img src="/Doctor_new.png" alt="Doctor" className="w-full h-auto object-contain" />
-              </div>
-              <div className="mt-8 space-y-4">
-                <p className="text-white text-base font-medium opacity-80">Already have an account?</p>
-                <button
-                  onClick={() => setIsActive(false)}
-                  className="px-16 py-3 border-[1.5px] border-white/60 rounded-2xl text-white text-lg font-semibold hover:bg-white/10 transition-all cursor-pointer uppercase tracking-wide"
-                >
-                  LOGIN
-                </button>
-              </div>
+        {/* Étape 1 : formulaires Login / Register avec transition entre eux */}
+        {step === 1 && (
+          <>
+            <div className={`form-transition form-login ${isActive ? "hidden-form" : ""}`}>
+              <LoginForm
+                key="login"
+                onLogin={onLogin}
+                isVisible={!isActive}
+                onSwitchToRegister={() => setIsActive(true)}
+              />
             </div>
-          </div>
+            <div className={`form-transition form-register ${!isActive ? "hidden-form" : ""}`}>
+              <RegisterForm
+                key="register"
+                onLogin={onLogin}
+                onNextStep={handleNextStep}
+                isVisible={isActive}
+                onSwitchToLogin={() => setIsActive(false)}
+              />
+            </div>
+          </>
+        )}
 
-          <div className="toggle-panel toggle-right">
-            <div className="text-center flex flex-col items-center px-12 -space-y-10  ">
-              <div className="max-w-[480px]">
-                <img src="/Doctor_new.png" alt="Doctor" className="w-full h-auto object-contain" />
-              </div>
-              <div className="space-y-4">
-                <p className="text-white text-base font-medium opacity-80">Don't have an account?</p>
+        {/* Étapes 2+ : rendu à l'intérieur du panneau étendu */}
+        {step > 1 && renderCurrentStep()}
+      </div>
+
+      {/* ── PANNEAU DROIT ──────────────────────────────────────────────────
+          - Reste à w-1/2 fixe (flex-shrink-0)
+          - opacity + pointer-events contrôlés par isExpanded
+          - Se fait pousser hors écran quand le panneau gauche atteint 100%
+      ─────────────────────────────────────────────────────────────────── */}
+      <div
+        className="hidden lg:block lg:w-1/2 flex-shrink-0 relative min-h-screen border-l"
+        style={{
+          background:   isDark
+            ? "linear-gradient(to bottom right, #0D1117, #141B27)"
+            : "linear-gradient(to bottom right, #E8EFF8, #D4E0F0)",
+          borderColor:  isDark ? "#1E3252" : "#D4E0F0",
+          opacity:      isExpanded ? 0 : 1,
+          pointerEvents:isExpanded ? "none" : "auto",
+          transition:   "opacity 300ms ease-in-out",
+        }}
+      >
+        <div className="absolute inset-0 flex flex-col justify-center items-center text-center p-12">
+          <div className="relative w-full h-[250px]">
+
+            {/* Panneau visible quand Login est actif → invite à s'inscrire */}
+            <div className={`absolute inset-0 flex flex-col items-center justify-center transition-all duration-700 delay-100 ${isActive ? "opacity-0 translate-y-12 pointer-events-none" : "opacity-100 translate-y-0 pointer-events-auto"}`}>
+              <div
+                className="p-8 rounded-2xl backdrop-blur-md border"
+                style={{
+                  background:  isDark ? "rgba(13,17,23,0.5)" : "rgba(255,255,255,0.7)",
+                  borderColor: isDark ? "#1E3252" : "#D4E0F0",
+                }}
+              >
+                <h3 className="text-3xl font-bold mb-4" style={{ color: isDark ? "#F0F3FA" : "#0D1B2E" }}>
+                  Nouveau sur MedSmart ?
+                </h3>
+                <p className="mb-8 max-w-sm mx-auto" style={{ color: isDark ? "#8AAEE0" : "#5A6E8A" }}>
+                  Une plateforme unifiée pour simplifier la gestion de votre parcours de soins au quotidien.
+                </p>
                 <button
                   onClick={() => setIsActive(true)}
-                  className="px-16 py-3 border-[1.5px] border-white/60 rounded-2xl text-white text-lg font-semibold hover:bg-white/10 transition-all cursor-pointer uppercase tracking-wide"
+                  className="px-8 py-3.5 bg-transparent border-2 rounded-xl font-semibold transition-all tracking-wide cursor-pointer"
+                  style={{ borderColor: isDark ? "#638ECB" : "#4A6FA5", color: isDark ? "#F0F3FA" : "#0D1B2E" }}
                 >
-                  REGISTER
+                  CRÉER UN COMPTE
                 </button>
               </div>
             </div>
-          </div>
 
+            {/* Panneau visible quand Register est actif → invite à se connecter */}
+            <div className={`absolute inset-0 flex flex-col items-center justify-center transition-all duration-700 delay-100 ${!isActive ? "opacity-0 -translate-y-12 pointer-events-none" : "opacity-100 translate-y-0 pointer-events-auto"}`}>
+              <div
+                className="p-8 rounded-2xl backdrop-blur-md border"
+                style={{
+                  background:  isDark ? "rgba(13,17,23,0.5)" : "rgba(255,255,255,0.7)",
+                  borderColor: isDark ? "#1E3252" : "#D4E0F0",
+                }}
+              >
+                <h3 className="text-3xl font-bold mb-4" style={{ color: isDark ? "#F0F3FA" : "#0D1B2E" }}>
+                  Déjà parmi nous ?
+                </h3>
+                <p className="mb-8 max-w-sm mx-auto" style={{ color: isDark ? "#8AAEE0" : "#5A6E8A" }}>
+                  Accédez à votre espace personnel pour retrouver vos consultations et documents médicaux.
+                </p>
+                <button
+                  onClick={() => setIsActive(false)}
+                  className="px-8 py-3.5 bg-transparent border-2 rounded-xl font-semibold transition-all tracking-wide cursor-pointer"
+                  style={{ borderColor: isDark ? "#638ECB" : "#4A6FA5", color: isDark ? "#F0F3FA" : "#0D1B2E" }}
+                >
+                  SE CONNECTER
+                </button>
+              </div>
+            </div>
+
+          </div>
         </div>
       </div>
-    </div> 
-   </div>
-  </div>
+
+    </div>
   );
 }

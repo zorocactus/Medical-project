@@ -1,106 +1,101 @@
 import { useState } from "react";
-import { Check, ChevronDown, Stethoscope, Users, Pill } from "lucide-react";
+import { Check, Stethoscope, Users, Pill } from "lucide-react";
+import StepBar from "./StepBar";
+import { MEDICAL_STEPS } from "./MedicalForm";
+import { useTheme } from "../../../context/ThemeContext";
 
-// ────────────────────────────────────────────────────────────────
-// MedicalRoleForm — Step 3 : Choisir son métier médical
-// ────────────────────────────────────────────────────────────────
+const ROLES = [
+  { id: "Médecin",      icon: <Stethoscope size={26} />, desc: "Généraliste ou Spécialiste" },
+  { id: "Garde-malade", icon: <Users size={26} />,       desc: "Soins à domicile" },
+  { id: "Pharmacien",   icon: <Pill size={26} />,        desc: "Officine ou Conseil" },
+];
+
 export default function MedicalRoleForm({ onComplete, onBack }) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+
+  const c = {
+    bg:       isDark ? "#0D1117" : "#F0F4F8",
+    card:     isDark ? "#141B27" : "#ffffff",
+    cardSel:  isDark ? "#1A2840" : "#EEF3FB",
+    border:   isDark ? "#2A4A7F" : "#E4EAF5",
+    txt:      isDark ? "#F0F3FA" : "#0D1B2E",
+    txt2:     isDark ? "#8AAEE0" : "#5A6E8A",
+    txt3:     isDark ? "#4A6080" : "#9AACBE",
+    blue:     isDark ? "#638ECB" : "#4A6FA5",
+    div:      isDark ? "#2A4A7F" : "#E4EAF5",
+  };
+
   const [medicalRole, setMedicalRole] = useState("Médecin");
 
-  const handleSubmit = () => {
-    onComplete({ medicalRole });
-  };
-
-  // ⚡ DEV BYPASS
-  const handleDevFill = () => {
-    onComplete({ medicalRole });
-  };
-
   return (
-    <div className="min-h-screen bg-[#D1DFEC] flex items-center justify-center p-6 font-sans">
-      <div className="bg-white rounded-[24px] shadow-xl w-full max-w-[800px] px-[60px] py-[50px] relative">
-        <h2 className="text-[28px] font-bold text-[#0D2644] text-center mb-10">Créer votre compte</h2>
+    <div
+      className="w-full min-h-screen flex flex-col items-center justify-center py-8 px-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+      style={{ background: c.bg }}
+    >
+      <div className="w-full max-w-[480px]">
 
-        {/* ── Step Indicator ── */}
-        <div className="flex flex-col items-center mb-10">
-          <div className="flex items-center w-full max-w-[600px] justify-between relative px-2">
-            <div className="absolute left-[30px] right-[75%] h-[2px] bg-[#6492C9] z-0 top-1/2 -translate-y-1/2" />
-            <div className="absolute left-[25%] right-[50%] h-[2px] bg-[#6492C9] z-0 top-1/2 -translate-y-1/2" />
-            <div className="absolute left-[50%] right-[25%] h-[2px] bg-[#D1DFEC] z-0 top-1/2 -translate-y-1/2" />
-            <div className="absolute left-[75%] right-[30px] h-[2px] bg-[#D1DFEC] z-0 top-1/2 -translate-y-1/2" />
-            {[true, true, "3", "4", "5"].map((s, i) => (
-              <div key={i} className={`w-[32px] h-[32px] rounded-full flex items-center justify-center font-bold text-[13px] z-10 relative ${i < 2 ? "bg-[#6492C9] text-white shadow-sm" : i === 2 ? "bg-[#6492C9] text-white shadow-sm" : "bg-white border-2 border-[#D1DFEC] text-[#D1DFEC]"}`}>
-                {i < 2 ? <Check size={16} strokeWidth={3} /> : s}
-              </div>
-            ))}
-          </div>
+        <StepBar steps={MEDICAL_STEPS} current={3} />
+
+        <div className="flex items-center gap-3 mb-6">
+          <div className="flex-1 h-px" style={{ background: c.div }} />
+          <span className="text-[12px] font-semibold tracking-wide uppercase" style={{ color: c.txt2 }}>Votre métier</span>
+          <div className="flex-1 h-px" style={{ background: c.div }} />
         </div>
 
-        {/* ── Choisir votre métier ── */}
-        <div className="mb-8">
-          <div className="flex items-center justify-center mb-8">
-            <div className="flex-1 h-px bg-[#D1DFEC]" />
-            <span className="mx-4 text-[#365885] text-[15px] font-semibold tracking-wide">Choisir votre métier</span>
-            <div className="flex-1 h-px bg-[#D1DFEC]" />
-          </div>
-
-          <div className="grid grid-cols-3 gap-6">
-            {[
-              { id: "Médecin",      icon: <Stethoscope size={28} />, desc: "Généraliste ou Spécialiste" },
-              { id: "Garde-malade", icon: <Users size={28} />,       desc: "Soins à domicile" },
-              { id: "Pharmacien",   icon: <Pill size={28} />,        desc: "Officine ou Conseil" },
-            ].map(({ id, icon, desc }) => (
-              <div
+        {/* Cartes de rôle */}
+        <div className="grid grid-cols-3 gap-3 mb-8">
+          {ROLES.map(({ id, icon, desc }) => {
+            const isSelected = medicalRole === id;
+            return (
+              <button
                 key={id}
+                type="button"
                 onClick={() => setMedicalRole(id)}
-                className={`flex flex-col items-center justify-center w-full h-40 rounded-2xl border-2 cursor-pointer transition-all ${
-                  medicalRole === id
-                    ? "border-[#6492C9] bg-[#F4F8FB] shadow-md shadow-[#6492C9]/15"
-                    : "border-[#D1DFEC] hover:border-[#89AEDB] hover:bg-[#FAFCFF]"
-                }`}
+                className="flex flex-col items-center justify-center py-5 px-3 rounded-xl border-2 cursor-pointer transition-all"
+                style={{
+                  borderColor: isSelected ? c.blue : c.border,
+                  background:  isSelected ? c.cardSel : c.card,
+                  boxShadow:   isSelected ? `0 0 16px ${c.blue}40` : "none",
+                }}
               >
-                <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-3 transition-all ${
-                  medicalRole === id ? "bg-[#6492C9]" : "bg-[#EBF1F6]"
-                }`}>
-                  <span className={medicalRole === id ? "text-white" : "text-[#89AEDB]"}>{icon}</span>
+                <div
+                  className="w-12 h-12 rounded-full flex items-center justify-center mb-3 transition-all"
+                  style={{ background: isSelected ? c.blue : c.border, color: isSelected ? "#ffffff" : c.txt3 }}
+                >
+                  {icon}
                 </div>
-                <span className={`font-bold text-[16px] ${medicalRole === id ? "text-[#0D2644]" : "text-[#365885]"}`}>{id}</span>
-                <span className={`text-[12px] mt-1 ${medicalRole === id ? "text-[#6492C9]" : "text-[#A0B5CD]"}`}>{desc}</span>
-                {medicalRole === id && (
-                  <div className="mt-2 w-5 h-5 rounded-full bg-[#6492C9] flex items-center justify-center">
+                <span className="font-bold text-[13px] mb-1" style={{ color: isSelected ? c.txt : c.txt2 }}>{id}</span>
+                <span className="text-[11px] text-center leading-tight" style={{ color: isSelected ? c.txt2 : c.txt3 }}>{desc}</span>
+                {isSelected && (
+                  <div className="mt-2 w-5 h-5 rounded-full flex items-center justify-center" style={{ background: c.blue }}>
                     <Check size={11} strokeWidth={3} className="text-white" />
                   </div>
                 )}
-              </div>
-            ))}
-          </div>
-
-          <div className="w-full h-px bg-[#D1DFEC]/50 mt-10 mb-8" />
+              </button>
+            );
+          })}
         </div>
 
-        {/* ── Buttons ── */}
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onBack}
-            className="w-[120px] bg-white border border-[#D1DFEC] hover:border-[#A0B5CD] hover:bg-gray-50 text-[#365885] py-3 rounded-xl text-[15px] font-medium transition-all cursor-pointer flex items-center justify-center gap-1"
-          >
+        {/* Navigation */}
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={onBack}
+            className="px-5 py-2.5 rounded-xl border text-sm font-medium transition-all cursor-pointer"
+            style={{ borderColor: c.border, color: c.txt2 }}>
             ← Retour
           </button>
-          <button
-            onClick={handleSubmit}
-            className="flex-1 bg-[#6492C9] hover:bg-[#304B71] text-white py-3 rounded-xl text-[15px] font-medium transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1"
-          >
-            Suivant →
+          <button type="button" onClick={() => onComplete({ medicalRole })}
+            className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold transition-all cursor-pointer"
+            style={{ background: c.blue }}>
+            Continuer →
           </button>
         </div>
+
       </div>
 
-      {/* ⚡ DEV BYPASS */}
       {import.meta.env.DEV && (
-        <button
-          onClick={handleDevFill}
-          className="fixed bottom-4 left-4 z-50 bg-black/80 text-yellow-400 text-[10px] px-3 py-1.5 rounded border border-yellow-400/50 hover:bg-black font-mono cursor-pointer"
-        >
+        <button onClick={() => onComplete({ medicalRole })}
+          className="fixed bottom-4 left-4 z-50 bg-black/80 text-[#8AAEE0] text-[10px] px-3 py-1.5 rounded border border-[#2A4A7F] hover:bg-[#173253] font-mono cursor-pointer">
           ⚡ DEV: Auto-Fill ({medicalRole})
         </button>
       )}
