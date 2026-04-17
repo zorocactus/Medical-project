@@ -8,6 +8,7 @@ const wrapStyle = {
   inset: 0,
   zIndex: 0,
   overflow: 'hidden',
+  pointerEvents: 'none',
 };
 
 /**
@@ -21,7 +22,7 @@ export function ParticlesHero({ darkMode = false }) {
         particleSpread={10}
         speed={0.1}
         particleColors={darkMode ? COLORS_DARK : COLORS_LIGHT}
-        moveParticlesOnHover={true}
+        moveParticlesOnHover={false}
         particleHoverFactor={1.2}
         alphaParticles={true}
         particleBaseSize={120}
@@ -44,7 +45,7 @@ export function ParticlesAuth({ darkMode = false }) {
         particleSpread={8}
         speed={0.08}
         particleColors={darkMode ? COLORS_DARK : COLORS_LIGHT}
-        moveParticlesOnHover={true}
+        moveParticlesOnHover={false}
         particleHoverFactor={1}
         alphaParticles={true}
         particleBaseSize={100}

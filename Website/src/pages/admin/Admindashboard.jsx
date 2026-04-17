@@ -4,9 +4,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 import * as api from "../../services/api";
 import ErrorBoundary from "../../components/ErrorBoundary";
 import { ParticlesHero } from "../../components/backgrounds/MedParticles";
+import { useLanguage } from "../../context/LanguageContext";
 import {
   Sun,
   Moon,
@@ -74,6 +76,7 @@ import CaretakersView from "./views/users/CaretakersView";
 import PharmacistsView from "./views/users/PharmacistsView";
 import ScheduleView from "./views/ScheduleView";
 import VisitQueueView from "./views/VisitQueueView";
+import ReportsView from "./views/ReportsView";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SHARED HELPERS
@@ -881,6 +884,7 @@ const CARE_STATUS = {
 // ─────────────────────────────────────────────────────────────────────────────
 function ValidationPage({ dk, onCountChange }) {
   const c = getAdminTheme(dk);
+  const { t } = useLanguage();
   const [pending, setPending] = useState(PENDING_PROS);
   const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState([]);
@@ -1005,7 +1009,7 @@ function ValidationPage({ dk, onCountChange }) {
               className="text-lg font-bold text-center mb-1"
               style={{ color: c.txt }}
             >
-              Rejeter la demande
+              {t('dismiss_demand')}
             </h2>
             <p className="text-sm text-center mb-6" style={{ color: c.txt3 }}>
               {rejectModal.name} · {rejectModal.specialty}
@@ -1014,12 +1018,12 @@ function ValidationPage({ dk, onCountChange }) {
               className="block text-xs font-bold uppercase tracking-wide mb-2"
               style={{ color: c.txt3 }}
             >
-              Motif du rejet
+              {t('rejection_reason_label')}
             </label>
             <textarea
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="Ex : Documents illisibles, diplôme non reconnu, informations manquantes…"
+              placeholder={t('reason_placeholder')}
               rows={4}
               disabled={rejecting}
               className="w-full rounded-xl border p-3 text-sm resize-none outline-none transition-all"
@@ -1031,7 +1035,7 @@ function ValidationPage({ dk, onCountChange }) {
               }}
             />
             <p className="text-xs mt-1 mb-5" style={{ color: c.txt3 }}>
-              Laissez vide pour utiliser le motif par défaut.
+              {t('default_reason_hint') || "Laissez vide pour utiliser le motif par défaut."}
             </p>
             <div className="flex gap-3">
               <button
@@ -1040,7 +1044,7 @@ function ValidationPage({ dk, onCountChange }) {
                 className="flex-1 py-2.5 rounded-xl text-sm font-bold border transition-all hover:opacity-80 disabled:opacity-50"
                 style={{ borderColor: c.border, color: c.txt2 }}
               >
-                Annuler
+                {t('cancel_appointment') || "Annuler"}
               </button>
               <button
                 onClick={confirmReject}
@@ -1053,7 +1057,7 @@ function ValidationPage({ dk, onCountChange }) {
                 ) : (
                   <X size={14} />
                 )}
-                Confirmer le rejet
+                {t('confirm_rejection')}
               </button>
             </div>
           </div>
@@ -1082,7 +1086,7 @@ function ValidationPage({ dk, onCountChange }) {
               {docModal.doc.label || docModal.doc.title}
             </h2>
             <p className="text-sm mb-6" style={{ color: c.txt3 }}>
-              Soumis par {docModal.pro.name}
+              {t('submitted_by')} {docModal.pro.name}
             </p>
             <div
               className="rounded-xl border p-6 mb-6 flex flex-col items-center gap-2"
@@ -1099,13 +1103,13 @@ function ValidationPage({ dk, onCountChange }) {
                   className="text-sm font-semibold hover:underline"
                   style={{ color: c.blue }}
                 >
-                  Ouvrir le document ↗
+                  {t('open_doc')} ↗
                 </a>
               ) : (
                 <>
                   <FileText size={40} style={{ color: c.txt3 }} />
                   <p className="text-xs" style={{ color: c.txt3 }}>
-                    Aperçu non disponible
+                    {t('preview_not_available') || "Aperçu non disponible"}
                   </p>
                 </>
               )}
@@ -1115,7 +1119,7 @@ function ValidationPage({ dk, onCountChange }) {
               className="w-full py-2.5 rounded-xl text-sm font-bold border"
               style={{ borderColor: c.border, color: c.txt2 }}
             >
-              Fermer
+              {t('close_btn') || "Fermer"}
             </button>
           </div>
         </div>
@@ -1124,11 +1128,10 @@ function ValidationPage({ dk, onCountChange }) {
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-black" style={{ color: c.txt }}>
-            Validation des inscriptions
+            {t('pending_validations')}
           </h1>
           <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
-            {pending.length} professionnel{pending.length !== 1 ? "s" : ""} en
-            attente · {history.length} traité{history.length !== 1 ? "s" : ""}
+            {pending.length} {t('pro_in_waiting')} · {history.length} {t('pro_treated')}
           </p>
         </div>
         <div
@@ -1139,7 +1142,7 @@ function ValidationPage({ dk, onCountChange }) {
             color: c.amber,
           }}
         >
-          <Clock size={15} /> {pending.length} en attente
+          <Clock size={15} /> {pending.length} {t('pending_tab')}
         </div>
       </div>
 
@@ -1150,10 +1153,10 @@ function ValidationPage({ dk, onCountChange }) {
             style={{ color: c.green, margin: "0 auto 16px" }}
           />
           <p className="text-lg font-bold" style={{ color: c.txt }}>
-            Toutes les demandes ont été traitées
+            {t('all_processed') || "Toutes les demandes ont été traitées"}
           </p>
           <p className="text-sm mt-1" style={{ color: c.txt3 }}>
-            Aucune inscription en attente pour le moment.
+            {t('no_pending_registrations') || "Aucune inscription en attente pour le moment."}
           </p>
         </Card>
       ) : (
@@ -1199,7 +1202,7 @@ function ValidationPage({ dk, onCountChange }) {
                         className="text-[10px] mt-1 font-semibold uppercase tracking-wide"
                         style={{ color: c.txt3 }}
                       >
-                        Soumis le {pro.submittedAt}
+                        {t('submitted_on')} {pro.submittedAt}
                       </p>
                     </div>
                   </div>
@@ -1208,7 +1211,7 @@ function ValidationPage({ dk, onCountChange }) {
                       className="text-xs font-bold uppercase tracking-wide mb-2"
                       style={{ color: c.txt3 }}
                     >
-                      Documents soumis
+                      {t('submitted_docs') || "Documents soumis"}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {(pro.docs || []).map((doc, i) => (
@@ -1228,7 +1231,7 @@ function ValidationPage({ dk, onCountChange }) {
                       ))}
                       {(pro.docs || []).length === 0 && (
                         <span className="text-xs" style={{ color: c.txt3 }}>
-                          Aucun document soumis
+                          {t('no_docs_submitted') || "Aucun document soumis"}
                         </span>
                       )}
                     </div>
@@ -1239,14 +1242,14 @@ function ValidationPage({ dk, onCountChange }) {
                       className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95"
                       style={{ background: c.green }}
                     >
-                      <Check size={15} /> Approuver
+                      <Check size={15} /> {t('approve_btn')}
                     </button>
                     <button
                       onClick={() => openRejectModal(pro)}
                       className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95"
                       style={{ background: c.red }}
                     >
-                      <X size={15} /> Rejeter
+                      <X size={15} /> {t('dismiss_demand')}
                     </button>
                   </div>
                 </div>
@@ -1259,7 +1262,7 @@ function ValidationPage({ dk, onCountChange }) {
       {history.length > 0 && (
         <>
           <h2 className="text-base font-bold mb-4" style={{ color: c.txt }}>
-            Historique des décisions
+            {t('decision_history')}
           </h2>
           <div className="space-y-3">
             {history.map((pro, i) => {
@@ -1297,7 +1300,7 @@ function ValidationPage({ dk, onCountChange }) {
                           className="text-xs mt-0.5 italic"
                           style={{ color: c.txt3 }}
                         >
-                          Motif : {pro.reason}
+                          {t('reason_col')} : {pro.reason}
                         </p>
                       )}
                     </div>
@@ -1315,11 +1318,11 @@ function ValidationPage({ dk, onCountChange }) {
                     >
                       {approved ? (
                         <>
-                          <Check size={11} /> Approuvé
+                          <Check size={11} /> {t('treated_status')}
                         </>
                       ) : (
                         <>
-                          <X size={11} /> Rejeté
+                          <X size={11} /> {t('ignored_status')}
                         </>
                       )}
                     </span>
@@ -1384,6 +1387,7 @@ const HMS_USER_STATUS = {
 
 // Row action dropdown
 function UserRowMenu({ user, onSuspend, dk }) {
+  const { t } = useLanguage();
   const c = getAdminTheme(dk);
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -1401,19 +1405,19 @@ function UserRowMenu({ user, onSuspend, dk }) {
 
   const actions = [
     {
-      label: "Copy ID",
+      label: t('copy_id') || "Copy ID",
       icon: Copy,
       action: () => navigator.clipboard?.writeText(String(user.id)),
     },
-    { label: "View", icon: Eye, action: () => {} },
-    { label: "Edit", icon: Pencil, action: () => {} },
+    { label: t('view_btn') || "View", icon: Eye, action: () => {} },
+    { label: t('edit_btn') || "Edit", icon: Pencil, action: () => {} },
     {
-      label: isSuspended ? "Unban" : "Ban",
+      label: isSuspended ? (t('unban_btn') || "Unban") : (t('ban_btn') || "Ban"),
       icon: Lock,
       danger: true,
       action: () => onSuspend(user.id),
     },
-    { label: "Pin Note", icon: Pin, action: () => {} },
+    { label: t('pin_note') || "Pin Note", icon: Pin, action: () => {} },
   ];
 
   return (
@@ -1460,6 +1464,7 @@ function UserRowMenu({ user, onSuspend, dk }) {
 const HMS_PAGE_SIZE = 10;
 
 function UtilisateursPage({ dk }) {
+  const { t } = useLanguage();
   const c = getAdminTheme(dk);
   const [users, setUsers] = useState(USERS_DATA);
   const [loading, setLoading] = useState(true);
@@ -1499,7 +1504,7 @@ function UtilisateursPage({ dk }) {
         }
       })
       .catch((err) =>
-        setError(err.message || "Impossible de charger les utilisateurs."),
+        setError(err.message || t('error_loading_users') || "Impossible de charger les utilisateurs."),
       )
       .finally(() => setLoading(false));
   }, []);
@@ -1564,10 +1569,10 @@ function UtilisateursPage({ dk }) {
             className="text-2xl font-bold tracking-tight"
             style={{ color: c.txt }}
           >
-            Human Resources
+            {t('utilisateurs')}
           </h1>
           <p className="text-sm mt-0.5" style={{ color: c.txt3 }}>
-            {filtered.length} total user{filtered.length !== 1 ? "s" : ""}
+            {t('total_users_count', { count: filtered.length })}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -1583,7 +1588,7 @@ function UtilisateursPage({ dk }) {
                 setSearch(e.target.value);
                 setPage(1);
               }}
-              placeholder="Search..."
+              placeholder={t('search')}
               className="outline-none text-sm bg-transparent flex-1 min-w-0"
               style={{ color: c.txt }}
             />
@@ -1594,7 +1599,7 @@ function UtilisateursPage({ dk }) {
             style={{ background: c.surface, borderColor: c.border }}
           >
             <span className="text-xs" style={{ color: c.txt3 }}>
-              Status:
+              {t('table_status')}:
             </span>
             <select
               value={statusFilter}
@@ -1606,16 +1611,16 @@ function UtilisateursPage({ dk }) {
               style={{ color: c.txt2, cursor: "pointer" }}
             >
               <option value="all" style={{ background: c.surface }}>
-                All
+                {t('all_tab')}
               </option>
               <option value="active" style={{ background: c.surface }}>
-                Active
+                {t('active_tab')}
               </option>
               <option value="pending" style={{ background: c.surface }}>
-                Pending
+                {t('pending_tab')}
               </option>
               <option value="suspended" style={{ background: c.surface }}>
-                Suspended
+                {t('suspended_tab')}
               </option>
             </select>
           </div>
@@ -1624,7 +1629,7 @@ function UtilisateursPage({ dk }) {
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors hover:opacity-90"
             style={{ background: c.blue }}
           >
-            <Plus size={15} /> New User
+            <Plus size={15} /> {t('add_btn') || "New User"}
           </button>
         </div>
       </div>
@@ -1671,7 +1676,7 @@ function UtilisateursPage({ dk }) {
               className="relative flex items-center gap-1.5 px-4 py-3 text-sm whitespace-nowrap transition-colors shrink-0"
               style={{ color: isActive ? c.blue : c.txt3 }}
             >
-              {pill.label}
+              {t(`role_${pill.value}`)}
               <span
                 className="text-xs px-1.5 py-0.5 rounded-full"
                 style={{
@@ -1720,12 +1725,12 @@ function UtilisateursPage({ dk }) {
                   />
                 </th>
                 {[
-                  { key: "name", label: "Name" },
-                  { key: "phone", label: "Phone" },
-                  { key: "email", label: "Email" },
-                  { key: "role", label: "Role" },
-                  { key: "wilaya", label: "Wilaya" },
-                  { key: "status", label: "Status" },
+                  { key: "name", label: t('table_name') },
+                  { key: "phone", label: t('table_phone') },
+                  { key: "email", label: t('table_email') },
+                  { key: "role", label: t('table_role') },
+                  { key: "wilaya", label: t('wilaya_label') },
+                  { key: "status", label: t('table_status') },
                 ].map((col) => (
                   <th
                     key={col.key}
@@ -1816,7 +1821,7 @@ function UtilisateursPage({ dk }) {
                       className="px-4 py-3 text-sm capitalize whitespace-nowrap"
                       style={{ color: c.txt2 }}
                     >
-                      {u.role}
+                      {t(`role_${u.role}`)}
                     </td>
                     <td
                       className="px-4 py-3 text-sm whitespace-nowrap"
@@ -1829,7 +1834,7 @@ function UtilisateursPage({ dk }) {
                         className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap"
                         style={{ background: sm.bg, color: sm.color }}
                       >
-                        {sm.label}
+                        {t(`status_${u.status}`)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -1845,7 +1850,7 @@ function UtilisateursPage({ dk }) {
                     className="px-4 py-16 text-center text-sm"
                     style={{ color: c.txt3 }}
                   >
-                    No results.
+                    {t('no_results') || "Aucun résultat."}
                   </td>
                 </tr>
               )}
@@ -1904,6 +1909,7 @@ function UtilisateursPage({ dk }) {
 // PAGE: RENDEZ-VOUS
 // ─────────────────────────────────────────────────────────────────────────────
 function RendezVousPage({ dk }) {
+  const { t } = useLanguage();
   const c = getAdminTheme(dk);
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -1952,11 +1958,10 @@ function RendezVousPage({ dk }) {
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-black" style={{ color: c.txt }}>
-            Rendez-vous
+            {t('rendezvous')}
           </h1>
           <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
-            {appointments.length} rendez-vous · {statusCounts.pending || 0} en
-            attente
+            {appointments.length} {t('rendezvous')} · {statusCounts.pending || 0} {t('in_waiting')}
           </p>
         </div>
         <button
@@ -2000,7 +2005,7 @@ function RendezVousPage({ dk }) {
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border"
           style={{ borderColor: c.border, color: c.txt2 }}
         >
-          <Download size={14} /> Exporter CSV
+          <Download size={14} /> {t('export_csv')}
         </button>
       </div>
       {usingFallback && (
@@ -2014,18 +2019,17 @@ function RendezVousPage({ dk }) {
         >
           <AlertTriangle size={15} className="shrink-0" />
           <p className="text-xs font-semibold">
-            Données simulées — le serveur est inaccessible. Les rendez-vous
-            affichés sont des exemples.
+            {t('simulated_data_warning')}
           </p>
         </div>
       )}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
         {[
-          ["pending", "En attente", "#E8A838"],
-          ["confirmed", "Confirmés", "#4A6FA5"],
-          ["completed", "Terminés", "#2D8C6F"],
-          ["cancelled", "Annulés", "#9AACBE"],
-          ["refused", "Refusés", "#E05555"],
+          ["pending", t('status_pending'), "#E8A838"],
+          ["confirmed", t('status_confirmed'), "#4A6FA5"],
+          ["completed", t('status_completed'), "#2D8C6F"],
+          ["cancelled", t('status_cancelled'), "#9AACBE"],
+          ["refused", t('status_refused'), "#E05555"],
         ].map(([s, label, color]) => (
           <button
             key={s}
@@ -2061,7 +2065,7 @@ function RendezVousPage({ dk }) {
               setSearch(e.target.value);
               setPage(1);
             }}
-            placeholder="Rechercher par patient, médecin, motif…"
+            placeholder={t('search_placeholder_appt') || "Rechercher par patient, médecin, motif…"}
             className="outline-none text-sm bg-transparent flex-1"
             style={{ color: c.txt }}
           />
@@ -2078,11 +2082,11 @@ function RendezVousPage({ dk }) {
                 }}
               >
                 {[
-                  "Patient",
-                  "Médecin / Spécialité",
-                  "Date & Heure",
-                  "Motif",
-                  "Statut",
+                  t('table_patient'),
+                  t('table_doctor_spec'),
+                  t('table_date_time'),
+                  t('table_motif'),
+                  t('table_status'),
                 ].map((h) => (
                   <th
                     key={h}
@@ -2233,6 +2237,7 @@ function RendezVousPage({ dk }) {
 // PAGE: MÉDICAMENTS
 // ─────────────────────────────────────────────────────────────────────────────
 function MedicamentsPage({ dk }) {
+  const { t } = useLanguage();
   const c = getAdminTheme(dk);
   const [meds, setMeds] = useState(MOCK_MEDICATIONS);
   const [search, setSearch] = useState("");
@@ -2303,11 +2308,11 @@ function MedicamentsPage({ dk }) {
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-black" style={{ color: c.txt }}>
-            Catalogue Médicaments
+            {t('medications_catalogue')}
           </h1>
           <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
-            {meds.filter((m) => m.is_active !== false).length} références ·{" "}
-            {meds.filter((m) => m.cnas_covered).length} couvertes CNAS
+            {meds.filter((m) => m.is_active !== false).length} {t('references_count')} ·{" "}
+            {meds.filter((m) => m.cnas_covered).length} {t('cnas_covered_count')}
           </p>
         </div>
         <button
@@ -2315,7 +2320,7 @@ function MedicamentsPage({ dk }) {
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: c.blue }}
         >
-          <Plus size={14} /> Nouveau médicament
+          <Plus size={14} /> {t('add_med_btn')}
         </button>
       </div>
       <Card dk={dk} className="mb-4" style={{ padding: "12px 16px" }}>
@@ -2331,7 +2336,7 @@ function MedicamentsPage({ dk }) {
                 setSearch(e.target.value);
                 setPage(1);
               }}
-              placeholder="Nom, molécule…"
+              placeholder={t('search_placeholder_med')}
               className="outline-none text-sm bg-transparent flex-1"
               style={{ color: c.txt }}
             />
@@ -2349,7 +2354,7 @@ function MedicamentsPage({ dk }) {
                 borderColor: catFilter === "all" ? c.blue : c.border,
               }}
             >
-              Toutes
+              {t('all_tab')}
             </button>
             {Object.entries(MED_CATEGORY).map(([key, { label, color }]) => (
               <button
@@ -2382,13 +2387,13 @@ function MedicamentsPage({ dk }) {
                 }}
               >
                 {[
-                  "Médicament",
-                  "Molécule",
-                  "Catégorie",
-                  "Forme / Dosages",
-                  "Prix DZD",
-                  "CNAS",
-                  "Ordonnance",
+                  t('table_medication'),
+                  t('table_molecule'),
+                  t('table_category'),
+                  t('table_form_dosages'),
+                  t('table_price_dzd'),
+                  t('table_cnas'),
+                  t('table_prescription'),
                 ].map((h) => (
                   <th
                     key={h}
@@ -2672,6 +2677,7 @@ function MedicamentsPage({ dk }) {
 // PAGE: PHARMACIES
 // ─────────────────────────────────────────────────────────────────────────────
 function PharmaciesPage({ dk }) {
+  const { t } = useLanguage();
   const c = getAdminTheme(dk);
   const [tab, setTab] = useState("pharmacies");
   const [pharmacies, setPharmacies] = useState(MOCK_PHARMACIES);
@@ -2710,17 +2716,17 @@ function PharmaciesPage({ dk }) {
     <>
       <div className="mb-6">
         <h1 className="text-2xl font-black" style={{ color: c.txt }}>
-          Pharmacies
+          {t('pharmacies')}
         </h1>
         <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
-          {pharmacies.length} pharmacies ·{" "}
-          {pharmacies.filter((p) => p.is_verified).length} vérifiées
+          {pharmacies.length} {t('pharmacies')} ·{" "}
+          {pharmacies.filter((p) => p.is_verified).length} {t('status_verified')}
         </p>
       </div>
       <div className="flex gap-2 mb-5">
         {[
-          ["pharmacies", "Pharmacies"],
-          ["orders", "Commandes"],
+          ["pharmacies", t('pharmacies')],
+          ["orders", t('orders')],
         ].map(([id, label]) => (
           <button
             key={id}
@@ -2759,7 +2765,7 @@ function PharmaciesPage({ dk }) {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Nom, ville…"
+                placeholder={t('search_placeholder_pharmacy')}
                 className="outline-none text-sm bg-transparent flex-1"
                 style={{ color: c.txt }}
               />
@@ -2780,14 +2786,14 @@ function PharmaciesPage({ dk }) {
                       color={c.green}
                       bg={dk ? c.green + "22" : c.greenLight}
                     >
-                      Vérifiée
+                      {t('status_verified')}
                     </Badge>
                   ) : (
                     <Badge
                       color={c.amber}
                       bg={dk ? c.amber + "22" : c.amberLight}
                     >
-                      En attente
+                      {t('status_pending')}
                     </Badge>
                   )}
                 </div>
@@ -2955,6 +2961,7 @@ function PharmaciesPage({ dk }) {
 // PAGE: GARDE-MALADES
 // ─────────────────────────────────────────────────────────────────────────────
 function GardeMaladesPage({ dk }) {
+  const { t } = useLanguage();
   const c = getAdminTheme(dk);
   const [tab, setTab] = useState("caretakers");
   const [caretakers, setCaretakers] = useState(MOCK_CARETAKERS);
@@ -2992,17 +2999,17 @@ function GardeMaladesPage({ dk }) {
     <>
       <div className="mb-6">
         <h1 className="text-2xl font-black" style={{ color: c.txt }}>
-          Garde-malades
+          {t('caretakers')}
         </h1>
         <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
-          {caretakers.length} garde-malades ·{" "}
-          {caretakers.filter((ct) => ct.is_verified).length} vérifiés
+          {caretakers.length} {t('caretakers_tab')} ·{" "}
+          {caretakers.filter((ct) => ct.is_verified).length} {t('status_verified')}
         </p>
       </div>
       <div className="flex gap-2 mb-5">
         {[
-          ["caretakers", "Garde-malades"],
-          ["requests", "Demandes"],
+          ["caretakers", t('caretakers_tab')],
+          ["requests", t('demandes_tab')],
         ].map(([id, label]) => (
           <button
             key={id}
@@ -3032,7 +3039,7 @@ function GardeMaladesPage({ dk }) {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Nom ou ville…"
+                placeholder={t('search_placeholder_caretaker') || "Nom ou ville…"}
                 className="outline-none text-sm bg-transparent flex-1"
                 style={{ color: c.txt }}
               />
@@ -3058,23 +3065,23 @@ function GardeMaladesPage({ dk }) {
                         color={c.green}
                         bg={dk ? c.green + "22" : c.greenLight}
                       >
-                        Vérifié
+                        {t('status_verified')}
                       </Badge>
                     ) : (
                       <Badge
                         color={c.amber}
                         bg={dk ? c.amber + "22" : c.amberLight}
                       >
-                        En attente
+                        {t('status_pending')}
                       </Badge>
                     )}
                     {ct.is_available ? (
                       <Badge color="#4A6FA5" bg={dk ? "#4A6FA522" : "#EEF3FB"}>
-                        Disponible
+                        {t('available')}
                       </Badge>
                     ) : (
                       <Badge color={c.txt3} bg={c.blueLight}>
-                        Indisponible
+                        {t('unavailable')}
                       </Badge>
                     )}
                   </div>
@@ -3101,7 +3108,7 @@ function GardeMaladesPage({ dk }) {
                   )}
                 </div>
                 <p className="text-xs mt-1" style={{ color: c.txt3 }}>
-                  {ct.experience_years} ans d'expérience
+                  {ct.experience_years} {t('years_exp_suffix') || "ans d'expérience"}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-1">
                   {(ct.services || []).map((s) => (
@@ -3125,7 +3132,7 @@ function GardeMaladesPage({ dk }) {
         <>
           <div className="flex gap-2 mb-4 flex-wrap">
             {[
-              ["all", "Toutes"],
+              ["all", t('all_orders_tab')],
               ...Object.entries(CARE_STATUS).map(([k, v]) => [k, v.label]),
             ]
               .filter((v, i, a) => a.findIndex((x) => x[0] === v[0]) === i)
@@ -3154,12 +3161,12 @@ function GardeMaladesPage({ dk }) {
                   }}
                 >
                   {[
-                    "Référence",
-                    "Patient",
-                    "Garde-malade",
-                    "Période",
-                    "Mission",
-                    "Statut",
+                    t('reference_label'),
+                    t('patient_label'),
+                    t('caretaker_label'),
+                    t('period_label'),
+                    t('mission_label'),
+                    t('status_label'),
                   ].map((h) => (
                     <th
                       key={h}
@@ -3252,6 +3259,7 @@ function GardeMaladesPage({ dk }) {
 // PAGE: AUDIT
 // ─────────────────────────────────────────────────────────────────────────────
 function AuditPage({ dk }) {
+  const { t } = useLanguage();
   const c = getAdminTheme(dk);
   const [logs, setLogs] = useState(AUDIT_LOGS);
   const [typeFilter, setTypeFilter] = useState("all");
@@ -3293,10 +3301,10 @@ function AuditPage({ dk }) {
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-black" style={{ color: c.txt }}>
-            Journal d'Audit
+            {t('audit_log_title')}
           </h1>
           <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
-            Toutes les actions administratives et système
+            {t('audit_log_desc')}
           </p>
         </div>
         <button
@@ -3314,7 +3322,7 @@ function AuditPage({ dk }) {
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border"
           style={{ borderColor: c.border, color: c.txt2 }}
         >
-          <Download size={14} /> Exporter logs
+          <Download size={14} /> {t('export_logs')}
         </button>
       </div>
       {usingFallback && (
@@ -3328,18 +3336,17 @@ function AuditPage({ dk }) {
         >
           <AlertTriangle size={15} className="shrink-0" />
           <p className="text-xs font-semibold">
-            Données simulées — le serveur est inaccessible. Les logs affichés
-            sont des exemples.
+            {t('simulated_data_warning_logs_short') || t('simulated_data_warning')}
           </p>
         </div>
       )}
       <div className="flex gap-2 mb-5 flex-wrap">
         {[
-          ["all", "Tous", c.txt2, c.blueLight],
-          ["success", "Succès", c.green, c.greenLight],
-          ["warning", "Alertes", c.amber, c.amberLight],
-          ["danger", "Erreurs", c.red, c.redLight],
-          ["info", "Info", c.blue, c.blueLight],
+          ["all", t('all_tab'), c.txt2, c.blueLight],
+          ["success", t('success_tab'), c.green, c.greenLight],
+          ["warning", t('warning_tab'), c.amber, c.amberLight],
+          ["danger", t('danger_tab'), c.red, c.redLight],
+          ["info", t('info_tab'), c.blue, c.blueLight],
         ].map(([val, label, color, bg]) => (
           <button
             key={val}
@@ -3370,7 +3377,7 @@ function AuditPage({ dk }) {
             style={{ color: c.txt3 }}
           >
             <RefreshCw size={18} className="animate-spin" />
-            <span className="text-sm font-semibold">Chargement des logs…</span>
+            <span className="text-sm font-semibold">{t('loading_logs')}</span>
           </div>
         ) : (
           <div className="divide-y" style={{ borderColor: c.border }}>
@@ -3417,12 +3424,12 @@ function AuditPage({ dk }) {
                   </div>
                   <Badge color={lm.color} bg={dk ? lm.bgDk : lm.bg}>
                     {log.type === "success"
-                      ? "Succès"
+                      ? t('success_label')
                       : log.type === "warning"
-                        ? "Alerte"
+                        ? t('alert_label')
                         : log.type === "danger"
-                          ? "Erreur"
-                          : "Info"}
+                          ? t('error_label')
+                          : t('info_label')}
                   </Badge>
                 </div>
               );
@@ -3434,7 +3441,7 @@ function AuditPage({ dk }) {
                   className="mx-auto mb-3"
                   style={{ color: c.txt3 }}
                 />
-                <p style={{ color: c.txt3 }}>Aucun log trouvé</p>
+                <p style={{ color: c.txt3 }}>{t('no_logs_found')}</p>
               </div>
             )}
           </div>
@@ -3448,6 +3455,7 @@ function AuditPage({ dk }) {
 // PAGE: PARAMÈTRES
 // ─────────────────────────────────────────────────────────────────────────────
 function AdminSettingsPage({ dk, onToggleDark }) {
+  const { t, lang, setLang } = useLanguage();
   const c = getAdminTheme(dk);
   const [secFields, setSecFields] = useState(() => ({
     timeout: localStorage.getItem("admin_timeout") || "30 minutes",
@@ -3460,7 +3468,6 @@ function AdminSettingsPage({ dk, onToggleDark }) {
     localStorage.setItem("admin_timeout", secFields.timeout);
     localStorage.setItem("admin_maxLogin", secFields.maxLogin);
     localStorage.setItem("admin_ipWhitelist", secFields.ipWhitelist);
-    localStorage.setItem("medDk", String(dk));
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };
@@ -3469,25 +3476,25 @@ function AdminSettingsPage({ dk, onToggleDark }) {
     <>
       <div className="mb-6">
         <h1 className="text-2xl font-black" style={{ color: c.txt }}>
-          Paramètres Admin
+          {t('admin_settings_title')}
         </h1>
         <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
-          Configuration globale de la plateforme MedSmart
+          {t('admin_settings_desc')}
         </p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <Card dk={dk} style={{ padding: 20 }}>
           <p className="font-bold mb-5" style={{ color: c.txt }}>
-            Paramètres plateforme
+            {t('platform_settings')}
           </p>
           <div className="space-y-4">
             {[
-              { label: "Inscription ouverte", on: true },
-              { label: "Vérification obligatoire", on: true },
-              { label: "2FA pour médecins", on: true },
-              { label: "Mode maintenance", on: false },
-              { label: "Logs détaillés", on: true },
-              { label: "Mode sombre", on: dk, toggle: true },
+              { label: t('open_registration'), on: true },
+              { label: t('mandatory_verification'), on: true },
+              { label: t('two_fa_doctors'), on: true },
+              { label: t('maintenance_mode'), on: false },
+              { label: t('detailed_logs'), on: true },
+              { label: t('dark_mode'), on: dk, toggle: true },
             ].map((item) => (
               <div
                 key={item.label}
@@ -3509,17 +3516,44 @@ function AdminSettingsPage({ dk, onToggleDark }) {
                 </button>
               </div>
             ))}
+
+            {/* Language Selection */}
+            <div className="pt-4 mt-2 border-t" style={{ borderColor: c.border }}>
+              <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: c.txt2 }}>
+                {t('language')}
+              </p>
+              <div className="flex gap-2">
+                {[
+                  { id: 'fr', label: "Français", flag: "🇫🇷" },
+                  { id: 'en', label: "English", flag: "🇬🇧" }
+                ].map(l => (
+                  <button
+                    key={l.id}
+                    onClick={() => setLang(l.id)}
+                    className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold border transition-all"
+                    style={{
+                      background: lang === l.id ? c.blue : 'transparent',
+                      color: lang === l.id ? '#fff' : c.txt2,
+                      borderColor: lang === l.id ? c.blue : c.border
+                    }}
+                  >
+                    <span>{l.flag}</span>
+                    <span>{l.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </Card>
         <Card dk={dk} style={{ padding: 20 }}>
           <p className="font-bold mb-5" style={{ color: c.txt }}>
-            Sécurité & Accès
+            {t('security_access')}
           </p>
           <div className="space-y-4">
             {[
-              { label: "Session timeout", key: "timeout" },
-              { label: "Max tentatives login", key: "maxLogin" },
-              { label: "IP whitelist admin", key: "ipWhitelist" },
+              { label: t('session_timeout') || "Session timeout", key: "timeout" },
+              { label: t('max_login_attempts') || "Max tentatives login", key: "maxLogin" },
+              { label: t('ip_whitelist_admin') || "IP whitelist admin", key: "ipWhitelist" },
             ].map((item) => (
               <div key={item.label} className="mb-3">
                 <label
@@ -3547,21 +3581,21 @@ function AdminSettingsPage({ dk, onToggleDark }) {
               className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
               style={{ background: saved ? c.green : c.blue }}
             >
-              {saved ? "✓ Sauvegardé" : "Enregistrer"}
+              {saved ? t('changes_saved') : t('save_changes')}
             </button>
           </div>
         </Card>
         <Card dk={dk} style={{ padding: 20 }}>
           <p className="font-bold mb-4" style={{ color: c.txt }}>
-            À propos de la plateforme
+            {t('platform_info')}
           </p>
           <div className="space-y-3">
             {[
-              ["Version", "MedSmart Admin v2.2.0"],
-              ["Build", "#20260328-stable"],
-              ["Environnement", "Production · Algérie"],
-              ["Base de données", "PostgreSQL 16.2"],
-              ["Conformité", "RGPD · ISO 27001"],
+              [t('version') || "Version", "MedSmart Admin v2.2.0"],
+              [t('build') || "Build", "#20260328-stable"],
+              [t('environment') || "Environnement", t('production_alg') || "Production · Algérie"],
+              [t('db_label') || "Base de données", "PostgreSQL 16.2"],
+              [t('conformity') || "Conformité", "RGPD · ISO 27001"],
             ].map(([k, v]) => (
               <div
                 key={k}
@@ -3591,16 +3625,13 @@ function AdminSettingsPage({ dk, onToggleDark }) {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AdminDashboard({ onLogout }) {
   const { userData } = useAuth();
-  const [dk, setDk] = useState(() => localStorage.getItem("medDk") === "true");
+  const { t } = useLanguage();
+  const { theme, toggleTheme } = useTheme();
+  const dk = theme === "dark";
   const [activePage, setActivePage] = useState("overview");
   const [mobileMenu, setMobileMenu] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const c = getAdminTheme(dk);
-
-  // Persist dark mode
-  useEffect(() => {
-    localStorage.setItem("medDk", dk);
-  }, [dk]);
 
   const handleNav = useCallback((page) => {
     setActivePage(page);
@@ -3627,7 +3658,7 @@ export default function AdminDashboard({ onLogout }) {
         return <AuditPage dk={dk} />;
       case "parametres":
         return (
-          <AdminSettingsPage dk={dk} onToggleDark={() => setDk((d) => !d)} />
+          <AdminSettingsPage dk={dk} onToggleDark={toggleTheme} />
         );
       // ── Gestion des Comptes ──
       case "patients":
@@ -3638,6 +3669,8 @@ export default function AdminDashboard({ onLogout }) {
         return <CaretakersView dk={dk} />;
       case "pharmacists":
         return <PharmacistsView dk={dk} />;
+      case "reports":
+        return <ReportsView dk={dk} />;
 
       // ── Activité (Planning & Queue) ──
       case "rdv":
@@ -3723,31 +3756,32 @@ export default function AdminDashboard({ onLogout }) {
               style={{ color: c.txt }}
             >
               {{
-                overview: "Tableau de bord",
-                validation: "Validation",
-                utilisateurs: "Utilisateurs",
-                rendezvous: "Rendez-vous",
-                medicaments: "Médicaments",
-                pharmacies: "Pharmacies",
-                gardemalades: "Garde-malades",
-                audit: "Journal d'audit",
-                parametres: "Paramètres",
-                patients: "Patients",
-                doctors: "Médecins",
-                caretakers: "Garde-malades",
-                pharmacists: "Pharmaciens",
-                planning: "Planning",
-                rdv: "Rendez-vous",
-                queue: "File d'attente",
+                overview: t('overview'),
+                validation: t('validation'),
+                utilisateurs: t('all_users'),
+                rendezvous: t('rendezvous'),
+                medicaments: t('medicines'),
+                pharmacies: t('pharmacies'),
+                gardemalades: t('caretakers'),
+                audit: t('audit'),
+                parametres: t('settings'),
+                patients: t('patients'),
+                doctors: t('doctors'),
+                caretakers: t('caretakers'),
+                pharmacists: t('pharmacists'),
+                planning: t('planning'),
+                rdv: t('rendezvous'),
+                queue: t('queue'),
+                reports: t('reports'),
               }[activePage] ?? activePage}
             </span>
           </div>
 
           {/* Dark mode toggle */}
           <button
-            onClick={() => setDk((d) => !d)}
+            onClick={toggleTheme}
             className="w-8 h-8 flex items-center justify-center rounded-xl border transition-all hover:opacity-80"
-            title="Basculer thème"
+            title={t('toggle_theme')}
             style={{ borderColor: c.border, color: c.txt2 }}
           >
             {dk ? <Sun size={15} /> : <Moon size={15} />}

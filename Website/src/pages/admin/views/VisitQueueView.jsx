@@ -7,15 +7,17 @@ import {
 } from "lucide-react";
 import { getAdminTheme } from "../adminTheme.js";
 import { Card, Badge } from "../AdminPrimitives.jsx";
+import { useLanguage } from "../../../context/LanguageContext";
 import * as api from "../../../services/api";
 
-const STATUS_CONFIG = {
-  scheduled:   { label: "En attente", color: "#F59E0B", icon: Clock },
-  in_progress: { label: "En consultation", color: "#3B82F6", icon: Play },
-  completed:   { label: "Terminé", color: "#10B981", icon: CheckCircle2 },
-};
+const getStatusConfig = (t) => ({
+  scheduled:   { label: t('on_hold'), color: "#F59E0B", icon: Clock },
+  in_progress: { label: t('in_consultation'), color: "#3B82F6", icon: Play },
+  completed:   { label: t('completed_tab'), color: "#10B981", icon: CheckCircle2 },
+});
 
 export default function VisitQueueView({ dk }) {
+  const { t } = useLanguage();
   const c = getAdminTheme(dk);
   const [queue, setQueue] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,11 +32,11 @@ export default function VisitQueueView({ dk }) {
       const data = await api.getAdminQueue();
       setQueue(Array.isArray(data) ? data : data.results || []);
     } catch (err) {
-      setError(err.message || "Impossible de charger la file d'attente.");
+      setError(t('loading_queue_error'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { fetchQueue(); }, [fetchQueue]);
 
@@ -44,7 +46,7 @@ export default function VisitQueueView({ dk }) {
       await api.updateQueueStatus(id, newStatus);
       setQueue(prev => prev.map(q => q.id === id ? { ...q, status: newStatus } : q));
     } catch (err) {
-      setActionError(err.message || "Impossible de mettre à jour le statut.");
+      setActionError(t('update_status_error'));
     }
   };
 
@@ -59,10 +61,10 @@ export default function VisitQueueView({ dk }) {
       <div className="mb-6 flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-black" style={{ color: c.txt }}>
-            File d'attente <span style={{ color: c.amber }}>Temps Réel</span>
+            {t('visit_queue_title')} <span style={{ color: c.amber }}>{t('real_time_tag')}</span>
           </h1>
           <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
-            Supervision du flux patient au cabinet
+            {t('queue_supervision_desc')}
           </p>
         </div>
 
@@ -109,21 +111,21 @@ export default function VisitQueueView({ dk }) {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Waiting Column */}
-        <QueueColumn title="Salle d'attente" items={columns.waiting} c={c} dk={dk} 
+        <QueueColumn title={t('waiting_room')} items={columns.waiting} c={c} dk={dk} 
           icon={Users} borderColor={c.amber} 
-          nextAction={{ label: "Démarrer", status: "in_progress" }} 
-          onAction={handleStatusUpdate} />
+          nextAction={{ label: t('start_btn'), status: "in_progress" }} 
+          onAction={handleStatusUpdate} t={t} />
 
         {/* Consulting Column */}
-        <QueueColumn title="Consultations" items={columns.active} c={c} dk={dk} 
+        <QueueColumn title={t('consultations_tab')} items={columns.active} c={c} dk={dk} 
           icon={Play} borderColor={c.blue} 
-          nextAction={{ label: "Terminer", status: "completed" }}
-          onAction={handleStatusUpdate} />
+          nextAction={{ label: t('finish_btn'), status: "completed" }}
+          onAction={handleStatusUpdate} t={t} />
 
         {/* Done Column */}
-        <QueueColumn title="Visites terminées" items={columns.done} c={c} dk={dk} 
+        <QueueColumn title={t('finished_visits')} items={columns.done} c={c} dk={dk} 
           icon={CheckCircle2} borderColor={c.green} 
-          onAction={handleStatusUpdate} />
+          onAction={handleStatusUpdate} t={t} />
       </div>
     </div>
   );
@@ -141,9 +143,9 @@ function QueueCard({ item, c, dk, borderColor, nextAction, onAction }) {
   }, [menuOpen]);
 
   const menuActions = [
-    { label: "Mettre en attente",   status: "scheduled",   show: item.status !== "scheduled" },
-    { label: "Démarrer consultation", status: "in_progress", show: item.status !== "in_progress" },
-    { label: "Marquer terminé",     status: "completed",   show: item.status !== "completed" },
+    { label: t('put_on_wait'),   status: "scheduled",   show: item.status !== "scheduled" },
+    { label: t('start_consultation'), status: "in_progress", show: item.status !== "in_progress" },
+    { label: t('mark_as_completed'),     status: "completed",   show: item.status !== "completed" },
   ].filter(a => a.show);
 
   return (
@@ -157,7 +159,7 @@ function QueueCard({ item, c, dk, borderColor, nextAction, onAction }) {
           <div className="flex items-center gap-2 mt-1 opacity-60">
             <User size={10} style={{ color: c.txt3 }} />
             <p className="text-[10px] font-medium truncate" style={{ color: c.txt3 }}>
-              Dr. {item.doctor_name || item.doctor?.last_name || item.doctor?.user?.last_name || 'Inconnu'}
+              Dr. {item.doctor_name || item.doctor?.last_name || item.doctor?.user?.last_name || t('unknown')}
             </p>
           </div>
         </div>
@@ -181,7 +183,7 @@ function QueueCard({ item, c, dk, borderColor, nextAction, onAction }) {
                 </button>
               ))}
               {menuActions.length === 0 && (
-                <p className="px-4 py-2 text-xs" style={{ color: c.txt3 }}>Aucune action disponible</p>
+                <p className="px-4 py-2 text-xs" style={{ color: c.txt3 }}>{t('no_action_avail')}</p>
               )}
             </div>
           )}
@@ -227,7 +229,7 @@ function QueueColumn({ title, items, c, dk, icon: Icon, borderColor, nextAction,
         {items.length === 0 && (
           <div className="py-20 text-center opacity-20" style={{ color: c.txt3 }}>
             <Icon size={32} className="mx-auto mb-2" />
-            <p className="text-xs font-bold uppercase">Colonne vide</p>
+            <p className="text-xs font-bold uppercase">{t('empty_column')}</p>
           </div>
         )}
       </div>

@@ -6,11 +6,13 @@ import {
 } from "lucide-react";
 import { getAdminTheme } from "../adminTheme.js";
 import { Card, Badge } from "../AdminPrimitives.jsx";
+import { useLanguage } from "../../../context/LanguageContext";
 import * as api from "../../../services/api";
 
 const HOURS = Array.from({ length: 14 }, (_, i) => i + 8); // 8:00 to 21:00
 
 export default function ScheduleView({ dk }) {
+  const { t } = useLanguage();
   const c = getAdminTheme(dk);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [doctors, setDoctors] = useState([]);
@@ -34,7 +36,7 @@ export default function ScheduleView({ dk }) {
       setDoctors(dList);
       setAppointments(aList);
     } catch (err) {
-      setError(err.message || "Impossible de charger le planning. Vérifiez la connexion au serveur.");
+      setError(t('schedule_error'));
     } finally {
       setLoading(false);
     }
@@ -66,10 +68,10 @@ export default function ScheduleView({ dk }) {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black" style={{ color: c.txt }}>
-            Planning <span style={{ color: c.blue }}>Global</span>
+            {t('global_planning')} <span style={{ color: c.blue }}>Global</span>
           </h1>
           <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
-            Gestion centralisée des flux praticiens
+            {t('flow_management_desc')}
           </p>
         </div>
         
@@ -114,20 +116,20 @@ export default function ScheduleView({ dk }) {
         <div className="p-4 border-b flex items-center justify-between flex-wrap gap-4" style={{ borderColor: c.border }}>
           <div className="relative w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2" size={16} style={{ color: c.txt3 }} />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un praticien..."
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('search_practitioner_placeholder')}
               className="w-full pl-10 pr-4 py-2 rounded-xl text-sm border outline-none" 
               style={{ background: dk ? '#0A1220' : '#F8FAFC', borderColor: c.border, color: c.txt }} />
           </div>
           <div className="flex items-center gap-4 text-[11px] font-bold uppercase tracking-wider" style={{ color: c.txt3 }}>
-            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full" style={{ background: c.blue }} /> Confirmé</div>
-            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full" style={{ background: c.amber }} /> En attente</div>
-            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full" style={{ background: c.green }} /> Terminé</div>
+            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full" style={{ background: c.blue }} /> {t('confirmed')}</div>
+            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full" style={{ background: c.amber }} /> {t('pending')}</div>
+            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full" style={{ background: c.green }} /> {t('completed_tab')}</div>
           </div>
         </div>
 
         {/* Timeline Header */}
         <div className="flex border-b" style={{ borderColor: c.border, background: dk ? 'rgba(255,255,255,0.02)' : '#FAFBFD' }}>
-          <div className="w-64 p-4 shrink-0 font-black text-[11px] uppercase" style={{ color: c.txt3 }}>Praticiens</div>
+          <div className="w-64 p-4 shrink-0 font-black text-[11px] uppercase" style={{ color: c.txt3 }}>{t('practitioners')}</div>
           <div className="flex-1 relative flex">
             {HOURS.map(h => (
               <div key={h} className="flex-1 border-l py-4 text-center text-[10px] font-bold" style={{ borderColor: c.border, color: c.txt3 }}>
@@ -150,7 +152,7 @@ export default function ScheduleView({ dk }) {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold truncate" style={{ color: c.txt }}>Dr. {doctor.last_name}</p>
-                    <p className="text-[10px] opacity-60 truncate" style={{ color: c.txt2 }}>{doctor.specialty || 'Généraliste'}</p>
+                    <p className="text-[10px] opacity-60 truncate" style={{ color: c.txt2 }}>{doctor.specialty || t('generalist')}</p>
                   </div>
                 </div>
                 
@@ -168,7 +170,7 @@ export default function ScheduleView({ dk }) {
                     
                     const style = getApptStyle(sTime, duration);
                     const color = appt.status === 'confirmed' ? c.blue : appt.status === 'completed' ? c.green : c.amber;
-                    const pName = appt.patient_name || appt.patient?.full_name || appt.patient?.name || 'Patient';
+                    const pName = appt.patient_name || appt.patient?.full_name || appt.patient?.name || t('patient');
 
                     return (
                       <div key={appt.id} className="absolute top-2 bottom-2 p-1.5 rounded-lg shadow-sm border cursor-pointer hover:scale-[1.02] active:scale-95 transition-all overflow-hidden"
@@ -190,7 +192,7 @@ export default function ScheduleView({ dk }) {
           <Clock size={16} className="text-blue-500" />
         </div>
         <p className="text-xs font-medium" style={{ color: c.txt2 }}>
-          Astuce : Cliquez sur un créneau vide pour proposer un nouveau rendez-vous, ou sur une carte pour modifier l'affectation.
+          {t('schedule_hint')}
         </p>
       </div>
     </div>

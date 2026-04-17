@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useTheme } from "../../context/ThemeContext";
 import ErrorBoundary from "../../components/ErrorBoundary";
 import DashSelect from "../../components/ui/DashSelect";
 import { ParticlesHero } from '../../components/backgrounds/MedParticles';
@@ -9,8 +10,12 @@ import {
   X, Plus, Minus, QrCode, TrendingUp, TrendingDown, AlertCircle,
   Clock, CheckCircle, Eye, Download, Filter, RefreshCw, Truck,
   BarChart2, Users, DollarSign, Archive, User, ChevronRight,
-  Zap, Shield, Activity, Send, Phone, MapPin, Link2
+  Zap, Shield, Activity, Send, Phone, MapPin, Link2, MessageSquare
 } from "lucide-react";
+import ChatButton from "../../components/chat/ChatButton";
+import ConversationList from "../../components/chat/ConversationList";
+import ChatWindow from "../../components/chat/ChatWindow";
+import { useLanguage } from "../../context/LanguageContext";
 
 // ─── Theme tokens (identique au patient dashboard) ────────────────────────────
 const T = {
@@ -65,11 +70,11 @@ const NOTIFICATIONS = [
 ];
 
 const STATUS_META = {
-  new:        { label: "Nouvelle",   color: "#4A6FA5", bg: "#4A6FA518" },
-  processing: { label: "En prépa.",  color: "#E8A838", bg: "#E8A83818" },
-  ready:      { label: "Prêt",       color: "#2D8C6F", bg: "#2D8C6F18" },
-  delivered:  { label: "Récupéré",   color: "#9AACBE", bg: "#9AACBE18" },
-  cancelled:  { label: "Annulé",     color: "#E05555", bg: "#E0555518" },
+  new:        { label: "new_status",   color: "#4A6FA5", bg: "#4A6FA518" },
+  processing: { label: "processing_status",  color: "#E8A838", bg: "#E8A83818" },
+  ready:      { label: "ready_status",       color: "#2D8C6F", bg: "#2D8C6F18" },
+  delivered:  { label: "delivered_status",   color: "#9AACBE", bg: "#9AACBE18" },
+  cancelled:  { label: "cancelled_status",     color: "#E05555", bg: "#E0555518" },
 };
 
 const WILAYAS_LIST = [
@@ -134,6 +139,7 @@ function StatCard({ label, value, sub, icon: Icon, color, trend, dk }) {
 
 // ─── QR SCAN MODAL ────────────────────────────────────────────────────────────
 function QrModal({ onClose, dk, onScan }) {
+  const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
   const [scanned, setScanned] = useState(false);
 
@@ -148,7 +154,7 @@ function QrModal({ onClose, dk, onScan }) {
       <div className="rounded-2xl p-8 w-full max-w-sm shadow-2xl border"
         style={{ background: c.card, borderColor: c.border }}>
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-bold" style={{ color: c.txt }}>Scanner une ordonnance</h3>
+          <h3 className="text-lg font-bold" style={{ color: c.txt }}>{t('scan_order_btn') || "Scanner une ordonnance"}</h3>
           <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center border transition-colors hover:opacity-70"
             style={{ borderColor: c.border, color: c.txt3 }}>
             <X size={15} />
@@ -189,18 +195,18 @@ function QrModal({ onClose, dk, onScan }) {
         </div>
 
         <p className="text-center text-sm mb-5" style={{ color: c.txt2 }}>
-          {scanned ? "Ordonnance détectée !" : "Positionnez le QR code de l'ordonnance"}
+          {scanned ? (t('scanned_success') || "Ordonnance détectée !") : (t('position_qr_desc') || "Positionnez le QR code de l'ordonnance")}
         </p>
 
         <div className="flex gap-3">
           <button onClick={simulateScan}
             className="flex-1 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
             style={{ background: c.blue }}>
-            {scanned ? "Traitement…" : "📷 Simuler scan"}
+            {scanned ? (t('in_progress') || "Traitement…") : `📷 ${t('simulate_scan_btn') || "Simuler scan"}`}
           </button>
           <button className="px-4 py-3 rounded-xl text-sm font-semibold border transition-all hover:opacity-80"
             style={{ borderColor: c.border, color: c.txt2 }}>
-            📁 Fichier
+            📁 {t('file_label') || "Fichier"}
           </button>
         </div>
       </div>
@@ -211,6 +217,7 @@ function QrModal({ onClose, dk, onScan }) {
 
 // ─── MODAL: DÉTAILS COMMANDE ──────────────────────────────────────────────────
 function OrderDetailModal({ order, onClose, dk }) {
+  const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
   const st = STATUS_META[order.status];
   return (
@@ -219,7 +226,7 @@ function OrderDetailModal({ order, onClose, dk }) {
       <div className="rounded-2xl p-6 w-full max-w-md shadow-2xl border"
         style={{ background: c.card, borderColor: c.border }}>
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-bold" style={{ color: c.txt }}>Détails de la commande</h3>
+          <h3 className="text-lg font-bold" style={{ color: c.txt }}>{t('order_details_title') || "Détails de la commande"}</h3>
           <button onClick={onClose}
             className="w-8 h-8 rounded-xl flex items-center justify-center border transition-colors hover:opacity-70"
             style={{ borderColor: c.border, color: c.txt3 }}>
@@ -232,30 +239,30 @@ function OrderDetailModal({ order, onClose, dk }) {
           <div className="flex items-center justify-between p-4 rounded-xl"
             style={{ background: dk ? "#1A2333" : "#F8FAFC" }}>
             <div>
-              <p className="text-xs font-bold uppercase tracking-wide mb-0.5" style={{ color: c.txt3 }}>Référence</p>
+              <p className="text-xs font-bold uppercase tracking-wide mb-0.5" style={{ color: c.txt3 }}>{t('reference_label') || "Référence"}</p>
               <p className="font-bold text-sm" style={{ color: c.txt }}>{order.id}</p>
             </div>
             <div className="flex items-center gap-2">
               {order.cnas && <Badge color={c.blue} bg={c.blueLight}>CNAS</Badge>}
-              <Badge color={st.color} bg={st.bg}>{st.label}</Badge>
+              <Badge color={st.color} bg={st.bg}>{t(st.label) || st.label}</Badge>
             </div>
           </div>
 
           {/* Patient & Médecin */}
           <div className="grid grid-cols-2 gap-3">
             <div className="p-3 rounded-xl" style={{ background: dk ? "#1A2333" : "#F8FAFC" }}>
-              <p className="text-xs font-bold uppercase tracking-wide mb-0.5" style={{ color: c.txt3 }}>Patient</p>
+              <p className="text-xs font-bold uppercase tracking-wide mb-0.5" style={{ color: c.txt3 }}>{t('patient_label') || "Patient"}</p>
               <p className="text-sm font-semibold" style={{ color: c.txt }}>{order.patient}</p>
             </div>
             <div className="p-3 rounded-xl" style={{ background: dk ? "#1A2333" : "#F8FAFC" }}>
-              <p className="text-xs font-bold uppercase tracking-wide mb-0.5" style={{ color: c.txt3 }}>Médecin</p>
+              <p className="text-xs font-bold uppercase tracking-wide mb-0.5" style={{ color: c.txt3 }}>{t('doctor_label') || "Médecin"}</p>
               <p className="text-sm font-semibold" style={{ color: c.txt }}>{order.doctor}</p>
             </div>
           </div>
 
           {/* Médicaments */}
           <div>
-            <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>Médicaments prescrits</p>
+            <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>{t('prescribed_meds_label') || "Médicaments prescrits"}</p>
             <div className="space-y-2">
               {order.items.map((item, i) => (
                 <div key={i} className="flex items-center gap-3 p-3 rounded-xl"
@@ -273,7 +280,7 @@ function OrderDetailModal({ order, onClose, dk }) {
           {/* Total */}
           <div className="flex items-center justify-between p-4 rounded-xl border-2"
             style={{ background: c.blueLight, borderColor: c.blue + "33" }}>
-            <p className="font-bold" style={{ color: c.txt }}>Total à payer</p>
+            <p className="font-bold" style={{ color: c.txt }}>{t('total_to_pay_label') || "Total à payer"}</p>
             <p className="text-xl font-bold" style={{ color: c.blue }}>
               {order.total.toLocaleString()} DZD
             </p>
@@ -283,7 +290,7 @@ function OrderDetailModal({ order, onClose, dk }) {
         <button onClick={onClose}
           className="w-full mt-5 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:opacity-80"
           style={{ borderColor: c.border, color: c.txt2 }}>
-          Fermer
+          {t('close_btn') || "Fermer"}
         </button>
       </div>
     </div>
@@ -292,6 +299,7 @@ function OrderDetailModal({ order, onClose, dk }) {
 
 // ─── MODAL: AJOUTER UN ARTICLE (STOCK) ───────────────────────────────────────
 function AddItemModal({ onClose, onAdd, dk }) {
+  const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
   const [form, setForm] = useState({
     name: "", molecule: "", category: "", expiry: "",
@@ -323,7 +331,7 @@ function AddItemModal({ onClose, onAdd, dk }) {
       <div className="rounded-2xl p-6 w-full max-w-md shadow-2xl border"
         style={{ background: c.card, borderColor: c.border }}>
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-bold" style={{ color: c.txt }}>Ajouter un article</h3>
+          <h3 className="text-lg font-bold" style={{ color: c.txt }}>{t('add_item_title') || "Ajouter un article"}</h3>
           <button onClick={onClose}
             className="w-8 h-8 rounded-xl flex items-center justify-center border transition-colors hover:opacity-70"
             style={{ borderColor: c.border, color: c.txt3 }}>
@@ -334,7 +342,7 @@ function AddItemModal({ onClose, onAdd, dk }) {
         <div className="space-y-4">
           {/* Nom du médicament */}
           <div>
-            <label className={labelCls} style={{ color: c.txt2 }}>Nom du médicament</label>
+            <label className={labelCls} style={{ color: c.txt2 }}>{t('med_name_label') || "Nom du médicament"}</label>
             <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
               placeholder="Ex: Paracetamol 500mg"
               className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
@@ -343,7 +351,7 @@ function AddItemModal({ onClose, onAdd, dk }) {
 
           {/* Molécule */}
           <div>
-            <label className={labelCls} style={{ color: c.txt2 }}>Molécule</label>
+            <label className={labelCls} style={{ color: c.txt2 }}>{t('med_molecule_label') || "Molécule"}</label>
             <input value={form.molecule} onChange={e => setForm(f => ({ ...f, molecule: e.target.value }))}
               placeholder="Ex: Acetaminophen"
               className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
@@ -352,13 +360,13 @@ function AddItemModal({ onClose, onAdd, dk }) {
 
           {/* Catégorie — DashSelect */}
           <DashSelect
-            label="Catégorie" value={form.category} options={STOCK_CATEGORIES}
+            label={t('category_label') || "Catégorie"} value={form.category} options={STOCK_CATEGORIES}
             onSelect={v => setForm(f => ({ ...f, category: v }))}
-            dk={dk} c={c} placeholder="Choisir une catégorie..." />
+            dk={dk} c={c} placeholder={t('choose_category_placeholder') || "Choisir une catégorie..."} />
 
           {/* Date d'expiration */}
           <div>
-            <label className={labelCls} style={{ color: c.txt2 }}>Date d'expiration</label>
+            <label className={labelCls} style={{ color: c.txt2 }}>{t('expiry_date_label') || "Date d'expiration"}</label>
             <input type="date" value={form.expiry}
               onChange={e => setForm(f => ({ ...f, expiry: e.target.value }))}
               className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
@@ -368,9 +376,9 @@ function AddItemModal({ onClose, onAdd, dk }) {
           {/* Champs numériques */}
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: "Qté en stock", key: "qty",   placeholder: "0" },
-              { label: "Qté min. alerte", key: "min",   placeholder: "0" },
-              { label: "Prix (DZD)",   key: "price", placeholder: "0" },
+              { label: t('qty_in_stock_label') || "Qté en stock", key: "qty",   placeholder: "0" },
+              { label: t('qty_min_alert_label') || "Qté min. alerte", key: "min",   placeholder: "0" },
+              { label: t('price_label') || "Prix (DZD)",   key: "price", placeholder: "0" },
             ].map(f => (
               <div key={f.key}>
                 <label className={labelCls} style={{ color: c.txt2 }}>{f.label}</label>
@@ -389,12 +397,12 @@ function AddItemModal({ onClose, onAdd, dk }) {
           <button onClick={onClose}
             className="flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:opacity-80"
             style={{ borderColor: c.border, color: c.txt2 }}>
-            Annuler
+            {t('cancel_btn') || "Annuler"}
           </button>
           <button onClick={handleAdd}
             className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
             style={{ background: c.blue, opacity: !form.name || !form.category ? 0.5 : 1 }}>
-            Enregistrer
+            {t('save_btn') || "Enregistrer"}
           </button>
         </div>
       </div>
@@ -404,15 +412,16 @@ function AddItemModal({ onClose, onAdd, dk }) {
 
 // ─── PAGE: ACCUEIL ────────────────────────────────────────────────────────────
 function HomePage({ dk, onNav }) {
+  const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
   const [showQr, setShowQr] = useState(false);
   const [newOrder, setNewOrder] = useState(false);
 
   const stats = [
-    { label: "Commandes aujourd'hui",  value: "24",         icon: ShoppingCart,  color: c.blue,   trend: 12 },
-    { label: "Revenus du jour",         value: "84 200 DZD", icon: DollarSign,    color: c.green,  trend: 8  },
-    { label: "Médicaments en stock",    value: "1 548",      icon: Package,       color: "#7B5EA7", trend: -3 },
-    { label: "Alertes stock",           value: "4",          icon: AlertTriangle, color: c.red,    trend: undefined },
+    { label: t('orders_today_label') || "Commandes aujourd'hui",  value: "24",         icon: ShoppingCart,  color: c.blue,   trend: 12 },
+    { label: t('daily_revenue_label') || "Revenus du jour",         value: "84 200 DZD", icon: DollarSign,    color: c.green,  trend: 8  },
+    { label: t('stock_meds_label') || "Médicaments en stock",    value: "1 548",      icon: Package,       color: "#7B5EA7", trend: -3 },
+    { label: t('stock_alerts_count_label') || "Alertes stock",           value: "4",          icon: AlertTriangle, color: c.red,    trend: undefined },
   ];
 
   return (
@@ -428,8 +437,8 @@ function HomePage({ dk, onNav }) {
             <Check size={18} className="text-white" strokeWidth={3} />
           </div>
           <div className="flex-1">
-            <p className="font-bold text-sm" style={{ color: c.txt }}>Ordonnance scannée avec succès</p>
-            <p className="text-xs" style={{ color: c.txt2 }}>Commande ORD-2026-0482 créée — Alex Johnson · Lisinopril 10mg ×30</p>
+            <p className="font-bold text-sm" style={{ color: c.txt }}>{t('scanned_success') || "Ordonnance scannée avec succès"}</p>
+            <p className="text-xs" style={{ color: c.txt2 }}>{t('order_created_desc', {id: 'ORD-2026-0482', patient: 'Alex Johnson', med: 'Lisinopril 10mg ×30'}) || "Commande ORD-2026-0482 créée — Alex Johnson · Lisinopril 10mg ×30"}</p>
           </div>
           <button onClick={() => setNewOrder(false)} style={{ color: c.txt3 }}><X size={16} /></button>
         </div>
@@ -447,8 +456,8 @@ function HomePage({ dk, onNav }) {
           {/* Alertes stock */}
           <Card dk={dk}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold" style={{ color: c.txt }}>Alertes prioritaires</h3>
-              <Badge color={c.red} bg={c.red + "18"}>{ALERTS.length} alertes</Badge>
+              <h3 className="font-bold" style={{ color: c.txt }}>{t('priority_alerts_title') || "Alertes prioritaires"}</h3>
+              <Badge color={c.red} bg={c.red + "18"}>{t('alerts_count', {count: ALERTS.length}) || `${ALERTS.length} alertes`}</Badge>
             </div>
             <div className="space-y-3">
               {ALERTS.map(a => (
@@ -471,10 +480,10 @@ function HomePage({ dk, onNav }) {
           {/* Dernières commandes */}
           <Card dk={dk}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold" style={{ color: c.txt }}>Dernières commandes</h3>
+              <h3 className="font-bold" style={{ color: c.txt }}>{t('latest_orders_title') || "Dernières commandes"}</h3>
               <button onClick={() => onNav("commandes")}
                 className="text-sm font-semibold hover:underline" style={{ color: c.blue }}>
-                Voir tout
+                {t('view_all_btn') || "Voir tout"}
               </button>
             </div>
             <div className="space-y-3">
@@ -495,7 +504,7 @@ function HomePage({ dk, onNav }) {
                       <p className="text-xs truncate" style={{ color: c.txt2 }}>{o.items[0]}{o.items.length > 1 ? ` +${o.items.length - 1}` : ""}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <Badge color={st.color} bg={st.bg}>{st.label}</Badge>
+                      <Badge color={st.color} bg={st.bg}>{t(st.label) || st.label}</Badge>
                       <p className="text-xs mt-1" style={{ color: c.txt3 }}>{o.date}</p>
                     </div>
                   </div>
@@ -510,9 +519,9 @@ function HomePage({ dk, onNav }) {
           {/* Mini stock critique */}
           <Card dk={dk}>
             <div className="flex items-center justify-between mb-4">
-              <p className="text-xs font-bold uppercase tracking-wide" style={{ color: c.txt3 }}>Stock critique</p>
+              <p className="text-xs font-bold uppercase tracking-wide" style={{ color: c.txt3 }}>{t('stock_alerts_count_label') || "Stock critique"}</p>
               <button onClick={() => onNav("stock")} className="text-xs font-semibold hover:underline" style={{ color: c.blue }}>
-                Gérer
+                {t('manage_btn') || "Gérer"}
               </button>
             </div>
             {STOCK.filter(s => s.qty < s.min).map(item => (
@@ -534,7 +543,7 @@ function HomePage({ dk, onNav }) {
           {/* Notifications */}
           <Card dk={dk}>
             <div className="flex items-center justify-between mb-4">
-              <p className="text-xs font-bold uppercase tracking-wide" style={{ color: c.txt3 }}>Notifications</p>
+              <p className="text-xs font-bold uppercase tracking-wide" style={{ color: c.txt3 }}>{t('notifications_label') || "Notifications"}</p>
               <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">3</span>
             </div>
             <div className="space-y-3">
@@ -557,13 +566,13 @@ function HomePage({ dk, onNav }) {
 
           {/* Chiffre du jour */}
           <Card dk={dk} style={{ background: "linear-gradient(135deg, #304B71, #6492C9)", border: "none" }}>
-            <p className="text-xs font-bold uppercase tracking-wide mb-2 text-white opacity-70">CNAS — Aujourd'hui</p>
+            <p className="text-xs font-bold uppercase tracking-wide mb-2 text-white opacity-70">{t('cnas_today_title') || "CNAS — Aujourd'hui"}</p>
             <p className="text-2xl font-bold text-white">52 400 DZD</p>
-            <p className="text-sm text-white opacity-80 mt-0.5">remboursé sur 84 200 DZD</p>
+            <p className="text-sm text-white opacity-80 mt-0.5">{t('reimbursed_on_desc', {total: '84 200'}) || "remboursé sur 84 200 DZD"}</p>
             <div className="w-full h-2 rounded-full mt-3 overflow-hidden" style={{ background: "rgba(255,255,255,0.2)" }}>
               <div className="h-full rounded-full bg-white" style={{ width: "62%" }} />
             </div>
-            <p className="text-xs text-white opacity-60 mt-1.5">62% couvert par la CNAS</p>
+            <p className="text-xs text-white opacity-60 mt-1.5">{t('covered_by_cnas_desc', {percent: 62}) || "62% couvert par la CNAS"}</p>
           </Card>
         </div>
       </div>
@@ -573,6 +582,7 @@ function HomePage({ dk, onNav }) {
 
 // ─── PAGE: STOCK ──────────────────────────────────────────────────────────────
 function StockPage({ dk }) {
+  const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all"); // all | critical | ok
@@ -592,9 +602,9 @@ function StockPage({ dk }) {
 
   const getStockStatus = (item) => {
     const pct = item.qty / item.min;
-    if (pct < 0.4) return { label: "Critique",   color: c.red,   bg: c.red + "18" };
-    if (pct < 1.0) return { label: "Bas",        color: c.amber, bg: c.amber + "18" };
-    return          { label: "Normal",    color: c.green, bg: c.green + "18" };
+    if (pct < 0.4) return { label: t('critical_status') || "Critique",   color: c.red,   bg: c.red + "18" };
+    if (pct < 1.0) return { label: t('low_status') || "Bas",        color: c.amber, bg: c.amber + "18" };
+    return          { label: t('normal_status') || "Normal",    color: c.green, bg: c.green + "18" };
   };
 
   return (
@@ -609,13 +619,13 @@ function StockPage({ dk }) {
 
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: c.txt }}>Gestion du Stock</h1>
-          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>{allStock.length} références · {allStock.filter(s => s.qty < s.min).length} en rupture</p>
+          <h1 className="text-2xl font-bold" style={{ color: c.txt }}>{t('stock_management_title') || "Gestion du Stock"}</h1>
+          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>{t('references_count', {count: allStock.length}) || `${allStock.length} références`} · {t('out_of_stock_count', {count: allStock.filter(s => s.qty < s.min).length}) || `${allStock.filter(s => s.qty < s.min).length} en rupture`}</p>
         </div>
         <button onClick={() => setShowAddModal(true)}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90"
           style={{ background: c.blue }}>
-          <Plus size={15} /> Ajouter un article
+          <Plus size={15} /> {t('add_item_btn') || "Ajouter un article"}
         </button>
       </div>
 
@@ -626,11 +636,11 @@ function StockPage({ dk }) {
             style={{ background: c.blueLight }}>
             <Search size={14} style={{ color: c.txt3 }} />
             <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Rechercher médicament…" className="outline-none text-sm bg-transparent flex-1"
+              placeholder={t('search_med_placeholder') || "Rechercher médicament…"} className="outline-none text-sm bg-transparent flex-1"
               style={{ color: c.txt }} />
           </div>
           <div className="flex gap-2">
-            {[["all", "Tout"], ["critical", "Critique"], ["ok", "Normal"]].map(([val, label]) => (
+            {[[ "all", t('all_orders_tab') || "Tout" ], [ "critical", t('critical_status') || "Critique" ], [ "ok", t('normal_status') || "Normal" ]].map(([val, label]) => (
               <button key={val} onClick={() => setFilter(val)}
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
                 style={{ background: filter === val ? c.blue : "transparent", color: filter === val ? "#fff" : c.txt2, borderColor: filter === val ? c.blue : c.border }}>
@@ -640,7 +650,7 @@ function StockPage({ dk }) {
           </div>
           <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all hover:opacity-80"
             style={{ borderColor: c.border, color: c.txt2 }}>
-            <Download size={13} /> Exporter
+            <Download size={13} /> {t('export_btn') || "Exporter"}
           </button>
         </div>
       </Card>
@@ -651,7 +661,17 @@ function StockPage({ dk }) {
           <table className="w-full">
             <thead>
               <tr style={{ borderBottom: `1px solid ${c.border}`, background: dk ? "rgba(255,255,255,0.02)" : "#FAFBFD" }}>
-                {["Médicament", "Molécule", "Catégorie", "Stock", "Min.", "Statut", "Expiration", "Prix", "Actions"].map(h => (
+                {[
+                  t('medication_table_header') || "Médicament",
+                  t('molecule_table_header') || "Molécule",
+                  t('category_table_header') || "Catégorie",
+                  t('stock_table_header') || "Stock",
+                  t('min_table_header') || "Min.",
+                  t('status_table_header') || "Statut",
+                  t('expiration_table_header') || "Expiration",
+                  t('price_table_header') || "Prix",
+                  t('actions_table_header') || "Actions"
+                ].map(h => (
                   <th key={h} className="text-left text-xs font-bold uppercase tracking-wide px-4 py-3"
                     style={{ color: c.txt3 }}>{h}</th>
                 ))}
@@ -725,6 +745,7 @@ function StockPage({ dk }) {
 
 // ─── PAGE: COMMANDES ──────────────────────────────────────────────────────────
 function CommandesPage({ dk }) {
+  const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
   const [tab, setTab]                   = useState("all");
   const [showQr, setShowQr]             = useState(false);
@@ -734,11 +755,11 @@ function CommandesPage({ dk }) {
   const newCount = orders.filter(o => o.status === "new").length;
 
   const tabs = [
-    { id: "all",        label: "Toutes",       count: orders.length },
-    { id: "new",        label: "Nouvelles",     count: newCount, accent: true },
-    { id: "processing", label: "En prépa.",     count: orders.filter(o => o.status === "processing").length },
-    { id: "ready",      label: "Prêtes",        count: orders.filter(o => o.status === "ready").length },
-    { id: "delivered",  label: "Récupérées",    count: orders.filter(o => o.status === "delivered").length },
+    { id: "all",        label: t('all_orders_tab') || "Toutes",       count: orders.length },
+    { id: "new",        label: t('new_orders_tab') || "Nouvelles",     count: newCount, accent: true },
+    { id: "processing", label: t('processing_orders_tab') || "En prépa.",     count: orders.filter(o => o.status === "processing").length },
+    { id: "ready",      label: t('ready_orders_tab') || "Prêtes",        count: orders.filter(o => o.status === "ready").length },
+    { id: "delivered",  label: t('delivered_orders_tab') || "Récupérées",    count: orders.filter(o => o.status === "delivered").length },
   ];
 
   const displayed = tab === "all" ? orders : orders.filter(o => o.status === tab);
@@ -756,19 +777,19 @@ function CommandesPage({ dk }) {
 
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: c.txt }}>Commandes</h1>
+          <h1 className="text-2xl font-bold" style={{ color: c.txt }}>{t('orders_today_label') || "Commandes"}</h1>
           <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
-            Gérez les ordonnances et dispensations
+            {t('processing_orders_desc') || "Gérez les ordonnances et dispensations"}
             {newCount > 0 && (
               <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full text-white"
-                style={{ background: c.blue }}>{newCount} nouvelle{newCount > 1 ? "s" : ""}</span>
+                style={{ background: c.blue }}>{newCount} {t('new_orders_count', {count: newCount}) || `nouvelle${newCount > 1 ? "s" : ""}`}</span>
             )}
           </p>
         </div>
         <button onClick={() => setShowQr(true)}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90"
           style={{ background: c.blue }}>
-          <QrCode size={15} /> Scanner ordonnance
+          <QrCode size={15} /> {t('scan_order_btn') || "Scanner ordonnance"}
         </button>
       </div>
 
@@ -799,7 +820,7 @@ function CommandesPage({ dk }) {
         {displayed.length === 0 && (
           <div className="text-center py-12" style={{ color: c.txt3 }}>
             <ShoppingCart size={32} className="mx-auto mb-3 opacity-40" />
-            <p className="text-sm font-semibold">Aucune commande dans cet onglet</p>
+            <p className="text-sm font-semibold">{t('no_orders_found') || "Aucune commande dans cet onglet"}</p>
           </div>
         )}
         {displayed.map(o => {
@@ -841,7 +862,7 @@ function CommandesPage({ dk }) {
                   </div>
                   <p className="text-sm font-semibold mb-0.5" style={{ color: c.txt }}>
                     👤 {o.patient}
-                    <span className="font-normal ml-2" style={{ color: c.txt2 }}>— {o.doctor}</span>
+                    <span className="font-normal ml-2" style={{ color: c.txt2 }}>— {t('doctor_role_prefix') || "Dr."} {o.doctor}</span>
                   </p>
                   <div className="space-y-0.5 mt-2">
                     {o.items.map(item => (
@@ -863,7 +884,7 @@ function CommandesPage({ dk }) {
                       <button onClick={() => acceptOrder(o.id)}
                         className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95"
                         style={{ background: "linear-gradient(135deg, #304B71, #6492C9)" }}>
-                        <Check size={13} strokeWidth={3} /> Accepter &amp; Préparer
+                        <Check size={13} strokeWidth={3} /> {t('accept_prepare_btn') || "Accepter & Préparer"}
                       </button>
                     )}
 
@@ -872,7 +893,7 @@ function CommandesPage({ dk }) {
                       <button onClick={() => markReady(o.id)}
                         className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95"
                         style={{ background: c.green }}>
-                        <CheckCircle size={13} /> Marquer Prêt
+                        <CheckCircle size={13} /> {t('mark_ready_btn') || "Marquer Prêt"}
                       </button>
                     )}
 
@@ -881,15 +902,15 @@ function CommandesPage({ dk }) {
                       <button onClick={() => markDelivered(o.id)}
                         className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all hover:opacity-80 active:scale-95"
                         style={{ background: c.blueLight, color: c.txt2, border: `1px solid ${c.border}` }}>
-                        <Truck size={13} /> Récupéré
+                        <Truck size={13} /> {t('delivered_btn') || "Récupéré"}
                       </button>
                     )}
 
                     {/* Bouton Détails — toujours visible */}
                     <button onClick={() => setSelectedOrder(o)}
-                      className="px-4 py-2 rounded-xl text-xs font-semibold border transition-all hover:opacity-80"
+                      className="px-4 py-2 rounded-xl text-xs font-semibold border transition-all hover:opacity-80 flex items-center justify-center gap-1.5"
                       style={{ borderColor: c.border, color: c.txt2 }}>
-                      👁 Détails
+                      <Eye size={13} /> {t('view_details_btn') || "Détails"}
                     </button>
                   </div>
                 </div>
@@ -934,17 +955,17 @@ function StatistiquesPage({ dk }) {
   return (
     <>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: c.txt }}>Statistiques</h1>
-        <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>Analyse des ventes et remboursements CNAS</p>
+        <h1 className="text-2xl font-bold" style={{ color: c.txt }}>{t('stats_title') || "Statistiques"}</h1>
+        <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>{t('stats_desc_pharmacist') || "Analyse des ventes et remboursements CNAS"}</p>
       </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
-          { label: "Ventes ce mois",    value: "1 248 400 DZD", icon: DollarSign,   color: c.blue,  trend: 9  },
-          { label: "Remboursé CNAS",    value: "773 600 DZD",   icon: Shield,       color: c.green, trend: 5  },
-          { label: "Ordonnances traitées",value: "342",          icon: FileText,     color: "#7B5EA7",trend: 14 },
-          { label: "Clients uniques",   value: "128",           icon: Users,        color: c.amber, trend: 3  },
+          { label: t('monthly_sales_label') || "Ventes ce mois",    value: "1 248 400 DZD", icon: DollarSign,   color: c.blue,  trend: 9  },
+          { label: t('reimbursed_cnas_label') || "Remboursé CNAS",    value: "773 600 DZD",   icon: Shield,       color: c.green, trend: 5  },
+          { label: t('prescriptions_processed_label') || "Ordonnances traitées",value: "342",          icon: FileText,     color: "#7B5EA7",trend: 14 },
+          { label: t('unique_customers_label') || "Clients uniques",   value: "128",           icon: Users,        color: c.amber, trend: 3  },
         ].map(s => <StatCard key={s.label} {...s} dk={dk} />)}
       </div>
 
@@ -952,10 +973,10 @@ function StatistiquesPage({ dk }) {
         {/* Bar chart ventes vs CNAS */}
         <Card dk={dk}>
           <div className="flex items-center justify-between mb-5">
-            <h3 className="font-bold" style={{ color: c.txt }}>Ventes vs Remboursements CNAS</h3>
+            <h3 className="font-bold" style={{ color: c.txt }}>{t('sales_vs_cnas_title') || "Ventes vs Remboursements CNAS"}</h3>
             <div className="flex items-center gap-3 text-xs">
               <span className="flex items-center gap-1" style={{ color: c.blue }}>
-                <span className="w-2 h-2 rounded-full inline-block" style={{ background: c.blue }}></span> Ventes
+                <span className="w-2 h-2 rounded-full inline-block" style={{ background: c.blue }}></span> {t('sales_label') || "Ventes"}
               </span>
               <span className="flex items-center gap-1" style={{ color: c.green }}>
                 <span className="w-2 h-2 rounded-full inline-block" style={{ background: c.green }}></span> CNAS
@@ -979,7 +1000,7 @@ function StatistiquesPage({ dk }) {
 
         {/* Top médicaments */}
         <Card dk={dk}>
-          <h3 className="font-bold mb-5" style={{ color: c.txt }}>Top médicaments vendus</h3>
+          <h3 className="font-bold mb-5" style={{ color: c.txt }}>{t('top_meds_sold_title') || "Top médicaments vendus"}</h3>
           <div className="space-y-4">
             {topMeds.map(med => (
               <div key={med.name}>
@@ -997,14 +1018,14 @@ function StatistiquesPage({ dk }) {
 
         {/* Catégories */}
         <Card dk={dk}>
-          <h3 className="font-bold mb-5" style={{ color: c.txt }}>Répartition par catégorie</h3>
+          <h3 className="font-bold mb-5" style={{ color: c.txt }}>{t('category_distribution_title') || "Répartition par catégorie"}</h3>
           <div className="space-y-3">
             {[
-              { label: "Cardiologie",  pct: 32, color: c.blue   },
-              { label: "Antalgiques",  pct: 28, color: c.green  },
-              { label: "Diabétologie", pct: 18, color: c.amber  },
-              { label: "Vitamines",    pct: 12, color: "#7B5EA7" },
-              { label: "Autres",       pct: 10, color: c.txt3   },
+              { label: t('cardiology_label') || "Cardiologie",  pct: 32, color: c.blue   },
+              { label: t('analgesics_label') || "Antalgiques",  pct: 28, color: c.green  },
+              { label: t('diabetology_label') || "Diabétologie", pct: 18, color: c.amber  },
+              { label: t('vitamins_label') || "Vitamines",    pct: 12, color: "#7B5EA7" },
+              { label: t('others_label') || "Autres",       pct: 10, color: c.txt3   },
             ].map(cat => (
               <div key={cat.label} className="flex items-center gap-3">
                 <span className="text-sm w-28 shrink-0" style={{ color: c.txt2 }}>{cat.label}</span>
@@ -1019,13 +1040,13 @@ function StatistiquesPage({ dk }) {
 
         {/* CNAS détail */}
         <Card dk={dk} style={{ background: "linear-gradient(135deg, #304B71, #6492C9)", border: "none" }}>
-          <p className="text-xs font-bold uppercase tracking-wide mb-4 text-white opacity-70">Bilan CNAS — Mars 2026</p>
+          <p className="text-xs font-bold uppercase tracking-wide mb-4 text-white opacity-70">{t('cnas_report_title') || "Bilan CNAS — Mars 2026"}</p>
           <div className="grid grid-cols-2 gap-4">
             {[
-              { label: "Remboursé",  value: "773 600 DZD" },
-              { label: "En attente", value: "124 800 DZD"  },
-              { label: "Rejeté",     value: "18 200 DZD"   },
-              { label: "Taux",       value: "62%"          },
+              { label: t('reimbursed_label') || "Remboursé",  value: "773 600 DZD" },
+              { label: t('pending_label') || "En attente", value: "124 800 DZD"  },
+              { label: t('rejected_label') || "Rejeté",     value: "18 200 DZD"   },
+              { label: t('rate_label') || "Taux",       value: "62%"          },
             ].map(item => (
               <div key={item.label} className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.12)" }}>
                 <p className="text-xs text-white opacity-70">{item.label}</p>
@@ -1042,6 +1063,7 @@ function StatistiquesPage({ dk }) {
 // ─── PAGE: PARAMÈTRES ─────────────────────────────────────────────────────────
 function ParametresPage({ dk, onToggleDark }) {
   const c = dk ? T.dark : T.light;
+  const { lang, setLang, t } = useLanguage();
 
   const [locForm, setLocForm] = useState({
     address: "12 Rue Didouche Mourad",
@@ -1063,8 +1085,66 @@ function ParametresPage({ dk, onToggleDark }) {
   return (
     <>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: c.txt }}>Paramètres</h1>
-        <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>Configuration de la pharmacie</p>
+        <h1 className="text-2xl font-bold" style={{ color: c.txt }}>{t('pharmacist_settings_title')}</h1>
+        <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>{t('pharmacist_settings_desc')}</p>
+      </div>
+
+      {/* ── Language & Theme ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+        <Card dk={dk}>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: c.blue + "18" }}>
+              <Languages size={18} style={{ color: c.blue }} />
+            </div>
+            <div>
+              <p className="font-bold text-base" style={{ color: c.txt }}>{t('language')}</p>
+              <p className="text-xs" style={{ color: c.txt3 }}>{t('choose_pref_lang') || "Choisissez votre langue de préférence"}</p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            {[
+              { id: 'fr', label: 'Français' },
+              { id: 'en', label: 'English' }
+            ].map(l => (
+              <button
+                key={l.id}
+                onClick={() => setLang(l.id)}
+                className="flex-1 py-3 rounded-xl border font-semibold text-sm transition-all"
+                style={{
+                  background: lang === l.id ? c.blue : 'transparent',
+                  color: lang === l.id ? '#fff' : c.txt,
+                  borderColor: lang === l.id ? c.blue : c.border
+                }}
+              >
+                {l.label}
+              </button>
+            ))}
+          </div>
+        </Card>
+
+        <Card dk={dk}>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: c.amber + "18" }}>
+              {dk ? <Moon size={18} style={{ color: c.amber }} /> : <Sun size={18} style={{ color: c.amber }} />}
+            </div>
+            <div>
+              <p className="font-bold text-base" style={{ color: c.txt }}>{t('dark_mode')}</p>
+              <p className="text-xs" style={{ color: c.txt3 }}>{t('dark_mode_desc') || "Basculer entre le thème clair et sombre"}</p>
+            </div>
+          </div>
+          <button
+            onClick={onToggleDark}
+            className="w-full py-3 rounded-xl border font-semibold text-sm transition-all flex items-center justify-center gap-2"
+            style={{
+              background: dk ? c.blue : 'transparent',
+              color: dk ? '#fff' : c.txt,
+              borderColor: dk ? c.blue : c.border
+            }}
+          >
+            {dk ? <CheckCircle size={16} /> : <div className="w-4 h-4 rounded-full border border-current" />}
+            {dk ? (t('deactivate_dark_mode') || "Désactiver le mode sombre") : (t('activate_dark_mode') || "Activer le mode sombre")}
+          </button>
+        </Card>
       </div>
 
       {/* ── Clinic Location & Maps ── */}
@@ -1074,15 +1154,15 @@ function ParametresPage({ dk, onToggleDark }) {
             <MapPin size={18} style={{ color: c.blue }} />
           </div>
           <div>
-            <p className="font-bold text-base" style={{ color: c.txt }}>Clinic Location & Maps</p>
-            <p className="text-xs" style={{ color: c.txt3 }}>Gérez l'adresse visible par les patients</p>
+            <p className="font-bold text-base" style={{ color: c.txt }}>{t('clinic_location_title')}</p>
+            <p className="text-xs" style={{ color: c.txt3 }}>{t('clinic_location_desc')}</p>
           </div>
         </div>
 
         {locSaved && (
           <div className="mb-5 p-3 rounded-xl text-xs font-semibold flex items-center gap-2"
             style={{ background: "#2D8C6F12", color: "#2D8C6F", border: "1px solid #2D8C6F44" }}>
-            <Check size={14} /> Localisation mise à jour avec succès ✅
+            <Check size={14} /> {t('location_updated_success') || "Localisation mise à jour avec succès"}
           </div>
         )}
 
@@ -1090,7 +1170,7 @@ function ParametresPage({ dk, onToggleDark }) {
           {/* Left : formulaire */}
           <div className="space-y-5">
             <div>
-              <label className={labelCls} style={{ color: c.txt2 }}>Adresse de l'établissement</label>
+              <label className={labelCls} style={{ color: c.txt2 }}>{t('address_label')}</label>
               <input type="text" placeholder="Ex: 12 Rue Didouche Mourad"
                 value={locForm.address}
                 onChange={e => setLocForm(f => ({ ...f, address: e.target.value }))}
@@ -1098,7 +1178,7 @@ function ParametresPage({ dk, onToggleDark }) {
             </div>
 
             <div>
-              <label className={labelCls} style={{ color: c.txt2 }}>Commune</label>
+              <label className={labelCls} style={{ color: c.txt2 }}>{t('commune_label')}</label>
               <input type="text" placeholder="Ex: Alger-Centre"
                 value={locForm.commune}
                 onChange={e => setLocForm(f => ({ ...f, commune: e.target.value }))}
@@ -1107,15 +1187,15 @@ function ParametresPage({ dk, onToggleDark }) {
 
             {/* Wilaya — DashSelect */}
             <DashSelect
-              label="Wilaya" value={locForm.wilaya} options={WILAYAS_LIST}
+              label={t('wilaya_label')} value={locForm.wilaya} options={WILAYAS_LIST}
               onSelect={v => setLocForm(f => ({ ...f, wilaya: v }))}
               dk={dk} c={c} />
 
             {/* Lien Google Maps */}
             <div>
-              <label className={labelCls} style={{ color: c.txt2 }}>Lien Google Maps (Optionnel)</label>
+              <label className={labelCls} style={{ color: c.txt2 }}>{t('maps_link_label')}</label>
               <div className="relative">
-                <input type="text" placeholder="Collez l'URL Google Maps ici..."
+                <input type="text" placeholder={t('maps_link_placeholder')}
                   value={locForm.mapsUrl}
                   onChange={e => setLocForm(f => ({ ...f, mapsUrl: e.target.value }))}
                   className={`${inputCls} pl-10`} style={inputStyle} />
@@ -1128,13 +1208,13 @@ function ParametresPage({ dk, onToggleDark }) {
             <button onClick={handleSaveLocation}
               className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
               style={{ background: `linear-gradient(135deg, #304B71, ${c.blue})` }}>
-              <MapPin size={15} /> Mettre à jour la carte
+              <MapPin size={15} /> {t('update_map_btn')}
             </button>
           </div>
 
           {/* Right : Map Preview avec Smart Parser */}
           <div className="flex flex-col gap-3">
-            <label className={labelCls} style={{ color: c.txt2 }}>Map Preview</label>
+            <label className={labelCls} style={{ color: c.txt2 }}>{t('map_preview_label') || "Map Preview"}</label>
             {(() => {
               const addressQuery = [locForm.address, locForm.commune, locForm.wilaya]
                 .filter(Boolean).join(", ");
@@ -1175,7 +1255,7 @@ function ParametresPage({ dk, onToggleDark }) {
                     <a href={openUrl} target="_blank" rel="noopener noreferrer"
                       className="absolute bottom-3 right-3 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-white shadow-lg transition-all hover:opacity-90"
                       style={{ background: c.blue }}>
-                      <MapPin size={12} /> Ouvrir dans Maps
+                      <MapPin size={12} /> {t('open_in_maps_btn') || "Ouvrir dans Maps"}
                     </a>
                   )}
                 </div>
@@ -1191,9 +1271,9 @@ function ParametresPage({ dk, onToggleDark }) {
                       style={{ background: c.blue }} />
                   </div>
                   <div className="text-center px-4">
-                    <p className="text-sm font-bold" style={{ color: c.txt }}>Map Preview</p>
+                    <p className="text-sm font-bold" style={{ color: c.txt }}>{t('map_preview_label') || "Map Preview"}</p>
                     <p className="text-xs mt-1" style={{ color: c.txt3 }}>
-                      Collez une URL Maps ou entrez votre adresse
+                      {t('map_preview_desc') || "Collez une URL Maps ou entrez votre adresse"}
                     </p>
                   </div>
                 </div>
@@ -1206,13 +1286,13 @@ function ParametresPage({ dk, onToggleDark }) {
       {/* ── Préférences + CNAS + À propos ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <Card dk={dk}>
-          <p className="font-semibold mb-5" style={{ color: c.txt }}>Préférences</p>
+          <p className="font-semibold mb-5" style={{ color: c.txt }}>{t('preferences_label') || "Préférences"}</p>
           <div className="space-y-4">
             {[
-              { label: "Alertes stock critique", on: true  },
-              { label: "Notifications CNAS",      on: true  },
-              { label: "Rappels expiration",       on: true  },
-              { label: "Mode sombre",              on: dk, toggle: true },
+              { label: t('stock_alerts_label') || "Alertes stock critique", on: true  },
+              { label: t('cnas_notif_label') || "Notifications CNAS",      on: true  },
+              { label: t('expiry_reminders_label') || "Rappels expiration",       on: true  },
+              { label: t('dark_mode') || "Mode sombre",              on: dk, toggle: true },
             ].map(item => (
               <div key={item.label} className="flex items-center justify-between">
                 <span className="text-sm" style={{ color: c.txt }}>{item.label}</span>
@@ -1228,40 +1308,106 @@ function ParametresPage({ dk, onToggleDark }) {
         </Card>
 
         <Card dk={dk}>
-          <p className="font-semibold mb-3" style={{ color: c.txt }}>Connexion CNAS</p>
+          <p className="font-semibold mb-3" style={{ color: c.txt }}>{t('cnas_conn_label') || "Connexion CNAS"}</p>
           <div className="flex items-center gap-3 p-3 rounded-xl mb-3"
             style={{ background: "#2D8C6F12", border: "1px solid #2D8C6F30" }}>
             <CheckCircle size={18} style={{ color: c.green }} />
-            <p className="text-sm font-semibold" style={{ color: c.green }}>Connecté — Conventionné</p>
+            <p className="text-sm font-semibold" style={{ color: c.green }}>{t('connected_status') || "Connecté"} — {t('cnas_connected_desc') || "Conventionné"}</p>
           </div>
-          <p className="text-xs" style={{ color: c.txt3 }}>Dernière sync : Aujourd'hui 08:32</p>
+          <p className="text-xs" style={{ color: c.txt3 }}>{t('last_sync_prefix') || "Dernière sync :"} Aujourd'hui 08:32</p>
         </Card>
 
         <Card dk={dk}>
-          <p className="font-semibold mb-2" style={{ color: c.txt }}>À propos</p>
-          <p className="text-sm" style={{ color: c.txt2 }}>MedSmart Pharmacie v2.1.0</p>
-          <p className="text-xs mt-1" style={{ color: c.txt3 }}>CNAS Certifié · Hébergé en Algérie</p>
+          <p className="font-semibold mb-2" style={{ color: c.txt }}>{t('about_label') || "À propos"}</p>
+          <p className="text-sm" style={{ color: c.txt2 }}>MedSmart {t('pharmacy_view_label', {context: 'dash'}) || "Pharmacie"} v2.1.0</p>
+          <p className="text-xs mt-1" style={{ color: c.txt3 }}>{t('hosted_in_algeria') || "CNAS Certifié · Hébergé en Algérie"}</p>
         </Card>
       </div>
     </>
   );
 }
 
+// ─── MESSAGES PAGE (layout 30/70) ────────────────────────────────────────────
+function MessagesPage({ dk, c, chatConvOpen, setChatConvOpen, activeChatConv, setActiveChatConv, setUnreadChatCount }) {
+  return (
+    <div className="flex gap-5 h-[calc(100vh-120px)] min-h-[500px]">
+      {/* ConversationList — 30% */}
+      <div
+        className="rounded-2xl border overflow-hidden shrink-0 flex flex-col"
+        style={{ width: "30%", minWidth: 260, background: c.card, borderColor: c.border }}
+      >
+        {/* Header */}
+        <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0" style={{ borderColor: c.border }}>
+          <MessageSquare size={15} style={{ color: c.blue }} />
+          <h2 className="font-bold text-sm" style={{ color: c.txt }}>{t('nav_messages') || "Messages"}</h2>
+        </div>
+        {/* Liste inline (toujours visible, pas de toggle) */}
+        <div className="flex-1 overflow-hidden">
+          <ConversationList
+            open={true}
+            onClose={() => {}}
+            onSelectConv={(conv) => setActiveChatConv(conv)}
+            isPatient={false}
+            onUnreadChange={(n) => setUnreadChatCount(n)}
+            c={c}
+            dk={dk}
+            inline={true}
+          />
+        </div>
+      </div>
+
+      {/* ChatWindow — 70% */}
+      <div className="flex-1 min-w-0">
+        {activeChatConv ? (
+          <ChatWindow
+            conv={activeChatConv}
+            onClose={() => setActiveChatConv(null)}
+            onBack={null}
+            c={c}
+            dk={dk}
+            embedded={true}
+          />
+        ) : (
+          <div
+            className="h-full rounded-2xl border flex flex-col items-center justify-center gap-4"
+            style={{ background: c.card, borderColor: c.border }}
+          >
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: c.blueLight }}>
+              <MessageSquare size={28} style={{ color: c.blue }} />
+            </div>
+            <p className="text-sm font-medium" style={{ color: c.txt3 }}>
+              {t('select_conversation_desc') || "Sélectionnez une conversation"}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── MAIN SHELL ───────────────────────────────────────────────────────────────
 export default function PharmacistDashboard({ onLogout }) {
+  const { t } = useLanguage();
+  const { theme, toggleTheme } = useTheme();
+  const dk = theme === "dark";
   const [page, setPage] = useState("accueil");
-  const [dk, setDk] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
   const { globalNotifications, markAllNotificationsRead } = useData();
   const notifCount = globalNotifications.filter(n => !n.read).length;
   const c = dk ? T.dark : T.light;
 
+  // ── Chat state ──
+  const [chatConvOpen, setChatConvOpen] = useState(false);
+  const [activeChatConv, setActiveChatConv] = useState(null);
+  const { unreadChatCount, setUnreadChatCount } = useData();
+
   const NAV = [
-    { id: "accueil",     label: "Accueil"       },
-    { id: "commandes",   label: "Commandes",  badge: 2 },
-    { id: "stock",       label: "Stock"         },
-    { id: "statistiques",label: "Statistiques"  },
+    { id: "accueil",     label: t('nav_home') || "Accueil"       },
+    { id: "commandes",   label: t('nav_orders') || "Commandes",  badge: 2 },
+    { id: "stock",       label: t('nav_stock') || "Stock"         },
+    { id: "statistiques",label: t('nav_stats') || "Statistiques"  },
+    { id: "messages",    label: t('nav_messages') || "Messages"      },
   ];
 
   const renderPage = () => {
@@ -1270,7 +1416,13 @@ export default function PharmacistDashboard({ onLogout }) {
       case "commandes":    return <CommandesPage dk={dk} />;
       case "stock":        return <StockPage dk={dk} />;
       case "statistiques": return <StatistiquesPage dk={dk} />;
-      case "parametres":   return <ParametresPage dk={dk} onToggleDark={() => setDk(!dk)} />;
+      case "parametres":   return <ParametresPage dk={dk} onToggleDark={toggleTheme} />;
+      case "messages":     return <MessagesPage dk={dk} c={c}
+                                    chatConvOpen={chatConvOpen}
+                                    setChatConvOpen={setChatConvOpen}
+                                    activeChatConv={activeChatConv}
+                                    setActiveChatConv={setActiveChatConv}
+                                    setUnreadChatCount={setUnreadChatCount} />;
       default:             return <HomePage dk={dk} onNav={setPage} />;
     }
   };
@@ -1325,6 +1477,12 @@ export default function PharmacistDashboard({ onLogout }) {
                   <span className="w-4 h-4 rounded-full text-white text-[10px] font-bold flex items-center justify-center"
                     style={{ background: c.red }}>{item.badge}</span>
                 )}
+                {item.id === "messages" && unreadChatCount > 0 && (
+                  <span className="w-4 h-4 rounded-full flex items-center justify-center text-white font-bold"
+                    style={{ background: page === item.id ? "rgba(255,255,255,0.35)" : c.red, fontSize: 9 }}>
+                    {unreadChatCount > 9 ? "9+" : unreadChatCount}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -1347,7 +1505,7 @@ export default function PharmacistDashboard({ onLogout }) {
                 </div>
                 <div className="hidden sm:block text-left">
                   <p className="text-sm font-semibold leading-tight" style={{ color: c.txt }}>El Shifa Pharmacy</p>
-                  <p className="text-xs" style={{ color: c.txt3 }}>Pharmacien · Alger</p>
+                  <p className="text-xs" style={{ color: c.txt3 }}>{t('pharmacist_role_label') || "Pharmacien"} · Alger</p>
                 </div>
                 <ChevronDown size={13} style={{ color: c.txt3 }} />
               </button>
@@ -1364,7 +1522,7 @@ export default function PharmacistDashboard({ onLogout }) {
                         style={{ background: "linear-gradient(135deg, #2D8C6F, #3aaa88)" }}>ES</div>
                       <div>
                         <p className="text-sm font-bold" style={{ color: c.txt }}>El Shifa Pharmacy</p>
-                        <p className="text-xs" style={{ color: c.txt3 }}>Pharmacien · CNAS Conventionné</p>
+                        <p className="text-xs" style={{ color: c.txt3 }}>{t('pharmacist_role_label') || "Pharmacien"} · {t('cnas_connected_desc') || "CNAS Conventionné"}</p>
                       </div>
                     </div>
                   </div>
@@ -1381,14 +1539,14 @@ export default function PharmacistDashboard({ onLogout }) {
                     </button>
                     <button onClick={() => { setPage("parametres"); setProfileOpen(false); }}
                       className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer">
-                      <Settings size={16} /> Paramètres
+                      <Settings size={16} /> {t('nav_settings') || "Paramètres"}
                     </button>
 
                     {/* Dark mode */}
                     <button className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer">
                       <Sun size={14} style={{ color: dk ? c.txt3 : "#E8A838" }} />
                       <button
-                        onClick={() => setDk(!dk)}
+                        onClick={toggleTheme}
                         className="relative rounded-full transition-all duration-300"
                         style={{
                           width: 42,
@@ -1409,7 +1567,7 @@ export default function PharmacistDashboard({ onLogout }) {
                     <div className="h-px my-1 mx-2" style={{ background: dk ? c.border : "#F1F5F9" }} />
                     <button onClick={onLogout}
                       className="pd-item-danger w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-xl cursor-pointer">
-                      <LogOut size={16} /> Logout
+                      <LogOut size={16} /> {t('logout_btn')}
                     </button>
                   </div>
                 </div>

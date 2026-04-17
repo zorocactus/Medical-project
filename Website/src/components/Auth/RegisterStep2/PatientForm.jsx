@@ -1,9 +1,9 @@
 import PersonalInfoForm from "./PersonalInfoForm";
 
 export const PATIENT_STEPS = [
-  { label: "Profil" },
-  { label: "Documents" },
-  { label: "Confirmer" },
+  { key: "auth.register.steps.profile" },
+  { key: "auth.register.steps.documents" },
+  { key: "auth.register.steps.confirm" },
 ];
 
 const DEV_DATA = {

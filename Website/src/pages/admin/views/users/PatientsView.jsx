@@ -8,11 +8,13 @@ import {
 } from "lucide-react";
 import { getAdminTheme } from "../../adminTheme.js";
 import { Card } from "../../AdminPrimitives.jsx";
+import { useLanguage } from "../../../../context/LanguageContext";
 import * as api from "../../../../services/api";
 
 // ─── SUB-COMPONENTS ──────────────────────────────────────────────────────────
 
 function EditPatientModal({ patient, dk, onSave, onClose }) {
+  const { t } = useLanguage();
   const c = getAdminTheme(dk);
   const [activeTab, setActiveTab] = useState("account");
   const [form, setForm] = useState({
@@ -53,7 +55,7 @@ function EditPatientModal({ patient, dk, onSave, onClose }) {
       <Card dk={dk} className="w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="px-6 py-4 border-b flex justify-between items-center" style={{ borderColor: c.border }}>
           <div>
-            <h3 className="font-black text-sm uppercase tracking-wide" style={{ color: c.txt }}>Contrôle Total Patient</h3>
+            <h3 className="font-black text-sm uppercase tracking-wide" style={{ color: c.txt }}>{t('patient_control')}</h3>
             <p className="text-[10px] font-bold opacity-40 uppercase">{patient.full_name} (#{patient.id})</p>
           </div>
           <button onClick={onClose} style={{ color: c.txt3 }} className="p-2 hover:bg-black/5 rounded-full"><X size={20} /></button>
@@ -61,14 +63,14 @@ function EditPatientModal({ patient, dk, onSave, onClose }) {
 
         <div className="flex px-2 border-b" style={{ borderColor: c.border, background: dk ? "rgba(0,0,0,0.1)" : "#fcfcfc" }}>
           {[
-            { id: "account", label: "Compte & Contact", icon: User },
-            { id: "medical", label: "Profil Médical", icon: Heart },
-            { id: "history", label: "Historique RDV", icon: Clock },
-          ].map(t => (
-            <button key={t.id} onClick={() => setActiveTab(t.id)}
+            { id: "account", label: t('account_contact'), icon: User },
+            { id: "medical", label: t('medical_profile_tab'), icon: Heart },
+            { id: "history", label: t('appointment_history_tab'), icon: Clock },
+          ].map(tItem => (
+            <button key={tItem.id} onClick={() => setActiveTab(tItem.id)}
               className="px-4 py-3 text-xs font-bold flex items-center gap-2 transition-all border-b-2"
-              style={{ color: activeTab === t.id ? c.blue : c.txt3, borderColor: activeTab === t.id ? c.blue : "transparent" }}>
-              <t.icon size={14} />{t.label}
+              style={{ color: activeTab === tItem.id ? c.blue : c.txt3, borderColor: activeTab === tItem.id ? c.blue : "transparent" }}>
+              <tItem.icon size={14} />{tItem.label}
             </button>
           ))}
         </div>
@@ -76,42 +78,42 @@ function EditPatientModal({ patient, dk, onSave, onClose }) {
         <div className="flex-1 overflow-y-auto p-6">
           {activeTab === "account" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              {field("Prénom", "first_name")}
-              {field("Nom", "last_name")}
-              {field("Adresse Email", "email", "email")}
-              {field("Numéro de Téléphone", "phone")}
-              <div className="md:col-span-2">{field("Wilaya de résidence", "wilaya")}</div>
+              {field(t('first_name_label'), "first_name")}
+              {field(t('last_name_label'), "last_name")}
+              {field(t('email_address'), "email", "email")}
+              {field(t('phone_number'), "phone")}
+              <div className="md:col-span-2">{field(t('wilaya_residence'), "wilaya")}</div>
             </div>
           )}
           {activeTab === "medical" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              {field("Groupe Sanguin", "blood_type", "text", "Ex: A+, O-")}
+              {field(t('blood_group'), "blood_type", "text", "Ex: A+, O-")}
               <div className="grid grid-cols-2 gap-2">
-                 {field("Taille (cm)", "height", "number")}
-                 {field("Poids (kg)", "weight", "number")}
+                 {field(t('height_label') || "Taille (cm)", "height", "number")}
+                 {field(t('weight_label') || "Poids (kg)", "weight", "number")}
               </div>
-              <div className="md:col-span-2">{field("Allergies", "allergies", "text", "Séparées par des virgules")}</div>
-              <div className="md:col-span-2">{field("Maladies Chroniques", "chronic_diseases")}</div>
-              <div className="md:col-span-2">{field("Médicaments Actuels", "current_medications")}</div>
+              <div className="md:col-span-2">{field(t('allergies_label') || "Allergies", "allergies", "text", t('comma_separated_hint') || "Séparées par des virgules")}</div>
+              <div className="md:col-span-2">{field(t('chronic_diseases_label') || "Maladies Chroniques", "chronic_diseases")}</div>
+              <div className="md:col-span-2">{field(t('current_medications_label') || "Médicaments Actuels", "current_medications")}</div>
             </div>
           )}
           {activeTab === "history" && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="p-4 rounded-xl border bg-blue-500/5 border-blue-500/10">
-                   <p className="text-xs font-bold text-blue-500 mb-2">Note de l'administrateur</p>
-                   <p className="text-xs opacity-70 leading-relaxed">Les informations ci-dessous proviennent des dossiers remplis par les praticiens lors des consultations.</p>
+                   <p className="text-xs font-bold text-blue-500 mb-2">{t('admin_note') || "Note de l'administrateur"}</p>
+                   <p className="text-xs opacity-70 leading-relaxed">{t('admin_note_desc') || "Les informations ci-dessous proviennent des dossiers remplis par les praticiens lors des consultations."}</p>
                 </div>
                 <div className="space-y-2 opacity-50 italic text-center py-10 text-xs">
-                   Aucun antécédent médical externe disponible pour le moment.
+                   {t('no_medical_history') || "Aucun antécédent médical externe disponible pour le moment."}
                 </div>
             </div>
           )}
         </div>
 
         <div className="p-6 border-t flex gap-3" style={{ borderColor: c.border }}>
-          <button onClick={onClose} className="flex-1 py-3 rounded-xl text-xs font-bold border transition-all hover:bg-black/5" style={{ borderColor: c.border, color: c.txt2 }}>Annuler</button>
+          <button onClick={onClose} className="flex-1 py-3 rounded-xl text-xs font-bold border transition-all hover:bg-black/5" style={{ borderColor: c.border, color: c.txt2 }}>{t('cancel_appointment')}</button>
           <button onClick={() => onSave(form)} className="flex-1 py-3 rounded-xl text-xs font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:scale-[1.02]" style={{ background: c.blue }}>
-             Enregistrer les modifications
+             {t('save_changes_btn')}
           </button>
         </div>
       </Card>
@@ -120,6 +122,7 @@ function EditPatientModal({ patient, dk, onSave, onClose }) {
 }
 
 function PatientDrawer({ patient, dk, onClose, onEdit, onToggleStatus }) {
+  const { t } = useLanguage();
   const c = getAdminTheme(dk);
   const [activeTab, setActiveTab] = useState("account");
 
@@ -134,7 +137,7 @@ function PatientDrawer({ patient, dk, onClose, onEdit, onToggleStatus }) {
           color: value ? c.txt : c.txt3,
         }}
       >
-        {value || <span className="italic opacity-50">Non renseigné</span>}
+        {value || <span className="italic opacity-50">{t('not_specified')}</span>}
       </div>
     </div>
   );
@@ -164,9 +167,9 @@ function PatientDrawer({ patient, dk, onClose, onEdit, onToggleStatus }) {
         {/* ── Tabs ── */}
         <div className="flex px-2 border-b" style={{ borderColor: c.border, background: dk ? "rgba(0,0,0,0.1)" : "#fcfcfc" }}>
           {[
-            { id: "account", label: "Compte & Contact", icon: User },
-            { id: "medical", label: "Profil Médical",   icon: Heart },
-            { id: "history", label: "Historique RDV",   icon: Clock },
+            { id: "account", label: t('account_contact'), icon: User },
+            { id: "medical", label: t('medical_profile_tab'), icon: Heart },
+            { id: "history", label: t('appointment_history_tab'), icon: Clock },
           ].map(t => (
             <button key={t.id} onClick={() => setActiveTab(t.id)}
               className="px-4 py-3 text-xs font-bold flex items-center gap-2 transition-all border-b-2"
@@ -181,12 +184,12 @@ function PatientDrawer({ patient, dk, onClose, onEdit, onToggleStatus }) {
           {activeTab === "account" && (
             <div className="grid grid-cols-1 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div className="grid grid-cols-2 gap-4">
-                {field("Prénom",  patient.first_name)}
-                {field("Nom",     patient.last_name)}
+                {field(t('first_name_label'),  patient.first_name)}
+                {field(t('last_name_label'),     patient.last_name)}
               </div>
-              {field("Adresse Email",      patient.email)}
-              {field("Numéro de Téléphone", patient.phone)}
-              {field("Wilaya de résidence", patient.wilaya)}
+              {field(t('email_address'),      patient.email)}
+              {field(t('phone_number'), patient.phone)}
+              {field(t('wilaya_residence'), patient.wilaya)}
               <div className="mt-2 pt-3 border-t" style={{ borderColor: c.border }}>
                 <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1 block mb-2" style={{ color: c.txt }}>Statut du compte</label>
                 <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border"
@@ -196,7 +199,7 @@ function PatientDrawer({ patient, dk, onClose, onEdit, onToggleStatus }) {
                   }}>
                   <span className="w-2 h-2 rounded-full" style={{ background: patient.is_active ? c.green : c.red }} />
                   <span className="text-sm font-semibold" style={{ color: patient.is_active ? c.green : c.red }}>
-                    {patient.is_active ? "Actif" : "Suspendu"}
+                    {patient.is_active ? t('active_status') : t('suspended_status')}
                   </span>
                 </div>
               </div>
@@ -206,28 +209,28 @@ function PatientDrawer({ patient, dk, onClose, onEdit, onToggleStatus }) {
           {activeTab === "medical" && (
             <div className="grid grid-cols-1 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div className="grid grid-cols-2 gap-4">
-                {field("Groupe Sanguin", patient.blood_type)}
+                {field(t('blood_group'), patient.blood_type)}
                 <div className="grid grid-cols-2 gap-2">
-                  {field("Taille (cm)", patient.height)}
-                  {field("Poids (kg)",  patient.weight)}
+                  {field(t('height_label') || "Taille (cm)", patient.height)}
+                  {field(t('weight_label') || "Poids (kg)",  patient.weight)}
                 </div>
               </div>
-              {field("Allergies",          patient.allergies)}
-              {field("Maladies Chroniques", patient.chronic_diseases)}
-              {field("Médicaments Actuels", patient.current_medications)}
+              {field(t('allergies_label') || "Allergies",          patient.allergies)}
+              {field(t('chronic_diseases_label') || "Maladies Chroniques", patient.chronic_diseases)}
+              {field(t('current_medications_label') || "Médicaments Actuels", patient.current_medications)}
             </div>
           )}
 
           {activeTab === "history" && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div className="p-4 rounded-xl border bg-blue-500/5 border-blue-500/10">
-                <p className="text-xs font-bold text-blue-500 mb-2">Note de l'administrateur</p>
+                <p className="text-xs font-bold text-blue-500 mb-2">{t('admin_note') || "Note de l'administrateur"}</p>
                 <p className="text-xs opacity-70 leading-relaxed">
-                  Les informations ci-dessous proviennent des dossiers remplis par les praticiens lors des consultations.
+                  {t('admin_note_desc') || "Les informations ci-dessous proviennent des dossiers remplis par les praticiens lors des consultations."}
                 </p>
               </div>
               <div className="py-10 text-center opacity-50 italic text-xs" style={{ color: c.txt3 }}>
-                Aucun antécédent médical externe disponible pour le moment.
+                {t('no_medical_history') || "Aucun antécédent médical externe disponible pour le moment."}
               </div>
             </div>
           )}
@@ -238,14 +241,14 @@ function PatientDrawer({ patient, dk, onClose, onEdit, onToggleStatus }) {
           <button onClick={onEdit}
             className="flex-1 py-3 rounded-xl text-xs font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:scale-[1.02] flex items-center justify-center gap-2"
             style={{ background: c.blue }}>
-            <Edit3 size={14} /> Modifier
+            <Edit3 size={14} /> {t('modify')}
           </button>
           <button onClick={onToggleStatus}
             className="flex-1 py-3 rounded-xl text-xs font-bold border transition-all hover:opacity-80 flex items-center justify-center gap-2"
             style={{ borderColor: patient.is_active ? c.red : c.green, color: patient.is_active ? c.red : c.green }}>
             {patient.is_active
-              ? <><Lock size={14} /> Suspendre</>
-              : <><Unlock size={14} /> Réactiver</>}
+              ? <><Lock size={14} /> {t('suspend_btn')}</>
+              : <><Unlock size={14} /> {t('reactivate_btn')}</>}
           </button>
         </div>
       </Card>
@@ -255,6 +258,7 @@ function PatientDrawer({ patient, dk, onClose, onEdit, onToggleStatus }) {
 
 // ─── Row menu ─────────────────────────────────────────────────────────────────
 function RowMenu({ onView, onEdit, c }) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -339,6 +343,7 @@ const MOCK_PATIENTS = [
 
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 export default function PatientsView({ dk }) {
+  const { t } = useLanguage();
   const c = getAdminTheme(dk ?? true);
   const [patients, setPatients] = useState(MOCK_PATIENTS);
   const [loading, setLoading] = useState(false);
@@ -393,10 +398,10 @@ export default function PatientsView({ dk }) {
   });
 
   const FILTERS = [
-    { id: "all",       label: "Tous" },
-    { id: "active",    label: "Actifs" },
-    { id: "pending",   label: "En attente" },
-    { id: "suspended", label: "Suspendus" },
+    { id: "all",       label: t('all_tab') },
+    { id: "active",    label: t('active_tab') },
+    { id: "pending",   label: t('pending_tab') },
+    { id: "suspended", label: t('suspended_tab') },
   ];
 
   return (
@@ -451,7 +456,7 @@ export default function PatientsView({ dk }) {
           <table className="w-full text-left text-xs">
             <thead>
               <tr style={{ background: c.header, borderBottom: `1px solid ${c.border}` }}>
-                {["Patient", "Email", "Wilaya", "Groupe sanguin", "Statut", ""].map(h => (
+                {[t('table_patient'), t('table_email'), t('location'), t('blood_group'), t('table_status'), ""].map(h => (
                   <th key={h} className="px-4 py-3 font-semibold uppercase tracking-wider"
                     style={{ color: c.txt3, fontSize: "10px" }}>
                     {h}
@@ -463,10 +468,10 @@ export default function PatientsView({ dk }) {
               {loading ? (
                 <tr><td colSpan="6" className="py-16 text-center text-xs" style={{ color: c.txt3 }}>
                   <RefreshCw size={16} className="animate-spin mx-auto mb-2" style={{ color: c.txt3 }} />
-                  Chargement...
+                  {t('loading_data')}
                 </td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan="6" className="py-16 text-center text-xs" style={{ color: c.txt3 }}>Aucun résultat</td></tr>
+                <tr><td colSpan="6" className="py-16 text-center text-xs" style={{ color: c.txt3 }}>{t('no_results_found')}</td></tr>
               ) : filtered.map(p => {
                 const initials = p.full_name?.split(" ").map(n => n[0]).slice(0, 2).join("") || "?";
                 const bg = avatarColor(p.full_name, c);
@@ -500,12 +505,12 @@ export default function PatientsView({ dk }) {
                       {p.is_active ? (
                         <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold w-fit"
                           style={{ background: c.greenBg, color: c.green }}>
-                          <CheckCircle2 size={10} /> Actif
+                          <CheckCircle2 size={10} /> {t('active_status')}
                         </span>
                       ) : (
                         <span className="px-2 py-0.5 rounded text-[10px] font-semibold"
                           style={{ background: c.redBg, color: c.red }}>
-                          Suspendu
+                          {t('suspended_status')}
                         </span>
                       )}
                     </td>

@@ -3,55 +3,12 @@ import {
   LayoutDashboard, Users, Pill, Heart, Shield, Settings,
   UserCheck, Calendar, ShoppingBag, X,
   LogOut, Stethoscope, User, Activity, ListFilter,
-  Building2, ClipboardList
+  Building2, ClipboardList, ShieldAlert
 } from "lucide-react";
 import { getAdminTheme } from "../adminTheme.js";
+import { useLanguage } from "../../../context/LanguageContext";
 
-// ─── Navigation structure (HMS groups) ───────────────────────────────────────
-const NAV_SECTIONS = [
-  {
-    title: "MENU",
-    items: [
-      { id: "overview",     label: "Dashboard",       icon: LayoutDashboard },
-    ],
-  },
-  {
-    title: "PEOPLE",
-    items: [
-      { id: "utilisateurs", label: "Tous les users",  icon: Users },
-      { id: "patients",     label: "Patients",         icon: User },
-      { id: "doctors",      label: "Médecins",         icon: Stethoscope },
-      { id: "caretakers",   label: "Garde-malades",    icon: Heart },
-      { id: "pharmacists",  label: "Pharmaciens",      icon: ShoppingBag },
-    ],
-  },
-  {
-    title: "OPERATIONS",
-    items: [
-      { id: "validation",   label: "Validation",       icon: UserCheck, badge: true },
-      { id: "rendezvous",   label: "Rendez-vous",      icon: Calendar },
-      { id: "planning",     label: "Planning",         icon: ListFilter },
-      { id: "queue",        label: "File d'attente",   icon: Activity, pulse: true },
-      { id: "pharmacies",   label: "Pharmacies",       icon: Building2 },
-      { id: "gardemalades", label: "Garde-malades",    icon: ClipboardList },
-    ],
-  },
-  {
-    title: "MANAGEMENT",
-    items: [
-      { id: "medicaments",  label: "Médicaments",      icon: Pill },
-    ],
-  },
-  {
-    title: "SYSTEM",
-    items: [
-      { id: "audit",        label: "Journal d'audit",  icon: Shield },
-      { id: "parametres",   label: "Paramètres",       icon: Settings },
-    ],
-  },
-];
-
-// ─── Sidebar component ────────────────────────────────────────────────────────
+// ─── Component ──────────────────────────────────────────────────────────────
 export default function AdminSidebar({
   dk: _dk,
   activePage,
@@ -62,7 +19,52 @@ export default function AdminSidebar({
   mobileOpen,
   onCloseMobile,
 }) {
+  const { t } = useLanguage();
   const c = getAdminTheme(_dk ?? true);
+
+  const NAV_SECTIONS = [
+    {
+      title: t('menu_group'),
+      items: [
+        { id: "overview",     label: t('dashboard'),       icon: LayoutDashboard },
+      ],
+    },
+    {
+      title: t('people_group'),
+      items: [
+        { id: "utilisateurs", label: t('all_users'),  icon: Users },
+        { id: "patients",     label: t('patients'),         icon: User },
+        { id: "doctors",      label: t('doctors'),         icon: Stethoscope },
+        { id: "caretakers",   label: t('caretakers'),    icon: Heart },
+        { id: "pharmacists",  label: t('pharmacists'),      icon: ShoppingBag },
+      ],
+    },
+    {
+      title: t('operations_group'),
+      items: [
+        { id: "validation",   label: t('validation'),       icon: UserCheck, badge: true },
+        { id: "rendezvous",   label: t('rendezvous'),      icon: Calendar },
+        { id: "planning",     label: t('planning'),         icon: ListFilter },
+        { id: "queue",        label: t('queue'),   icon: Activity, pulse: true },
+        { id: "pharmacies",   label: t('pharmacies'),       icon: Building2 },
+        { id: "gardemalades", label: t('caretakers'),    icon: ClipboardList },
+      ],
+    },
+    {
+      title: t('management_group'),
+      items: [
+        { id: "medicaments",  label: t('medicines'),      icon: Pill },
+      ],
+    },
+    {
+      title: t('system_group'),
+      items: [
+        { id: "reports",      label: t('reports'),      icon: ShieldAlert, badge: true },
+        { id: "audit",        label: t('audit'),        icon: Shield },
+        { id: "parametres",   label: t('parametres'),   icon: Settings },
+      ],
+    },
+  ];
   const userInitials = (() => {
     if (!userData) return "AD";
     const f = userData.first_name?.[0] ?? "";
@@ -206,26 +208,28 @@ export default function AdminSidebar({
           >
             {userInitials}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold truncate" style={{ color: c.txt }}>
-              {userData?.first_name && userData?.last_name
-                ? `${userData.first_name} ${userData.last_name}`
-                : userData?.email ?? "Administrateur"}
+          <div className="flex-1">
+            <p className="text-sm font-bold truncate leading-none mb-1" style={{ color: c.txt }}>
+              {userData?.full_name || "Admin"}
             </p>
-            <p className="text-[10px] truncate" style={{ color: c.txt3 }}>
-              {userData?.email ?? "admin@medsmart.dz"}
-            </p>
+            <div className="flex items-center gap-1.5 opacity-60">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: c.txt }}>
+                {t('online_status')}
+              </p>
+            </div>
           </div>
-          <button
-            onClick={onLogout}
-            title="Se déconnecter"
-            className="w-6 h-6 rounded flex items-center justify-center transition-colors"
-            style={{ color: c.txt3, background: "transparent" }}
-            onMouseEnter={e => e.currentTarget.style.background = c.row}
-            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-          >
-            <LogOut size={13} />
-          </button>
+        </div>
+        
+        <div className="mt-6 flex flex-col gap-1">
+           <button className="w-full flex items-center justify-between px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all rounded-lg opacity-40 hover:opacity-100 hover:bg-black/5" style={{ color: c.txt }}>
+              {t('view_profile')}
+              <User size={12} />
+           </button>
+           <button onClick={onLogout} className="w-full flex items-center justify-between px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all rounded-lg text-red-500 hover:bg-red-500/10 active:scale-95">
+              {t('logout')}
+              <LogOut size={12} />
+           </button>
         </div>
       </div>
     </div>

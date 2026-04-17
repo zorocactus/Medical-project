@@ -3,28 +3,32 @@ import { CreditCard, User } from "lucide-react";
 import StepBar from "./StepBar";
 import { MEDICAL_STEPS } from "./MedicalForm";
 import { useTheme } from "../../../context/ThemeContext";
+import { useLanguage } from "../../../context/LanguageContext";
 
 function UploadZone({ id, label, hint, file, error, onChange, c }) {
+  const { t } = useLanguage();
   return (
     <div className="space-y-1">
-      <label className="text-[12px] font-medium block" style={{ color: c.txt2 }}>{label}</label>
+      <label className="text-[12px] font-medium block" style={{ color: c.label }}>{label}</label>
       <div className="relative">
         <input type="file" id={`med-${id}`} accept=".jpg,.jpeg,.png,.pdf" onChange={onChange} className="hidden" />
         <label htmlFor={`med-${id}`}
           className="flex flex-col items-center justify-center w-full h-32 rounded-xl border-2 border-dashed cursor-pointer transition-all"
           style={{
             borderColor: error ? "#f87171" : file ? c.blue : c.border,
-            background:  error ? "rgba(248,113,113,0.05)" : file ? `${c.blue}18` : "transparent",
+            background:  error ? "rgba(248,113,113,0.05)"
+                       : file  ? `${c.blue}18`
+                                : c.uploadBg,
           }}
         >
           {id === "profilePhoto"
-            ? <User size={24} strokeWidth={1.5} className="mb-2" style={{ color: file ? c.blue : error ? "#f87171" : c.txt3 }} />
-            : <CreditCard size={24} strokeWidth={1.5} className="mb-2" style={{ color: file ? c.blue : error ? "#f87171" : c.txt3 }} />
+            ? <User size={24} strokeWidth={1.5} className="mb-2" style={{ color: file ? c.blue : error ? "#f87171" : c.iconMuted }} />
+            : <CreditCard size={24} strokeWidth={1.5} className="mb-2" style={{ color: file ? c.blue : error ? "#f87171" : c.iconMuted }} />
           }
           <span className="font-semibold text-[13px] mb-0.5" style={{ color: file ? c.blue : c.txt2 }}>
-            {file ? "✓ Ajouté" : hint}
+            {file ? t('auth.register.identity.added') : hint}
           </span>
-          <span className="text-[11px]" style={{ color: c.txt3 }}>JPG, PNG, PDF — 5MB max</span>
+          <span className="text-[11px]" style={{ color: c.txt3 }}>{t('auth.register.identity.fileHint')}</span>
         </label>
       </div>
       {error && <p className="text-[11px] text-red-400 text-center">{error}</p>}
@@ -34,17 +38,33 @@ function UploadZone({ id, label, hint, file, error, onChange, c }) {
 
 export default function MedicalIdentityForm({ onComplete, onBack }) {
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const isDark = theme === "dark";
 
-  const c = {
-    bg:    isDark ? "#0D1117" : "#F0F4F8",
-    input: isDark ? "#141B27" : "#ffffff",
-    border:isDark ? "#2A4A7F" : "#E4EAF5",
-    txt:   isDark ? "#F0F3FA" : "#0D1B2E",
-    txt2:  isDark ? "#8AAEE0" : "#5A6E8A",
-    txt3:  isDark ? "#4A6080" : "#9AACBE",
-    blue:  isDark ? "#638ECB" : "#4A6FA5",
-    div:   isDark ? "#2A4A7F" : "#E4EAF5",
+  const c = isDark ? {
+    bg:       "#0D1117",
+    border:   "rgba(255,255,255,0.15)",
+    uploadBg: "rgba(255,255,255,0.04)",
+    txt:      "#FFFFFF",
+    txt2:     "rgba(255,255,255,0.6)",
+    txt3:     "rgba(255,255,255,0.35)",
+    label:    "rgba(255,255,255,0.7)",
+    iconMuted:"rgba(255,255,255,0.3)",
+    blue:     "#638ECB",
+    div:      "rgba(255,255,255,0.12)",
+    divTxt:   "rgba(255,255,255,0.45)",
+  } : {
+    bg:       "#F0F4F8",
+    border:   "#E4EAF5",
+    uploadBg: "transparent",
+    txt:      "#0D1B2E",
+    txt2:     "#5A6E8A",
+    txt3:     "#9AACBE",
+    label:    "#5A6E8A",
+    iconMuted:"#9AACBE",
+    blue:     "#4A6FA5",
+    div:      "#E4EAF5",
+    divTxt:   "#9AACBE",
   };
 
   const [files, setFiles] = useState({ cinRecto: null, cinVerso: null, profilePhoto: null });
@@ -75,11 +95,11 @@ export default function MedicalIdentityForm({ onComplete, onBack }) {
 
         <div className="flex items-center gap-3 mb-5">
           <div className="flex-1 h-px" style={{ background: c.div }} />
-          <span className="text-[12px] font-semibold tracking-wide uppercase" style={{ color: c.txt2 }}>Vérification d'identité</span>
+          <span className="text-[12px] font-semibold tracking-wide uppercase" style={{ color: c.divTxt }}>Vérification d'identité</span>
           <div className="flex-1 h-px" style={{ background: c.div }} />
         </div>
 
-        <p className="text-center text-[13px] mb-6" style={{ color: c.txt3 }}>
+        <p className="text-center text-[13px] mb-6" style={{ color: c.txt2 }}>
           Téléchargez vos documents d'identité pour valider votre compte.
         </p>
 
@@ -92,11 +112,11 @@ export default function MedicalIdentityForm({ onComplete, onBack }) {
         <div className="flex items-center gap-3">
           <button type="button" onClick={onBack}
             className="px-5 py-2.5 rounded-xl border text-sm font-medium transition-all cursor-pointer"
-            style={{ borderColor: c.border, color: c.txt2 }}>
+            style={{ background: isDark ? "rgba(255,255,255,0.06)" : "transparent", borderColor: c.border, color: c.txt2 }}>
             ← Retour
           </button>
           <button type="button" onClick={handleSubmit}
-            className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold transition-all cursor-pointer"
+            className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold transition-all cursor-pointer hover:brightness-110"
             style={{ background: c.blue }}>
             Continuer →
           </button>

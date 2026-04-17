@@ -1,4 +1,4 @@
-﻿// src/pages/admin/views/users/CaretakersView.jsx
+// src/pages/admin/views/users/CaretakersView.jsx
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   X, User,
@@ -8,11 +8,13 @@ import {
 } from "lucide-react";
 import { T, HMS, getAdminTheme } from "../../adminTheme.js";
 import { Card } from "../../AdminPrimitives.jsx";
+import { useLanguage } from "../../../../context/LanguageContext";
 import * as api from "../../../../services/api";
 
 // ─── SUB-COMPONENTS (kept exactly as original) ────────────────────────────────
 
 function EditCaretakerModal({ user, dk, onSave, onClose }) {
+  const { t } = useLanguage();
   const c = getAdminTheme(dk ?? true);
   const [activeTab, setActiveTab] = useState("account");
   const [form, setForm] = useState({
@@ -43,7 +45,7 @@ function EditCaretakerModal({ user, dk, onSave, onClose }) {
       <Card dk={dk} className="w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="px-6 py-4 border-b flex justify-between items-center" style={{ borderColor: c.border }}>
           <div>
-            <h3 className="font-black text-sm uppercase tracking-wide" style={{ color: c.txt }}>Contrôle Garde-malade</h3>
+            <h3 className="font-black text-sm uppercase tracking-wide" style={{ color: c.txt }}>{t('caretaker_control')}</h3>
             <p className="text-[10px] font-bold opacity-40 uppercase tracking-widest">{user.full_name} (#{user.id})</p>
           </div>
           <button onClick={onClose} style={{ color: c.txt3 }}><X size={20} /></button>
@@ -51,12 +53,12 @@ function EditCaretakerModal({ user, dk, onSave, onClose }) {
 
         <div className="flex px-2 border-b bg-black/[0.02]" style={{ borderColor: c.border }}>
           {[
-            { id: "account",      label: "Identification",       icon: User },
-            { id: "professional", label: "Service & Expérience", icon: Briefcase },
-          ].map(t => (
-            <button key={t.id} onClick={() => setActiveTab(t.id)} className="px-5 py-3 text-[10px] uppercase tracking-widest font-black flex items-center gap-2 transition-all border-b-2"
-              style={{ color: activeTab === t.id ? c.blue : c.txt3, borderColor: activeTab === t.id ? c.blue : "transparent" }}>
-              <t.icon size={14} /> {t.label}
+            { id: "account",      label: t('identification_tab'),       icon: User },
+            { id: "professional", label: t('service_experience_tab'), icon: Briefcase },
+          ].map(tItem => (
+            <button key={tItem.id} onClick={() => setActiveTab(tItem.id)} className="px-5 py-3 text-[10px] uppercase tracking-widest font-black flex items-center gap-2 transition-all border-b-2"
+              style={{ color: activeTab === tItem.id ? c.blue : c.txt3, borderColor: activeTab === tItem.id ? c.blue : "transparent" }}>
+              <tItem.icon size={14} /> {tItem.label}
             </button>
           ))}
         </div>
@@ -64,24 +66,24 @@ function EditCaretakerModal({ user, dk, onSave, onClose }) {
         <div className="flex-1 overflow-y-auto p-6">
           {activeTab === "account" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in slide-in-from-bottom-2 duration-300">
-               {field("Prénom", "first_name")}{field("Nom", "last_name")}
-               {field("Email", "email", "email")}{field("Téléphone", "phone")}
-               <div className="md:col-span-2">{field("Wilaya", "wilaya")}</div>
+               {field(t('first_name_label'), "first_name")}{field(t('last_name_label'), "last_name")}
+               {field(t('email'), "email", "email")}{field(t('phone_number'), "phone")}
+               <div className="md:col-span-2">{field(t('all_wilayas'), "wilaya")}</div>
             </div>
           )}
           {activeTab === "professional" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in slide-in-from-bottom-2 duration-300">
-               {field("Spécialité / Titre", "specialty")}
-               {field("Expérience (ans)", "experience_years", "number")}
-               <div className="md:col-span-2">{field("Services proposés", "services")}</div>
-               <div className="md:col-span-2">{field("Présentation", "bio")}</div>
+               {field(t('specialty_title_label'), "specialty")}
+               {field(t('experience_years_label'), "experience_years", "number")}
+               <div className="md:col-span-2">{field(t('services_offered_label'), "services")}</div>
+               <div className="md:col-span-2">{field(t('bio_label'), "bio")}</div>
             </div>
           )}
         </div>
 
         <div className="p-6 border-t flex gap-3" style={{ borderColor: c.border }}>
-          <button onClick={onClose} className="flex-1 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest border" style={{ borderColor: c.border, color: c.txt2 }}>Annuler</button>
-          <button onClick={() => onSave(form)} className="flex-1 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white" style={{ background: c.blue }}>Enregistrer</button>
+          <button onClick={onClose} className="flex-1 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest border" style={{ borderColor: c.border, color: c.txt2 }}>{t('cancel_btn') || "Annuler"}</button>
+          <button onClick={() => onSave(form)} className="flex-1 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white" style={{ background: c.blue }}>{t('save_btn') || "Enregistrer"}</button>
         </div>
       </Card>
     </div>
@@ -89,6 +91,7 @@ function EditCaretakerModal({ user, dk, onSave, onClose }) {
 }
 
 function CaretakerDrawer({ user, dk, onClose, onEdit, onToggleStatus, onVerify }) {
+  const { t } = useLanguage();
   const c = getAdminTheme(dk ?? true);
   return (
     <>
@@ -111,27 +114,36 @@ function CaretakerDrawer({ user, dk, onClose, onEdit, onToggleStatus, onVerify }
            {user.verification_status === "pending" && (
              <div className="p-4 rounded-2xl border-2 border-dashed border-indigo-500/20 bg-indigo-500/5 flex flex-col items-center text-center gap-3">
                 <AlertTriangle className="text-indigo-500" size={24} />
-                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-600">Vérification Requise</p>
-                <button onClick={onVerify} className="w-full py-2.5 rounded-xl bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest">Approuver le profil</button>
+                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-600">{t('verification_required')}</p>
+                <button onClick={onVerify} className="w-full py-2.5 rounded-xl bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest">{t('approve_profile')}</button>
              </div>
            )}
            <section className="space-y-4">
-              <h4 className="text-[10px] font-black uppercase tracking-widest opacity-30" style={{ color: c.txt }}>Profil Professionnel</h4>
+              <h4 className="text-[10px] font-black uppercase tracking-widest opacity-30" style={{ color: c.txt }}>{t('professional_profile_tab') || "Profil Professionnel"}</h4>
               <div className="space-y-3">
-                 <div className="p-4 rounded-xl border"><p className="text-[10px] uppercase font-black opacity-40 mb-1">Expérience</p><p className="text-sm font-bold">{user.experience_years || 0} ans</p></div>
-                 <div className="p-4 rounded-xl border"><p className="text-[10px] uppercase font-black opacity-40 mb-1">Services</p><p className="text-xs font-semibold leading-relaxed">{user.services || "Soins généraux"}</p></div>
-                 <div className="p-4 rounded-xl border"><p className="text-[10px] uppercase font-black opacity-40 mb-1">Présentation</p><p className="text-xs leading-relaxed opacity-70 italic">"{user.bio || "Pas de bio disponible."}"</p></div>
+                 <div className="p-4 rounded-xl border">
+                    <p className="text-[10px] uppercase font-black opacity-40 mb-1">{t('experience_label') || "Expérience"}</p>
+                    <p className="text-sm font-bold">{user.experience_years || 0} {t('years_count') || "ans"}</p>
+                 </div>
+                 <div className="p-4 rounded-xl border">
+                    <p className="text-[10px] uppercase font-black opacity-40 mb-1">{t('services_label') || "Services"}</p>
+                    <p className="text-xs font-semibold leading-relaxed">{user.services || t('general_care') || "Soins généraux"}</p>
+                 </div>
+                 <div className="p-4 rounded-xl border">
+                    <p className="text-[10px] uppercase font-black opacity-40 mb-1">{t('presentation_label') || "Présentation"}</p>
+                    <p className="text-xs leading-relaxed opacity-70 italic">"{user.bio || t('no_bio_available') || "Pas de bio disponible."}"</p>
+                 </div>
               </div>
            </section>
         </div>
 
         <div className="p-6 border-t flex flex-col gap-2" style={{ borderColor: c.border }}>
            <button onClick={onEdit} className="w-full py-4 rounded-2xl text-white font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3" style={{ background: c.blue }}>
-             <Edit3 size={16} /> Éditer le dossier
+             <Edit3 size={16} /> {t('edit_record_btn') || "Éditer le dossier"}
            </button>
            <button onClick={onToggleStatus} className="w-full py-3 rounded-2xl border font-black text-[10px] uppercase tracking-widest"
              style={{ borderColor: user.is_active ? c.red : c.green, color: user.is_active ? c.red : c.green }}>
-             {user.is_active ? "Désactiver" : "Activer"}
+             {user.is_active ? t('deactivate_btn') || "Désactiver" : t('activate_btn') || "Activer"}
            </button>
         </div>
       </aside>
@@ -208,6 +220,7 @@ const MOCK_CARETAKERS = [
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 export default function CaretakersView({ dk }) {
+  const { t } = useLanguage();
   const c = getAdminTheme(dk ?? true);
   const [users, setUsers] = useState(MOCK_CARETAKERS);
   const [loading, setLoading] = useState(false);
@@ -244,9 +257,9 @@ export default function CaretakersView({ dk }) {
   });
 
   const FILTERS = [
-    { id: "all",      label: "Tous" },
-    { id: "verified", label: "Vérifiés" },
-    { id: "pending",  label: "En attente" },
+    { id: "all",      label: t('all_tab') },
+    { id: "verified", label: t('verified_status') },
+    { id: "pending",  label: t('pending_tab') },
   ];
 
   return (
@@ -255,9 +268,9 @@ export default function CaretakersView({ dk }) {
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
         <div>
-          <h2 className="text-base font-bold" style={{ color: c.txt }}>Garde-malades</h2>
+          <h2 className="text-base font-bold" style={{ color: c.txt }}>{t('caretakers')}</h2>
           <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>
-            {users.length} soignant{users.length !== 1 ? "s" : ""} enregistré{users.length !== 1 ? "s" : ""}
+            {users.length} {t('caretaker').toLowerCase()}{users.length !== 1 ? "s" : ""} {t('results_found').split(" ").slice(1).join(" ")}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -299,7 +312,7 @@ export default function CaretakersView({ dk }) {
           <table className="w-full text-left text-xs">
             <thead>
               <tr style={{ background: c.header, borderBottom: `1px solid ${c.border}` }}>
-                {["Soignant", "Email", "Spécialité", "Wilaya", "Statut", ""].map(h => (
+                {[t('table_caretaker'), t('table_email'), t('table_specialty'), t('location'), t('table_status'), ""].map(h => (
                   <th key={h} className="px-4 py-3 font-semibold uppercase tracking-wider"
                     style={{ color: c.txt3, fontSize: "10px" }}>{h}</th>
                 ))}
@@ -309,10 +322,10 @@ export default function CaretakersView({ dk }) {
               {loading ? (
                 <tr><td colSpan="6" className="py-16 text-center text-xs" style={{ color: c.txt3 }}>
                   <RefreshCw size={16} className="animate-spin mx-auto mb-2" style={{ color: c.txt3 }} />
-                  Chargement...
+                  {t('loading_data')}
                 </td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan="6" className="py-16 text-center text-xs" style={{ color: c.txt3 }}>Aucun résultat</td></tr>
+                <tr><td colSpan="6" className="py-16 text-center text-xs" style={{ color: c.txt3 }}>{t('no_results_found')}</td></tr>
               ) : filtered.map(u => {
                 const initials = u.full_name?.split(" ").map(n => n[0]).slice(0, 2).join("") || "?";
                 const bg = avatarColor(u.full_name, c);
@@ -345,12 +358,12 @@ export default function CaretakersView({ dk }) {
                       {u.verification_status === "verified" ? (
                         <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold w-fit"
                           style={{ background: c.greenBg, color: c.green }}>
-                          <CheckCircle2 size={10} /> Vérifié
+                          <CheckCircle2 size={10} /> {t('verified_status')}
                         </span>
                       ) : (
                         <span className="px-2 py-0.5 rounded text-[10px] font-semibold"
                           style={{ background: c.amberBg, color: c.amber }}>
-                          En attente
+                          {t('pending_status')}
                         </span>
                       )}
                     </td>

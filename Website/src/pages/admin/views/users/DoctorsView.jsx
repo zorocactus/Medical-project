@@ -1,4 +1,4 @@
-﻿// src/pages/admin/views/users/DoctorsView.jsx
+// src/pages/admin/views/users/DoctorsView.jsx
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   X, User, Mail, Phone, MapPin,
@@ -9,11 +9,13 @@ import {
 } from "lucide-react";
 import { T, HMS, getAdminTheme } from "../../adminTheme.js";
 import { Card, Badge } from "../../AdminPrimitives.jsx";
+import { useLanguage } from "../../../../context/LanguageContext";
 import * as api from "../../../../services/api";
 
 // ─── SUB-COMPONENTS (modals / drawer — kept exactly as original) ─────────────
 
 function EditDoctorModal({ doctor, dk, onSave, onClose }) {
+  const { t } = useLanguage();
   const c = getAdminTheme(dk ?? true);
   const [activeTab, setActiveTab] = useState("account");
   const [form, setForm] = useState({
@@ -53,7 +55,7 @@ function EditDoctorModal({ doctor, dk, onSave, onClose }) {
       <Card dk={dk} className="w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="px-6 py-4 border-b flex justify-between items-center" style={{ borderColor: c.border }}>
           <div>
-            <h3 className="font-black text-sm uppercase tracking-wide" style={{ color: c.txt }}>Contrôle Total Médecin</h3>
+            <h3 className="font-black text-sm uppercase tracking-wide" style={{ color: c.txt }}>{t('doctor_control')}</h3>
             <p className="text-[10px] font-bold opacity-40 uppercase tracking-widest">DR. {doctor.full_name} (#{doctor.id})</p>
           </div>
           <button onClick={onClose} style={{ color: c.txt3 }}><X size={20} /></button>
@@ -61,14 +63,14 @@ function EditDoctorModal({ doctor, dk, onSave, onClose }) {
 
         <div className="flex px-2 border-b bg-black/[0.02]" style={{ borderColor: c.border }}>
           {[
-            { id: "account", label: "Compte", icon: User },
-            { id: "professional", label: "Professionnel", icon: Briefcase },
-            { id: "documents", label: "Documents", icon: FileText },
-            { id: "schedule", label: "Planning", icon: Clock },
-          ].map(t => (
-            <button key={t.id} onClick={() => setActiveTab(t.id)} className="px-5 py-3 text-[10px] uppercase tracking-widest font-black flex items-center gap-2 transition-all border-b-2"
-              style={{ color: activeTab === t.id ? c.blue : c.txt3, borderColor: activeTab === t.id ? c.blue : "transparent" }}>
-              <t.icon size={14} /> {t.label}
+            { id: "account", label: t('dashboard'), icon: User },
+            { id: "professional", label: t('professional_tab'), icon: Briefcase },
+            { id: "documents", label: t('documents_tab'), icon: FileText },
+            { id: "schedule", label: t('planning'), icon: Clock },
+          ].map(tItem => (
+            <button key={tItem.id} onClick={() => setActiveTab(tItem.id)} className="px-5 py-3 text-[10px] uppercase tracking-widest font-black flex items-center gap-2 transition-all border-b-2"
+              style={{ color: activeTab === tItem.id ? c.blue : c.txt3, borderColor: activeTab === tItem.id ? c.blue : "transparent" }}>
+              <tItem.icon size={14} /> {tItem.label}
             </button>
           ))}
         </div>
@@ -76,21 +78,21 @@ function EditDoctorModal({ doctor, dk, onSave, onClose }) {
         <div className="flex-1 overflow-y-auto p-6">
           {activeTab === "account" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in slide-in-from-bottom-2 duration-300">
-               {field("Prénom", "first_name")}
-               {field("Nom", "last_name")}
-               {field("Email", "email", "email")}
-               {field("Téléphone", "phone")}
-               <div className="md:col-span-2">{field("Wilaya", "wilaya")}</div>
+               {field(t('first_name_label'), "first_name")}
+               {field(t('last_name_label'), "last_name")}
+               {field(t('email'), "email", "email")}
+               {field(t('phone_number'), "phone")}
+               <div className="md:col-span-2">{field(t('all_wilayas'), "wilaya")}</div>
             </div>
           )}
           {activeTab === "professional" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in slide-in-from-bottom-2 duration-300">
-               {field("Spécialité", "specialty")}
-               {field("N° de Licence", "license_number")}
-               {field("Expérience (ans)", "experience_years", "number")}
-               {field("Tarif Consultation (DZD)", "consultation_fee", "number")}
-               <div className="md:col-span-2">{field("Nom de la Clinique / Cabinet", "clinic_name")}</div>
-               <div className="md:col-span-2">{field("Bio / Présentation", "bio", "textarea")}</div>
+               {field(t('all_specialties'), "specialty")}
+               {field(t('license_number_label'), "license_number")}
+               {field(t('experience_years_label'), "experience_years", "number")}
+               {field(t('consultation_fee_label'), "consultation_fee", "number")}
+               <div className="md:col-span-2">{field(t('clinic_name_label'), "clinic_name")}</div>
+               <div className="md:col-span-2">{field(t('bio_label'), "bio", "textarea")}</div>
             </div>
           )}
           {activeTab === "documents" && (
@@ -105,30 +107,30 @@ function EditDoctorModal({ doctor, dk, onSave, onClose }) {
                        <div className="flex gap-2">
                           <button
                             onClick={() => window.open(d.file_url || d.url || "#", "_blank")}
-                            className="text-[10px] uppercase font-black text-blue-500 hover:underline">Voir</button>
+                            className="text-[10px] uppercase font-black text-blue-500 hover:underline">{t('view_doc')}</button>
                           <span className="text-[10px] opacity-30">|</span>
                           <button
                             onClick={async () => {
-                              if (!window.confirm(`Rejeter le document "${d.title || `Document ${i+1}`}" ?`)) return;
+                              if (!window.confirm(`${t('reject_doc')} "${d.title || `Document ${i+1}`}" ?`)) return;
                               try { await api.rejectDoctorDocument(doctor.id, d.id ?? i); } catch (_) {}
                             }}
-                            className="text-[10px] uppercase font-black text-red-500 hover:underline">Rejeter</button>
+                            className="text-[10px] uppercase font-black text-red-500 hover:underline">{t('reject_doc')}</button>
                        </div>
                     </Card>
                   ))}
-                  {(!doctor.docs || doctor.docs.length === 0) && <p className="text-xs opacity-40 text-center py-10 italic">Aucun document soumis pour validation.</p>}
+                  {(!doctor.docs || doctor.docs.length === 0) && <p className="text-xs opacity-40 text-center py-10 italic">{t('no_docs')}</p>}
                </div>
             </div>
           )}
           {activeTab === "schedule" && (
-             <div className="text-center py-10 opacity-40 italic text-xs">Aperçu du planning hebdomadaire en cours de chargement...</div>
+             <div className="text-center py-10 opacity-40 italic text-xs">{t('schedule_loading')}</div>
           )}
         </div>
 
         <div className="p-6 border-t flex gap-3" style={{ borderColor: c.border }}>
-          <button onClick={onClose} className="flex-1 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest border" style={{ borderColor: c.border, color: c.txt2 }}>Annuler</button>
+          <button onClick={onClose} className="flex-1 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest border" style={{ borderColor: c.border, color: c.txt2 }}>{t('cancel_appointment')}</button>
           <button onClick={() => onSave(form)} className="flex-1 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white transition-all hover:scale-[1.02]" style={{ background: c.blue }}>
-             Valider les modifications
+             {t('save_changes_btn')}
           </button>
         </div>
       </Card>
@@ -137,6 +139,7 @@ function EditDoctorModal({ doctor, dk, onSave, onClose }) {
 }
 
 function DoctorDrawer({ doctor, dk, onClose, onEdit, onVerify, onToggleStatus }) {
+  const { t } = useLanguage();
   const c = getAdminTheme(dk ?? true);
   return (
     <>
@@ -160,41 +163,41 @@ function DoctorDrawer({ doctor, dk, onClose, onEdit, onVerify, onToggleStatus })
              <div className="p-4 rounded-2xl border-2 border-dashed border-amber-500/30 bg-amber-500/5 flex flex-col items-center text-center gap-4">
                 <AlertCircle className="text-amber-500" size={32} />
                 <div>
-                  <p className="text-xs font-black uppercase tracking-widest text-amber-600">En attente d'approbation</p>
-                  <p className="text-[10px] opacity-70 mt-1">Le profil complet et les documents doivent être vérifiés avant l'activation.</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-amber-600">{t('pending_approval') || "En attente d'approbation"}</p>
+                  <p className="text-[10px] opacity-70 mt-1">{t('approval_desc') || "Veuillez vérifier les documents fournis par le praticien avant de valider son compte."}</p>
                 </div>
-                <button onClick={onVerify} className="w-full py-2.5 rounded-xl bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-amber-500/20 active:scale-95 transition-all">Approuver maintenant</button>
+                <button onClick={onVerify} className="w-full py-2.5 rounded-xl bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-amber-500/20 active:scale-95 transition-all">{t('approve_now') || "Approuver maintenant"}</button>
              </div>
            )}
 
            <section className="space-y-4">
-              <h4 className="text-[10px] font-black uppercase tracking-widest opacity-30" style={{ color: c.txt }}>Activité & Performances</h4>
+              <h4 className="text-[10px] font-black uppercase tracking-widest opacity-30" style={{ color: c.txt }}>{t('activity_performance')}</h4>
               <div className="grid grid-cols-2 gap-3">
                  <div className="p-4 rounded-xl border bg-black/[0.01]">
                     <p className="text-2xl font-black">{doctor.patients_count || 0}</p>
-                    <p className="text-[10px] uppercase font-black opacity-40">Consultations</p>
+                    <p className="text-[10px] uppercase font-black opacity-40">{t('consultations')}</p>
                  </div>
                  <div className="p-4 rounded-xl border bg-black/[0.01]">
                     <p className="text-2xl font-black text-amber-500">{doctor.rating || "—"}</p>
-                    <p className="text-[10px] uppercase font-black opacity-40 text-amber-500 flex items-center gap-1"><Star size={10} fill="currentColor" /> Note</p>
+                    <p className="text-[10px] uppercase font-black opacity-40 text-amber-500 flex items-center gap-1"><Star size={10} fill="currentColor" /> {t('rating')}</p>
                  </div>
               </div>
            </section>
 
            <section className="space-y-4">
-              <h4 className="text-[10px] font-black uppercase tracking-widest opacity-30" style={{ color: c.txt }}>Cabinet & Tarification</h4>
+              <h4 className="text-[10px] font-black uppercase tracking-widest opacity-30" style={{ color: c.txt }}>{t('clinic_pricing')}</h4>
               <div className="space-y-3">
                  <div className="p-4 rounded-xl border bg-blue-500/5 border-blue-500/10">
-                    <p className="text-[10px] uppercase font-black opacity-40 flex items-center gap-2"><Briefcase size={12} /> Établissement</p>
+                    <p className="text-[10px] uppercase font-black opacity-40 flex items-center gap-2"><Briefcase size={12} /> {t('establishment')}</p>
                     <p className="text-sm font-bold mt-1">{doctor.clinic_name || "Cabinet Principal"}</p>
                  </div>
                  <div className="p-4 rounded-xl border">
-                    <p className="text-[10px] uppercase font-black opacity-40">Tarif Session</p>
+                    <p className="text-[10px] uppercase font-black opacity-40">{t('session_fee')}</p>
                     <p className="text-xl font-black text-green-600">{doctor.consultation_fee} <span className="text-[10px] opacity-40">DZD</span></p>
                  </div>
                  <div className="p-4 rounded-xl border">
-                    <p className="text-[10px] uppercase font-black opacity-40 mb-1">Résumé Biographie</p>
-                    <p className="text-xs leading-relaxed opacity-70">{doctor.bio || "Le praticien n'a pas encore rédigé sa présentation."}</p>
+                    <p className="text-[10px] uppercase font-black opacity-40 mb-1">{t('bio_summary')}</p>
+                    <p className="text-xs leading-relaxed opacity-70">{doctor.bio || t('no_bio')}</p>
                  </div>
               </div>
            </section>
@@ -202,11 +205,11 @@ function DoctorDrawer({ doctor, dk, onClose, onEdit, onVerify, onToggleStatus })
 
         <div className="p-6 border-t flex flex-col gap-2" style={{ borderColor: c.border }}>
            <button onClick={onEdit} className="w-full py-4 rounded-2xl bg-black text-white font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-3 active:scale-95 transition-all" style={{ background: c.blue }}>
-             <Edit3 size={16} /> Édition Administrative
+             <Edit3 size={16} /> {t('administrative_edition')}
            </button>
            <button onClick={onToggleStatus} className="w-full py-3 rounded-2xl border font-black text-[10px] uppercase tracking-widest transition-all active:scale-95"
              style={{ borderColor: doctor.is_active ? c.red : c.green, color: doctor.is_active ? c.red : c.green }}>
-             {doctor.is_active ? "Désactiver le praticien" : "Réactiver le praticien"}
+             {doctor.is_active ? t('deactivate_practitioner') : t('reactivate_practitioner')}
            </button>
         </div>
       </aside>
@@ -301,6 +304,7 @@ const MOCK_DOCTORS = [
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 export default function DoctorsView({ dk }) {
+  const { t } = useLanguage();
   const c = getAdminTheme(dk ?? true);
   const [doctors, setDoctors] = useState(MOCK_DOCTORS);
   const [loading, setLoading] = useState(false);
@@ -344,9 +348,9 @@ export default function DoctorsView({ dk }) {
   });
 
   const FILTERS = [
-    { id: "all",      label: "Tous" },
-    { id: "verified", label: "Vérifiés" },
-    { id: "pending",  label: "En attente" },
+    { id: "all",      label: t('all_tab') },
+    { id: "verified", label: t('verified_status') },
+    { id: "pending",  label: t('pending_tab') },
   ];
 
   return (
@@ -355,9 +359,9 @@ export default function DoctorsView({ dk }) {
       {/* ── Toolbar ───────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
         <div>
-          <h2 className="text-base font-bold" style={{ color: c.txt }}>Médecins</h2>
+          <h2 className="text-base font-bold" style={{ color: c.txt }}>{t('doctors')}</h2>
           <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>
-            {doctors.length} praticien{doctors.length !== 1 ? "s" : ""} enregistré{doctors.length !== 1 ? "s" : ""}
+            {doctors.length} {t('doctor').toLowerCase()}{doctors.length !== 1 ? "s" : ""} {t('results_found').split(" ").slice(1).join(" ")}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -366,7 +370,7 @@ export default function DoctorsView({ dk }) {
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: c.txt3 }} />
             <input
               value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Nom, email, spécialité..."
+              placeholder={t('search_name_email')}
               className="pl-8 pr-4 py-2 rounded-lg text-xs outline-none border w-52"
               style={{ background: c.card, borderColor: c.border, color: c.txt }}
             />
@@ -412,7 +416,7 @@ export default function DoctorsView({ dk }) {
           <table className="w-full text-left text-xs">
             <thead>
               <tr style={{ background: c.header, borderBottom: `1px solid ${c.border}` }}>
-                {["Médecin", "Email", "Spécialité", "Wilaya", "Statut", ""].map(h => (
+                {[t('table_doctor'), t('table_email'), t('table_specialty'), t('location'), t('table_status'), ""].map(h => (
                   <th key={h} className="px-4 py-3 font-semibold uppercase tracking-wider"
                     style={{ color: c.txt3, fontSize: "10px" }}>
                     {h}
@@ -425,13 +429,13 @@ export default function DoctorsView({ dk }) {
                 <tr>
                   <td colSpan="6" className="py-16 text-center text-xs" style={{ color: c.txt3 }}>
                     <RefreshCw size={16} className="animate-spin mx-auto mb-2" style={{ color: c.txt3 }} />
-                    Chargement...
+                    {t('loading_data')}
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="py-16 text-center text-xs" style={{ color: c.txt3 }}>
-                    Aucun résultat
+                    {t('no_results_found')}
                   </td>
                 </tr>
               ) : filtered.map((d, i) => {
@@ -475,12 +479,12 @@ export default function DoctorsView({ dk }) {
                       {d.verification_status === "verified" ? (
                         <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold w-fit"
                           style={{ background: c.greenBg, color: c.green }}>
-                          <CheckCircle2 size={10} /> Vérifié
+                          <CheckCircle2 size={10} /> {t('verified_status')}
                         </span>
                       ) : (
                         <span className="px-2 py-0.5 rounded text-[10px] font-semibold"
                           style={{ background: c.amberBg, color: c.amber }}>
-                          En attente
+                          {t('pending_status')}
                         </span>
                       )}
                     </td>

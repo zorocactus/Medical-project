@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { User, EyeOff, Eye, Facebook, Mail, Lock, ArrowRight, UserCircle } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
+import { useLanguage } from "../../context/LanguageContext";
 
 export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchToLogin }) {
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const isDark = theme === "dark";
 
   // ── Tokens séparés dark / light pour un contraste optimal ─────────────────
@@ -104,13 +106,13 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchT
   const handleGoogleLogin = async () => {
     if (isGoogleLoading || isFacebookLoading) return;
     setIsGoogleLoading(true);
-    setTimeout(() => { setIsGoogleLoading(false); setOauthMessage("L'authentification Google n'est pas encore disponible. (À lier au Backend)"); }, 1000);
+    setTimeout(() => { setIsGoogleLoading(false); setOauthMessage(t('auth.login.googleUnavailable')); }, 1000);
   };
 
   const handleFacebookLogin = async () => {
     if (isGoogleLoading || isFacebookLoading) return;
     setIsFacebookLoading(true);
-    setTimeout(() => { setIsFacebookLoading(false); setOauthMessage("L'authentification Facebook n'est pas encore disponible. (À lier au Backend)"); }, 1000);
+    setTimeout(() => { setIsFacebookLoading(false); setOauthMessage(t('auth.login.facebookUnavailable')); }, 1000);
   };
 
   // Classe input sans borderColor inline → focus: Tailwind fonctionne correctement
@@ -133,8 +135,8 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchT
         </div>
 
         <div className="mb-3">
-          <h1 className="text-[22px] font-bold leading-tight mb-1" style={{ color: c.title }}>Créez votre compte</h1>
-          <p className="text-[12px]" style={{ color: c.subtitle }}>Rejoignez MedSmart aujourd'hui.</p>
+          <h1 className="text-[22px] font-bold leading-tight mb-1" style={{ color: c.title }}>{t('auth.register.title')}</h1>
+          <p className="text-[12px]" style={{ color: c.subtitle }}>{t('auth.register.subtitle')}</p>
         </div>
 
         <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
@@ -143,55 +145,55 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchT
             {/* Prénom / Nom */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-[12px] font-medium block" style={{ color: c.label }}>Prénom</label>
+                <label className="text-[12px] font-medium block" style={{ color: c.label }}>{t('auth.register.firstName')}</label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: c.icon }}>
                     <User size={14} />
                   </span>
                   <input
                     type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)}
-                    className={inputCls(errors.firstName)} placeholder="Votre prénom"
+                    className={inputCls(errors.firstName)} placeholder={t('auth.register.firstNameHint')}
                     style={{ background: c.inputBg, color: c.inputTxt }}
                   />
                 </div>
-                {errors.firstName && <p className="text-[11px] text-red-400">Ce champ est requis</p>}
+                {errors.firstName && <p className="text-[11px] text-red-400">{t('auth.register.required')}</p>}
               </div>
 
               <div className="space-y-1">
-                <label className="text-[12px] font-medium block" style={{ color: c.label }}>Nom</label>
+                <label className="text-[12px] font-medium block" style={{ color: c.label }}>{t('auth.register.lastName')}</label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: c.icon }}>
                     <User size={14} />
                   </span>
                   <input
                     type="text" value={lastName} onChange={(e) => setLastName(e.target.value)}
-                    className={inputCls(errors.lastName)} placeholder="Votre nom"
+                    className={inputCls(errors.lastName)} placeholder={t('auth.register.lastNameHint')}
                     style={{ background: c.inputBg, color: c.inputTxt }}
                   />
                 </div>
-                {errors.lastName && <p className="text-[11px] text-red-400">Ce champ est requis</p>}
+                {errors.lastName && <p className="text-[11px] text-red-400">{t('auth.register.required')}</p>}
               </div>
             </div>
 
             {/* Email */}
             <div className="space-y-1">
-              <label className="text-[12px] font-medium block" style={{ color: c.label }}>Adresse Email</label>
+              <label className="text-[12px] font-medium block" style={{ color: c.label }}>{t('auth.register.email')}</label>
               <div className="relative">
                 <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: c.icon }}>
                   <Mail size={14} />
                 </span>
                 <input
                   type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                  className={inputCls(errors.email)} placeholder="votre@email.com"
+                  className={inputCls(errors.email)} placeholder={t('auth.register.emailHint')}
                   style={{ background: c.inputBg, color: c.inputTxt }}
                 />
               </div>
-              {errors.email && <p className="text-[11px] text-red-400">Ce champ est requis</p>}
+              {errors.email && <p className="text-[11px] text-red-400">{t('auth.register.required')}</p>}
             </div>
 
             {/* Mot de passe */}
             <div className="space-y-1">
-              <label className="text-[12px] font-medium block" style={{ color: c.label }}>Mot de passe</label>
+              <label className="text-[12px] font-medium block" style={{ color: c.label }}>{t('auth.register.password')}</label>
               <div className="relative">
                 <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: c.icon }}>
                   <Lock size={14} />
@@ -207,12 +209,12 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchT
                   {showPassword ? <Eye size={15} /> : <EyeOff size={15} />}
                 </button>
               </div>
-              {errors.password && <p className="text-[11px] text-red-400">Ce champ est requis</p>}
+              {errors.password && <p className="text-[11px] text-red-400">{t('auth.register.required')}</p>}
             </div>
 
             {/* Confirmer mot de passe */}
             <div className="space-y-1">
-              <label className="text-[12px] font-medium block" style={{ color: c.label }}>Confirmer le mot de passe</label>
+              <label className="text-[12px] font-medium block" style={{ color: c.label }}>{t('auth.register.confirmPassword')}</label>
               <div className="relative">
                 <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: c.icon }}>
                   <Lock size={14} />
@@ -228,13 +230,13 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchT
                   {showConfirmPassword ? <Eye size={15} /> : <EyeOff size={15} />}
                 </button>
               </div>
-              {errors.confirmPassword === true && <p className="text-[11px] text-red-400">Ce champ est requis</p>}
-              {errors.confirmPassword === "mismatch" && <p className="text-[11px] text-red-400">Les mots de passe ne correspondent pas</p>}
+              {errors.confirmPassword === true && <p className="text-[11px] text-red-400">{t('auth.register.required')}</p>}
+              {errors.confirmPassword === "mismatch" && <p className="text-[11px] text-red-400">{t('auth.register.passwordMismatch')}</p>}
             </div>
 
             {/* Type de compte */}
             <div className="space-y-1">
-              <label className="text-[12px] font-medium block" style={{ color: c.label }}>Type de compte</label>
+              <label className="text-[12px] font-medium block" style={{ color: c.label }}>{t('auth.register.accountType')}</label>
               <div className="grid grid-cols-2 gap-3">
                 {["patient", "personnel médical"].map((type) => {
                   const isSelected = accountType === type;
@@ -263,7 +265,7 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchT
                 className="w-full py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] text-white shadow-lg group cursor-pointer hover:brightness-110"
                 style={{ background: c.blue }}
               >
-                Continuer <ArrowRight size={17} className="transform transition-transform group-hover:translate-x-1" />
+                {t('auth.register.continue')} <ArrowRight size={17} className="transform transition-transform group-hover:translate-x-1" />
               </button>
             </div>
 
@@ -273,7 +275,7 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchT
         {/* ── Séparateur ──────────────────────────── */}
         <div className="flex items-center gap-3 mt-3 mb-2">
           <div className="flex-1 h-px" style={{ background: c.divLine }} />
-          <span className="text-[11px]" style={{ color: c.divTxt }}>ou s'inscrire avec</span>
+          <span className="text-[11px]" style={{ color: c.divTxt }}>{t('auth.register.orWith')}</span>
           <div className="flex-1 h-px" style={{ background: c.divLine }} />
         </div>
 
@@ -313,10 +315,10 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchT
           {/* Switch vers Login */}
           {onSwitchToLogin && (
             <p className="text-center text-[12px] pt-1" style={{ color: c.switchTxt }}>
-              Déjà un compte ?{" "}
+              {t('auth.register.alreadyAccount')}{" "}
               <button type="button" onClick={onSwitchToLogin}
                 className="font-semibold transition-colors hover:underline cursor-pointer" style={{ color: c.blue }}>
-                Se connecter
+                {t('auth.register.login')}
               </button>
             </p>
           )}

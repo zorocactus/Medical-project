@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useRef } from "react";
 import * as api from "../services/api";
 import { useAuth } from "./AuthContext";
 
@@ -13,6 +13,8 @@ export function DataProvider({ children }) {
   const [gmPatients, setGmPatients]           = useState([]);
   const [gmTreatments, setGmTreatments]       = useState([]);
   const [globalNotifications, setGlobalNotifications] = useState([]);
+  const [unreadChatCount, setUnreadChatCount]         = useState(0);
+  const chatPollRef = useRef(null);
 
   function addNotification(title, message, type = "info") {
     setGlobalNotifications(prev => [
@@ -28,6 +30,25 @@ export function DataProvider({ children }) {
   function markAllNotificationsRead() {
     setGlobalNotifications(prev => prev.map(n => ({ ...n, read: true })));
   }
+
+  // Polling du total non-lus chat toutes les 10s (silencieux si API absente)
+  useEffect(() => {
+    if (!userData) return;
+    const fetchUnread = async () => {
+      try {
+        const data = await api.getConversations();
+        if (Array.isArray(data)) {
+          const total = data.reduce((acc, c) => acc + (c.unread || 0), 0);
+          setUnreadChatCount(total);
+        }
+      } catch {
+        // silencieux
+      }
+    };
+    fetchUnread();
+    chatPollRef.current = setInterval(fetchUnread, 10_000);
+    return () => clearInterval(chatPollRef.current);
+  }, [userData?.role]);
 
   useEffect(() => {
     if (userData?.role === "doctor") {
@@ -169,6 +190,7 @@ export function DataProvider({ children }) {
       addMedicationToTreatment, removeMedicationFromTreatment,
       addPatientToTreatments, removePatientFromTreatments,
       globalNotifications, addNotification, markNotificationRead, markAllNotificationsRead,
+      unreadChatCount, setUnreadChatCount,
     }}>
       {children}
     </DataContext.Provider>

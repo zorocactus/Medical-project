@@ -771,3 +771,94 @@ export async function createMedication(data) {
 export async function rejectDoctorDocument(doctorId, docId) {
   return apiFetch(`/admin/doctors/${doctorId}/documents/${docId}/reject/`, { method: "POST" });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CHAT  →  /api/chat/
+// Ces fonctions échoueront silencieusement tant que le backend n'est pas prêt.
+// Quand le backend sera branché, rien d'autre ne changera côté front.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Liste les conversations de l'utilisateur connecté */
+export async function getConversations() {
+  return apiFetch("/chat/conversations/");
+}
+
+/**
+ * Crée une nouvelle conversation (patient uniquement)
+ * @param {number} interlocutorId — id du pharmacien ou garde-malade
+ */
+export async function createConversation(interlocutorId) {
+  return apiFetch("/chat/conversations/", {
+    method: "POST",
+    body: JSON.stringify({ interlocutor_id: interlocutorId }),
+  });
+}
+
+/**
+ * Récupère les messages d'une conversation (paginé)
+ * @param {number} conversationId
+ */
+export async function getMessages(conversationId) {
+  return apiFetch(`/chat/conversations/${conversationId}/messages/`);
+}
+
+/**
+ * Envoie un message dans une conversation
+ * @param {number} conversationId
+ * @param {string} content
+ */
+export async function sendMessage(conversationId, content) {
+  return apiFetch(`/chat/conversations/${conversationId}/messages/`, {
+    method: "POST",
+    body: JSON.stringify({ content }),
+  });
+}
+
+/**
+ * Marque tous les messages de l'interlocuteur comme lus
+ * @param {number} conversationId
+ */
+export async function markConversationRead(conversationId) {
+  return apiFetch(`/chat/conversations/${conversationId}/read/`, {
+    method: "POST",
+  });
+}
+
+/**
+ * Bloquer un utilisateur
+ * @param {number} userId
+ */
+export async function blockUser(userId) {
+  return apiFetch(`/chat/block/${userId}/`, { method: "POST" });
+}
+
+/**
+ * Signaler un utilisateur aux administrateurs
+ * @param {number} userId
+ * @param {string} reason
+ */
+export async function reportUser(userId, reason) {
+  return apiFetch("/chat/report/", {
+    method: "POST",
+    body: JSON.stringify({ reported_user_id: userId, reason }),
+  });
+}
+
+/**
+ * Récupère tous les signalements (Admin uniquement)
+ */
+export async function getReports() {
+  return apiFetch("/chat/reports/");
+}
+
+/**
+ * Traite un signalement (Admin uniquement)
+ * @param {number} reportId
+ * @param {string} action - 'resolve' ou 'dismiss'
+ */
+export async function handleReportAction(reportId, action) {
+  return apiFetch(`/chat/reports/${reportId}/action/`, {
+    method: "POST",
+    body: JSON.stringify({ action }),
+  });
+}

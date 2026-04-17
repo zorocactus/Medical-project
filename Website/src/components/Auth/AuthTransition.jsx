@@ -1,8 +1,27 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, Sun, Moon } from "lucide-react";
+
+const AUTH_IMAGES = [
+  {
+    src: "/images/auth/akram-huseyn-brbF5FSnSgI-unsplash.jpg",
+    title: "Expertise & Précision",
+    subtitle: "Des professionnels de santé qualifiés à votre service, 24h/24.",
+  },
+  {
+    src: "/images/auth/mihira-kl-91mg5YWxHvk-unsplash.jpg",
+    title: "Collaboration Médicale",
+    subtitle: "Une équipe soudée pour des soins coordonnés et efficaces.",
+  },
+  {
+    src: "/images/auth/pexels-roman-muntean-369190311-14513015.jpg",
+    title: "Soins de Haute Qualité",
+    subtitle: "La technologie au service de la médecine moderne en Algérie.",
+  },
+];
 import * as api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
+import { useLanguage } from "../../context/LanguageContext";
 import LoginForm from "./Login";
 import RegisterForm from "./Register";
 import PatientForm from "./RegisterStep2/PatientForm";
@@ -17,12 +36,19 @@ import MedicalSuccess from "./RegisterStep2/MedicalSuccess";
 export default function AuthTransition({ onLogin, initialActive = false, onBack }) {
   const { login } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { t } = useLanguage();
   const isDark = theme === "dark";
   const [isActive, setIsActive]       = useState(initialActive);
   const [isExpanded, setIsExpanded]   = useState(false);
   const [step, setStep]               = useState(1);
   const [tempUser, setTempUser]       = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeImg, setActiveImg] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setActiveImg((i) => (i + 1) % AUTH_IMAGES.length), 5000);
+    return () => clearInterval(id);
+  }, []);
 
   // ── Step handlers ─────────────────────────────────────────────────────────
 
@@ -206,7 +232,7 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
           style={{ background: isDark ? "rgba(13,17,23,0.85)" : "rgba(240,244,248,0.85)" }}
         >
           <div className="w-12 h-12 border-4 border-[#638ECB]/30 border-t-[#638ECB] rounded-full animate-spin" />
-          <p className="mt-4 font-bold" style={{ color: isDark ? "#F0F3FA" : "#0D1B2E" }}>Création de votre compte...</p>
+          <p className="mt-4 font-bold" style={{ color: isDark ? "#F0F3FA" : "#0D1B2E" }}>{t('auth.transition.creating')}</p>
         </div>
       )}
 
@@ -238,14 +264,14 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
             }}
           >
             <ArrowLeft size={13} />
-            Accueil
+            {t('auth.transition.home')}
           </button>
 
           {/* Toggle dark / light */}
           <button
             type="button"
             onClick={toggleTheme}
-            title={isDark ? "Passer en mode clair" : "Passer en mode sombre"}
+            title={isDark ? t('auth.transition.lightModeTitle') : t('auth.transition.darkModeTitle')}
             className="pointer-events-auto w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer backdrop-blur-sm"
             style={{
               background:  isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)",
@@ -320,76 +346,75 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
         {step > 1 && renderCurrentStep()}
       </div>
 
-      {/* ── PANNEAU DROIT ──────────────────────────────────────────────────
-          - Reste à w-1/2 fixe (flex-shrink-0)
-          - opacity + pointer-events contrôlés par isExpanded
-          - Se fait pousser hors écran quand le panneau gauche atteint 100%
-      ─────────────────────────────────────────────────────────────────── */}
+      {/* ── PANNEAU DROIT — images rotatives (slide) ─────────────────────── */}
       <div
-        className="hidden lg:block lg:w-1/2 flex-shrink-0 relative min-h-screen border-l"
+        className="hidden lg:block lg:w-1/2 flex-shrink-0 relative min-h-screen overflow-hidden"
         style={{
-          background:   isDark
-            ? "linear-gradient(to bottom right, #0D1117, #141B27)"
-            : "linear-gradient(to bottom right, #E8EFF8, #D4E0F0)",
-          borderColor:  isDark ? "#1E3252" : "#D4E0F0",
-          opacity:      isExpanded ? 0 : 1,
-          pointerEvents:isExpanded ? "none" : "auto",
-          transition:   "opacity 300ms ease-in-out",
+          opacity:       isExpanded ? 0 : 1,
+          pointerEvents: isExpanded ? "none" : "auto",
+          transition:    "opacity 300ms ease-in-out",
         }}
       >
-        <div className="absolute inset-0 flex flex-col justify-center items-center text-center p-12">
-          <div className="relative w-full h-[250px]">
+        {/* Rail horizontal — glisse selon activeImg */}
+        <div
+          className="absolute inset-0 flex"
+          style={{
+            width:     `${AUTH_IMAGES.length * 100}%`,
+            transform: `translateX(-${(activeImg * 100) / AUTH_IMAGES.length}%)`,
+            transition: "transform 700ms cubic-bezier(0.4, 0, 0.2, 1)",
+          }}
+        >
+          {AUTH_IMAGES.map((img) => (
+            <div
+              key={img.src}
+              className="h-full bg-cover bg-center flex-shrink-0"
+              style={{
+                width:           `${100 / AUTH_IMAGES.length}%`,
+                backgroundImage: `url(${img.src})`,
+              }}
+            />
+          ))}
+        </div>
 
-            {/* Panneau visible quand Login est actif → invite à s'inscrire */}
-            <div className={`absolute inset-0 flex flex-col items-center justify-center transition-all duration-700 delay-100 ${isActive ? "opacity-0 translate-y-12 pointer-events-none" : "opacity-100 translate-y-0 pointer-events-auto"}`}>
-              <div
-                className="p-8 rounded-2xl backdrop-blur-md border"
-                style={{
-                  background:  isDark ? "rgba(13,17,23,0.5)" : "rgba(255,255,255,0.7)",
-                  borderColor: isDark ? "#1E3252" : "#D4E0F0",
-                }}
-              >
-                <h3 className="text-3xl font-bold mb-4" style={{ color: isDark ? "#F0F3FA" : "#0D1B2E" }}>
-                  Nouveau sur MedSmart ?
-                </h3>
-                <p className="mb-8 max-w-sm mx-auto" style={{ color: isDark ? "#8AAEE0" : "#5A6E8A" }}>
-                  Une plateforme unifiée pour simplifier la gestion de votre parcours de soins au quotidien.
-                </p>
-                <button
-                  onClick={() => setIsActive(true)}
-                  className="px-8 py-3.5 bg-transparent border-2 rounded-xl font-semibold transition-all tracking-wide cursor-pointer"
-                  style={{ borderColor: isDark ? "#638ECB" : "#4A6FA5", color: isDark ? "#F0F3FA" : "#0D1B2E" }}
-                >
-                  CRÉER UN COMPTE
-                </button>
-              </div>
+        {/* Overlay dégradé : transparent en haut → noir 60% en bas */}
+        <div
+          className="absolute inset-0"
+          style={{ background: "linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.65) 100%)" }}
+        />
+
+        {/* Texte marketing en bas à gauche */}
+        <div className="absolute bottom-0 left-0 right-0">
+          {AUTH_IMAGES.map((img, i) => (
+            <div
+              key={img.src}
+              className="absolute bottom-10 left-10 right-24"
+              style={{
+                opacity:    i === activeImg ? 1 : 0,
+                transform:  i === activeImg ? "translateY(0)" : "translateY(10px)",
+                transition: "opacity 500ms ease, transform 500ms ease",
+                transitionDelay: i === activeImg ? "300ms" : "0ms",
+              }}
+            >
+              <h2 className="text-3xl font-bold text-white mb-2 leading-tight">{img.title}</h2>
+              <p className="text-sm leading-relaxed max-w-xs" style={{ color: "rgba(255,255,255,0.75)" }}>{img.subtitle}</p>
             </div>
+          ))}
 
-            {/* Panneau visible quand Register est actif → invite à se connecter */}
-            <div className={`absolute inset-0 flex flex-col items-center justify-center transition-all duration-700 delay-100 ${!isActive ? "opacity-0 -translate-y-12 pointer-events-none" : "opacity-100 translate-y-0 pointer-events-auto"}`}>
-              <div
-                className="p-8 rounded-2xl backdrop-blur-md border"
+          {/* Dots indicateurs */}
+          <div className="absolute bottom-12 right-10 flex gap-2 items-center">
+            {AUTH_IMAGES.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setActiveImg(i)}
+                className="rounded-full cursor-pointer"
                 style={{
-                  background:  isDark ? "rgba(13,17,23,0.5)" : "rgba(255,255,255,0.7)",
-                  borderColor: isDark ? "#1E3252" : "#D4E0F0",
+                  width:      i === activeImg ? 20 : 8,
+                  height:     8,
+                  background: i === activeImg ? "#ffffff" : "rgba(255,255,255,0.45)",
+                  transition: "width 300ms ease, background 300ms ease",
                 }}
-              >
-                <h3 className="text-3xl font-bold mb-4" style={{ color: isDark ? "#F0F3FA" : "#0D1B2E" }}>
-                  Déjà parmi nous ?
-                </h3>
-                <p className="mb-8 max-w-sm mx-auto" style={{ color: isDark ? "#8AAEE0" : "#5A6E8A" }}>
-                  Accédez à votre espace personnel pour retrouver vos consultations et documents médicaux.
-                </p>
-                <button
-                  onClick={() => setIsActive(false)}
-                  className="px-8 py-3.5 bg-transparent border-2 rounded-xl font-semibold transition-all tracking-wide cursor-pointer"
-                  style={{ borderColor: isDark ? "#638ECB" : "#4A6FA5", color: isDark ? "#F0F3FA" : "#0D1B2E" }}
-                >
-                  SE CONNECTER
-                </button>
-              </div>
-            </div>
-
+              />
+            ))}
           </div>
         </div>
       </div>

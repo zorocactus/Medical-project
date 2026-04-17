@@ -35,6 +35,7 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { useData } from "../../context/DataContext";
 import { useTheme } from "../../context/ThemeContext";
+import { useLanguage } from "../../context/LanguageContext";
 import * as api from "../../services/api";
 import WeekCalendar from "../../components/medical/WeekCalendar";
 import { format, isSameDay } from "date-fns";
@@ -180,6 +181,7 @@ function TodaysSchedule({ appointments = [], onStartConsultation }) {
   const { theme } = useTheme();
   const dk = theme === "dark";
   const c = dk ? T.dark : T.light;
+  const { t } = useLanguage();
   const [startingId, setStartingId] = useState(null);
   const [startErrors, setStartErrors] = useState({});
 
@@ -234,7 +236,7 @@ function TodaysSchedule({ appointments = [], onStartConsultation }) {
         <h2
           className={`text-lg font-bold ${dk ? "text-[#F0F3FA]" : "text-[#0D1B2E]"}`}
         >
-          Today's Schedule
+          {t('dashboard.doctor.schedule.title')}
         </h2>
         <span
           className={`px-3 py-1 rounded-full text-xs font-bold border ${
@@ -243,7 +245,7 @@ function TodaysSchedule({ appointments = [], onStartConsultation }) {
               : "bg-[#EEF2FB] text-[#4A6FA5] border-[#4A6FA5]/20"
           }`}
         >
-          {count} appointments
+          {t('dashboard.doctor.schedule.appointmentsCount', { count })}
         </span>
       </div>
 
@@ -303,7 +305,7 @@ function TodaysSchedule({ appointments = [], onStartConsultation }) {
                         >
                           {startingId === item.id ? (
                             <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />
-                          ) : "▶"} Commencer
+                          ) : "▶"} {t('dashboard.doctor.consultation.start')}
                         </button>
                         {startErrors[item.id] && (
                           <p className="text-xs font-semibold mt-1 px-2 py-1 rounded-lg" style={{ color: c.red, background: c.red + "15" }}>{startErrors[item.id]}</p>
@@ -361,6 +363,7 @@ function PatientRequests({ requests = MOCK_REQUESTS, onStartConsultation }) {
   const { theme } = useTheme();
   const dk = theme === "dark";
   const c = dk ? T.dark : T.light;
+  const { t } = useLanguage();
   const [startingId, setStartingId] = useState(null);
   const [startErrors, setStartErrors] = useState({});
   const safeRequests =
@@ -374,7 +377,7 @@ function PatientRequests({ requests = MOCK_REQUESTS, onStartConsultation }) {
     >
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-[16px] font-bold" style={{ color: c.txt }}>
-          Patient Requests
+          {t('dashboard.doctor.patients.requests')}
         </h2>
         <span
           className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${
@@ -383,7 +386,7 @@ function PatientRequests({ requests = MOCK_REQUESTS, onStartConsultation }) {
               : "bg-amber-50 text-amber-600 border-amber-200"
           }`}
         >
-          {safeRequests.length} pending
+          {safeRequests.length} {t('dashboard.doctor.patients.pending')}
         </span>
       </div>
 
@@ -474,27 +477,28 @@ function DashboardHome({
   const { theme } = useTheme();
   const dk = theme === "dark";
   const c = dk ? T.dark : T.light;
+  const { t } = useLanguage();
 
   const kpis = [
     {
-      label: "Today's Consultations",
+      label: t('dashboard.doctor.kpis.todaysConsultations'),
       value: Array.isArray(appointments) ? appointments.length : 0,
       icon: Users,
       color: c.green,
     },
     {
-      label: "Total Patients",
+      label: t('dashboard.doctor.kpis.totalPatients'),
       value: Array.isArray(patients) ? patients.length : 0,
       icon: User,
       color: c.blue,
     },
     {
-      label: "Pending Requests",
+      label: t('dashboard.doctor.kpis.pendingRequests'),
       value: Array.isArray(patientRequests) ? patientRequests.length : 0,
       icon: Clock,
       color: c.amber,
     },
-    { label: "Avg. Rating", value: "4.8", icon: Star, color: c.purple },
+    { label: t('dashboard.doctor.kpis.avgRating'), value: "4.8", icon: Star, color: c.purple },
   ];
 
   const currentTime = new Date();
@@ -668,7 +672,7 @@ function ScheduleView({ dk, onStartConsultation }) {
           style={{ background: c.green + "18", borderColor: c.green + "44", color: c.green }}
         >
           <Check size={16} />
-          Consultation démarrée — le créneau est maintenant verrouillé.
+          {t('consultation_started_msg')}
         </div>
       )}
 
@@ -710,6 +714,7 @@ function PatientsView({ onSelectPatient }) {
   const { theme } = useTheme();
   const dk = theme === "dark";
   const c = dk ? T.dark : T.light;
+  const { t } = useLanguage();
 
   const { patients = [] } = useData();
   const [search, setSearch] = useState("");
@@ -793,8 +798,8 @@ function PatientsView({ onSelectPatient }) {
                   <Plus size={18} style={{ color: c.blue }} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-base" style={{ color: c.txt }}>Nouveau Patient</h3>
-                  <p className="text-xs" style={{ color: c.txt3 }}>Remplissez les informations du patient</p>
+                  <h3 className="font-bold text-base" style={{ color: c.txt }}>{t('dashboard.doctor.consultation.newPatient')}</h3>
+                  <p className="text-xs" style={{ color: c.txt3 }}>{t('dashboard.doctor.consultation.fillPatientInfo')}</p>
                 </div>
               </div>
               <button
@@ -811,7 +816,7 @@ function PatientsView({ onSelectPatient }) {
               <div className="grid grid-cols-2 gap-4">
                 {/* Prénom */}
                 <div className="relative">
-                  <span className="absolute -top-2.5 left-3 px-1 text-[11px] font-medium" style={{ color: c.txt3, background: dk ? "#141B27" : "#fff" }}>Prénom</span>
+                  <span className="absolute -top-2.5 left-3 px-1 text-[11px] font-medium" style={{ color: c.txt3, background: dk ? "#141B27" : "#fff" }}>{t('dashboard.doctor.patients.firstName')}</span>
                   <input
                     type="text"
                     value={newPatient.firstName}
@@ -823,7 +828,7 @@ function PatientsView({ onSelectPatient }) {
                 </div>
                 {/* Nom */}
                 <div className="relative">
-                  <span className="absolute -top-2.5 left-3 px-1 text-[11px] font-medium" style={{ color: c.txt3, background: dk ? "#141B27" : "#fff" }}>Nom</span>
+                  <span className="absolute -top-2.5 left-3 px-1 text-[11px] font-medium" style={{ color: c.txt3, background: dk ? "#141B27" : "#fff" }}>{t('dashboard.doctor.patients.lastName')}</span>
                   <input
                     type="text"
                     value={newPatient.lastName}
@@ -835,9 +840,9 @@ function PatientsView({ onSelectPatient }) {
                 </div>
               </div>
 
-              {/* Âge — chiffres UNIQUEMENT, max 3 digits */}
+              {/* Age field */}
               <div className="relative">
-                <span className="absolute -top-2.5 left-3 px-1 text-[11px] font-medium" style={{ color: c.txt3, background: dk ? "#141B27" : "#fff" }}>Âge</span>
+                <span className="absolute -top-2.5 left-3 px-1 text-[11px] font-medium" style={{ color: c.txt3, background: dk ? "#141B27" : "#fff" }}>{t('dashboard.doctor.patients.colAge')}</span>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -866,7 +871,7 @@ function PatientsView({ onSelectPatient }) {
 
 
               <DashSelect
-                label="Condition"
+                label={t('dashboard.doctor.patients.colCondition')}
                 value={newPatient.condition}
                 options={CONDITION_OPTIONS}
                 onSelect={v => setNewPatient(p => ({ ...p, condition: v }))}
@@ -875,7 +880,7 @@ function PatientsView({ onSelectPatient }) {
               />
 
               <DashSelect
-                label="Statut"
+                label={t('dashboard.doctor.patients.colStatus')}
                 value={newPatient.status}
                 options={STATUS_OPTIONS}
                 onSelect={v => setNewPatient(p => ({ ...p, status: v }))}
@@ -892,14 +897,14 @@ function PatientsView({ onSelectPatient }) {
                 className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 style={{ background: `linear-gradient(135deg, ${c.blue}, #304B71)` }}
               >
-                <Check size={16} /> Enregistrer
+                <Check size={16} /> {t('dashboard.doctor.patients.save')}
               </button>
               <button
                 onClick={() => setShowAddModal(false)}
                 className="px-5 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:opacity-80"
                 style={{ borderColor: c.border, color: c.txt2 }}
               >
-                Annuler
+                {t('dashboard.doctor.patients.cancel')}
               </button>
             </div>
           </div>
@@ -925,7 +930,7 @@ function PatientsView({ onSelectPatient }) {
           />
           <input
             type="text"
-            placeholder="Search by name, ID, status or condition..."
+            placeholder={t('dashboard.doctor.patients.searchPh')}
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -942,7 +947,7 @@ function PatientsView({ onSelectPatient }) {
           className="px-6 py-2.5 rounded-2xl text-white text-[15px] font-bold flex items-center gap-2 transition-transform hover:scale-105 shrink-0"
           style={{ background: c.blue, boxShadow: `0 4px 12px ${c.blue}44`, minHeight: 56 }}
         >
-          <Plus size={18} /> Add Patient
+          <Plus size={18} /> {t('dashboard.doctor.patients.addPatient')}
         </button>
       </div>
 
@@ -956,10 +961,10 @@ function PatientsView({ onSelectPatient }) {
               <Search size={24} style={{ color: c.txt3 }} />
             </div>
             <p className="font-bold mb-1" style={{ color: c.txt }}>
-              {search ? `No results for "${search}"` : "No patients yet"}
+              {search ? t('dashboard.doctor.patients.noResults', { search }) : t('dashboard.doctor.patients.noPatientsYet')}
             </p>
             <p className="text-sm" style={{ color: c.txt3 }}>
-              Try refining your search
+              {t('dashboard.doctor.patients.refineSearch')}
             </p>
           </div>
         ) : (
@@ -973,15 +978,15 @@ function PatientsView({ onSelectPatient }) {
               }}
             >
               {[
-                "PATIENT",
-                "AGE",
-                "CONDITION",
-                "LAST VISIT",
-                "NEXT APPT",
-                "STATUS",
-                "ACTION",
-              ].map((c) => (
-                <span key={c}>{c}</span>
+                t('dashboard.doctor.patients.colPatient'),
+                t('dashboard.doctor.patients.colAge'),
+                t('dashboard.doctor.patients.colCondition'),
+                t('dashboard.doctor.patients.colLastVisit'),
+                t('dashboard.doctor.patients.colNextAppt'),
+                t('dashboard.doctor.patients.colStatus'),
+                t('dashboard.doctor.patients.colAction'),
+              ].map((col) => (
+                <span key={col}>{col}</span>
               ))}
             </div>
             <div className="divide-y" style={{ borderColor: c.border }}>
@@ -1066,7 +1071,7 @@ function PatientsView({ onSelectPatient }) {
                       className="px-4 py-1.5 rounded-xl border text-[13px] font-bold transition-all hover:bg-opacity-10"
                       style={{ color: c.blue, borderColor: c.blue }}
                     >
-                      Consult
+                      {t('dashboard.doctor.patients.consult')}
                     </button>
                   </div>
                 );
@@ -1078,7 +1083,7 @@ function PatientsView({ onSelectPatient }) {
                 style={{ borderColor: c.border }}
               >
                 <p className="text-xs font-medium" style={{ color: c.txt3 }}>
-                  Page {page} / {totalPages}
+                  {t('dashboard.doctor.patients.page', { page, total: totalPages })}
                 </p>
                 <div className="flex gap-2">
                   <button
@@ -1091,7 +1096,7 @@ function PatientsView({ onSelectPatient }) {
                       background: c.card,
                     }}
                   >
-                    Previous
+                    {t('dashboard.doctor.patients.previous')}
                   </button>
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
@@ -1103,7 +1108,7 @@ function PatientsView({ onSelectPatient }) {
                       background: c.card,
                     }}
                   >
-                    Next
+                    {t('dashboard.doctor.patients.next')}
                   </button>
                 </div>
               </div>
@@ -1123,6 +1128,7 @@ function PrescriptionsView() {
   const { theme } = useTheme();
   const dk = theme === "dark";
   const c = dk ? T.dark : T.light;
+  const { t } = useLanguage();
 
   const { patients = [], prescriptions = [], addPrescription } = useData();
   const [form, setForm] = useState({
@@ -1151,10 +1157,10 @@ function PrescriptionsView() {
   const handleSubmit = (e) => {
     e?.preventDefault();
     const err = {};
-    if (!form.patientName?.trim()) err.patientName = "Required";
-    if (!form.medication.trim()) err.medication = "Required";
-    if (!form.dosage.trim()) err.dosage = "Required";
-    if (!form.duration.trim()) err.duration = "Required";
+    if (!form.patientName?.trim()) err.patientName = t('dashboard.doctor.prescription.required');
+    if (!form.medication.trim()) err.medication = t('dashboard.doctor.prescription.required');
+    if (!form.dosage.trim()) err.dosage = t('dashboard.doctor.prescription.required');
+    if (!form.duration.trim()) err.duration = t('dashboard.doctor.prescription.required');
     if (Object.keys(err).length > 0) return setErrors(err);
     if (typeof addPrescription === "function") {
       addPrescription({
@@ -1177,7 +1183,7 @@ function PrescriptionsView() {
       duration: "",
       notes: "",
     });
-    setSuccess("Prescription created successfully.");
+    setSuccess(t('dashboard.doctor.prescription.created'));
     setTimeout(() => setSuccess(""), 3000);
   };
 
@@ -1254,12 +1260,12 @@ function PrescriptionsView() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <Card dk={dk} className="lg:col-span-2 p-8">
           <h2 className="text-[17px] font-bold mb-8" style={{ color: c.txt }}>
-            Write New Prescription
+            {t('dashboard.doctor.prescription.writeNew')}
           </h2>
           <form onSubmit={handleSubmit} className="space-y-6">
             <FieldWrapper
               name="patientName"
-              label="Patient Name"
+              label={t('dashboard.doctor.prescription.patientNameLabel')}
               error={errors.patientName}
             >
               <div className="relative w-full">
@@ -1276,7 +1282,7 @@ function PrescriptionsView() {
                     setFocusedField(null);
                     setTimeout(() => setShowPatientSuggestions(false), 200);
                   }}
-                  placeholder="Type patient full name..."
+                  placeholder={t('dashboard.doctor.prescription.patientNamePh')}
                   className="w-full h-full py-4 bg-transparent border-none outline-none text-sm font-semibold"
                   style={{ color: c.txt }}
                   autoComplete="off"
@@ -1385,7 +1391,7 @@ function PrescriptionsView() {
                 className="text-[13px] font-bold uppercase tracking-wider ml-1"
                 style={{ color: c.txt3 }}
               >
-                Notes (optional)
+                {t('dashboard.doctor.prescription.notes')}
               </label>
               <textarea
                 name="notes"
@@ -1415,14 +1421,14 @@ function PrescriptionsView() {
                 boxShadow: `0 4px 15px ${c.blue}44`,
               }}
             >
-              Generate QR Prescription
+              {t('dashboard.doctor.prescription.generate')}
             </button>
           </form>
         </Card>
 
         <Card dk={dk} className="p-6 h-fit">
           <h2 className="text-[17px] font-bold mb-5" style={{ color: c.txt }}>
-            Recent Prescriptions
+            {t('dashboard.doctor.prescription.recent')}
           </h2>
           {rxList.length === 0 ? (
             <div className="text-center py-10 opacity-50">
@@ -1432,7 +1438,7 @@ function PrescriptionsView() {
                 style={{ color: c.txt3 }}
               />
               <p className="text-sm font-bold" style={{ color: c.txt3 }}>
-                No prescriptions yet
+                {t('dashboard.doctor.prescription.none')}
               </p>
             </div>
           ) : (
@@ -1473,6 +1479,7 @@ function PrescriptionsView() {
 
 function PatientDetailView({ patient, onBack, dk }) {
   const c = dk ? T.dark : T.light;
+  const { t } = useLanguage();
 
   const [activeTab, setActiveTab] = useState("history");
 
@@ -1610,9 +1617,9 @@ function PatientDetailView({ patient, onBack, dk }) {
                     }`}
                     style={{ color: activeTab === tab ? c.blue : c.txt }}
                   >
-                    {tab === "history" && "Medical History"}
-                    {tab === "lab" && "Lab Results"}
-                    {tab === "prescriptions" && "Past Prescriptions"}
+                    {tab === "history" && t('dashboard.doctor.medicalRecord.medicalHistoryTab')}
+                    {tab === "lab" && t('dashboard.doctor.medicalRecord.labResultsTab')}
+                    {tab === "prescriptions" && t('dashboard.doctor.medicalRecord.pastPrescriptionsTab')}
                     {activeTab === tab && (
                       <div
                         className="absolute bottom-0 left-0 right-0 h-1.5 rounded-t-full"
@@ -1633,7 +1640,7 @@ function PatientDetailView({ patient, onBack, dk }) {
                     background: c.blue + "08"
                   }}
                 >
-                  <Plus size={14} /> ADD ANTECEDENT
+                  <Plus size={14} /> {t('dashboard.doctor.medicalRecord.addAntecedent')}
                 </button>
               )}
               {activeTab === "lab" && (
@@ -1646,7 +1653,7 @@ function PatientDetailView({ patient, onBack, dk }) {
                     background: c.blue + "08"
                   }}
                 >
-                  <Plus size={14} /> REQUEST LAB TEST
+                  <Plus size={14} /> {t('dashboard.doctor.medicalRecord.requestLabTest')}
                 </button>
               )}
             </div>
@@ -1664,7 +1671,7 @@ function PatientDetailView({ patient, onBack, dk }) {
                       
                       <div className="flex items-center justify-between">
                         <p className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: c.blue }}>
-                          Nouveau Dossier Médical
+                          {t('dashboard.doctor.medicalRecord.newRecord')}
                         </p>
                         <button onClick={() => setShowAddHistory(false)} className="opacity-40 hover:opacity-100 transition-all hover:bg-red-500/10 p-1 rounded-lg">
                           <X size={18} />
@@ -1673,7 +1680,7 @@ function PatientDetailView({ patient, onBack, dk }) {
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                          <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">Pathologie</label>
+                          <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">{t('dashboard.doctor.medicalRecord.pathology')}</label>
                           <input
                             placeholder="ex: Hypertension"
                             value={newHist.title}
@@ -1683,7 +1690,7 @@ function PatientDetailView({ patient, onBack, dk }) {
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">Date diagnostic</label>
+                          <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">{t('dashboard.doctor.medicalRecord.diagDate')}</label>
                           <input
                             type="date"
                             value={newHist.date}
@@ -1701,7 +1708,7 @@ function PatientDetailView({ patient, onBack, dk }) {
 
                       <div className="space-y-1.5">
                         <DashSelect
-                          label="Type d'Antécédent"
+                          label={t('dashboard.doctor.medicalRecord.antecedentType')}
                           value={newHist.type}
                           options={[
                             { value: "Chronic", label: "Chronique" },
@@ -1717,18 +1724,18 @@ function PatientDetailView({ patient, onBack, dk }) {
 
                       <div className="flex gap-4 pt-3">
                         <button
-                          onClick={() => setShowAddHistory(false)} 
-                          className="flex-1 py-4 rounded-xl text-xs font-black transition-all hover:bg-opacity-5" 
+                          onClick={() => setShowAddHistory(false)}
+                          className="flex-1 py-4 rounded-xl text-xs font-black transition-all hover:bg-opacity-5"
                           style={{ color: c.txt2 }}
                         >
-                          ANNULER
+                          {t('dashboard.doctor.medicalRecord.cancel')}
                         </button>
-                        <button 
-                          onClick={handleAddHistory} 
-                          className="flex-[2] py-4 rounded-xl text-white text-xs font-black shadow-xl transition-all hover:scale-[1.02] active:scale-95" 
+                        <button
+                          onClick={handleAddHistory}
+                          className="flex-[2] py-4 rounded-xl text-white text-xs font-black shadow-xl transition-all hover:scale-[1.02] active:scale-95"
                           style={{ background: c.blue, boxShadow: `0 8px 25px ${c.blue}44` }}
                         >
-                          METTRE À JOUR LE DOSSIER
+                          {t('dashboard.doctor.medicalRecord.updateRecord')}
                         </button>
                       </div>
                     </div>
@@ -1807,7 +1814,7 @@ function PatientDetailView({ patient, onBack, dk }) {
                       
                       <div className="flex items-center justify-between">
                         <p className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: c.blue }}>
-                          Nouvelle Prescription d'Analyse
+                          {t('dashboard.doctor.medicalRecord.newLabAnalysis')}
                         </p>
                         <button onClick={() => setShowAddLab(false)} className="opacity-40 hover:opacity-100 transition-all hover:bg-red-500/10 p-1 rounded-lg">
                           <X size={18} />
@@ -1815,7 +1822,7 @@ function PatientDetailView({ patient, onBack, dk }) {
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">Analyse demandée</label>
+                        <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">{t('dashboard.doctor.medicalRecord.requestedAnalysis')}</label>
                         <input
                           placeholder="ex: Bilan Lipidique Complet"
                           value={newLab.test}
@@ -1826,7 +1833,7 @@ function PatientDetailView({ patient, onBack, dk }) {
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">Notes / Urgence</label>
+                        <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">{t('dashboard.doctor.medicalRecord.notesUrgency')}</label>
                         <textarea
                           placeholder="Indications cliniques..."
                           value={newLab.note}
@@ -1838,18 +1845,18 @@ function PatientDetailView({ patient, onBack, dk }) {
 
                       <div className="flex gap-4 pt-3">
                         <button 
-                          onClick={() => setShowAddLab(false)} 
-                          className="flex-1 py-4 rounded-xl text-xs font-black transition-all hover:bg-opacity-5" 
+                          onClick={() => setShowAddLab(false)}
+                          className="flex-1 py-4 rounded-xl text-xs font-black transition-all hover:bg-opacity-5"
                           style={{ color: c.txt2 }}
                         >
-                          ANNULER
+                          {t('dashboard.doctor.medicalRecord.cancel')}
                         </button>
-                        <button 
-                          onClick={handleAddLab} 
-                          className="flex-[2] py-4 rounded-xl text-white text-xs font-black shadow-xl transition-all hover:scale-[1.02] active:scale-95" 
+                        <button
+                          onClick={handleAddLab}
+                          className="flex-[2] py-4 rounded-xl text-white text-xs font-black shadow-xl transition-all hover:scale-[1.02] active:scale-95"
                           style={{ background: c.blue, boxShadow: `0 8px 25px ${c.blue}44` }}
                         >
-                          CONFIRMER LA DEMANDE
+                          {t('dashboard.doctor.medicalRecord.confirmRequest')}
                         </button>
                       </div>
                     </div>
@@ -1869,7 +1876,7 @@ function PatientDetailView({ patient, onBack, dk }) {
                       {/* Nom + réf */}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ fontSize: 15, fontWeight: 600, color: c.txt, margin: 0, lineHeight: 1.3 }}>{l.test}</p>
-                        <p style={{ fontSize: 12, opacity: 0.5, fontStyle: "italic", color: c.txt, margin: 0, marginTop: 3 }}>Réf : {l.ref}</p>
+                        <p style={{ fontSize: 12, opacity: 0.5, fontStyle: "italic", color: c.txt, margin: 0, marginTop: 3 }}>{t('dashboard.doctor.medicalRecord.ref')} : {l.ref}</p>
                       </div>
                       {/* Résultat + badge + trash dans un seul bloc */}
                       <div style={{ display: "flex", alignItems: "center", gap: "16px", flexShrink: 0 }}>
@@ -1946,7 +1953,7 @@ function PatientDetailView({ patient, onBack, dk }) {
         <div className="space-y-6">
           <Card dk={dk} className="p-8 shadow-xl border-0">
             <h2 className="text-xl font-black mb-8" style={{ color: c.txt }}>
-              Compte-rendu
+              {t('dashboard.doctor.consultation.accountReport')}
             </h2>
             <div className="space-y-6">
               <div className="space-y-2">
@@ -1954,7 +1961,7 @@ function PatientDetailView({ patient, onBack, dk }) {
                   className="text-[11px] font-black uppercase tracking-widest ml-1 opacity-40"
                   style={{ color: c.txt }}
                 >
-                  Symptômes actuels
+                  {t('dashboard.doctor.consultation.currentSymptoms')}
                 </label>
                 <textarea
                   className="w-full rounded-[20px] p-5 text-sm font-bold border-2 outline-none transition-all focus:border-blue-500 min-h-[120px] resize-none"
@@ -1963,7 +1970,7 @@ function PatientDetailView({ patient, onBack, dk }) {
                     borderColor: c.border,
                     color: c.txt,
                   }}
-                  placeholder="Notes cliniques..."
+                  placeholder={t('dashboard.doctor.consultation.clinicalNotesPh')}
                 />
               </div>
               <div className="space-y-2">
@@ -1971,7 +1978,7 @@ function PatientDetailView({ patient, onBack, dk }) {
                   className="text-[11px] font-black uppercase tracking-widest ml-1 opacity-40"
                   style={{ color: c.txt }}
                 >
-                  Diagnostic préliminaire
+                  {t('dashboard.doctor.consultation.prelimDiagnosis')}
                 </label>
                 <input
                   className="w-full rounded-2xl px-5 py-4 text-sm font-bold border-2 outline-none focus:border-blue-500"
@@ -1980,7 +1987,7 @@ function PatientDetailView({ patient, onBack, dk }) {
                     borderColor: c.border,
                     color: c.txt,
                   }}
-                  placeholder="Recherche de diagnostic..."
+                  placeholder={t('dashboard.doctor.consultation.diagnosisSearch')}
                 />
               </div>
               <button
@@ -1990,7 +1997,7 @@ function PatientDetailView({ patient, onBack, dk }) {
                   boxShadow: `0 12px 30px ${c.blue}44`,
                 }}
               >
-                <Send size={20} /> TERMINER LA CONSULTATION
+                <Send size={20} /> {t('dashboard.doctor.consultation.terminate')}
               </button>
             </div>
           </Card>
@@ -2008,6 +2015,7 @@ function StatisticsView() {
   const { theme } = useTheme();
   const dk = theme === "dark";
   const c = dk ? T.dark : T.light;
+  const { t } = useLanguage();
 
   const data = useData();
   const appointments = Array.isArray(data?.appointments) ? data.appointments : [];
@@ -2016,25 +2024,25 @@ function StatisticsView() {
 
   const stats = [
     {
-      label: "Consultations",
+      label: t('dashboard.doctor.nav.schedule'),
       value: appointments.length || 312,
       icon: Users,
       color: c.green,
     },
     {
-      label: "Prescriptions",
+      label: t('dashboard.doctor.nav.prescriptions'),
       value: prescriptions.length || 94,
       icon: FileText,
       color: c.blue,
     },
     {
-      label: "Patients",
+      label: t('dashboard.doctor.nav.patients'),
       value: patients.length || 847,
       icon: Users,
       color: c.purple,
     },
     {
-      label: "Avg. Rating",
+      label: t('dashboard.doctor.kpis.avgRating'),
       value: "4.8",
       icon: Star,
       color: c.amber,
@@ -2062,7 +2070,7 @@ function StatisticsView() {
 
       <Card dk={dk} className="p-6">
         <h2 className="text-[17px] font-bold mb-8" style={{ color: c.txt }}>
-          Weekly Activity
+          {t('dashboard.doctor.statistics.weeklyActivity')}
         </h2>
         <div className="flex items-end gap-3 h-48 mb-4 px-2">
           {weekly.map((h, i) => {
@@ -2083,7 +2091,7 @@ function StatisticsView() {
                   }}
                 >
                   <div className="absolute -top-10 left-1/2 -translate-x-1/2 px-2.5 py-1.5 rounded-lg bg-[#0D1B2E] text-white text-[11px] font-bold opacity-0 group-hover:opacity-100 transition-all shadow-xl pointer-events-none z-10 whitespace-nowrap">
-                    {h} appointments
+                    {t('dashboard.doctor.statistics.appointmentsTooltip', { count: h })}
                   </div>
                 </div>
               </div>
@@ -2125,6 +2133,7 @@ function SettingsView() {
   const dk = theme === "dark";
   const c = dk ? T.dark : T.light;
   const { userData: user } = useAuth();
+  const { t, lang, setLang } = useLanguage();
   const [showPwd, setShowPwd] = useState(false);
   const [locSaved, setLocSaved] = useState(false);
 
@@ -2169,10 +2178,10 @@ function SettingsView() {
       const first_name = names[0] || "";
       const last_name = names.slice(1).join(" ") || "";
       await api.updateMe({ first_name, last_name, phone: form.phone });
-      setStatus({ type: "success", msg: "Profil mis à jour avec succès ✅" });
+      setStatus({ type: "success", msg: t('dashboard.doctor.settings.profileUpdated') });
       setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
     } catch (err) {
-      setStatus({ type: "error", msg: "Erreur lors de la mise à jour ❌" });
+      setStatus({ type: "error", msg: t('dashboard.doctor.settings.profileError') });
       setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
     } finally {
       setIsSaving(false);
@@ -2184,11 +2193,11 @@ function SettingsView() {
       setIsSavingPwd(true);
       setPwdStatus({ type: "", msg: "" });
       await api.changePassword(pwdForm);
-      setPwdStatus({ type: "success", msg: "Mot de passe modifié ✅" });
+      setPwdStatus({ type: "success", msg: t('dashboard.doctor.settings.passwordUpdated') });
       setPwdForm({ currentPassword: "", newPassword: "" });
       setTimeout(() => setPwdStatus({ type: "", msg: "" }), 4000);
     } catch (err) {
-      setPwdStatus({ type: "error", msg: "Erreur lors du changement ❌" });
+      setPwdStatus({ type: "error", msg: t('dashboard.doctor.settings.passwordError') });
       setTimeout(() => setPwdStatus({ type: "", msg: "" }), 4000);
     } finally {
       setIsSavingPwd(false);
@@ -2212,7 +2221,7 @@ function SettingsView() {
 
         {/* Profile card */}
         <Card dk={dk}>
-          <p className="font-semibold mb-5" style={{ color: c.txt }}>Profile</p>
+          <p className="font-semibold mb-5" style={{ color: c.txt }}>{t('dashboard.doctor.settings.profile')}</p>
           {status.msg && (
             <div className="mb-4 p-3 rounded-xl text-xs font-semibold" style={{
               background: status.type === "success" ? "#2D8C6F12" : "#E0555512",
@@ -2221,9 +2230,9 @@ function SettingsView() {
             }}>{status.msg}</div>
           )}
           {[
-            { label: "Full Name", key: "name" },
-            { label: "Email", key: "email" },
-            { label: "Phone", key: "phone" },
+            { label: t('dashboard.doctor.settings.fullName'), key: "name" },
+            { label: t('dashboard.doctor.settings.email'),    key: "email" },
+            { label: t('dashboard.doctor.settings.phone'),    key: "phone" },
           ].map((field) => (
             <div key={field.key} className="mb-4">
               <label className={labelCls} style={{ color: c.txt2 }}>{field.label}</label>
@@ -2243,13 +2252,13 @@ function SettingsView() {
             className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
             style={{ background: c.blue, opacity: isSaving ? 0.7 : 1 }}
           >
-            {isSaving ? "Saving..." : "Save Changes"}
+            {isSaving ? t('dashboard.doctor.settings.saving') : t('dashboard.doctor.settings.saveChanges')}
           </button>
         </Card>
 
         {/* Security card */}
         <Card dk={dk}>
-          <p className="font-semibold mb-5" style={{ color: c.txt }}>Security</p>
+          <p className="font-semibold mb-5" style={{ color: c.txt }}>{t('dashboard.doctor.settings.security')}</p>
           {pwdStatus.msg && (
             <div className="mb-4 p-3 rounded-xl text-xs font-semibold" style={{
               background: pwdStatus.type === "success" ? "#2D8C6F12" : "#E0555512",
@@ -2258,8 +2267,8 @@ function SettingsView() {
             }}>{pwdStatus.msg}</div>
           )}
           {[
-            { label: "Current Password", key: "currentPassword" },
-            { label: "New Password", key: "newPassword" },
+            { label: t('dashboard.doctor.settings.currentPwd'), key: "currentPassword" },
+            { label: t('dashboard.doctor.settings.newPwd'),     key: "newPassword" },
           ].map((field) => (
             <div key={field.key} className="mb-4 relative">
               <label className={labelCls} style={{ color: c.txt2 }}>{field.label}</label>
@@ -2282,7 +2291,7 @@ function SettingsView() {
             className="px-6 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:opacity-80 active:scale-95"
             style={{ color: c.blue, borderColor: c.border, opacity: isSavingPwd ? 0.7 : 1 }}
           >
-            {isSavingPwd ? "Updating..." : "Update Password"}
+            {isSavingPwd ? t('dashboard.doctor.settings.updating') : t('dashboard.doctor.settings.updatePwd')}
           </button>
         </Card>
       </div>
@@ -2295,8 +2304,8 @@ function SettingsView() {
             <MapPin size={18} style={{ color: c.blue }} />
           </div>
           <div>
-            <p className="font-bold text-base" style={{ color: c.txt }}>Clinic Location & Maps</p>
-            <p className="text-xs" style={{ color: c.txt3 }}>Gérez l'adresse visible par les patients</p>
+            <p className="font-bold text-base" style={{ color: c.txt }}>{t('dashboard.doctor.settings.clinicLocation')}</p>
+            <p className="text-xs" style={{ color: c.txt3 }}>{t('dashboard.doctor.settings.manageAddress')}</p>
           </div>
         </div>
 
@@ -2305,7 +2314,7 @@ function SettingsView() {
           <div className="mb-5 p-3 rounded-xl text-xs font-semibold flex items-center gap-2" style={{
             background: "#2D8C6F12", color: "#2D8C6F", border: "1px solid #2D8C6F44",
           }}>
-            <Check size={14} /> Localisation mise à jour avec succès ✅
+            <Check size={14} /> {t('dashboard.doctor.settings.mapSaved')}
           </div>
         )}
 
@@ -2317,7 +2326,7 @@ function SettingsView() {
 
             {/* Adresse de l'établissement */}
             <div>
-              <label className={labelCls} style={{ color: c.txt2 }}>Adresse de l'établissement</label>
+              <label className={labelCls} style={{ color: c.txt2 }}>{t('dashboard.doctor.settings.clinicAddress')}</label>
               <input
                 type="text"
                 placeholder="Ex: 12 Rue Didouche Mourad"
@@ -2330,7 +2339,7 @@ function SettingsView() {
 
             {/* Commune */}
             <div>
-              <label className={labelCls} style={{ color: c.txt2 }}>Commune</label>
+              <label className={labelCls} style={{ color: c.txt2 }}>{t('dashboard.doctor.settings.commune')}</label>
               <input
                 type="text"
                 placeholder="Ex: Alger-Centre"
@@ -2355,11 +2364,11 @@ function SettingsView() {
 
             {/* Google Maps URL */}
             <div>
-              <label className={labelCls} style={{ color: c.txt2 }}>Lien Google Maps (Optionnel)</label>
+              <label className={labelCls} style={{ color: c.txt2 }}>{t('dashboard.doctor.settings.mapsLink')}</label>
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Collez l'URL Google Maps ici..."
+                  placeholder={t('dashboard.doctor.settings.pasteMaps')}
                   value={locForm.mapsUrl}
                   onChange={(e) => setLocForm((f) => ({ ...f, mapsUrl: e.target.value }))}
                   className={`${inputCls} pl-10`}
@@ -2377,13 +2386,13 @@ function SettingsView() {
               className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
               style={{ background: `linear-gradient(135deg, #304B71, ${c.blue})` }}
             >
-              <MapPin size={15} /> Mettre à jour la carte
+              <MapPin size={15} /> {t('dashboard.doctor.settings.updateMap')}
             </button>
           </div>
 
           {/* Right: map preview with Smart Parser */}
           <div className="flex flex-col gap-3">
-            <label className={labelCls} style={{ color: c.txt2 }}>Map Preview</label>
+            <label className={labelCls} style={{ color: c.txt2 }}>{t('dashboard.doctor.settings.mapPreview')}</label>
             {(() => {
               const addressQuery = [locForm.address, locForm.commune, locForm.wilaya]
                 .filter(Boolean)
@@ -2443,7 +2452,7 @@ function SettingsView() {
                       className="absolute bottom-3 right-3 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-white shadow-lg transition-all hover:opacity-90"
                       style={{ background: c.blue }}
                     >
-                      <MapPin size={12} /> Ouvrir dans Maps
+                      <MapPin size={12} /> {t('dashboard.doctor.settings.openInMaps')}
                     </a>
                   )}
                 </div>
@@ -2462,9 +2471,9 @@ function SettingsView() {
                       style={{ background: c.blue }} />
                   </div>
                   <div className="text-center px-4">
-                    <p className="text-sm font-bold" style={{ color: c.txt }}>Map Preview</p>
+                    <p className="text-sm font-bold" style={{ color: c.txt }}>{t('dashboard.doctor.settings.mapPreview')}</p>
                     <p className="text-xs mt-1" style={{ color: c.txt3 }}>
-                      Collez une URL Maps ou entrez votre adresse
+                      {t('dashboard.doctor.settings.noAddressHint')}
                     </p>
                   </div>
                 </div>
@@ -2478,27 +2487,32 @@ function SettingsView() {
       {/* ── Language + About ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <Card dk={dk}>
-          <p className="font-semibold mb-4" style={{ color: c.txt }}>Language</p>
+          <p className="font-semibold mb-4" style={{ color: c.txt }}>{t('dashboard.doctor.settings.language')}</p>
           <div className="flex gap-2 flex-wrap">
-            {["🇫🇷 Français", "🇩🇿 العربية", "🇬🇧 English"].map((lang, i) => (
-              <button
-                key={lang}
-                className="px-4 py-2 rounded-xl text-sm font-semibold border transition-all"
-                style={{
-                  background: i === 0 ? c.blue : "transparent",
-                  color: i === 0 ? "#fff" : c.txt2,
-                  borderColor: i === 0 ? c.blue : c.border,
-                }}
-              >
-                {lang}
-              </button>
-            ))}
+            {["🇫🇷 Français", "🇬🇧 English"].map((langName, i) => {
+              const targetLang = i === 0 ? 'fr' : 'en';
+              const active = lang === targetLang;
+              return (
+                <button
+                  key={langName}
+                  onClick={() => setLang(targetLang)}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold border transition-all"
+                  style={{
+                    background: active ? c.blue : "transparent",
+                    color: active ? "#fff" : c.txt2,
+                    borderColor: active ? c.blue : c.border,
+                  }}
+                >
+                  {langName}
+                </button>
+              );
+            })}
           </div>
         </Card>
         <Card dk={dk}>
-          <p className="font-semibold mb-2" style={{ color: c.txt }}>About</p>
-          <p className="text-sm" style={{ color: c.txt2 }}>MedSmart v2.1.0 · Connected Healthcare Platform</p>
-          <p className="text-xs mt-1" style={{ color: c.txt3 }}>CNAS Certified · RGPD Compliant · Hosted in Algeria</p>
+          <p className="font-semibold mb-2" style={{ color: c.txt }}>{t('dashboard.doctor.settings.about')}</p>
+          <p className="text-sm" style={{ color: c.txt2 }}>{t('dashboard.doctor.settings.aboutDesc')}</p>
+          <p className="text-xs mt-1" style={{ color: c.txt3 }}>{t('dashboard.doctor.settings.certified')}</p>
         </Card>
       </div>
     </div>
@@ -2526,6 +2540,7 @@ const FALLBACK_PATIENT = {
 };
 
 function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPage, doctorName }) {
+  const { t } = useLanguage();
   // ── Tabs ──
   const [activeTab, setActiveTab] = useState("history");
 
@@ -2769,7 +2784,7 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                 <Check size={26} style={{ color: c.green }} />
               </div>
               <div>
-                <p style={{ fontSize: 18, fontWeight: 800, color: c.txt, margin: 0 }}>Consultation enregistrée</p>
+                <p style={{ fontSize: 18, fontWeight: 800, color: c.txt, margin: 0 }}>{t('dashboard.doctor.consultation.recorded')}</p>
                 <p style={{ fontSize: 13, color: c.txt3, margin: 0, marginTop: 2 }}>
                   {sessionResult?.consultation_id ? `#${sessionResult.consultation_id}` : ""}
                 </p>
@@ -2784,14 +2799,14 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
 
             {/* Diagnostic */}
             <div style={{ padding: "14px 18px", borderRadius: 14, background: c.blueLight, marginBottom: 14 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: c.txt3, margin: 0, marginBottom: 6 }}>Diagnostic</p>
+              <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: c.txt3, margin: 0, marginBottom: 6 }}>{t('dashboard.doctor.consultation.diagnosis')}</p>
               <p style={{ fontSize: 14, fontWeight: 600, color: c.txt, margin: 0, lineHeight: 1.5 }}>{diagnosis}</p>
             </div>
 
             {/* Symptômes */}
             {symptoms.trim() && (
               <div style={{ padding: "14px 18px", borderRadius: 14, background: c.blueLight, marginBottom: 14 }}>
-                <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: c.txt3, margin: 0, marginBottom: 6 }}>Symptômes</p>
+                <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: c.txt3, margin: 0, marginBottom: 6 }}>{t('dashboard.doctor.consultation.symptomsLabel')}</p>
                 <p style={{ fontSize: 13, color: c.txt2, margin: 0, lineHeight: 1.6 }}>{symptoms}</p>
               </div>
             )}
@@ -2800,7 +2815,7 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
             {localPrescriptions.length > 0 && (
               <div style={{ padding: "14px 18px", borderRadius: 14, background: c.blueLight, marginBottom: 14 }}>
                 <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: c.txt3, margin: 0, marginBottom: 10 }}>
-                  Prescriptions ({localPrescriptions.length})
+                  {t('dashboard.doctor.consultation.prescriptions')} ({localPrescriptions.length})
                 </p>
                 {localPrescriptions.map((p, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: i < localPrescriptions.length - 1 ? 8 : 0 }}>
@@ -2818,13 +2833,13 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
               <div style={{ padding: "14px 18px", borderRadius: 14, border: `2px solid ${c.border}`, marginBottom: 20, display: "flex", alignItems: "center", gap: 16 }}>
                 <img src={qrUrl} alt="QR ordonnance" style={{ width: 80, height: 80, borderRadius: 10, background: "#fff", padding: 4, flexShrink: 0 }} />
                 <div>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: c.txt, margin: 0 }}>QR Code ordonnance</p>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: c.txt, margin: 0 }}>{t('dashboard.doctor.consultation.qrCode')}</p>
                   <p style={{ fontSize: 11, color: c.txt3, margin: 0, marginTop: 3 }}>
                     Token : {sessionResult?.prescription_token || "—"}
                   </p>
                   <a href={qrUrl} target="_blank" rel="noreferrer"
                     style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "6px 14px", borderRadius: 8, background: c.blue + "15", color: c.blue, fontSize: 12, fontWeight: 700, textDecoration: "none" }}>
-                    <Download size={13} /> Télécharger l'ordonnance
+                    <Download size={13} /> {t('dashboard.doctor.consultation.downloadRx')}
                   </a>
                 </div>
               </div>
@@ -2835,7 +2850,7 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
               onClick={() => { setShowSummaryModal(false); onComplete(); }}
               style={{ width: "100%", padding: "14px", borderRadius: 16, background: `linear-gradient(135deg, ${c.blue}, #304B71)`, color: "#fff", fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer", letterSpacing: "0.5px" }}
             >
-              Retour au planning →
+              {t('dashboard.doctor.consultation.returnToSchedule')}
             </button>
           </div>
         </div>
@@ -2859,7 +2874,7 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                 <Badge color={c.amber} bg={c.amber + "15"}>⚠ {patientAllergies}</Badge>
               )}
               {isDataFallback && (
-                <Badge color={c.amber} bg={c.amber + "18"}>⚠ Données non disponibles</Badge>
+                <Badge color={c.amber} bg={c.amber + "18"}>{t('dashboard.doctor.consultation.dataUnavailable')}</Badge>
               )}
             </div>
           </div>
@@ -2880,9 +2895,9 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                     className={`px-6 py-4 text-sm font-bold transition-all relative ${activeTab === tab ? "" : "opacity-30"}`}
                     style={{ color: activeTab === tab ? c.blue : c.txt }}
                   >
-                    {tab === "history" && "Medical History"}
-                    {tab === "lab" && "Lab Results"}
-                    {tab === "prescriptions" && "Past Prescriptions"}
+                    {tab === "history" && t('dashboard.doctor.medicalRecord.medicalHistoryTab')}
+                    {tab === "lab" && t('dashboard.doctor.medicalRecord.labResultsTab')}
+                    {tab === "prescriptions" && t('dashboard.doctor.medicalRecord.pastPrescriptionsTab')}
                     {activeTab === tab && (
                       <div className="absolute bottom-0 left-0 right-0 h-1.5 rounded-t-full" style={{ background: c.blue }} />
                     )}
@@ -2893,21 +2908,21 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                 <button onClick={() => setShowAddHistory(!showAddHistory)}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 text-[11px] font-black tracking-wider transition-all hover:bg-opacity-10 active:scale-95"
                   style={{ borderColor: c.blue, color: c.blue, background: c.blue + "08" }}>
-                  <Plus size={14} /> ADD ANTECEDENT
+                  <Plus size={14} /> {t('dashboard.doctor.medicalRecord.addAntecedent')}
                 </button>
               )}
               {activeTab === "lab" && (
                 <button onClick={() => setShowAddLab(!showAddLab)}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 text-[11px] font-black tracking-wider transition-all hover:bg-opacity-10 active:scale-95"
                   style={{ borderColor: c.blue, color: c.blue, background: c.blue + "08" }}>
-                  <Plus size={14} /> REQUEST LAB TEST
+                  <Plus size={14} /> {t('dashboard.doctor.medicalRecord.requestLabTest')}
                 </button>
               )}
               {activeTab === "prescriptions" && (
                 <button onClick={() => setShowAddPrescription(!showAddPrescription)}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 text-[11px] font-black tracking-wider transition-all hover:bg-opacity-10 active:scale-95"
                   style={{ borderColor: c.blue, color: c.blue, background: c.blue + "08" }}>
-                  <Plus size={14} /> ADD PRESCRIPTION
+                  <Plus size={14} /> {t('dashboard.doctor.medicalRecord.addPrescription')}
                 </button>
               )}
             </div>
@@ -2921,19 +2936,19 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                       style={{ borderColor: c.blue + "33", background: dk ? "#1A2333" : "#F8FAFC" }}>
                       <div className="absolute top-0 left-0 w-1.5 h-full" style={{ background: c.blue }} />
                       <div className="flex items-center justify-between">
-                        <p className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: c.blue }}>Nouveau Dossier Médical</p>
+                        <p className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: c.blue }}>{t('dashboard.doctor.medicalRecord.newRecord')}</p>
                         <button onClick={() => setShowAddHistory(false)} className="opacity-40 hover:opacity-100 transition-all hover:bg-red-500/10 p-1 rounded-lg"><X size={18} /></button>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                          <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">Pathologie</label>
+                          <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">{t('dashboard.doctor.medicalRecord.pathology')}</label>
                           <input placeholder="ex: Hypertension" value={newHist.title}
                             onChange={e => setNewHist({ ...newHist, title: e.target.value })}
                             className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
                             style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt }} />
                         </div>
                         <div className="space-y-1.5">
-                          <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">Date diagnostic</label>
+                          <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">{t('dashboard.doctor.medicalRecord.diagDate')}</label>
                           <input type="date" value={newHist.date} onChange={e => setNewHist({ ...newHist, date: e.target.value })}
                             className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
                             style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt, fontFamily: "inherit" }} />
@@ -2941,7 +2956,7 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                       </div>
                       <div className="space-y-1.5">
                         <DashSelect
-                          label="Type d'Antécédent"
+                          label={t('dashboard.doctor.medicalRecord.antecedentType')}
                           value={newHist.type}
                           options={[
                             { value: "Chronic", label: "Chronique" },
@@ -2955,9 +2970,9 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                         />
                       </div>
                       <div className="flex gap-4 pt-3">
-                        <button onClick={() => setShowAddHistory(false)} className="flex-1 py-4 rounded-xl text-xs font-black" style={{ color: c.txt2 }}>ANNULER</button>
+                        <button onClick={() => setShowAddHistory(false)} className="flex-1 py-4 rounded-xl text-xs font-black" style={{ color: c.txt2 }}>{t('dashboard.doctor.medicalRecord.cancel')}</button>
                         <button onClick={handleAddHistory} className="flex-[2] py-4 rounded-xl text-white text-xs font-black shadow-xl transition-all hover:scale-[1.02] active:scale-95"
-                          style={{ background: c.blue, boxShadow: `0 8px 25px ${c.blue}44` }}>METTRE À JOUR LE DOSSIER</button>
+                          style={{ background: c.blue, boxShadow: `0 8px 25px ${c.blue}44` }}>{t('dashboard.doctor.medicalRecord.updateRecord')}</button>
                       </div>
                     </div>
                   )}
@@ -2993,27 +3008,27 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                       style={{ borderColor: c.blue + "33", background: dk ? "#1A2333" : "#F8FAFC" }}>
                       <div className="absolute top-0 left-0 w-1.5 h-full" style={{ background: c.blue }} />
                       <div className="flex items-center justify-between">
-                        <p className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: c.blue }}>Nouvelle Prescription d'Analyse</p>
+                        <p className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: c.blue }}>{t('dashboard.doctor.medicalRecord.newLabAnalysis')}</p>
                         <button onClick={() => setShowAddLab(false)} className="opacity-40 hover:opacity-100 transition-all hover:bg-red-500/10 p-1 rounded-lg"><X size={18} /></button>
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">Analyse demandée</label>
+                        <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">{t('dashboard.doctor.medicalRecord.requestedAnalysis')}</label>
                         <input placeholder="ex: Bilan Lipidique Complet" value={newLab.test}
                           onChange={e => setNewLab({ ...newLab, test: e.target.value })}
                           className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
                           style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt }} />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">Notes / Urgence</label>
+                        <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">{t('dashboard.doctor.medicalRecord.notesUrgency')}</label>
                         <textarea placeholder="Indications cliniques..." value={newLab.note}
                           onChange={e => setNewLab({ ...newLab, note: e.target.value })}
                           className="w-full px-4 py-4 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500 resize-none h-24"
                           style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt }} />
                       </div>
                       <div className="flex gap-4 pt-3">
-                        <button onClick={() => setShowAddLab(false)} className="flex-1 py-4 rounded-xl text-xs font-black" style={{ color: c.txt2 }}>ANNULER</button>
+                        <button onClick={() => setShowAddLab(false)} className="flex-1 py-4 rounded-xl text-xs font-black" style={{ color: c.txt2 }}>{t('dashboard.doctor.medicalRecord.cancel')}</button>
                         <button onClick={handleAddLab} className="flex-[2] py-4 rounded-xl text-white text-xs font-black shadow-xl transition-all hover:scale-[1.02] active:scale-95"
-                          style={{ background: c.blue, boxShadow: `0 8px 25px ${c.blue}44` }}>CONFIRMER LA DEMANDE</button>
+                          style={{ background: c.blue, boxShadow: `0 8px 25px ${c.blue}44` }}>{t('dashboard.doctor.medicalRecord.confirmRequest')}</button>
                       </div>
                     </div>
                   )}
@@ -3031,7 +3046,7 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                       {/* Nom + réf */}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ fontSize: 15, fontWeight: 600, color: c.txt, margin: 0, lineHeight: 1.3 }}>{l.test}</p>
-                        <p style={{ fontSize: 12, opacity: 0.5, fontStyle: "italic", color: c.txt, margin: 0, marginTop: 3 }}>Réf : {l.ref}</p>
+                        <p style={{ fontSize: 12, opacity: 0.5, fontStyle: "italic", color: c.txt, margin: 0, marginTop: 3 }}>{t('dashboard.doctor.medicalRecord.ref')} : {l.ref}</p>
                       </div>
                       {/* Résultat + badge + trash dans un seul bloc */}
                       <div style={{ display: "flex", alignItems: "center", gap: "16px", flexShrink: 0 }}>
@@ -3057,19 +3072,19 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                       style={{ borderColor: c.blue + "33", background: dk ? "#1A2333" : "#F8FAFC" }}>
                       <div className="absolute top-0 left-0 w-1.5 h-full" style={{ background: c.blue }} />
                       <div className="flex items-center justify-between">
-                        <p className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: c.blue }}>Nouvelle Ordonnance</p>
+                        <p className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: c.blue }}>{t('dashboard.doctor.medicalRecord.newPrescriptionForm')}</p>
                         <button onClick={() => setShowAddPrescription(false)} className="opacity-40 hover:opacity-100 transition-all hover:bg-red-500/10 p-1 rounded-lg"><X size={18} /></button>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                          <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">Médicament</label>
+                          <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">{t('dashboard.doctor.medicalRecord.medicationLabel')}</label>
                           <input placeholder="ex: Paracétamol" value={newRx.medication}
                             onChange={e => setNewRx({ ...newRx, medication: e.target.value })}
                             className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
                             style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt }} />
                         </div>
                         <div className="space-y-1.5">
-                          <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">Dosage</label>
+                          <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">{t('dashboard.doctor.prescription.dosage')}</label>
                           <input placeholder="ex: 500mg" value={newRx.dosage}
                             onChange={e => setNewRx({ ...newRx, dosage: e.target.value })}
                             className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
@@ -3078,7 +3093,7 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                       </div>
                       <div className="space-y-1.5">
                         <DashSelect
-                          label="Fréquence"
+                          label={t('dashboard.doctor.prescription.frequency.label')}
                           value={newRx.frequency}
                           options={FREQUENCY_OPTIONS}
                           onSelect={f => setNewRx(r => ({ ...r, frequency: f }))}
@@ -3087,7 +3102,7 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">Durée (jours)</label>
+                        <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">{t('dashboard.doctor.medicalRecord.durationDays')}</label>
                         <input type="text" inputMode="numeric" placeholder="7" value={newRx.duration}
                           onKeyDown={(e) => { const ok = ["Backspace","Delete","Tab","ArrowLeft","ArrowRight"]; if (!ok.includes(e.key) && !/^\d$/.test(e.key)) e.preventDefault(); }}
                           onChange={e => setNewRx({ ...newRx, duration: e.target.value.replace(/\D/g, "").slice(0, 3) })}
@@ -3108,7 +3123,7 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                           disabled={isRxSaving}
                           className="flex-1 py-4 rounded-xl text-xs font-black disabled:opacity-40"
                           style={{ color: c.txt2 }}
-                        >ANNULER</button>
+                        >{t('dashboard.doctor.medicalRecord.cancel')}</button>
                         <button
                           onClick={handleAddPrescription}
                           disabled={isRxSaving}
@@ -3116,8 +3131,8 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                           style={{ background: c.blue, boxShadow: `0 8px 25px ${c.blue}44` }}
                         >
                           {isRxSaving ? (
-                            <><span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Enregistrement...</>
-                          ) : "ENREGISTRER L'ORDONNANCE"}
+                            <><span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> {t('dashboard.doctor.medicalRecord.saving')}</>
+                          ) : t('dashboard.doctor.medicalRecord.saveRx')}
                         </button>
                       </div>
                     </div>
@@ -3152,7 +3167,7 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                         )}
                         <div className="flex flex-col gap-1.5">
                           <p className="text-[10px] font-black uppercase tracking-wider" style={{ color: c.txt3 }}>
-                            {p.prescription_qr_url ? "QR Code disponible" : "QR généré après validation"}
+                            {p.prescription_qr_url ? t('dashboard.doctor.medicalRecord.qrAvailable') : t('dashboard.doctor.medicalRecord.qrAfterValidation')}
                           </p>
                           {p.prescription_qr_url ? (
                             <a
@@ -3162,7 +3177,7 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all hover:opacity-80 active:scale-95 w-fit"
                               style={{ background: c.blue + "15", color: c.blue }}
                             >
-                              <Download size={12} /> Télécharger
+                              <Download size={12} /> {t('dashboard.doctor.medicalRecord.download')}
                             </a>
                           ) : (
                             <span className="text-[10px] font-medium" style={{ color: c.txt3 }}>
@@ -3182,12 +3197,12 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
         {/* ── Right column: Compte-rendu ── */}
         <div className="space-y-6">
           <Card dk={dk} className="p-8 shadow-xl border-0">
-            <h2 className="text-xl font-black mb-8" style={{ color: c.txt }}>Compte-rendu</h2>
+            <h2 className="text-xl font-black mb-8" style={{ color: c.txt }}>{t('dashboard.doctor.consultation.accountReport')}</h2>
             <div className="space-y-6">
               {/* ── Constantes vitales ── */}
               <div className="space-y-3">
                 <label className="text-[11px] font-black uppercase tracking-widest ml-1 opacity-40" style={{ color: c.txt }}>
-                  Constantes vitales
+                  {t('dashboard.doctor.consultation.vitals')}
                 </label>
                 <div className="grid grid-cols-2 gap-2.5">
                   {[
@@ -3217,29 +3232,29 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
 
               <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase tracking-widest ml-1 opacity-40" style={{ color: c.txt }}>
-                  Symptômes actuels
+                  {t('dashboard.doctor.consultation.currentSymptoms')}
                 </label>
                 <textarea
                   value={symptoms}
                   onChange={e => setSymptoms(e.target.value)}
                   className="w-full rounded-[20px] p-5 text-sm font-bold border-2 outline-none transition-all focus:border-blue-500 min-h-[120px] resize-none"
                   style={{ background: dk ? c.blueLight : "#F8FAFC", borderColor: c.border, color: c.txt }}
-                  placeholder="Notes cliniques..."
+                  placeholder={t('dashboard.doctor.consultation.clinicalNotesPh')}
                 />
               </div>
               <div className="space-y-2" ref={diagnosisRef}>
                 <label className="text-[11px] font-black uppercase tracking-widest ml-1 opacity-40" style={{ color: diagnosisError ? c.red : c.txt }}>
-                  Diagnostic préliminaire <span style={{ color: c.red }}>*</span>
+                  {t('dashboard.doctor.consultation.prelimDiagnosis')} <span style={{ color: c.red }}>*</span>
                 </label>
                 <input
                   value={diagnosis}
                   onChange={e => { setDiagnosis(e.target.value); if (e.target.value.trim()) setDiagnosisError(false); }}
                   className="w-full rounded-2xl px-5 py-4 text-sm font-bold border-2 outline-none focus:border-blue-500"
                   style={{ background: dk ? c.blueLight : "#F8FAFC", borderColor: diagnosisError ? c.red : c.border, color: c.txt }}
-                  placeholder="Recherche de diagnostic..."
+                  placeholder={t('dashboard.doctor.consultation.diagnosisSearch')}
                 />
                 {diagnosisError && (
-                  <p className="text-xs font-semibold ml-1" style={{ color: c.red }}>Le diagnostic est obligatoire</p>
+                  <p className="text-xs font-semibold ml-1" style={{ color: c.red }}>{t('dashboard.doctor.consultation.diagnosisRequired')}</p>
                 )}
               </div>
               {terminateError && (
@@ -3259,10 +3274,10 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                 {isTerminating ? (
                   <>
                     <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Enregistrement...
+                    {t('dashboard.doctor.consultation.saving')}
                   </>
                 ) : (
-                  <><Send size={20} /> TERMINER LA CONSULTATION</>
+                  <><Send size={20} /> {t('dashboard.doctor.consultation.terminate')}</>
                 )}
               </button>
             </div>
@@ -3282,6 +3297,7 @@ export default function DoctorDashboard({ onLogout }) {
   const { theme, toggleTheme } = useTheme();
   const dk = theme === "dark";
   const c = dk ? T.dark : T.light;
+  const { t } = useLanguage();
 
   const { userData: user } = useAuth();
   const { patients = [], appointments = [], patientRequests = [], globalNotifications = [], markAllNotificationsRead } = useData();
@@ -3296,7 +3312,7 @@ export default function DoctorDashboard({ onLogout }) {
   const lastName = user?.last_name || user?.lastName || "";
   const doctorName =
     firstName && lastName ? `Dr. ${firstName} ${lastName}` : "Dr. Benali Karim";
-  const doctorRole = user?.specialty || user?.role || "Médecin Specialist";
+  const doctorRole = user?.specialty || user?.role || t('doctor_role_label');
   const initials =
     firstName && lastName
       ? `${firstName[0]}${lastName[0]}`.toUpperCase()
@@ -3307,11 +3323,11 @@ export default function DoctorDashboard({ onLogout }) {
   const safeRequests = Array.isArray(patientRequests) ? patientRequests : [];
 
   const NAV = [
-    { id: "dashboard", label: "Dashboard" },
-    { id: "schedule", label: "Schedule" },
-    { id: "patients", label: "Patients" },
-    { id: "prescriptions", label: "Prescriptions" },
-    { id: "statistics", label: "Statistics" },
+    { id: "dashboard",     label: t('dashboard.doctor.nav.dashboard') },
+    { id: "schedule",      label: t('dashboard.doctor.nav.schedule') },
+    { id: "patients",      label: t('dashboard.doctor.nav.patients') },
+    { id: "prescriptions", label: t('dashboard.doctor.nav.prescriptions') },
+    { id: "statistics",    label: t('dashboard.doctor.nav.statistics') },
   ];
 
   const isInConsultation = currentPage === "consultation-session";
@@ -3591,7 +3607,7 @@ export default function DoctorDashboard({ onLogout }) {
                       className="pd-item w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-xl"
                     >
                       <Settings size={16} />
-                      Settings
+                      {t('dashboard.doctor.nav.settings')}
                     </button>
 
                     {/* Dark mode */}
@@ -3628,7 +3644,7 @@ export default function DoctorDashboard({ onLogout }) {
                       onClick={onLogout}
                       className="pd-item-danger w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold rounded-xl"
                     >
-                      <LogOut size={16} /> Logout
+                      <LogOut size={16} /> {t('dashboard.doctor.nav.logout')}
                     </button>
                   </div>
                 </div>
@@ -3690,7 +3706,7 @@ export default function DoctorDashboard({ onLogout }) {
         >
           <span style={{ color: c.amber }}>⚠</span>
           <p className="text-xs font-semibold" style={{ color: c.amber }}>
-            Consultation en cours — terminez la session avant de naviguer.
+            {t('dashboard.doctor.consultation.ongoingWarning')}
           </p>
         </div>
       )}

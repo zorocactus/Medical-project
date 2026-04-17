@@ -10,6 +10,7 @@ import {
 import { getAdminTheme } from "../adminTheme.js";
 import { Card, Badge } from "../AdminPrimitives.jsx";
 import * as api from "../../../services/api";
+import { useLanguage } from "../../../context/LanguageContext";
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
 function KpiCard({ label, value, sub, icon: Icon, color, trend, dk }) {
@@ -74,14 +75,18 @@ function CustomTooltip({ active, payload, label, dk }) {
 }
 
 // ─── Months for mock trend (fallback) ─────────────────────────────────────────
-const MONTHS_FR = ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"];
+const MONTHS = {
+  fr: ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"],
+  en: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+};
 
-function buildFallbackTrend() {
+function buildFallbackTrend(lang) {
   const now = new Date();
   return Array.from({ length: 8 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - 7 + i, 1);
+    const mDict = MONTHS[lang] || MONTHS['fr'];
     return {
-      month: MONTHS_FR[d.getMonth()],
+      month: mDict[d.getMonth()],
       rdv: Math.floor(80 + Math.random() * 120),
       users: Math.floor(40 + Math.random() * 80),
     };
@@ -97,22 +102,32 @@ const ROLE_PIE_COLORS = {
   admin:      "#E05555",
 };
 
-const ROLE_LABELS_FR = {
-  patient:    "Patients",
-  doctor:     "Médecins",
-  pharmacist: "Pharmaciens",
-  caretaker:  "Garde-malades",
-  admin:      "Admins",
+const ROLE_LABELS = {
+  fr: {
+    patient:    "Patients",
+    doctor:     "Médecins",
+    pharmacist: "Pharmaciens",
+    caretaker:  "Garde-malades",
+    admin:      "Admins",
+  },
+  en: {
+    patient:    "Patients",
+    doctor:     "Doctors",
+    pharmacist: "Pharmacists",
+    caretaker:  "Caretakers",
+    admin:      "Admins",
+  }
 };
 
 // ─── OVERVIEW PAGE ─────────────────────────────────────────────────────────────
 export default function OverviewPage({ dk, onNav }) {
+  const { t, lang } = useLanguage();
   const c = getAdminTheme(dk);
 
   const [kpis, setKpis] = useState(null);
   const [roleDistrib, setRoleDistrib] = useState([]);
   const [recentRegs, setRecentRegs] = useState([]);
-  const [trend, setTrend] = useState(buildFallbackTrend());
+  const [trend, setTrend] = useState(buildFallbackTrend(lang));
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
@@ -120,24 +135,24 @@ export default function OverviewPage({ dk, onNav }) {
 
   const exportCSV = () => {
     const rows = [
-      ["Indicateur", "Valeur"],
-      ["Utilisateurs totaux", kpis?.total_users ?? "—"],
-      ["Médecins vérifiés", kpis?.verified_doctors ?? "—"],
-      ["Pharmacies actives", kpis?.active_pharmacies ?? "—"],
-      ["Total rendez-vous", kpis?.total_appointments ?? "—"],
+      [t('indicator_label'), t('value_label')],
+      [t('utilisateurs_totaux'), kpis?.total_users ?? "—"],
+      [t('medecins_verifies'), kpis?.verified_doctors ?? "—"],
+      [t('pharmacies_actives'), kpis?.active_pharmacies ?? "—"],
+      [t('total_rdv'), kpis?.total_appointments ?? "—"],
       [],
-      ["Rôle", "Nombre"],
+      [t('role'), t('number_label')],
       ...roleDistrib.map(r => [r.name, r.value]),
       [],
-      ["Mois", "Rendez-vous", "Inscriptions"],
-      ...trend.map(t => [t.month, t.rdv, t.users]),
+      [t('month'), t('appointments'), t('registrations')],
+      ...trend.map(tItem => [tItem.month, tItem.rdv, tItem.users]),
     ];
     const csv = rows.map(r => r.join(";")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `medsmart_rapport_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `medsmart_report_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -150,7 +165,7 @@ export default function OverviewPage({ dk, onNav }) {
       if (data?.kpis) setKpis(data.kpis);
       if (data?.role_distribution) {
         const dist = Object.entries(data.role_distribution).map(([role, count]) => ({
-          name: ROLE_LABELS_FR[role] ?? role,
+          name: ROLE_LABELS[lang]?.[role] ?? role,
           value: count,
           color: ROLE_PIE_COLORS[role] ?? "#9AACBE",
         }));
@@ -174,32 +189,32 @@ export default function OverviewPage({ dk, onNav }) {
   // Build KPI array from real data or fallback
   const kpiCards = [
     {
-      label: "Utilisateurs totaux",
+      label: t('utilisateurs_totaux'),
       value: kpis?.total_users ?? "—",
       icon: Users,
       color: c.blue,
-      sub: "Tous rôles confondus",
+      sub: t('tous_roles_confondus'),
     },
     {
-      label: "Médecins vérifiés",
+      label: t('medecins_verifies'),
       value: kpis?.verified_doctors ?? "—",
       icon: Stethoscope,
       color: c.green,
-      sub: "Profils validés par l'admin",
+      sub: t('profils_valides_admin'),
     },
     {
-      label: "Pharmacies actives",
+      label: t('pharmacies_actives'),
       value: kpis?.active_pharmacies ?? "—",
       icon: Pill,
       color: c.amber,
-      sub: "Officines partenaires",
+      sub: t('officines_partenaires'),
     },
     {
-      label: "Total rendez-vous",
+      label: t('total_rdv'),
       value: kpis?.total_appointments ?? "—",
       icon: Calendar,
       color: c.purple,
-      sub: "Depuis le début",
+      sub: t('depuis_debut'),
     },
   ];
 
@@ -220,21 +235,21 @@ export default function OverviewPage({ dk, onNav }) {
               className="text-xs font-bold uppercase tracking-widest"
               style={{ color: c.green }}
             >
-              Système opérationnel
+              {t('system_operational')}
             </span>
           </div>
           <h1 className="text-3xl font-black tracking-tight" style={{ color: c.txt }}>
-            Centre de Contrôle{" "}
+            {t('control_center')}{" "}
             <span style={{ color: c.blue }}>MedSmart</span>
           </h1>
           <p className="text-sm mt-1" style={{ color: c.txt2 }}>
-            {new Date().toLocaleDateString("fr-FR", {
+            {new Date().toLocaleDateString(lang === "fr" ? "fr-FR" : "en-US", {
               weekday: "long",
               day: "numeric",
               month: "long",
               year: "numeric",
             })}{" "}
-            · Actualisé à {timeStr}
+            · {t('updated_at', { time: timeStr })}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -243,9 +258,9 @@ export default function OverviewPage({ dk, onNav }) {
             disabled={usingFallback}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ borderColor: c.border, color: c.txt2 }}
-            title={usingFallback ? "Données simulées — export désactivé" : "Exporter en CSV"}
+            title={usingFallback ? t('simulated_data') : t('export_report')}
           >
-            <Download size={14} /> Export rapport
+            <Download size={14} /> {t('export_report')}
           </button>
           <button
             onClick={fetchData}
@@ -257,7 +272,7 @@ export default function OverviewPage({ dk, onNav }) {
             }}
           >
             <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
-            Actualiser
+            {t('refresh')}
           </button>
         </div>
       </div>
@@ -269,13 +284,13 @@ export default function OverviewPage({ dk, onNav }) {
           style={{ background: c.amber + "18", borderColor: c.amber + "40", color: c.amber }}
         >
           <AlertTriangle size={16} />
-          Données simulées — le serveur est inaccessible. Les chiffres affichés ne reflètent pas la réalité.
+          {t('server_unreachable')}. {t('simulated_data')}.
           <button
             onClick={fetchData}
             className="ml-auto text-xs underline hover:no-underline"
             style={{ color: c.amber }}
           >
-            Réessayer
+            {t('retry')}
           </button>
         </div>
       )}
@@ -294,20 +309,20 @@ export default function OverviewPage({ dk, onNav }) {
           <div className="flex items-center justify-between mb-5">
             <div>
               <h3 className="font-bold" style={{ color: c.txt }}>
-                Tendances — Rendez-vous & Inscriptions
+                {t('trends')} — {t('appointments')} & {t('registrations')}
               </h3>
               <p className="text-xs mt-0.5" style={{ color: c.txt2 }}>
-                8 derniers mois
+                {t('last_8_months')}
               </p>
             </div>
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: c.blue }}>
                 <span className="w-3 h-3 rounded-full" style={{ background: c.blue }} />
-                Rendez-vous
+                {t('appointments')}
               </span>
               <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: c.green }}>
                 <span className="w-3 h-3 rounded-full" style={{ background: c.green }} />
-                Inscriptions
+                {t('registrations')}
               </span>
             </div>
           </div>
@@ -339,7 +354,7 @@ export default function OverviewPage({ dk, onNav }) {
               <Area
                 type="monotone"
                 dataKey="rdv"
-                name="Rendez-vous"
+                name={t('appointments')}
                 stroke={c.blue}
                 strokeWidth={2.5}
                 fill="url(#gradRdv)"
@@ -349,7 +364,7 @@ export default function OverviewPage({ dk, onNav }) {
               <Area
                 type="monotone"
                 dataKey="users"
-                name="Inscriptions"
+                name={t('registrations')}
                 stroke={c.green}
                 strokeWidth={2.5}
                 fill="url(#gradUsers)"
@@ -363,7 +378,7 @@ export default function OverviewPage({ dk, onNav }) {
         {/* Role distribution Pie */}
         <Card dk={dk} style={{ padding: 24 }}>
           <h3 className="font-bold mb-4" style={{ color: c.txt }}>
-            Répartition des rôles
+            {t('role_distribution')}
           </h3>
           {roleDistrib.length > 0 ? (
             <>
@@ -423,10 +438,10 @@ export default function OverviewPage({ dk, onNav }) {
             /* Fallback bars when no API data */
             <div className="space-y-3">
               {[
-                { role: "Patients", pct: 81, color: "#4A6FA5" },
-                { role: "Médecins", pct: 5, color: "#2D8C6F" },
-                { role: "Pharmaciens", pct: 2, color: "#E8A838" },
-                { role: "Garde-malades", pct: 12, color: "#7B5EA7" },
+                { role: ROLE_LABELS[lang]?.patient || "Patients", pct: 81, color: "#4A6FA5" },
+                { role: ROLE_LABELS[lang]?.doctor || "Médecins", pct: 5, color: "#2D8C6F" },
+                { role: ROLE_LABELS[lang]?.pharmacist || "Pharmaciens", pct: 2, color: "#E8A838" },
+                { role: ROLE_LABELS[lang]?.caretaker || "Garde-malades", pct: 12, color: "#7B5EA7" },
               ].map((r) => (
                 <div key={r.role}>
                   <div className="flex justify-between mb-1">
@@ -458,7 +473,7 @@ export default function OverviewPage({ dk, onNav }) {
               {totalUsers > 0 ? totalUsers.toLocaleString() : "—"}
             </p>
             <p className="text-xs" style={{ color: c.txt2 }}>
-              utilisateurs totaux
+              {t('utilisateurs_totaux')}
             </p>
           </div>
         </Card>
@@ -470,14 +485,14 @@ export default function OverviewPage({ dk, onNav }) {
         <Card dk={dk} style={{ padding: 20 }}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold" style={{ color: c.txt }}>
-              Inscriptions récentes
+              {t('recent_registrations')}
             </h3>
             <button
               onClick={() => onNav("utilisateurs")}
               className="text-xs font-semibold hover:underline"
               style={{ color: c.blue }}
             >
-              Voir tout →
+              {t('see_all')} →
             </button>
           </div>
           {loading ? (
@@ -511,12 +526,12 @@ export default function OverviewPage({ dk, onNav }) {
                   : u.role === "pharmacist" ? "#E8A838"
                   : u.role === "caretaker" ? "#7B5EA7"
                   : "#4A6FA5";
-                const roleLabel =
-                  u.role === "doctor" ? "Médecin"
-                  : u.role === "pharmacist" ? "Pharmacien"
-                  : u.role === "caretaker" ? "Garde-malade"
-                  : "Patient";
-                return (
+                 const roleLabel =
+                   u.role === "doctor" ? t('doctor')
+                   : u.role === "pharmacist" ? t('pharmacist')
+                   : u.role === "caretaker" ? t('caretaker')
+                   : t('patient');
+                 return (
                   <div key={i} className="flex items-center gap-3">
                     <div
                       className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0"
@@ -547,7 +562,7 @@ export default function OverviewPage({ dk, onNav }) {
             </div>
           ) : (
             <p className="text-sm text-center py-6" style={{ color: c.txt3 }}>
-              Aucune inscription récente
+              {t('no_results_found')}
             </p>
           )}
         </Card>
@@ -556,14 +571,14 @@ export default function OverviewPage({ dk, onNav }) {
         <Card dk={dk} style={{ padding: 20 }}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold" style={{ color: c.txt }}>
-              État du système
+              {t('system_status')}
             </h3>
             <button
               onClick={() => onNav("audit")}
               className="text-xs font-semibold hover:underline"
               style={{ color: c.blue }}
             >
-              Journal complet →
+              {t('view_full_log')} →
             </button>
           </div>
           <div className="space-y-3">
@@ -571,12 +586,12 @@ export default function OverviewPage({ dk, onNav }) {
               {
                 label: "API Backend",
                 status: kpis ? "ok" : "warn",
-                msg: kpis ? "Opérationnel" : "Données backend indisponibles",
+                msg: kpis ? t('system_operational') : t('server_unreachable'),
               },
-              { label: "Base de données", status: "ok", msg: "PostgreSQL connecté" },
-              { label: "Auth JWT", status: "ok", msg: "Tokens actifs" },
-              { label: "Notifications", status: "ok", msg: "Service actif" },
-              { label: "Stockage médias", status: "ok", msg: "Upload disponible" },
+              { label: t('database') || "Database", status: "ok", msg: "PostgreSQL" },
+              { label: "Auth JWT", status: "ok", msg: "Active" },
+              { label: "Notifications", status: "ok", msg: t('active_status') || "Active" },
+              { label: t('reports') || "Reports", status: "ok", msg: t('system_operational') || "Ready" },
             ].map((s, i) => (
               <div
                 key={i}
@@ -617,10 +632,10 @@ export default function OverviewPage({ dk, onNav }) {
             <AlertTriangle size={16} style={{ color: c.amber }} />
             <div>
               <p className="text-xs font-bold" style={{ color: c.amber }}>
-                Inscriptions en attente
+                {t('pending_registrations')}
               </p>
               <p className="text-xs mt-0.5" style={{ color: c.txt2 }}>
-                Accédez à la section Validation pour traiter les demandes.
+                {t('validation_section_desc')}
               </p>
             </div>
             <button
@@ -628,7 +643,7 @@ export default function OverviewPage({ dk, onNav }) {
               className="ml-auto text-xs font-bold px-3 py-1.5 rounded-lg text-white shrink-0"
               style={{ background: c.amber }}
             >
-              Voir
+              {t('view_doc')}
             </button>
           </div>
         </Card>

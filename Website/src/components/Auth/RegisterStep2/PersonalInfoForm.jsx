@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Phone, User, Home, ChevronDown } from "lucide-react";
 import StepBar from "./StepBar";
 import { useTheme } from "../../../context/ThemeContext";
+import { useLanguage } from "../../../context/LanguageContext";
 
 const SEXE_OPTIONS = ["Masculin", "Féminin"];
 const WILAYAS = ["Alger", "Oran", "Constantine", "Annaba", "Blida", "Batna", "Sétif", "Tlemcen", "Tizi Ouzou", "Béjaïa", "Jijel", "Autre"];
@@ -24,7 +25,7 @@ function CustomSelect({ label, value, options, onSelect, placeholder = "Sélecti
         {isOpen && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-            <div className="absolute top-full left-0 right-0 mt-1 rounded-xl border shadow-2xl z-50 py-1 max-h-52 overflow-y-auto"
+            <div className="absolute bottom-full left-0 right-0 mb-1 rounded-xl border shadow-2xl z-50 py-1 max-h-52 overflow-y-auto"
               style={{ background: c.dropdown, borderColor: c.border }}>
               {options.map((opt) => (
                 <button key={opt} type="button"
@@ -63,6 +64,7 @@ function Field({ label, icon, error, children, c }) {
 
 export default function PersonalInfoForm({ onComplete, onBack, steps, currentStep, devFillData }) {
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const isDark = theme === "dark";
 
   const c = isDark ? {
@@ -125,7 +127,7 @@ export default function PersonalInfoForm({ onComplete, onBack, steps, currentSte
   const handleSubmit = () => {
     const required = ["birthDate", "phone", "idCardNumber", "address", "postalCode", "city"];
     const newErrors = {};
-    required.forEach((f) => { if (!formData[f]?.trim()) newErrors[f] = "Ce champ est obligatoire"; });
+    required.forEach((f) => { if (!formData[f]?.trim()) newErrors[f] = t('auth.register.fieldRequired'); });
     if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
     onComplete(formData);
   };
@@ -147,31 +149,31 @@ export default function PersonalInfoForm({ onComplete, onBack, steps, currentSte
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-5">
             <div className="flex-1 h-px" style={{ background: c.div }} />
-            <span className="text-[12px] font-semibold tracking-wide uppercase" style={{ color: c.divTxt }}>Informations personnelles</span>
+            <span className="text-[12px] font-semibold tracking-wide uppercase" style={{ color: c.divTxt }}>{t('auth.register.personalInfo.title')}</span>
             <div className="flex-1 h-px" style={{ background: c.div }} />
           </div>
 
           <div className="grid grid-cols-2 gap-3 mb-3">
-            <Field label="Date de naissance" error={errors.birthDate} c={c}>
+            <Field label={t('auth.register.personalInfo.birthDate')} error={errors.birthDate} c={c}>
               <input type="date" name="birthDate" value={formData.birthDate} onChange={handleChange}
                 className={inputCls(false, errors.birthDate)}
                 style={{ background: c.inputBg, color: c.txt, colorScheme: isDark ? "dark" : "light" }}
               />
             </Field>
-            <CustomSelect label="Sexe" value={formData.sex} options={SEXE_OPTIONS}
+            <CustomSelect label={t('auth.register.personalInfo.sex')} value={formData.sex} options={SEXE_OPTIONS}
               onSelect={(v) => handleField("sex", v)} error={errors.sex} c={c} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Téléphone" icon={<Phone size={14} />} error={errors.phone} c={c}>
-              <input type="text" name="phone" placeholder="0555123456"
+            <Field label={t('auth.register.personalInfo.phone')} icon={<Phone size={14} />} error={errors.phone} c={c}>
+              <input type="text" name="phone" placeholder={t('auth.register.personalInfo.phonePlaceholder')}
                 value={formData.phone} onChange={(e) => handleNumberChange(e, "phone", 10)}
                 className={inputCls(true, errors.phone)}
                 style={{ background: c.inputBg, color: c.txt }}
               />
             </Field>
-            <Field label="N° Carte d'identité" icon={<User size={14} />} error={errors.idCardNumber} c={c}>
-              <input type="text" name="idCardNumber" placeholder="Ex: 10123456789"
+            <Field label={t('auth.register.personalInfo.nationalId')} icon={<User size={14} />} error={errors.idCardNumber} c={c}>
+              <input type="text" name="idCardNumber" placeholder={t('auth.register.personalInfo.nationalIdHint')}
                 value={formData.idCardNumber} onChange={(e) => handleNumberChange(e, "idCardNumber", 18)}
                 className={inputCls(true, errors.idCardNumber)}
                 style={{ background: c.inputBg, color: c.txt }}
@@ -184,13 +186,13 @@ export default function PersonalInfoForm({ onComplete, onBack, steps, currentSte
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-5">
             <div className="flex-1 h-px" style={{ background: c.div }} />
-            <span className="text-[12px] font-semibold tracking-wide uppercase" style={{ color: c.divTxt }}>Adresse résidentielle</span>
+            <span className="text-[12px] font-semibold tracking-wide uppercase" style={{ color: c.divTxt }}>{t('auth.register.personalInfo.residentialAddress')}</span>
             <div className="flex-1 h-px" style={{ background: c.div }} />
           </div>
 
           <div className="space-y-3">
-            <Field label="Adresse" icon={<Home size={14} />} error={errors.address} c={c}>
-              <input type="text" name="address" placeholder="Rue, numéro..."
+            <Field label={t('auth.register.personalInfo.address')} icon={<Home size={14} />} error={errors.address} c={c}>
+              <input type="text" name="address" placeholder={t('auth.register.personalInfo.streetHint')}
                 value={formData.address} onChange={handleChange}
                 className={inputCls(true, errors.address)}
                 style={{ background: c.inputBg, color: c.txt }}
@@ -198,15 +200,15 @@ export default function PersonalInfoForm({ onComplete, onBack, steps, currentSte
             </Field>
 
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Code postal" error={errors.postalCode} c={c}>
-                <input type="text" name="postalCode" placeholder="16000"
+              <Field label={t('auth.register.personalInfo.postalCode')} error={errors.postalCode} c={c}>
+                <input type="text" name="postalCode" placeholder={t('auth.register.personalInfo.postalCodeHint')}
                   value={formData.postalCode} onChange={(e) => handleNumberChange(e, "postalCode", 5)}
                   className={inputCls(false, errors.postalCode)}
                   style={{ background: c.inputBg, color: c.txt }}
                 />
               </Field>
-              <Field label="Commune" error={errors.city} c={c}>
-                <input type="text" name="city" placeholder="Rouiba"
+              <Field label={t('auth.register.personalInfo.city')} error={errors.city} c={c}>
+                <input type="text" name="city" placeholder={t('auth.register.personalInfo.cityHint')}
                   value={formData.city} onChange={handleChange}
                   className={inputCls(false, errors.city)}
                   style={{ background: c.inputBg, color: c.txt }}
@@ -214,7 +216,7 @@ export default function PersonalInfoForm({ onComplete, onBack, steps, currentSte
               </Field>
             </div>
 
-            <CustomSelect label="Wilaya" value={formData.wilaya} options={WILAYAS}
+            <CustomSelect label={t('auth.register.personalInfo.wilaya')} value={formData.wilaya} options={WILAYAS}
               onSelect={(v) => handleField("wilaya", v)} c={c} />
           </div>
         </div>
@@ -224,12 +226,12 @@ export default function PersonalInfoForm({ onComplete, onBack, steps, currentSte
           <button type="button" onClick={onBack}
             className="px-5 py-2.5 rounded-xl border text-sm font-medium transition-all cursor-pointer"
             style={{ background: isDark ? "rgba(255,255,255,0.06)" : "transparent", borderColor: c.border, color: c.txt2 }}>
-            ← Retour
+            {t('auth.register.back')}
           </button>
           <button type="button" onClick={handleSubmit}
             className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold transition-all cursor-pointer hover:brightness-110"
             style={{ background: c.blue }}>
-            Continuer →
+            {t('auth.register.continue')}
           </button>
         </div>
 

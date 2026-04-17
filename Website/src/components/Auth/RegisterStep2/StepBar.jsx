@@ -1,8 +1,10 @@
 import { Check } from "lucide-react";
 import { useTheme } from "../../../context/ThemeContext";
+import { useLanguage } from "../../../context/LanguageContext";
 
 export default function StepBar({ steps, current }) {
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const isDark = theme === "dark";
 
   const c = isDark ? {
@@ -49,7 +51,7 @@ export default function StepBar({ steps, current }) {
                 className="text-[10px] font-medium text-center leading-tight"
                 style={{ color: isDone ? c.doneTxt : isActive ? c.activeTxt : c.futureTxt }}
               >
-                {step.label}
+                {step.key ? t(step.key) : step.label}
               </span>
             </div>
             {i < steps.length - 1 && (

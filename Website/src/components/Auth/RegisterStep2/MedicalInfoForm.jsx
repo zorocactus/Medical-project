@@ -3,19 +3,20 @@ import { Check, ChevronDown, Stethoscope, Pill, Users, Link as LinkIcon } from "
 import StepBar from "./StepBar";
 import { MEDICAL_STEPS } from "./MedicalForm";
 import { useTheme } from "../../../context/ThemeContext";
+import { useLanguage } from "../../../context/LanguageContext";
 
 function CustomSelect({ label, value, options, onSelect, placeholder = "Sélectionner...", error, c }) {
   const [isOpen, setIsOpen] = useState(false);
   return (
     <div className="space-y-1">
-      <label className="text-[12px] font-medium block" style={{ color: c.txt2 }}>{label}</label>
+      <label className="text-[12px] font-medium block" style={{ color: c.label }}>{label}</label>
       <div className="relative">
         <button type="button" onClick={() => setIsOpen(!isOpen)}
           className="w-full flex items-center justify-between px-3.5 py-[10px] rounded-xl border-2 text-sm transition-all outline-none"
-          style={{ background: c.input, borderColor: error ? "#f87171" : c.border }}
+          style={{ background: c.inputBg, borderColor: error ? "#f87171" : c.border }}
         >
           <span style={{ color: value ? c.txt : c.txt3 }}>{value || placeholder}</span>
-          <ChevronDown size={16} className={`shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} style={{ color: c.blue }} />
+          <ChevronDown size={16} className={`shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} style={{ color: c.icon }} />
         </button>
         {isOpen && (
           <>
@@ -26,7 +27,7 @@ function CustomSelect({ label, value, options, onSelect, placeholder = "Sélecti
                 <button key={opt} type="button"
                   onClick={() => { onSelect(opt); setIsOpen(false); }}
                   className="w-full px-4 py-2.5 text-sm text-left transition-all"
-                  style={{ color: value === opt ? c.blue : c.txt2, background: value === opt ? c.input : "transparent" }}
+                  style={{ color: value === opt ? c.blue : c.txt2, background: value === opt ? c.inputBg : "transparent" }}
                 >
                   {opt}
                 </button>
@@ -43,7 +44,7 @@ function CustomSelect({ label, value, options, onSelect, placeholder = "Sélecti
 function TextField({ name, label, placeholder, value, onChange, onFieldChange, error, numeric, maxLen, suffix, c }) {
   return (
     <div className="space-y-1">
-      <label className="text-[12px] font-medium block" style={{ color: c.txt2 }}>{label}</label>
+      <label className="text-[12px] font-medium block" style={{ color: c.label }}>{label}</label>
       <div className="relative">
         <input
           type="text"
@@ -54,11 +55,11 @@ function TextField({ name, label, placeholder, value, onChange, onFieldChange, e
           onChange={numeric
             ? (e) => { const v = e.target.value.replace(/\D/g, ""); if (!maxLen || v.length <= maxLen) onFieldChange(name, v); }
             : onChange}
-          className={`w-full px-3.5 ${suffix ? "pr-12" : "pr-3.5"} py-[10px] rounded-xl border-2 text-sm outline-none transition-all placeholder-[#4A6080] ${error ? "border-red-400" : "focus:border-[#638ECB]"}`}
-          style={{ background: c.input, borderColor: error ? undefined : c.border, color: c.txt }}
+          className={`w-full px-3.5 ${suffix ? "pr-12" : "pr-3.5"} py-[10px] rounded-xl border-2 text-sm outline-none transition-all ${c.ph} ${error ? "border-red-400" : c.inputBorder}`}
+          style={{ background: c.inputBg, color: c.txt }}
         />
         {suffix && (
-          <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[12px] font-bold pointer-events-none" style={{ color: c.blue }}>
+          <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[12px] font-bold pointer-events-none" style={{ color: c.icon }}>
             {suffix}
           </span>
         )}
@@ -69,26 +70,27 @@ function TextField({ name, label, placeholder, value, onChange, onFieldChange, e
 }
 
 function UploadZone({ id, label, value, onChange, error, c }) {
+  const { t } = useLanguage();
   return (
     <div className="space-y-1">
-      <label className="text-[12px] font-medium block" style={{ color: c.txt2 }}>{label}</label>
+      <label className="text-[12px] font-medium block" style={{ color: c.label }}>{label}</label>
       <div className="relative">
         <input type="file" id={id} accept=".jpg,.jpeg,.png,.pdf" onChange={onChange} className="hidden" />
         <label htmlFor={id}
           className="flex flex-col items-center justify-center w-full min-h-[90px] rounded-xl border-2 border-dashed cursor-pointer transition-all"
           style={{
             borderColor: error ? "#f87171" : value ? c.blue : c.border,
-            background:  error ? "rgba(248,113,113,0.05)" : value ? `${c.blue}18` : "transparent",
+            background:  error ? "rgba(248,113,113,0.05)" : value ? `${c.blue}18` : c.uploadBg,
           }}
         >
           <div className="w-7 h-7 rounded border flex items-center justify-center mb-1.5"
-            style={{ borderColor: value ? c.blue : c.border, background: c.input }}>
-            <span className="font-bold text-base" style={{ color: value ? c.blue : c.txt3 }}>+</span>
+            style={{ borderColor: value ? c.blue : c.border, background: c.inputBg }}>
+            <span className="font-bold text-base" style={{ color: value ? c.blue : c.iconMuted }}>+</span>
           </div>
           <span className="font-semibold text-[13px] mb-0.5" style={{ color: value ? c.blue : c.txt2 }}>
-            {value ? "✓ Document Ajouté" : "Télécharger le document"}
+            {value ? t('auth.register.activity.documentAdded') : t('auth.register.activity.uploadDoc')}
           </span>
-          <span className="text-[11px]" style={{ color: c.txt3 }}>PDF, JPG — 5MB max</span>
+          <span className="text-[11px]" style={{ color: c.txt3 }}>{t('auth.register.activity.filesHint')}</span>
         </label>
       </div>
       {error && <p className="text-[11px] text-red-400 text-center">{error}</p>}
@@ -96,20 +98,21 @@ function UploadZone({ id, label, value, onChange, error, c }) {
   );
 }
 
-function MapsInput({ label, value, onChange, placeholder, c }) {
+function MapsInput({ label, value, onChange, placeholder, error, c }) {
   return (
     <div className="space-y-1">
-      <label className="text-[12px] font-medium block" style={{ color: c.txt2 }}>{label}</label>
+      <label className="text-[12px] font-medium block" style={{ color: c.label }}>{label}</label>
       <div className="relative">
-        <div className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: c.blue }}>
+        <div className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: c.icon }}>
           <LinkIcon size={14} />
         </div>
         <input type="url" placeholder={placeholder || "https://maps.google.com/..."}
           value={value} onChange={onChange}
-          className="w-full pl-9 pr-3.5 py-[10px] rounded-xl border-2 outline-none text-sm transition-all focus:border-[#638ECB] placeholder-[#4A6080]"
-          style={{ background: c.input, borderColor: c.border, color: c.txt }}
+          className={`w-full pl-9 pr-3.5 py-[10px] rounded-xl border-2 outline-none text-sm transition-all ${c.ph} ${error ? "border-red-400" : c.inputBorder}`}
+          style={{ background: c.inputBg, color: c.txt }}
         />
       </div>
+      {error && <p className="text-[11px] text-red-400">{error}</p>}
     </div>
   );
 }
@@ -138,24 +141,49 @@ const WILAYAS = [
 
 const ROLE_CONFIG = {
   "Médecin":      { icon: <Stethoscope size={16} />, color: "#638ECB", title: "Médecin" },
-  "Pharmacien":   { icon: <Pill size={16} />,        color: "#2D8C6F", title: "Pharmacien" },
+  "Pharmacien":   { icon: <Pill size={16} />,        color: "#4CAF82", title: "Pharmacien" },
   "Garde-malade": { icon: <Users size={16} />,       color: "#9B7FD4", title: "Garde-Malade" },
 };
 
 export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Médecin" }) {
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const isDark = theme === "dark";
 
-  const c = {
-    bg:       isDark ? "#0D1117" : "#F0F4F8",
-    input:    isDark ? "#141B27" : "#ffffff",
-    dropdown: isDark ? "#0A1220" : "#ffffff",
-    border:   isDark ? "#2A4A7F" : "#E4EAF5",
-    txt:      isDark ? "#F0F3FA" : "#0D1B2E",
-    txt2:     isDark ? "#8AAEE0" : "#5A6E8A",
-    txt3:     isDark ? "#4A6080" : "#9AACBE",
-    blue:     isDark ? "#638ECB" : "#4A6FA5",
-    div:      isDark ? "#2A4A7F" : "#E4EAF5",
+  const c = isDark ? {
+    bg:          "#0D1117",
+    inputBg:     "rgba(255,255,255,0.08)",
+    inputBorder: "border-white/15 focus:border-[#638ECB]",
+    border:      "rgba(255,255,255,0.15)",
+    dropdown:    "#0A1220",
+    uploadBg:    "rgba(255,255,255,0.04)",
+    txt:         "#FFFFFF",
+    txt2:        "rgba(255,255,255,0.7)",
+    txt3:        "rgba(255,255,255,0.35)",
+    label:       "rgba(255,255,255,0.7)",
+    icon:        "rgba(255,255,255,0.4)",
+    iconMuted:   "rgba(255,255,255,0.3)",
+    blue:        "#638ECB",
+    div:         "rgba(255,255,255,0.12)",
+    divTxt:      "rgba(255,255,255,0.45)",
+    ph:          "placeholder-white/40",
+  } : {
+    bg:          "#F0F4F8",
+    inputBg:     "#ffffff",
+    inputBorder: "border-[#E4EAF5] focus:border-[#4A6FA5]",
+    border:      "#E4EAF5",
+    dropdown:    "#ffffff",
+    uploadBg:    "transparent",
+    txt:         "#0D1B2E",
+    txt2:        "#5A6E8A",
+    txt3:        "#9AACBE",
+    label:       "#5A6E8A",
+    icon:        "#4A6FA5",
+    iconMuted:   "#9AACBE",
+    blue:        "#4A6FA5",
+    div:         "#E4EAF5",
+    divTxt:      "#9AACBE",
+    ph:          "placeholder-gray-400",
   };
 
   const config = ROLE_CONFIG[medicalRole] || ROLE_CONFIG["Médecin"];
@@ -164,7 +192,7 @@ export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Mé
     specialite: "", nInscription: "", cabinetName: "", mapsUrl: "",
     pharmacyName: "", agrement: "", pharmacyMapsUrl: "",
     qualification: "", experienceYears: "", tarifSoin: "", wilaya: "",
-    cnas: "Oui", docFile: null,
+    cnas: "Oui", docFile: null, diplomeFile: null,
   });
   const [errors, setErrors] = useState({});
 
@@ -182,19 +210,23 @@ export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Mé
   const handleSubmit = () => {
     const newErrors = {};
     if (medicalRole === "Médecin") {
-      if (!formData.specialite)            newErrors.specialite    = "Ce champ est obligatoire";
-      if (!formData.nInscription.trim())   newErrors.nInscription  = "Ce champ est obligatoire";
-      if (!formData.cabinetName.trim())    newErrors.cabinetName   = "Ce champ est obligatoire";
+      if (!formData.specialite)              newErrors.specialite      = t('auth.register.fieldRequired');
+      if (!formData.nInscription.trim())    newErrors.nInscription    = t('auth.register.fieldRequired');
+      if (!formData.cabinetName.trim())     newErrors.cabinetName     = t('auth.register.fieldRequired');
+      if (!formData.experienceYears.trim()) newErrors.experienceYears = t('auth.register.fieldRequired');
+      if (!formData.mapsUrl.trim())         newErrors.mapsUrl         = t('auth.register.fieldRequired');
+      if (!formData.diplomeFile)            newErrors.diplomeFile     = t('auth.register.fieldRequired');
     } else if (medicalRole === "Pharmacien") {
-      if (!formData.pharmacyName.trim())   newErrors.pharmacyName  = "Ce champ est obligatoire";
-      if (!formData.agrement.trim())       newErrors.agrement      = "Ce champ est obligatoire";
+      if (!formData.pharmacyName.trim())    newErrors.pharmacyName    = t('auth.register.fieldRequired');
+      if (!formData.agrement.trim())        newErrors.agrement        = t('auth.register.fieldRequired');
+      if (!formData.pharmacyMapsUrl.trim()) newErrors.pharmacyMapsUrl = t('auth.register.fieldRequired');
     } else if (medicalRole === "Garde-malade") {
-      if (!formData.qualification)          newErrors.qualification   = "Ce champ est obligatoire";
-      if (!formData.experienceYears.trim()) newErrors.experienceYears = "Ce champ est obligatoire";
-      if (!formData.tarifSoin.trim())       newErrors.tarifSoin      = "Ce champ est obligatoire";
-      if (!formData.wilaya)                 newErrors.wilaya          = "Ce champ est obligatoire";
+      if (!formData.qualification)          newErrors.qualification   = t('auth.register.fieldRequired');
+      if (!formData.experienceYears.trim()) newErrors.experienceYears = t('auth.register.fieldRequired');
+      if (!formData.tarifSoin.trim())       newErrors.tarifSoin       = t('auth.register.fieldRequired');
+      if (!formData.wilaya)                 newErrors.wilaya          = t('auth.register.fieldRequired');
     }
-    if (!formData.docFile) newErrors.docFile = "Ce document est obligatoire";
+    if (!formData.docFile) newErrors.docFile = t('auth.register.fieldRequired');
     if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
     onComplete({ ...formData, medicalRole });
   };
@@ -202,9 +234,9 @@ export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Mé
   const handleDevFill = () => {
     const f = new File([""], "dev.pdf", { type: "application/pdf" });
     const d = medicalRole === "Médecin"
-      ? { specialite: "Cardiologue", nInscription: "161234", cabinetName: "Cabinet Dr. Dev", mapsUrl: "", cnas: "Oui", docFile: f }
+      ? { specialite: "Cardiologue", nInscription: "161234", cabinetName: "Cabinet Dr. Dev", experienceYears: "5", mapsUrl: "https://maps.google.com/?q=Alger", cnas: "Oui", docFile: f, diplomeFile: f }
       : medicalRole === "Pharmacien"
-      ? { pharmacyName: "Pharmacie Dev", agrement: "20241001", pharmacyMapsUrl: "", cnas: "Oui", docFile: f }
+      ? { pharmacyName: "Pharmacie Dev", agrement: "20241001", pharmacyMapsUrl: "https://maps.google.com/?q=Alger", cnas: "Oui", docFile: f }
       : { qualification: "Infirmier(ère) diplômé(e) d'État", experienceYears: "5", tarifSoin: "2000", wilaya: "Alger", cnas: "Oui", docFile: f };
     onComplete({ ...d, medicalRole });
   };
@@ -212,6 +244,11 @@ export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Mé
   const docChangeHandler = (e) => {
     setFormData(p => ({ ...p, docFile: e.target.files[0] }));
     if (errors.docFile) setErrors(p => ({ ...p, docFile: "" }));
+  };
+
+  const diplomeChangeHandler = (e) => {
+    setFormData(p => ({ ...p, diplomeFile: e.target.files[0] }));
+    if (errors.diplomeFile) setErrors(p => ({ ...p, diplomeFile: "" }));
   };
 
   return (
@@ -236,23 +273,27 @@ export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Mé
         {medicalRole === "Médecin" && (
           <div className="grid grid-cols-2 gap-3 mb-6">
             <div className="col-span-2">
-              <CustomSelect label="Spécialité médicale" value={formData.specialite} options={SPECIALITES}
+              <CustomSelect label={t('auth.register.activity.medicalSpecialty')} value={formData.specialite} options={SPECIALITES}
                 onSelect={(v) => handleField("specialite", v)} error={errors.specialite} c={c} />
             </div>
-            <TextField name="nInscription" label="N° inscription à l'Ordre"
-              placeholder="Ex: 161234" value={formData.nInscription}
+            <TextField name="nInscription" label={t('auth.register.activity.orderRegistration')}
+              placeholder={t('auth.register.activity.registrationHint')} value={formData.nInscription}
               onChange={handleChange} onFieldChange={handleField} numeric maxLen={10} error={errors.nInscription} c={c} />
-            <TextField name="cabinetName" label="Nom du Cabinet"
-              placeholder="Cabinet Dr. Benali" value={formData.cabinetName}
+            <TextField name="cabinetName" label={t('auth.register.activity.clinicName')}
+              placeholder={t('auth.register.activity.clinicNameHint')} value={formData.cabinetName}
               onChange={handleChange} onFieldChange={handleField} error={errors.cabinetName} c={c} />
-            <TextField name="experienceYears" label="Années d'expérience"
-              placeholder="Ex: 5" value={formData.experienceYears}
-              onChange={handleChange} onFieldChange={handleField} numeric maxLen={2} c={c} />
-            <MapsInput label="Google Maps (optionnel)" value={formData.mapsUrl}
-              onChange={(e) => handleField("mapsUrl", e.target.value)} c={c} />
+            <TextField name="experienceYears" label={t('auth.register.activity.experienceYears')}
+              placeholder={t('auth.register.activity.experienceHint')} value={formData.experienceYears}
+              onChange={handleChange} onFieldChange={handleField} numeric maxLen={2} suffix="ans" error={errors.experienceYears} c={c} />
+            <MapsInput label={t('auth.register.activity.googleMaps')} value={formData.mapsUrl}
+              onChange={(e) => handleField("mapsUrl", e.target.value)} error={errors.mapsUrl} c={c} />
             <div className="col-span-2">
-              <UploadZone id="autorisationFile" label="Autorisation d'exercer"
+              <UploadZone id="autorisationFile" label={t('auth.register.activity.exerciseAuth')}
                 value={formData.docFile} onChange={docChangeHandler} error={errors.docFile} c={c} />
+            </div>
+            <div className="col-span-2">
+              <UploadZone id="diplomeFile" label={t('auth.register.activity.diplomaCopy')}
+                value={formData.diplomeFile} onChange={diplomeChangeHandler} error={errors.diplomeFile} c={c} />
             </div>
           </div>
         )}
@@ -260,18 +301,18 @@ export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Mé
         {/* ══ PHARMACIEN ═══════════════════════════════════════════════════════ */}
         {medicalRole === "Pharmacien" && (
           <div className="grid grid-cols-2 gap-3 mb-6">
-            <TextField name="pharmacyName" label="Nom de la Pharmacie"
-              placeholder="Pharmacie du Centre" value={formData.pharmacyName}
+            <TextField name="pharmacyName" label={t('auth.register.activity.pharmacyName')}
+              placeholder={t('auth.register.activity.pharmacyNameHint')} value={formData.pharmacyName}
               onChange={handleChange} onFieldChange={handleField} error={errors.pharmacyName} c={c} />
-            <TextField name="agrement" label="N° d'Agrément National"
-              placeholder="Ex: 20241001" value={formData.agrement}
+            <TextField name="agrement" label={t('auth.register.activity.nationalAgreement')}
+              placeholder={t('auth.register.activity.pharmacyLicenseHint')} value={formData.agrement}
               onChange={handleChange} onFieldChange={handleField} numeric maxLen={12} error={errors.agrement} c={c} />
             <div className="col-span-2">
-              <MapsInput label="Google Maps (optionnel)" value={formData.pharmacyMapsUrl}
-                onChange={(e) => handleField("pharmacyMapsUrl", e.target.value)} c={c} />
+              <MapsInput label={t('auth.register.activity.googleMaps')} value={formData.pharmacyMapsUrl}
+                onChange={(e) => handleField("pharmacyMapsUrl", e.target.value)} error={errors.pharmacyMapsUrl} c={c} />
             </div>
             <div className="col-span-2">
-              <UploadZone id="registreFile" label="Registre de Commerce"
+              <UploadZone id="registreFile" label={t('auth.register.activity.tradeRegister')}
                 value={formData.docFile} onChange={docChangeHandler} error={errors.docFile} c={c} />
             </div>
           </div>
@@ -281,22 +322,22 @@ export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Mé
         {medicalRole === "Garde-malade" && (
           <div className="grid grid-cols-2 gap-3 mb-6">
             <div className="col-span-2">
-              <CustomSelect label="Qualification / Diplôme" value={formData.qualification}
+              <CustomSelect label={t('auth.register.activity.qualification')} value={formData.qualification}
                 options={QUALIFICATIONS_GM} onSelect={(v) => handleField("qualification", v)} error={errors.qualification} c={c} />
             </div>
-            <TextField name="experienceYears" label="Années d'expérience"
-              placeholder="Ex: 5" value={formData.experienceYears}
+            <TextField name="experienceYears" label={t('auth.register.activity.experienceYears')}
+              placeholder={t('auth.register.activity.experienceHint')} value={formData.experienceYears}
               onChange={handleChange} onFieldChange={handleField} numeric maxLen={2} suffix="ans" error={errors.experienceYears} c={c} />
-            <TextField name="tarifSoin" label="Tarif de base (DZD)"
-              placeholder="Ex: 2000" value={formData.tarifSoin}
+            <TextField name="tarifSoin" label={t('auth.register.activity.careRate')}
+              placeholder={t('auth.register.activity.rateHint')} value={formData.tarifSoin}
               onChange={handleChange} onFieldChange={handleField} numeric maxLen={6} suffix="DZD" error={errors.tarifSoin} c={c} />
             <div className="col-span-2">
-              <CustomSelect label="Zone d'intervention (Wilaya)" value={formData.wilaya}
+              <CustomSelect label={t('auth.register.activity.interventionZone')} value={formData.wilaya}
                 options={WILAYAS} onSelect={(v) => handleField("wilaya", v)}
-                placeholder="Sélectionner votre wilaya" error={errors.wilaya} c={c} />
+                placeholder={t('auth.register.personalInfo.wilayaHint')} error={errors.wilaya} c={c} />
             </div>
             <div className="col-span-2">
-              <UploadZone id="diplomeFile" label="Copie du Diplôme"
+              <UploadZone id="diplomeFile" label={t('auth.register.activity.diplomaCopy')}
                 value={formData.docFile} onChange={docChangeHandler} error={errors.docFile} c={c} />
             </div>
           </div>
@@ -304,10 +345,10 @@ export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Mé
 
         {/* CNAS */}
         <div className="flex flex-col items-center mb-6">
-          <span className="text-[12px] font-semibold mb-3 uppercase tracking-wide" style={{ color: c.txt2 }}>Convention CNAS</span>
+          <span className="text-[12px] font-semibold mb-3 uppercase tracking-wide" style={{ color: c.divTxt }}>{t('auth.register.activity.cnasConvention')}</span>
           <div className="flex items-center gap-6">
             {["Oui", "Non"].map((val) => (
-              <label key={val} className="flex items-center gap-2 cursor-pointer group" onClick={() => handleField("cnas", val)}>
+              <label key={val} className="flex items-center gap-2 cursor-pointer" onClick={() => handleField("cnas", val)}>
                 <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all"
                   style={{ borderColor: formData.cnas === val ? c.blue : c.border }}>
                   {formData.cnas === val && <div className="w-2.5 h-2.5 rounded-full" style={{ background: c.blue }} />}
@@ -325,13 +366,13 @@ export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Mé
         <div className="flex items-center gap-3">
           <button type="button" onClick={onBack}
             className="px-5 py-2.5 rounded-xl border text-sm font-medium transition-all cursor-pointer"
-            style={{ borderColor: c.border, color: c.txt2 }}>
-            ← Retour
+            style={{ background: isDark ? "rgba(255,255,255,0.06)" : "transparent", borderColor: c.border, color: c.txt2 }}>
+            {t('auth.register.back')}
           </button>
           <button type="button" onClick={handleSubmit}
-            className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold transition-all cursor-pointer"
+            className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold transition-all cursor-pointer hover:brightness-110"
             style={{ background: c.blue }}>
-            Soumettre l'inscription →
+            {t('auth.register.activity.submit')}
           </button>
         </div>
 

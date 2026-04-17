@@ -4,13 +4,13 @@ const ThemeContext = createContext(null);
 
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(
-    () => (typeof window !== "undefined" ? localStorage.getItem("theme") : null) || "light"
+    () => (typeof window !== "undefined" ? localStorage.getItem("medDk") : null) || "light"
   );
 
   function toggleTheme() {
     setTheme(t => {
       const next = t === "dark" ? "light" : "dark";
-      if (typeof window !== "undefined") localStorage.setItem("theme", next);
+      if (typeof window !== "undefined") localStorage.setItem("medDk", next);
       return next;
     });
   }

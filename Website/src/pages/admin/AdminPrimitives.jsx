@@ -1,10 +1,10 @@
 // ─── Shared React primitives for the Admin Dashboard ─────────────────────────
 // Card, Badge — imported by all admin view files
-import { T } from "./adminTheme.js";
+import { getAdminTheme } from "./adminTheme.js";
 
 /** Shared card component */
 export function Card({ children, className = "", style = {}, dk }) {
-  const c = dk ? T.dark : T.light;
+  const c = getAdminTheme(dk);
   return (
     <div
       className={`rounded-2xl border ${className}`}

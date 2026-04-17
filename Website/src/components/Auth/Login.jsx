@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { Mail, Lock, EyeOff, Eye, ArrowRight, Facebook, Activity } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
+import { useLanguage } from "../../context/LanguageContext";
 
 export default function LoginForm({ onLogin, onSwitchToRegister }) {
   const { login } = useAuth();
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const isDark = theme === "dark";
 
   // ── Tokens séparés dark / light pour un contraste optimal ─────────────────
@@ -62,7 +64,7 @@ export default function LoginForm({ onLogin, onSwitchToRegister }) {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("expired") === "1") {
-      setApiError("Session expirée. Veuillez vous reconnecter pour des raisons de sécurité.");
+      setApiError(t('auth.login.sessionExpired'));
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
@@ -79,7 +81,7 @@ export default function LoginForm({ onLogin, onSwitchToRegister }) {
       const me = await login(email, password);
       onLogin(me?.role || "patient", me);
     } catch (err) {
-      setApiError(err.message || "Email ou mot de passe incorrect.");
+      setApiError(err.message || t('auth.login.incorrectCredentials'));
     } finally {
       setLoading(false);
     }
@@ -88,13 +90,13 @@ export default function LoginForm({ onLogin, onSwitchToRegister }) {
   const handleGoogleLogin = async () => {
     if (isGoogleLoading || isFacebookLoading) return;
     setIsGoogleLoading(true);
-    setTimeout(() => { setIsGoogleLoading(false); setOauthMessage("L'authentification Google n'est pas encore disponible. (À lier au Backend)"); }, 1000);
+    setTimeout(() => { setIsGoogleLoading(false); setOauthMessage(t('auth.login.googleUnavailable')); }, 1000);
   };
 
   const handleFacebookLogin = async () => {
     if (isGoogleLoading || isFacebookLoading) return;
     setIsFacebookLoading(true);
-    setTimeout(() => { setIsFacebookLoading(false); setOauthMessage("L'authentification Facebook n'est pas encore disponible. (À lier au Backend)"); }, 1000);
+    setTimeout(() => { setIsFacebookLoading(false); setOauthMessage(t('auth.login.facebookUnavailable')); }, 1000);
   };
 
   // classe commune pour les inputs (sans fond ni border, ajoutés via style + c.inputBorder)
@@ -119,9 +121,9 @@ export default function LoginForm({ onLogin, onSwitchToRegister }) {
         {/* ── Titre ────────────────────────────────────── */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold leading-tight mb-1.5" style={{ color: c.title }}>
-            Connectez-vous à MedSmart
+            {t('auth.login.title')}
           </h1>
-          <p className="text-sm" style={{ color: c.subtitle }}>Votre santé, simplifiée.</p>
+          <p className="text-sm" style={{ color: c.subtitle }}>{t('auth.login.subtitle')}</p>
         </div>
 
         {/* ── Messages d'erreur ────────────────────────── */}
@@ -141,7 +143,7 @@ export default function LoginForm({ onLogin, onSwitchToRegister }) {
 
           {/* ── Email ────────────────────────────────── */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium block" style={{ color: c.label }}>Adresse Email</label>
+            <label className="text-sm font-medium block" style={{ color: c.label }}>{t('auth.login.email')}</label>
             <div className="relative">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: c.icon }}>
                 <Mail size={16} />
@@ -150,20 +152,20 @@ export default function LoginForm({ onLogin, onSwitchToRegister }) {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="votre@email.com"
+                placeholder={t('auth.login.emailPlaceholder')}
                 className={inputBase("pr-4", errors.email)}
                 style={{ background: c.inputBg, color: c.inputTxt }}
               />
             </div>
-            {errors.email && <p className="text-xs text-red-400">Ce champ est requis</p>}
+            {errors.email && <p className="text-xs text-red-400">{t('auth.login.required')}</p>}
           </div>
 
           {/* ── Mot de passe ─────────────────────────── */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium" style={{ color: c.label }}>Mot de passe</label>
+              <label className="text-sm font-medium" style={{ color: c.label }}>{t('auth.login.password')}</label>
               <a href="#" className="text-xs transition-colors hover:underline" style={{ color: c.blue }}>
-                Mot de passe oublié ?
+                {t('auth.login.forgotPassword')}
               </a>
             </div>
             <div className="relative">
@@ -188,7 +190,7 @@ export default function LoginForm({ onLogin, onSwitchToRegister }) {
                 {showPassword ? <Eye size={16} /> : <EyeOff size={16} />}
               </button>
             </div>
-            {errors.password && <p className="text-xs text-red-400">Ce champ est requis</p>}
+            {errors.password && <p className="text-xs text-red-400">{t('auth.login.required')}</p>}
           </div>
 
           {/* ── Bouton connexion ─────────────────────── */}
@@ -201,11 +203,11 @@ export default function LoginForm({ onLogin, onSwitchToRegister }) {
             {loading ? (
               <>
                 <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/30 border-t-white" />
-                Connexion…
+                {t('auth.login.signingIn')}
               </>
             ) : (
               <>
-                Se connecter
+                {t('auth.login.signIn')}
                 <ArrowRight size={18} className="transform transition-transform group-hover:translate-x-1" />
               </>
             )}
@@ -214,7 +216,7 @@ export default function LoginForm({ onLogin, onSwitchToRegister }) {
           {/* ── Séparateur ──────────────────────────── */}
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px" style={{ background: c.divLine }} />
-            <span className="text-xs" style={{ color: c.divTxt }}>ou se connecter avec</span>
+            <span className="text-xs" style={{ color: c.divTxt }}>{t('auth.login.orWith')}</span>
             <div className="flex-1 h-px" style={{ background: c.divLine }} />
           </div>
 
@@ -251,14 +253,14 @@ export default function LoginForm({ onLogin, onSwitchToRegister }) {
           {/* ── Switch vers Register ─────────────────── */}
           {onSwitchToRegister && (
             <p className="text-center text-sm pt-1" style={{ color: c.switchTxt }}>
-              Pas de compte ?{" "}
+              {t('auth.login.noAccount')}{" "}
               <button
                 type="button"
                 onClick={onSwitchToRegister}
                 className="font-semibold transition-colors hover:underline cursor-pointer"
                 style={{ color: c.blue }}
               >
-                S'inscrire
+                {t('auth.login.signUp')}
               </button>
             </p>
           )}

@@ -6,6 +6,10 @@ import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import { useData } from "../../context/DataContext";
 import * as api from "../../services/api";
+import ChatButton from "../../components/chat/ChatButton";
+import ConversationList from "../../components/chat/ConversationList";
+import ChatWindow from "../../components/chat/ChatWindow";
+import { useLanguage } from "../../context/LanguageContext";
 import {
   Users, Heart, Calendar, Star, CheckCircle2, Circle, Phone, AlertCircle,
   MoreHorizontal, ChevronRight, MapPin, ShieldAlert, Navigation, Activity,
@@ -190,10 +194,10 @@ function EmergencyModal({ onClose, dk }) {
             </div>
             <div>
               <h3 className="text-lg font-bold" style={{ color: c.txt }}>
-                Emergency Alert
+                {t('emergency_title') || "Emergency Alert"}
               </h3>
               <p className="text-xs" style={{ color: c.txt2 }}>
-                Contacts will be notified immediately
+                {t('emergency_desc') || "Contacts will be notified immediately"}
               </p>
             </div>
           </div>
@@ -212,9 +216,7 @@ function EmergencyModal({ onClose, dk }) {
           }}
         >
           <p className="text-sm" style={{ color: c.txt2 }}>
-            This will alert{" "}
-            <strong style={{ color: c.txt }}>your emergency contacts</strong>{" "}
-            and share your GPS location with nearby medical services.
+            {t('emergency_warning') || "This will alert your emergency contacts and share your GPS location with nearby medical services."}
           </p>
         </div>
         <div className="space-y-3 mb-4">
@@ -222,7 +224,7 @@ function EmergencyModal({ onClose, dk }) {
             className="w-full py-3.5 rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-all hover:opacity-90"
             style={{ background: "#E05555", boxShadow: "0 4px 20px rgba(224,85,85,0.4)" }}
           >
-            <Phone size={16} /> Call 15 (SAMU) Now
+            <Phone size={16} /> {t('call_samu_btn') || "Call 15 (SAMU) Now"}
           </button>
           <button
             className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors"
@@ -232,7 +234,7 @@ function EmergencyModal({ onClose, dk }) {
               border: "1px solid rgba(224,85,85,0.2)",
             }}
           >
-            <MapPin size={15} /> Share My Location
+            <MapPin size={15} /> {t('share_location_btn') || "Share My Location"}
           </button>
           <button
             className="w-full py-3 rounded-xl font-semibold transition-colors"
@@ -242,7 +244,7 @@ function EmergencyModal({ onClose, dk }) {
               border: "1px solid rgba(224,85,85,0.15)",
             }}
           >
-            Notify Emergency Contact
+            {t('notify_contacts_btn') || "Notify Emergency Contact"}
           </button>
         </div>
         <button
@@ -250,7 +252,7 @@ function EmergencyModal({ onClose, dk }) {
           className="w-full py-2.5 text-sm font-medium rounded-xl transition-colors"
           style={{ color: c.txt3, background: "transparent", border: `1px solid ${c.border}` }}
         >
-          Cancel — I'm fine
+          {t('im_fine_btn') || "Cancel — I'm fine"}
         </button>
       </div>
     </div>
@@ -262,9 +264,10 @@ function EmergencyModal({ onClose, dk }) {
 // ============================================================================
 
 function HomeView({ onChangePage, dk, c, setEmergency }) {
-  const { user } = useAuth();
+  const { t } = useLanguage();
+  const { userData } = useAuth();
   const { gmPatients: patients } = useData();
-  const userName = user?.firstName || "Fatima";
+  const userName = userData?.first_name || userData?.firstName || "Fatima";
 
   const schedule = patients.length === 0 ? [] : [
     { time: "8:00 AM", name: "Alex — Lisinopril 10mg", status: "done" },
@@ -286,7 +289,7 @@ function HomeView({ onChangePage, dk, c, setEmergency }) {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold mb-1" style={{ color: c.txt }}>
-            Bonjour, <span style={{ color: c.blue }}>{userName}</span>
+            {t('welcome_back_prefix') || "Bonjour"}, <span style={{ color: c.blue }}>{userName}</span>
           </h1>
         </div>
         <button
@@ -294,21 +297,21 @@ function HomeView({ onChangePage, dk, c, setEmergency }) {
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all hover:opacity-90 active:scale-95 shadow-lg"
           style={{ background: "linear-gradient(135deg, #E05555, #c93535)", color: "#fff" }}
         >
-          <AlertTriangle size={15} /> URGENCE
+          <AlertTriangle size={15} /> {t('emergency_btn') || "URGENCE"}
         </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         <div className="lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold uppercase tracking-[0.2em]" style={{ color: c.txt3 }}>MES PATIENTS</h2>
-            <button onClick={() => onChangePage("myPatients")} className="text-xs font-bold hover:underline" style={{ color: c.blue }}>Voir tout</button>
+            <h2 className="text-xs font-bold uppercase tracking-[0.2em]" style={{ color: c.txt3 }}>{t('my_patients_title') || "MES PATIENTS"}</h2>
+            <button onClick={() => onChangePage("myPatients")} className="text-xs font-bold hover:underline" style={{ color: c.blue }}>{t('view_all_btn') || "Voir tout"}</button>
           </div>
           <div className="space-y-4">
             {patients.length === 0 ? (
               <Card dk={dk} className="h-48 flex flex-col items-center justify-center text-center">
                 <Users size={32} style={{ color: c.txt3, opacity: 0.5 }} className="mb-4" />
-                <p style={{ color: c.txt3 }}>Aucun patient assigné.</p>
+                <p style={{ color: c.txt3 }}>{t('no_patients_assigned') || "Aucun patient assigné."}</p>
               </Card>
             ) : patients.map((patient) => (
               <Card key={patient.id} dk={dk} className="group overflow-hidden relative hover:border-blue-500/30">
@@ -325,10 +328,10 @@ function HomeView({ onChangePage, dk, c, setEmergency }) {
                 <div className="flex items-center gap-3">
                   <button onClick={() => onChangePage("myPatients")} className="px-5 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all border"
                     style={{ background: dk ? "rgba(255,255,255,0.05)" : "#fff", borderColor: c.border, color: c.txt2 }}>
-                    Profil
+                    {t('patient_profile_btn') || "Profil"}
                   </button>
                   <a href={`tel:${patient.emergencyPhone || "+21355500000"}`} className="px-5 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all border border-red-500/50 text-red-500 hover:bg-red-500 hover:text-white">
-                    Alerter
+                    {t('alert_patient_btn') || "Alerter"}
                   </a>
                 </div>
               </Card>
@@ -337,10 +340,10 @@ function HomeView({ onChangePage, dk, c, setEmergency }) {
         </div>
         <div className="space-y-8">
           <Card dk={dk}>
-            <h3 className="text-sm font-bold mb-6" style={{ color: c.txt }}>Planning Médicaments</h3>
+            <h3 className="text-sm font-bold mb-6" style={{ color: c.txt }}>{t('medication_planning') || "Planning Médicaments"}</h3>
             <div className="space-y-4">
               {schedule.length === 0 ? (
-                <div className="text-center py-6 text-sm" style={{ color: c.txt3 }}>Aucun soin prévu.</div>
+                <div className="text-center py-6 text-sm" style={{ color: c.txt3 }}>{t('no_care_planned') || "Aucun soin prévu."}</div>
               ) : schedule.map((item, i) => (
                 <div key={i} className="flex items-start gap-3 group">
                   <button className="mt-0.5 shrink-0">
@@ -350,7 +353,7 @@ function HomeView({ onChangePage, dk, c, setEmergency }) {
                     <p className={`text-xs font-bold leading-none ${item.status === 'done' ? 'font-medium opacity-50' : ''}`} style={{ color: c.txt }}>{item.name}</p>
                     <div className="flex items-center gap-2 mt-1.5">
                       <span className="text-[10px] font-bold" style={{ color: c.txt3 }}>{item.time}</span>
-                      {item.status === 'done' ? <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: c.green }}>Fait</span> : item.in && <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: c.blue }}>dans {item.in}</span>}
+                      {item.status === 'done' ? <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: c.green }}>{t('done_status') || "Fait"}</span> : item.in && <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: c.blue }}>{t('in_time_remaining', {time: item.in}) || `dans ${item.in}`}</span>}
                     </div>
                   </div>
                 </div>
@@ -359,14 +362,14 @@ function HomeView({ onChangePage, dk, c, setEmergency }) {
           </Card>
           <Card dk={dk}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold" style={{ color: c.txt }}>Ma Note & Avis</h3>
+              <h3 className="text-sm font-bold" style={{ color: c.txt }}>{t('my_rating_reviews') || "Ma Note & Avis"}</h3>
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-full" style={{ background: c.amber + "18" }}>
                 <Star size={13} style={{ color: c.amber }} />
                 <span className="text-sm font-bold" style={{ color: c.amber }}>4.8</span>
                 <span className="text-xs font-medium" style={{ color: c.txt3 }}>/5</span>
               </div>
             </div>
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: c.txt3 }}>48 avis patients</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: c.txt3 }}>{t('patient_reviews_count', {count: 48}) || "48 avis patients"}</p>
             <div className="space-y-3">
               {[
                 { author: "Famille Johnson", note: "Très professionnelle, ponctuelle et bienveillante.", stars: 5, date: "Il y a 2 jours" },
@@ -399,23 +402,23 @@ function EmergenciesView({ dk, c }) {
   const { gmPatients: patients } = useData();
 
   const emergencyContacts = [
-    { name: "Dr. Benali Karim", role: "Médecin Traitant · Cardiologie", initials: "BK", action: "Appel", color: c.green },
-    { name: "SAMU — 15", role: "Secours Médicaux", initials: "15", action: "Appel", color: c.red },
-    ...(patients.length > 0 ? [{ name: "Famille Johnson", role: "+213 555 890 123", initials: "FJ", action: "Appel", color: c.blue }] : []),
-    { name: "CHU Alger Central", role: "Hôpital plus proche · 2.3 km", initials: "HA", action: "Itinéraire", color: c.amber },
+    { name: "Dr. Benali Karim", role: t('primary_physician_role') || "Médecin Traitant · Cardiologie", initials: "BK", action: t('call_action') || "Appel", color: c.green },
+    { name: "SAMU — 15", role: t('medical_emergency_role') || "Secours Médicaux", initials: "15", action: t('call_action') || "Appel", color: c.red },
+    ...(patients.length > 0 ? [{ name: "Famille Johnson", role: "+213 555 890 123", initials: "FJ", action: t('call_action') || "Appel", color: c.blue }] : []),
+    { name: "CHU Alger Central", role: t('nearby_hospital_role') || "Hôpital plus proche · 2.3 km", initials: "HA", action: t('route_action') || "Itinéraire", color: c.amber },
   ];
 
   const procedures = [
-    { title: "Douleur Thoracique / Crise Cardiaque", steps: ["Appeler le SAMU 15 immédiatement", "Garder le patient calme et immobile", "Ne PAS donner de médicaments", "Partager la position GPS via l'app"], color: c.red },
-    { title: "Hypoglycémie (Sucre Bas)", steps: ["Donner du sucre ou un jus", "Réévaluer après 15 min", "Si inconscient — appeler le SAMU 15"], color: c.amber },
-    { title: "Crise d'Hypertension", steps: ["Faire asseoir le patient", "Remesurer après 5 min", "Systolique >180 → SAMU immédiat"], color: c.blue }
+    { title: t('thoracic_pain_proc') || "Douleur Thoracique / Crise Cardiaque", steps: [t('call_samu_step') || "Appeler le SAMU 15 immédiatement", t('keep_calm_step') || "Garder le patient calme et immobile", t('no_meds_step') || "Ne PAS donner de médicaments", t('share_gps_step') || "Partager la position GPS via l'app"], color: c.red },
+    { title: t('hypoglycemia_proc') || "Hypoglycémie (Sucre Bas)", steps: [t('give_sugar_step') || "Donner du sucre ou un jus", t('reevaluate_step') || "Réévaluer après 15 min", t('unconscious_step') || "Si inconscient — appeler le SAMU 15"], color: c.amber },
+    { title: t('hypertension_proc') || "Crise d'Hypertension", steps: [t('sit_patient_step') || "Faire asseoir le patient", t('remeasure_step') || "Remesurer après 5 min", t('systolic_high_step') || "Systolique >180 → SAMU immédiat"], color: c.blue }
   ];
 
   return (
     <div className="space-y-12 animate-in fade-in duration-500">
       <header>
-        <h1 className="text-3xl font-bold mb-2" style={{ color: c.txt }}>Protocoles d'Urgence</h1>
-        <p className="text-sm font-medium tracking-tight" style={{ color: c.txt3 }}>Contacts et procédures pour les situations critiques</p>
+        <h1 className="text-3xl font-bold mb-2" style={{ color: c.txt }}>{t('emergency_protocols') || "Protocoles d'Urgence"}</h1>
+        <p className="text-sm font-medium tracking-tight" style={{ color: c.txt3 }}>{t('emergency_desc') || "Contacts et procédures pour les situations critiques"}</p>
       </header>
 
       <div className="rounded-3xl p-8 flex flex-col md:flex-row items-center justify-between gap-8 group border-2"
@@ -426,26 +429,26 @@ function EmergenciesView({ dk, c }) {
               <ShieldAlert size={32} />
             </div>
             <div>
-               <h2 className="text-xl font-bold mb-2" style={{ color: c.red }}>Activer l'Alerte d'Urgence</h2>
-               <p className="text-sm font-medium" style={{ color: c.txt2 }}>Notifie médecins et famille avec position GPS</p>
+               <h2 className="text-xl font-bold mb-2" style={{ color: c.red }}>{t('activate_emergency_btn') || "Activer l'Alerte d'Urgence"}</h2>
+               <p className="text-sm font-medium" style={{ color: c.txt2 }}>{t('activate_emergency_desc') || "Notifie médecins et famille avec position GPS"}</p>
             </div>
          </div>
          <button className="w-full md:w-auto px-10 py-4 text-white font-bold rounded-2xl text-lg shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3"
            style={{ background: c.red, boxShadow: `0 8px 30px ${c.red}33` }}>
-            🚨 ACTIVER MAINTENANT
+            🚨 {t('activate_now_btn') || "ACTIVER MAINTENANT"}
          </button>
       </div>
 
       {patients.length === 0 ? (
         <Card dk={dk} className="flex flex-col items-center justify-center min-h-[40vh] text-center p-8">
           <ShieldAlert size={48} style={{ color: c.border }} className="mb-4" />
-          <h2 className="text-xl font-bold mb-2" style={{ color: c.txt }}>Aucun Profil d'Urgence</h2>
-          <p className="text-sm" style={{ color: c.txt3 }}>Ajoutez des patients pour voir leurs contacts et procédures spécifiques.</p>
+          <h2 className="text-xl font-bold mb-2" style={{ color: c.txt }}>{t('no_emergency_profile') || "Aucun Profil d'Urgence"}</h2>
+          <p className="text-sm" style={{ color: c.txt3 }}>{t('add_patients_emergency_desc') || "Ajoutez des patients pour voir leurs contacts et procédures spécifiques."}</p>
         </Card>
       ) : (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         <div className="space-y-6">
-          <h2 className="text-base font-bold mb-4" style={{ color: c.txt }}>Contacts d'Urgence</h2>
+          <h2 className="text-base font-bold mb-4" style={{ color: c.txt }}>{t('emergency_contacts_title') || "Contacts d'Urgence"}</h2>
           <div className="space-y-4">
              {emergencyContacts.map((contact, i) => (
                <Card key={i} dk={dk} className="flex items-center justify-between hover:border-blue-500/20">
@@ -464,7 +467,7 @@ function EmergenciesView({ dk, c }) {
           </div>
         </div>
         <div className="space-y-6">
-          <h2 className="text-base font-bold mb-4" style={{ color: c.txt }}>Procédures</h2>
+          <h2 className="text-base font-bold mb-4" style={{ color: c.txt }}>{t('procedures_title') || "Procédures"}</h2>
           <div className="space-y-4">
              {procedures.map((proc, i) => (
                <div key={i} className="p-6 rounded-2xl border transition-all"
@@ -548,10 +551,10 @@ function JobRequestsView({ dk, c }) {
                 </div>
                 <div>
                   <h2 className="text-lg font-bold" style={{ color: c.txt }}>{profile.name}</h2>
-                  <p className="text-sm" style={{ color: c.txt3 }}>{profile.age} ans · {profile.gender === "F" ? "Femme" : "Homme"} · {profile.city}</p>
+                  <p className="text-sm" style={{ color: c.txt3 }}>{profile.age} ans · {profile.gender === "F" ? (t('female') || "Femme") : (t('male') || "Homme")} · {profile.city}</p>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full mt-1 inline-block"
                     style={{ background: profile.diffColor + "18", color: profile.diffColor }}>
-                    Difficulté de soins : {profile.difficulty}
+                    {t('care_difficulty') || "Difficulté de soins"} : {profile.difficulty}
                   </span>
                 </div>
               </div>
@@ -566,7 +569,7 @@ function JobRequestsView({ dk, c }) {
             <div className="p-6 space-y-5 max-h-[450px] overflow-y-auto">
               {/* Conditions */}
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>Pathologies</p>
+                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>{t('pathologies_label') || "Pathologies"}</p>
                 <div className="flex flex-wrap gap-2">
                   {profile.conditions.map((cond) => (
                     <span key={cond} className="text-xs px-3 py-1 rounded-full border font-medium"
@@ -577,7 +580,7 @@ function JobRequestsView({ dk, c }) {
 
               {/* Traitements */}
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>Traitements en cours</p>
+                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>{t('current_treatments_label') || "Traitements en cours"}</p>
                 <div className="space-y-1.5">
                   {profile.treatments.map((t) => (
                     <div key={t} className="flex items-center gap-2 text-sm" style={{ color: c.txt2 }}>
@@ -589,7 +592,7 @@ function JobRequestsView({ dk, c }) {
 
               {/* Notes */}
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>Notes du médecin</p>
+                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>{t('doctor_notes_label') || "Notes du médecin"}</p>
                 <p className="text-sm p-3 rounded-xl italic" style={{ background: dk ? "#1A2333" : "#F8FAFC", color: c.txt2 }}>
                   "{profile.notes}"
                 </p>
@@ -599,7 +602,7 @@ function JobRequestsView({ dk, c }) {
             {/* Footer — lecture seule, pas d'action ici */}
             <div className="px-6 pb-5">
               <p className="text-xs text-center" style={{ color: c.txt3 }}>
-                Vue en lecture seule — Acceptez ou refusez depuis la liste des offres.
+                {t('read_only_view_desc') || "Vue en lecture seule — Acceptez ou refusez depuis la liste des offres."}
               </p>
             </div>
           </div>
@@ -609,12 +612,12 @@ function JobRequestsView({ dk, c }) {
       {/* ── En-tête ── */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold mb-1" style={{ color: c.txt }}>Offres de Missions</h1>
-          <p className="text-sm font-medium" style={{ color: c.txt3 }}>Nouvelles opportunités dans votre zone</p>
+          <h1 className="text-2xl font-bold mb-1" style={{ color: c.txt }}>{t('mission_offers_title') || "Offres de Missions"}</h1>
+          <p className="text-sm font-medium" style={{ color: c.txt3 }}>{t('new_opportunities_desc') || "Nouvelles opportunités dans votre zone"}</p>
         </div>
         <div className="flex items-center gap-2 px-4 py-2 rounded-xl border font-bold text-sm"
           style={{ background: c.blue + "10", borderColor: c.blue + "20", color: c.blue }}>
-          <Users size={16} /> {active.length} Mission{active.length !== 1 ? "s" : ""} disponible{active.length !== 1 ? "s" : ""}
+          <Users size={16} /> {t('missions_available_count', {count: active.length}) || `${active.length} Mission(s) disponible(s)`}
         </div>
       </div>
 
@@ -623,8 +626,8 @@ function JobRequestsView({ dk, c }) {
         {active.length === 0 && (
           <Card dk={dk} className="flex flex-col items-center justify-center py-16 text-center">
             <CheckCircle2 size={40} style={{ color: c.green }} className="mb-4" />
-            <h2 className="text-lg font-bold mb-1" style={{ color: c.txt }}>Toutes les offres traitées</h2>
-            <p className="text-sm" style={{ color: c.txt3 }}>Vous avez répondu à toutes les demandes disponibles.</p>
+            <h2 className="text-lg font-bold mb-1" style={{ color: c.txt }}>{t('all_offers_processed') || "Toutes les offres traitées"}</h2>
+            <p className="text-sm" style={{ color: c.txt3 }}>{t('offers_responded_desc') || "Vous avez répondu à toutes les demandes disponibles."}</p>
           </Card>
         )}
         {active.map((req) => {
@@ -663,7 +666,7 @@ function JobRequestsView({ dk, c }) {
                     onClick={() => setProfileModal(req.id)}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm border transition-all hover:opacity-80 whitespace-nowrap"
                     style={{ background: "transparent", borderColor: c.border, color: c.txt2 }}>
-                    <User size={14} /> Détails du profil
+                    <User size={14} /> {t('view_profile_btn') || "Détails du profil"}
                   </button>
 
                   {/* Accepter / Refuser */}
@@ -671,13 +674,13 @@ function JobRequestsView({ dk, c }) {
                     <div className="flex flex-col items-center gap-1.5">
                       <div className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm"
                         style={{ background: c.amber + "15", color: c.amber, border: `1px solid ${c.amber}30` }}>
-                        <Clock size={15} /> En attente — {mins}:{ss}
+                        <Clock size={15} /> {t('pending_tab') || "En attente"} — {mins}:{ss}
                       </div>
                       <button
                         onClick={() => handleRetract(req.id)}
                         className="text-[11px] font-bold underline transition-opacity hover:opacity-70"
                         style={{ color: c.red }}>
-                        Retirer l'acceptation
+                        {t('retract_acceptance_btn') || "Retirer l'acceptation"}
                       </button>
                     </div>
                   ) : (
@@ -686,7 +689,7 @@ function JobRequestsView({ dk, c }) {
                         onClick={() => handleAccept(req.id)}
                         className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-white transition-all shadow-md hover:opacity-90 active:scale-95 whitespace-nowrap"
                         style={{ background: c.green }}>
-                        <CheckCircle2 size={16} /> Accepter
+                        <CheckCircle2 size={16} /> {t('accept_btn') || "Accepter"}
                       </button>
                       <button
                         onClick={() => setDismissed(prev => [...prev, req.id])}
@@ -726,7 +729,7 @@ function JobRequestsView({ dk, c }) {
                   </div>
                   <span className="flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full"
                     style={{ background: c.green + "15", color: c.green }}>
-                    <CheckCircle2 size={12} /> Acceptée
+                    <CheckCircle2 size={12} /> {t('accepted_status') || "Acceptée"}
                   </span>
                 </div>
               );
@@ -749,7 +752,7 @@ function JobRequestsView({ dk, c }) {
                   </div>
                   <span className="flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full"
                     style={{ background: c.red + "15", color: c.red }}>
-                    <X size={12} /> Refusée
+                    <X size={12} /> {t('refused_status') || "Refusée"}
                   </span>
                 </div>
               );
@@ -763,11 +766,12 @@ function JobRequestsView({ dk, c }) {
 
 // ─── AI DIAGNOSIS PAGE (Garde-Malade) ────────────────────────────────────────
 function AIDiagnosisPage({ dk, c }) {
+  const { t } = useLanguage();
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([
     {
       role: "ai",
-      text: "Bonjour 👋 Décrivez les symptômes de votre patient en détail — localisation, intensité, durée — et je vous fournirai une analyse clinique immédiate avec des recommandations de soins adaptées.",
+      text: t('ai_intro_msg_caretaker') || "Bonjour 👋 Décrivez les symptômes de votre patient en détail — localisation, intensité, durée — et je vous fournirai une analyse clinique immédiate avec des recommandations de soins adaptées.",
     },
   ]);
   const [loading, setLoading] = useState(false);
@@ -1094,7 +1098,7 @@ function MyPatientsView({ onChangePage, dk, c }) {
                 <div>
                   <h2 className="text-lg font-bold" style={{ color: c.txt }}>{profilePatient.name}</h2>
                   <p className="text-sm" style={{ color: c.txt3 }}>
-                    {profilePatient.age} ans · {profilePatient.gender === 'Male' ? 'Homme' : 'Femme'} · {profilePatient.city}
+                    {profilePatient.age} ans · {profilePatient.gender === 'Male' ? (t('male') || 'Homme') : (t('female') || 'Femme')} · {profilePatient.city}
                   </p>
                 </div>
               </div>
@@ -1109,7 +1113,7 @@ function MyPatientsView({ onChangePage, dk, c }) {
             <div className="p-6 space-y-5">
               {/* Pathologies */}
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>Pathologies</p>
+                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>{t('pathologies_label') || "Pathologies"}</p>
                 <div className="flex flex-wrap gap-2">
                   {profilePatient.conditions.map((cond, i) => (
                     <span key={i} className="text-xs px-3 py-1 rounded-full border font-medium"
@@ -1120,24 +1124,24 @@ function MyPatientsView({ onChangePage, dk, c }) {
 
               {/* Contacts */}
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>Contacts du patient</p>
+                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>{t('patient_contacts_label') || "Contacts du patient"}</p>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between p-3 rounded-xl border"
                     style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border }}>
-                    <span className="text-xs font-medium" style={{ color: c.txt2 }}>Téléphone direct</span>
+                    <span className="text-xs font-medium" style={{ color: c.txt2 }}>{t('direct_phone_label') || "Téléphone direct"}</span>
                     <a href={`tel:${profilePatient.phone || "+21300000000"}`}
                       className="flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-lg"
                       style={{ background: c.green + "15", color: c.green }}>
-                      <Phone size={12} /> {profilePatient.phone || "Non renseigné"}
+                      <Phone size={12} /> {profilePatient.phone || t('not_specified') || "Non renseigné"}
                     </a>
                   </div>
                   <div className="flex items-center justify-between p-3 rounded-xl border"
                     style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border }}>
-                    <span className="text-xs font-medium" style={{ color: c.txt2 }}>Contact d'urgence</span>
+                    <span className="text-xs font-medium" style={{ color: c.txt2 }}>{t('emergency_contact_label') || "Contact d'urgence"}</span>
                     <a href={`tel:${profilePatient.emergencyPhone || "+21300000001"}`}
                       className="flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-lg"
                       style={{ background: c.red + "15", color: c.red }}>
-                      <Phone size={12} /> {profilePatient.emergencyContact || "Famille"}
+                      <Phone size={12} /> {profilePatient.emergencyContact || t('family_label') || "Famille"}
                     </a>
                   </div>
                 </div>
@@ -1145,7 +1149,7 @@ function MyPatientsView({ onChangePage, dk, c }) {
 
               {/* Adresse */}
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>Adresse</p>
+                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>{t('address_label') || "Adresse"}</p>
                 <a
                   href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(profilePatient.address || profilePatient.city || "")}`}
                   target="_blank" rel="noopener noreferrer"
@@ -1153,7 +1157,7 @@ function MyPatientsView({ onChangePage, dk, c }) {
                   style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border }}>
                   <MapPin size={14} style={{ color: c.blue, flexShrink: 0, marginTop: 1 }} />
                   <span className="text-sm" style={{ color: c.txt2 }}>
-                    {profilePatient.address || profilePatient.city || "Adresse non renseignée"}
+                    {profilePatient.address || profilePatient.city || t('no_address_specified') || "Adresse non renseignée"}
                   </span>
                 </a>
               </div>
@@ -1163,8 +1167,8 @@ function MyPatientsView({ onChangePage, dk, c }) {
       )}
 
       <header>
-        <h1 className="text-3xl font-bold mb-2" style={{ color: c.txt }}>Mes Patients</h1>
-        <p className="font-medium" style={{ color: c.txt3 }}>{patients.length} patients assignés à votre charge</p>
+        <h1 className="text-3xl font-bold mb-2" style={{ color: c.txt }}>{t('my_patients_title') || "Mes Patients"}</h1>
+        <p className="font-medium" style={{ color: c.txt3 }}>{t('patients_assigned_count', {count: patients.length}) || `${patients.length} patients assignés à votre charge`}</p>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -1172,11 +1176,11 @@ function MyPatientsView({ onChangePage, dk, c }) {
           <Card dk={dk} className="col-span-full flex flex-col items-center justify-center min-h-[40vh] text-center p-8">
             <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
               style={{ background: c.blue + "15", color: c.blue }}><UserPlus size={32} /></div>
-            <h2 className="text-2xl font-bold mb-2" style={{ color: c.txt }}>Aucun Patient Assigné</h2>
-            <p className="text-sm max-w-md mb-8" style={{ color: c.txt3 }}>Vous n'avez pas encore été assigné à des patients. Cliquez ci-dessous pour charger les données de test.</p>
+            <h2 className="text-2xl font-bold mb-2" style={{ color: c.txt }}>{t('no_patient_assigned_title') || "Aucun Patient Assigné"}</h2>
+            <p className="text-sm max-w-md mb-8" style={{ color: c.txt3 }}>{t('no_patient_assigned_desc') || "Vous n'avez pas encore été assigné à des patients. Cliquez ci-dessous pour charger les données de test."}</p>
             <button onClick={loadGMDemoData} className="px-8 py-3 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-500/25 active:scale-95"
               style={{ background: c.blue }}>
-              Ajouter Patients Démo (Alex, Youcef, Nadia)
+              {t('add_demo_patients_btn') || "Ajouter Patients Démo (Alex, Youcef, Nadia)"}
             </button>
           </Card>
         ) : patients.map((p) => (
@@ -1205,7 +1209,7 @@ function MyPatientsView({ onChangePage, dk, c }) {
                   onClick={() => setProfilePatient(p)}
                   className="w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border flex items-center justify-center gap-2"
                   style={{ background: dk ? "rgba(255,255,255,0.05)" : "#fff", borderColor: c.border, color: c.txt2 }}>
-                  <User size={13} /> Voir profil
+                  <User size={13} /> {t('view_profile_btn') || "Voir profil"}
                 </button>
                 <a href={`tel:${p.emergencyPhone || "+21300000000"}`}
                   className="w-full py-2.5 border border-red-500/30 text-red-500 hover:bg-red-500 hover:text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2">
@@ -1234,9 +1238,9 @@ function TreatmentsView({ dk, c }) {
 
   const editTreatment = treatments.find(t => t.id === editId) || null;
   const slots = [
-    { key: "morning", label: "Matin" },
-    { key: "afternoon", label: "Après-midi" },
-    { key: "evening", label: "Soir" },
+    { key: "morning", label: t('morning_label') || "Matin" },
+    { key: "afternoon", label: t('afternoon_label') || "Après-midi" },
+    { key: "evening", label: t('evening_label') || "Soir" },
   ];
 
   const handleAddMed = () => {
@@ -1262,7 +1266,7 @@ function TreatmentsView({ dk, c }) {
             style={{ background: c.card, borderColor: c.border }}>
             <div className="p-6 border-b flex items-center justify-between" style={{ borderColor: c.border }}>
               <h2 className="text-lg font-bold" style={{ color: c.txt }}>
-                Modifier — {editTreatment?.patientName}
+                {t('modify_treatment_title', {name: editTreatment?.patientName}) || `Modifier — ${editTreatment?.patientName}`}
               </h2>
               <button onClick={() => setEditId(null)} className="w-8 h-8 rounded-full flex items-center justify-center hover:opacity-70"
                 style={{ background: c.blueLight }}>
@@ -1275,7 +1279,7 @@ function TreatmentsView({ dk, c }) {
                   <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>{label}</p>
                   <div className="space-y-2">
                     {(editTreatment?.[key] || []).length === 0 && (
-                      <p className="text-xs italic" style={{ color: c.txt3 }}>Aucun médicament</p>
+                      <p className="text-xs italic" style={{ color: c.txt3 }}>{t('no_meds_text') || "Aucun médicament"}</p>
                     )}
                     {(editTreatment?.[key] || []).map((med, idx) => (
                       <div key={idx} className="flex items-center justify-between px-4 py-2.5 rounded-xl border"
@@ -1288,7 +1292,7 @@ function TreatmentsView({ dk, c }) {
                         <button onClick={() => removeMedicationFromTreatment(editId, key, idx)}
                           className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-red-500 hover:text-white"
                           style={{ background: c.red + "15", color: c.red }}>
-                          <Trash2 size={13} />
+                          <Trash2 size={13} title={t('remove_btn') || "Supprimer"} />
                         </button>
                       </div>
                     ))}
@@ -1297,12 +1301,12 @@ function TreatmentsView({ dk, c }) {
               ))}
             </div>
             <div className="p-6 border-t space-y-3" style={{ borderColor: c.border }}>
-              <p className="text-xs font-bold uppercase tracking-wide" style={{ color: c.txt3 }}>Ajouter un médicament</p>
+              <p className="text-xs font-bold uppercase tracking-wide" style={{ color: c.txt3 }}>{t('add_medication_title') || "Ajouter un médicament"}</p>
               <div className="flex gap-2 flex-wrap">
-                <input type="text" placeholder="Nom" value={newMed.name}
+                <input type="text" placeholder={t('name_placeholder') || "Nom"} value={newMed.name}
                   onChange={e => setNewMed(m => ({ ...m, name: e.target.value }))}
                   className={`flex-1 min-w-[120px] ${inputCls}`} style={inputStyle} />
-                <input type="text" placeholder="Dosage" value={newMed.dosage}
+                <input type="text" placeholder={t('dosage_placeholder') || "Dosage"} value={newMed.dosage}
                   onChange={e => setNewMed(m => ({ ...m, dosage: e.target.value }))}
                   className={`w-28 ${inputCls}`} style={inputStyle} />
                 <div className="w-36">
@@ -1321,7 +1325,7 @@ function TreatmentsView({ dk, c }) {
                 <button onClick={handleAddMed} disabled={!newMed.name.trim()}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-white transition-all active:scale-95"
                   style={{ background: newMed.name.trim() ? c.blue : c.border }}>
-                  <Plus size={15} /> Ajouter
+                  <Plus size={15} /> {t('add_btn') || "Ajouter"}
                 </button>
               </div>
             </div>
@@ -1332,8 +1336,8 @@ function TreatmentsView({ dk, c }) {
       {/* ── En-tête + boutons globaux ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold mb-1" style={{ color: c.txt }}>Plans de Traitement</h1>
-          <p className="text-sm font-medium" style={{ color: c.txt3 }}>{treatments.length} patient{treatments.length !== 1 ? "s" : ""} au planning</p>
+          <h1 className="text-2xl font-bold mb-1" style={{ color: c.txt }}>{t('treatment_plans_title') || "Plans de Traitement"}</h1>
+          <p className="text-sm font-medium" style={{ color: c.txt3 }}>{t('all_patients_at_planning', {count: treatments.length}) || `${treatments.length} patient(s) au planning`}</p>
         </div>
         <div className="flex items-center gap-3">
           {/* Ajouter un patient */}
@@ -1343,7 +1347,7 @@ function TreatmentsView({ dk, c }) {
                 onClick={() => setShowAddPatient(showAddPatient ? null : "open")}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all active:scale-95"
                 style={{ background: c.blue }}>
-                <UserPlus size={15} /> Ajouter un patient
+                <UserPlus size={15} /> {t('add_patient_btn') || "Ajouter un patient"}
               </button>
               {showAddPatient === "open" && (
                 <>
@@ -1371,7 +1375,7 @@ function TreatmentsView({ dk, c }) {
             <button onClick={loadGMDemoData}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all active:scale-95"
               style={{ background: c.blue }}>
-              <Plus size={15} /> Charger données démo
+              <Plus size={15} /> {t('load_demo_data_btn') || "Charger données démo"}
             </button>
           )}
         </div>
@@ -1384,11 +1388,11 @@ function TreatmentsView({ dk, c }) {
             style={{ background: c.blue + "15" }}>
             <Pill size={28} style={{ color: c.blue }} />
           </div>
-          <h2 className="text-lg font-bold mb-2" style={{ color: c.txt }}>Aucun plan de traitement</h2>
+          <h2 className="text-lg font-bold mb-2" style={{ color: c.txt }}>{t('no_treatment_plan_title') || "Aucun plan de traitement"}</h2>
           <p className="text-sm max-w-sm" style={{ color: c.txt3 }}>
             {patients.length === 0
-              ? "Chargez d'abord les données démo pour voir les patients."
-              : "Utilisez le bouton ci-dessus pour ajouter un patient au planning."}
+              ? (t('load_demo_first_desc') || "Chargez d'abord les données démo pour voir les patients.")
+              : (t('add_patient_to_planning_desc') || "Utilisez le bouton ci-dessus pour ajouter un patient au planning.")}
           </p>
         </Card>
       ) : (
@@ -1877,19 +1881,24 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
         <Card dk={dk}>
           <p className="font-semibold mb-4" style={{ color: c.txt }}>Language</p>
           <div className="flex gap-2 flex-wrap">
-            {["🇫🇷 Français", "🇩🇿 العربية", "🇬🇧 English"].map((lang, i) => (
-              <button
-                key={lang}
-                className="px-4 py-2 rounded-xl text-sm font-semibold border transition-all"
-                style={{
-                  background: i === 0 ? c.blue : "transparent",
-                  color: i === 0 ? "#fff" : c.txt2,
-                  borderColor: i === 0 ? c.blue : c.border,
-                }}
-              >
-                {lang}
-              </button>
-            ))}
+            {["🇫🇷 Français", "🇬🇧 English"].map((langName, i) => {
+              const targetLang = i === 0 ? 'fr' : 'en';
+              const active = lang === targetLang;
+              return (
+                <button
+                  key={langName}
+                  onClick={() => setLang(targetLang)}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold border transition-all"
+                  style={{
+                    background: active ? c.blue : "transparent",
+                    color: active ? "#fff" : c.txt2,
+                    borderColor: active ? c.blue : c.border,
+                  }}
+                >
+                  {langName}
+                </button>
+              );
+            })}
           </div>
         </Card>
         <Card dk={dk}>
@@ -1929,12 +1938,17 @@ export default function GardeMaladeDashboard({ onLogout }) {
       ? `${user.first_name || ""} ${user.last_name || ""}`.trim()
       : "Mon Compte";
 
+  // ── Chat state ──
+  const [activeChatConv, setActiveChatConv] = useState(null);
+  const { unreadChatCount, setUnreadChatCount } = useData();
+
   const NAV = [
     { id: "dashboard", label: "Accueil" },
     { id: "jobRequests", label: "Offres & Missions" },
     { id: "myPatients", label: "Mes Patients" },
     { id: "treatments", label: "Traitements" },
     { id: "ai-diagnosis", label: "IA Diagnostic" },
+    { id: "messages", label: "Messages" },
   ];
 
   const renderPage = () => {
@@ -1946,6 +1960,58 @@ export default function GardeMaladeDashboard({ onLogout }) {
       case "treatments": return <TreatmentsView dk={dk} c={c} />;
       case "ai-diagnosis": return <AIDiagnosisPage dk={dk} c={c} />;
       case "settings": return <SettingsView onTarifSaved={setTarifMensuel} dk={dk} c={c} user={user} />;
+      case "messages":
+        return (
+          <div className="flex gap-5" style={{ height: "calc(100vh - 120px)", minHeight: 500 }}>
+            {/* ConversationList — 30% */}
+            <div
+              className="rounded-2xl border overflow-hidden shrink-0 flex flex-col"
+              style={{ width: "30%", minWidth: 260, background: c.card, borderColor: c.border }}
+            >
+              <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0" style={{ borderColor: c.border }}>
+                <MessageSquare size={15} style={{ color: c.blue }} />
+                <h2 className="font-bold text-sm" style={{ color: c.txt }}>Messages</h2>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <ConversationList
+                  open={true}
+                  onClose={() => {}}
+                  onSelectConv={(conv) => setActiveChatConv(conv)}
+                  isPatient={false}
+                  onUnreadChange={(n) => setUnreadChatCount(n)}
+                  c={c}
+                  dk={dk}
+                  inline={true}
+                />
+              </div>
+            </div>
+            {/* ChatWindow — 70% */}
+            <div className="flex-1 min-w-0">
+              {activeChatConv ? (
+                <ChatWindow
+                  conv={activeChatConv}
+                  onClose={() => setActiveChatConv(null)}
+                  onBack={null}
+                  c={c}
+                  dk={dk}
+                  embedded={true}
+                />
+              ) : (
+                <div
+                  className="h-full rounded-2xl border flex flex-col items-center justify-center gap-4"
+                  style={{ background: c.card, borderColor: c.border }}
+                >
+                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: c.blueLight }}>
+                    <MessageSquare size={28} style={{ color: c.blue }} />
+                  </div>
+                  <p className="text-sm font-medium" style={{ color: c.txt3 }}>
+                    Sélectionnez une conversation
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        );
       default: return <HomeView onChangePage={setPage} dk={dk} c={c} setEmergency={setEmergency} />;
     }
   };
@@ -2019,6 +2085,12 @@ export default function GardeMaladeDashboard({ onLogout }) {
                 }}
               >
                 {item.label}
+                {item.id === "messages" && unreadChatCount > 0 && (
+                  <span className="w-4 h-4 rounded-full flex items-center justify-center text-white font-bold"
+                    style={{ background: page === item.id ? "rgba(255,255,255,0.35)" : c.red, fontSize: 9 }}>
+                    {unreadChatCount > 9 ? "9+" : unreadChatCount}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -2192,7 +2264,7 @@ export default function GardeMaladeDashboard({ onLogout }) {
       </nav>
 
       {/* Contenu */}
-      <main className="max-w-7xl mx-auto px-6 py-8"><ErrorBoundary>{renderPage()}</ErrorBoundary></main>
+      <main className="w-full px-6 py-6"><ErrorBoundary>{renderPage()}</ErrorBoundary></main>
 
       {profileOpen && (
         <div className="fixed inset-0 z-20" onClick={() => setProfileOpen(false)} />

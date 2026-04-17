@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import AuthTransition from "../components/Auth/AuthTransition";
 import PatientDashboard from "../pages/patient/Dashboard";
 import DoctorDashboard from "../pages/medical/DoctorDashboard";
@@ -22,6 +23,7 @@ import BackgroundTest from "../pages/BackgroundTest";
 // ─────────────────────────────────────────────────────────────────────────────
 
 function PendingApprovalPage({ logout }) {
+  const { t } = useLanguage();
   return (
     <div
       style={{
@@ -77,7 +79,7 @@ function PendingApprovalPage({ logout }) {
             marginBottom: 12,
           }}
         >
-          Compte en attente de validation
+          {t('pending_approval_title') || "Compte en attente de validation"}
         </h1>
         <p
           style={{
@@ -87,12 +89,10 @@ function PendingApprovalPage({ logout }) {
             marginBottom: 8,
           }}
         >
-          Votre inscription a été reçue avec succès. Notre équipe administrative
-          vérifie vos documents et informations professionnelles.
+          {t('pending_approval_desc') || "Votre inscription a été reçue avec succès. Notre équipe administrative vérifie vos documents et informations professionnelles."}
         </p>
         <p style={{ fontSize: 13, color: "#9AACBE", marginBottom: 32 }}>
-          Vous recevrez une confirmation par e-mail sous{" "}
-          <strong style={{ color: "#E8A838" }}>24–48 heures</strong>.
+          {t('wait_time_desc') || "Vous recevrez une confirmation par e-mail sous 24–48 heures."}
         </p>
         <div
           style={{
@@ -114,12 +114,12 @@ function PendingApprovalPage({ logout }) {
               marginBottom: 8,
             }}
           >
-            Documents requis vérifiés
+            {t('required_docs_verified') || "Documents requis vérifiés"}
           </p>
           {[
-            "Diplôme ou titre professionnel",
-            "Pièce d'identité nationale",
-            "Registre professionnel / Numéro RPPS",
+            t('doc_diploma') || "Diplôme ou titre professionnel",
+            t('doc_id') || "Pièce d'identité nationale",
+            t('doc_register') || "Registre professionnel / Numéro RPPS",
           ].map((d) => (
             <div
               key={d}
@@ -158,7 +158,7 @@ function PendingApprovalPage({ logout }) {
             cursor: "pointer",
           }}
         >
-          Se déconnecter
+          {t('logout_btn') || "Se déconnecter"}
         </button>
       </div>
     </div>
@@ -167,6 +167,7 @@ function PendingApprovalPage({ logout }) {
 
 function RoleRouter() {
   const { accountType, userData, logout, isApproved } = useAuth();
+  const { t } = useLanguage();
 
   const type = accountType?.toLowerCase()?.trim();
 
@@ -229,20 +230,20 @@ function RoleRouter() {
           </svg>
         </div>
         <p className="text-xl font-bold text-[#0D2644] mb-2">
-          Rôle non reconnu
+          {t('role_not_recognized_title') || "Rôle non reconnu"}
         </p>
-        <p className="text-sm text-[#5C738A] mb-1">Type reçu du backend :</p>
+        <p className="text-sm text-[#5C738A] mb-1">{t('type_received_label') || "Type reçu du backend :"}</p>
         <code className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600">
           {accountType} / {userData?.role}
         </code>
         <p className="text-xs text-[#9AACBE] mt-3 mb-6">
-          Contactez l'administrateur ou reconnectez-vous.
+          {t('role_not_recognized_desc') || "Contactez l'administrateur ou reconnectez-vous."}
         </p>
         <button
           onClick={logout}
           className="w-full px-6 py-3 bg-[#6492C9] hover:bg-[#304B71] text-white rounded-xl font-semibold transition-all cursor-pointer"
         >
-          Se déconnecter
+          {t('logout_btn') || "Se déconnecter"}
         </button>
       </div>
     </div>

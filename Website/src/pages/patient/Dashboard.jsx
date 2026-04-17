@@ -1,10 +1,15 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { useTheme } from "../../context/ThemeContext";
 import ErrorBoundary from "../../components/ErrorBoundary";
 import DashSelect from "../../components/ui/DashSelect";
-import { ParticlesHero } from '../../components/backgrounds/MedParticles';
+import { ParticlesHero } from "../../components/backgrounds/MedParticles";
+import { useLanguage } from "../../context/LanguageContext";
 import { useAuth } from "../../context/AuthContext";
 import { useData } from "../../context/DataContext";
 import * as api from "../../services/api";
+import ChatButton from "../../components/chat/ChatButton";
+import ConversationList from "../../components/chat/ConversationList";
+import ChatWindow from "../../components/chat/ChatWindow";
 import {
   LayoutDashboard,
   User,
@@ -66,6 +71,7 @@ const T = {
     green: "#2D8C6F",
     amber: "#E8A838",
     red: "#E05555",
+    purple: "#7B5EA7",
     navHover: "#EEF3FB",
   },
   dark: {
@@ -81,6 +87,7 @@ const T = {
     green: "#4CAF82",
     amber: "#F0A500",
     red: "#E05555",
+    purple: "#9B7FD4",
     navHover: "#1A2333",
   },
 };
@@ -294,6 +301,7 @@ const PHARMACIES_LIST = [
 ];
 
 function SendToPharmacyModal({ rx, onClose, onConfirm, dk }) {
+  const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
   const [selectedPharmacy, setSelectedPharmacy] = useState("");
   const [notes, setNotes] = useState("");
@@ -318,7 +326,7 @@ function SendToPharmacyModal({ rx, onClose, onConfirm, dk }) {
               <Send size={18} style={{ color: c.blue }} />
             </div>
             <div>
-              <h3 className="font-bold text-base" style={{ color: c.txt }}>Transmettre l'ordonnance</h3>
+              <h3 className="font-bold text-base" style={{ color: c.txt }}>{t('send_to_pharmacy_title') || "Transmettre l'ordonnance"}</h3>
               <p className="text-xs" style={{ color: c.txt3 }}>{rx.id}</p>
             </div>
           </div>
@@ -333,7 +341,7 @@ function SendToPharmacyModal({ rx, onClose, onConfirm, dk }) {
         <div className="p-3 rounded-xl mb-4 border"
           style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border }}>
           <p className="text-xs font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>
-            Prescrit par {rx.doctor}
+            {t('prescribed_by_prefix') || "Prescrit par"} {rx.doctor}
           </p>
           <div className="space-y-0.5 mt-1">
             {rx.meds.map((m, i) => (
@@ -345,26 +353,26 @@ function SendToPharmacyModal({ rx, onClose, onConfirm, dk }) {
         {/* Choix pharmacie */}
         <div className="mb-4">
           <DashSelect
-            label="Choisir une pharmacie"
+            label={t('choose_pharmacy_label') || "Choisir une pharmacie"}
             value={selectedPharmacy}
             options={PHARMACIES_LIST}
             onSelect={setSelectedPharmacy}
             dk={dk} c={c}
-            placeholder="Sélectionner une pharmacie..."
+            placeholder={t('select_pharmacy_placeholder') || "Sélectionner une pharmacie..."}
           />
         </div>
 
         {/* Notes */}
         <div className="mb-5">
           <label className="block text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt2 }}>
-            Notes pour le pharmacien{" "}
-            <span className="font-normal normal-case" style={{ color: c.txt3 }}>(Optionnel)</span>
+            {t('pharmacist_notes_label') || "Notes pour le pharmacien"}{" "}
+            <span className="font-normal normal-case" style={{ color: c.txt3 }}>({t('optional_label') || "Optionnel"})</span>
           </label>
           <textarea
             value={notes}
             onChange={e => setNotes(e.target.value)}
             rows={3}
-            placeholder="Ex: allergie connue à la pénicilline, prendre avec de la nourriture..."
+            placeholder={t('pharmacist_notes_placeholder') || "Ex: allergie connue à la pénicilline, prendre avec de la nourriture..."}
             className="w-full px-4 py-3 rounded-xl text-sm outline-none border resize-none"
             style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border, color: c.txt }}
           />
@@ -375,12 +383,12 @@ function SendToPharmacyModal({ rx, onClose, onConfirm, dk }) {
           <button onClick={onClose}
             className="flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:opacity-80"
             style={{ borderColor: c.border, color: c.txt2 }}>
-            Annuler
+            {t('cancel_btn') || "Annuler"}
           </button>
           <button onClick={handleConfirm} disabled={!selectedPharmacy}
             className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 flex items-center justify-center gap-2"
             style={{ background: selectedPharmacy ? c.blue : c.txt3 }}>
-            <Send size={14} /> Confirmer l'envoi
+            <Send size={14} /> {t('confirm_send_btn') || "Confirmer l'envoi"}
           </button>
         </div>
       </div>
@@ -390,11 +398,12 @@ function SendToPharmacyModal({ rx, onClose, onConfirm, dk }) {
 
 // ─── Tracker Click & Collect ──────────────────────────────────────────────────
 function ClickCollectTracker({ ccStatus, pharmacy, dk }) {
+  const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
   const steps = [
-    { key: "sent",      label: "Envoyé",           icon: Send          },
-    { key: "preparing", label: "En préparation",    icon: Clock         },
-    { key: "ready",     label: "Prêt pour retrait", icon: CheckCircle   },
+    { key: "sent",      label: t('sent_step')      || "Envoyé",           icon: Send          },
+    { key: "preparing", label: t('preparing_step') || "En préparation",    icon: Clock         },
+    { key: "ready",     label: t('ready_step')     || "Prêt pour retrait", icon: CheckCircle   },
   ];
   const currentIdx = steps.findIndex(s => s.key === ccStatus);
 
@@ -481,6 +490,7 @@ function EmptyState({
 
 // ─── Emergency Modal ──────────────────────────────────────────────────────────
 function EmergencyModal({ onClose, dk }) {
+  const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
   return (
     <div
@@ -501,10 +511,10 @@ function EmergencyModal({ onClose, dk }) {
             </div>
             <div>
               <h3 className="text-lg font-bold" style={{ color: c.txt }}>
-                Emergency Alert
+                {t('emergency_title') || "Emergency Alert"}
               </h3>
               <p className="text-xs" style={{ color: c.txt2 }}>
-                Contacts will be notified immediately
+                {t('emergency_desc') || "Contacts will be notified immediately"}
               </p>
             </div>
           </div>
@@ -523,9 +533,7 @@ function EmergencyModal({ onClose, dk }) {
           }}
         >
           <p className="text-sm" style={{ color: c.txt2 }}>
-            This will alert{" "}
-            <strong style={{ color: c.txt }}>your emergency contacts</strong>{" "}
-            and share your GPS location with nearby medical services.
+            {t('emergency_warning') || "This will alert your emergency contacts and share your GPS location with nearby medical services."}
           </p>
         </div>
         <div className="space-y-3 mb-4">
@@ -536,7 +544,7 @@ function EmergencyModal({ onClose, dk }) {
               boxShadow: "0 4px 20px rgba(224,85,85,0.4)",
             }}
           >
-            <Phone size={16} /> Call 15 (SAMU) Now
+            <Phone size={16} /> {t('call_samu_btn') || "Call 15 (SAMU) Now"}
           </button>
           <button
             className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors"
@@ -546,7 +554,7 @@ function EmergencyModal({ onClose, dk }) {
               border: "1px solid rgba(224,85,85,0.2)",
             }}
           >
-            <MapPin size={15} /> Share My Location
+            <MapPin size={15} /> {t('share_location_btn') || "Share My Location"}
           </button>
           <button
             className="w-full py-3 rounded-xl font-semibold transition-colors"
@@ -556,7 +564,7 @@ function EmergencyModal({ onClose, dk }) {
               border: "1px solid rgba(224,85,85,0.15)",
             }}
           >
-            Notify Emergency Contact
+            {t('notify_contacts_btn') || "Notify Emergency Contact"}
           </button>
         </div>
         <button
@@ -568,7 +576,7 @@ function EmergencyModal({ onClose, dk }) {
             border: `1px solid ${c.border}`,
           }}
         >
-          Cancel — I'm fine
+          {t('im_fine_btn') || "Cancel — I'm fine"}
         </button>
       </div>
     </div>
@@ -584,6 +592,7 @@ function DashboardPage({
   notifications,
   setNotifications,
 }) {
+  const { t } = useLanguage();
   const [meds, setMeds] = useState(MEDICATIONS);
   const [symptom, setSymptom] = useState("");
   const [emergency, setEmergency] = useState(false);
@@ -606,7 +615,7 @@ function DashboardPage({
       <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: c.txt }}>
-            Bonjour, <span style={{ color: c.blue }}>{firstName}</span> 
+            {t('welcome_back_prefix') || "Bonjour"}, <span style={{ color: c.blue }}>{firstName}</span>
           </h1>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
@@ -619,7 +628,7 @@ function DashboardPage({
             }}
           >
             <AlertTriangle size={15} />
-            URGENCE
+            {t('emergency_label') || "URGENCE"}
           </button>
         </div>
       </div>
@@ -636,18 +645,17 @@ function DashboardPage({
         <div className="flex items-center gap-2 mb-1 relative z-10">
           <Activity size={18} className="text-white" />
           <h2 className="text-white font-semibold text-base">
-            Analyse de symptômes IA
+            {t('ai_symptom_title') || "Analyse de symptômes IA"}
           </h2>
         </div>
         <p className="text-white/75 text-sm mb-4 relative z-10 max-w-md">
-          Décrivez vos symptômes pour obtenir un avis orienter par notre
-          intelligence médicale.
+          {t('ai_symptom_desc') || "Décrivez vos symptômes pour obtenir un avis orienter par notre intelligence médicale."}
         </p>
         <div className="flex gap-3 relative z-10 flex-wrap sm:flex-nowrap">
           <input
             value={symptom}
             onChange={(e) => setSymptom(e.target.value)}
-            placeholder="Ex: Maux de tête légers et fatigue..."
+            placeholder={t('symptom_placeholder') || "Ex: Maux de tête légers et fatigue..."}
             className="flex-1 px-4 py-3 rounded-xl outline-none text-sm min-w-[200px]"
             style={{ background: "rgba(255,255,255,0.92)", color: "#0D1B2E" }}
           />
@@ -656,7 +664,7 @@ function DashboardPage({
             className="px-8 py-3 rounded-xl font-bold text-sm transition-all hover:shadow-lg whitespace-nowrap"
             style={{ background: "#ffffff", color: "#304B71" }}
           >
-            Analyser
+            {t('analyze_btn') || "Analyser"}
           </button>
         </div>
       </div>
@@ -670,11 +678,11 @@ function DashboardPage({
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-2">
                   <h3 className="font-bold text-base" style={{ color: c.txt }}>
-                    Prochains RDV
+                    {t('upcoming_appointments') || "Prochains RDV"}
                   </h3>
                   {upcomingAppts.length > 0 && (
                     <Badge color={c.blue} bg={`${c.blue}11`}>
-                      {upcomingAppts.length} actifs
+                      {upcomingAppts.length} {t('active_label') || "actifs"}
                     </Badge>
                   )}
                 </div>
@@ -683,7 +691,7 @@ function DashboardPage({
                   className="text-sm font-semibold hover:underline"
                   style={{ color: c.blue }}
                 >
-                  View All
+                  {t('view_all_btn') || "View All"}
                 </button>
               </div>
               <div className="space-y-4">
@@ -691,8 +699,8 @@ function DashboardPage({
                   <EmptyState
                     dk={dk}
                     icon={Calendar}
-                    title="Aucun rendez-vous"
-                    message="Vous n'avez pas de consultations prévues pour le moment."
+                    title={t('no_appointments_title') || "Aucun rendez-vous"}
+                    message={t('no_appointments_desc') || "Vous n'avez pas de consultations prévues pour le moment."}
                   />
                 ) : (
                   upcomingAppts.slice(0, 2).map((a) => (
@@ -752,7 +760,7 @@ function DashboardPage({
             {/* Medications */}
             <Card dk={dk}>
               <h3 className="font-semibold mb-4" style={{ color: c.txt }}>
-                Medication Reminders
+                {t('medication_reminders_title') || "Medication Reminders"}
               </h3>
               <div className="space-y-4">
                 {meds.map((m) => (
@@ -1026,6 +1034,7 @@ function DashboardPage({
 
 // ─── MEDICAL PROFILE PAGE ─────────────────────────────────────────────────────
 function MedicalProfilePage({ dk, profile, userId, userData }) {
+  const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
   const [tab, setTab] = useState("antecedents");
   const [data, setData] = useState({
@@ -1642,13 +1651,14 @@ const HISTORY_SESSIONS = [
 ];
 const BADGE_COLORS = { low: "#2D8C6F", med: "#E8A838", high: "#E05555" };
 
-function AIDiagnosisPage({ dk }) {
+function AIDiagnosisPage({ dk, firstName }) {
+  const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([
     {
       role: "ai",
-      text: "Bonjour Alex 👋 Décrivez vos symptômes en détail — localisation, intensité, durée — et je vous fournirai une analyse immédiate avec des recommandations adaptées.",
+      text: t('ai_intro_msg', {name: firstName || 'Alex'}) || "Bonjour 👋 Décrivez vos symptômes en détail — localisation, intensité, durée — et je vous fournirai une analyse immédiate avec des recommandations adaptées.",
     },
   ]);
   const [loading, setLoading] = useState(false);
@@ -2283,6 +2293,7 @@ function AppointmentsPage({
   loading: shellLoading,
   refreshAppointments,
 }) {
+  const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
 
   const [doctors, setDoctors] = useState([]);
@@ -2335,7 +2346,7 @@ function AppointmentsPage({
     "Batna",
   ];
   const SPECIALTIES = [
-    "All",
+    t('all_specialties'),
     "Généraliste",
     "Cardiologie",
     "Gynécologie",
@@ -2474,21 +2485,14 @@ function AppointmentsPage({
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const today = new Date();
 
-  const monthNames = [
-    "Janvier",
-    "Février",
-    "Mars",
-    "Avril",
-    "Mai",
-    "Juin",
-    "Juillet",
-    "Août",
-    "Septembre",
-    "Octobre",
-    "Novembre",
-    "Décembre",
-  ];
-  const dayNames = ["Di", "Lu", "Ma", "Me", "Je", "Ve", "Sa"];
+  const monthNames = {
+    fr: ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"],
+    en: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+  };
+  const dayNames = {
+    fr: ["Di", "Lu", "Ma", "Me", "Je", "Ve", "Sa"],
+    en: ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
+  };
 
   const formatDate = (y, m, d) =>
     `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -3051,13 +3055,13 @@ function AppointmentsPage({
                           className="flex-1 py-1.5 rounded-lg text-[11px] font-bold transition-all hover:bg-opacity-80"
                           style={{ background: c.blueLight, color: c.blue }}
                         >
-                          Modifier
+                          {t('modify')}
                         </button>
                         <button
                           className="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all hover:bg-red-50"
                           style={{ color: "#E05555" }}
                         >
-                          Annuler
+                          {t('cancel_appointment')}
                         </button>
                       </div>
                     </Card>
@@ -3072,7 +3076,7 @@ function AppointmentsPage({
             style={{ background: c.border, opacity: 0.6 }}
           />
           <h2 className="font-bold text-lg mb-4" style={{ color: c.txt }}>
-            Trouver un nouveau médecin
+            {t('find_doctor')}
           </h2>
 
           {/* ── Search bar (Restored) ── */}
@@ -3094,7 +3098,7 @@ function AppointmentsPage({
               />
               <input
                 type="text"
-                placeholder="Rechercher un médecin, une spécialité..."
+                placeholder={t('search_doctor_placeholder')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onFocus={() => setSearchFocused(true)}
@@ -3121,7 +3125,7 @@ function AppointmentsPage({
                     className="text-[.87rem] whitespace-nowrap font-medium"
                     style={{ color: c.txt2 }}
                   >
-                    {selectedCity ? `${selectedCity}, Algérie` : "Toutes les wilayas"}
+                    {selectedCity ? `${selectedCity}, Algérie` : t('all_wilayas')}
                   </span>
                   <ChevronDown
                     size={13}
@@ -3186,7 +3190,7 @@ function AppointmentsPage({
               className="hidden md:block shrink-0 px-8 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 z-10"
               style={{ background: c.blue }}
             >
-              Rechercher
+              {t('search')}
             </button>
           </div>
 
@@ -3314,7 +3318,7 @@ function AppointmentsPage({
                 }}
               >
                 <User size={14} style={{ color: c.blue }} />
-                <span>{selectedGender}</span>
+                <span>{selectedGender === "Any Gender" ? t('any_gender') : (selectedGender === "Masculin" ? t('male') : t('female'))}</span>
                 <ChevronDown
                   size={13}
                   className="transition-transform duration-200"
@@ -3340,27 +3344,31 @@ function AppointmentsPage({
                       scrollbarWidth: "thin",
                     }}
                   >
-                    {["Any Gender", "Masculin", "Féminin"].map((opt) => (
+                    {[
+                      { id: "Any Gender", label: t('any_gender') },
+                      { id: "Masculin", label: t('male') },
+                      { id: "Féminin", label: t('female') }
+                    ].map((opt) => (
                       <button
-                        key={opt}
+                        key={opt.id}
                         onClick={() => {
-                          setSelectedGender(opt);
+                          setSelectedGender(opt.id);
                           setGenderOpen(false);
                         }}
                         className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-medium text-left transition-all hover:opacity-80"
                         style={{
                           background:
-                            selectedGender === opt
+                            selectedGender === opt.id
                               ? c.blue + "18"
                               : "transparent",
-                          color: selectedGender === opt ? c.blue : c.txt,
-                          fontWeight: selectedGender === opt ? 700 : 400,
+                          color: selectedGender === opt.id ? c.blue : c.txt,
+                          fontWeight: selectedGender === opt.id ? 700 : 400,
                         }}
                       >
-                        {selectedGender === opt && (
+                        {selectedGender === opt.id && (
                           <span style={{ color: c.blue }}>✓</span>
                         )}
-                        {opt}
+                        {opt.label}
                       </button>
                     ))}
                   </div>
@@ -3377,7 +3385,7 @@ function AppointmentsPage({
                 className="text-xs font-medium mr-1"
                 style={{ color: c.txt3 }}
               >
-                Note min:
+                {t('min_rating')}
               </span>
               {[1, 2, 3, 4, 5].map((star) => (
                 <button
@@ -3897,6 +3905,7 @@ function AppointmentsPage({
 
 // ─── PRESCRIPTIONS PAGE ───────────────────────────────────────────────────────
 function PrescriptionsPage({ dk }) {
+  const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
   const [filter, setFilter] = useState("All");
   const [selectedQr, setSelectedQr] = useState(null);
@@ -4126,6 +4135,7 @@ function PrescriptionsPage({ dk }) {
 
 // ─── PHARMACY PAGE ────────────────────────────────────────────────────────────
 function PharmacyPage({ dk }) {
+  const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
   const [cart, setCart] = useState({ 1: 1, 2: 2 });
 
@@ -4145,7 +4155,7 @@ function PharmacyPage({ dk }) {
             <div className="flex items-center gap-2">
               <Search size={15} style={{ color: c.txt3 }} />
               <input
-                placeholder="Search medication name…"
+                placeholder={t('search_medication_placeholder')}
                 className="outline-none text-sm bg-transparent flex-1"
                 style={{ color: c.txt }}
               />
@@ -4191,7 +4201,7 @@ function PharmacyPage({ dk }) {
                       color={item.stock === "In Stock" ? c.green : c.red}
                       bg={(item.stock === "In Stock" ? c.green : c.red) + "18"}
                     >
-                      {item.stock}
+                      {item.stock === "In Stock" ? t('in_stock') : t('out_of_stock')}
                     </Badge>
                     {item.cnas && (
                       <Badge color={c.blue} bg={c.blueLight}>
@@ -4213,7 +4223,7 @@ function PharmacyPage({ dk }) {
                       item.stock === "In Stock" ? "pointer" : "not-allowed",
                   }}
                 >
-                  {item.stock === "In Stock" ? "Add to Cart" : "Unavailable"}
+                  {item.stock === "In Stock" ? t('add_to_cart') : t('unavailable')}
                 </button>
               </Card>
             ))}
@@ -4225,15 +4235,15 @@ function PharmacyPage({ dk }) {
             <div className="flex items-center gap-2 mb-4">
               <ShoppingBag size={18} style={{ color: c.blue }} />
               <span className="font-bold" style={{ color: c.txt }}>
-                My Cart
+                {t('my_cart')}
               </span>
               <Badge color={c.blue} bg={c.blueLight}>
-                {cartItems.length} items
+                {t('items_count', { count: cartItems.length })}
               </Badge>
             </div>
             {cartItems.length === 0 ? (
               <p className="text-sm text-center py-6" style={{ color: c.txt3 }}>
-                Cart is empty
+                {t('empty_cart')}
               </p>
             ) : (
               <>
@@ -4288,21 +4298,21 @@ function PharmacyPage({ dk }) {
                     className="flex justify-between text-sm"
                     style={{ color: c.txt2 }}
                   >
-                    <span>Subtotal</span>
+                    <span>{t('subtotal')}</span>
                     <span>{subtotal} DZD</span>
                   </div>
                   <div
                     className="flex justify-between text-sm"
                     style={{ color: c.green }}
                   >
-                    <span>SHIFA Coverage</span>
+                    <span>{t('shifa_coverage')}</span>
                     <span>− {Math.round(subtotal * 0.6)} DZD</span>
                   </div>
                   <div
                     className="flex justify-between font-bold border-t pt-2"
                     style={{ borderColor: c.border, color: c.txt }}
                   >
-                    <span>Total</span>
+                    <span>{t('total')}</span>
                     <span>{Math.round(subtotal * 0.4)} DZD</span>
                   </div>
                 </div>
@@ -4329,6 +4339,7 @@ const WILAYAS_LIST = [
 ];
 
 function CareTakerPage({ dk }) {
+  const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
   const { addNotification } = useData();
 
@@ -5040,12 +5051,12 @@ function CareTakerPage({ dk }) {
                       <button onClick={() => setProfileModal(ct)}
                         className="text-xs font-semibold px-4 py-2 rounded-xl border transition-colors hover:opacity-80"
                         style={{ color: c.txt2, borderColor: c.border }}>
-                        Voir Profil
+                        {t('view_profile')}
                       </button>
                       <button onClick={() => handleAssign(ct)}
                         className="text-xs font-bold px-4 py-2 rounded-xl text-white shadow-md active:scale-95 hover:opacity-90"
                         style={{ background: isPending ? c.amber : c.blue }}>
-                        {isPending ? "⏳ En attente" : "Assigner"}
+                        {isPending ? `⏳ ${t('pending')}` : t('assign')}
                       </button>
                     </div>
                   </div>
@@ -5061,6 +5072,7 @@ function CareTakerPage({ dk }) {
 
 // ─── NOTIFICATIONS PAGE ───────────────────────────────────────────────────────
 function NotificationsPage({ dk, notifications, setNotifications }) {
+  const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
   const { globalNotifications = [] } = useData();
 
@@ -5098,10 +5110,10 @@ function NotificationsPage({ dk, notifications, setNotifications }) {
       <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: c.txt }}>
-            Notifications
+            {t('notifications')}
           </h1>
           <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
-            Stay updated with your health alerts
+            {t('stay_updated')}
           </p>
         </div>
         <button
@@ -5109,7 +5121,7 @@ function NotificationsPage({ dk, notifications, setNotifications }) {
           className="text-sm font-semibold px-4 py-2 rounded-xl border"
           style={{ color: c.blue, borderColor: c.border }}
         >
-          Mark all as read
+          {t('mark_all_read')}
         </button>
       </div>
       <div className="flex gap-2 mb-5 flex-wrap">
@@ -5198,6 +5210,7 @@ function NotificationsPage({ dk, notifications, setNotifications }) {
 
 // ─── SETTINGS PAGE ────────────────────────────────────────────────────────────
 function SettingsPage({ dk, onToggleDark, userData }) {
+  const { t, lang, setLang } = useLanguage();
   const c = dk ? T.dark : T.light;
   const [showPwd, setShowPwd] = useState(false);
 
@@ -5291,10 +5304,10 @@ function SettingsPage({ dk, onToggleDark, userData }) {
     <>
       <div className="mb-6">
         <h1 className="text-2xl font-bold" style={{ color: c.txt }}>
-          Settings
+          {t('settings')}
         </h1>
         <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
-          Manage your account and preferences
+          {t('admin_settings_desc')}
         </p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
@@ -5361,7 +5374,7 @@ function SettingsPage({ dk, onToggleDark, userData }) {
               className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
               style={{ background: c.blue, opacity: isSaving ? 0.7 : 1 }}
             >
-              {isSaving ? "Saving..." : "Save Changes"}
+              {isSaving ? "..." : t('save_changes')}
             </button>
           </Card>
           <Card dk={dk}>
@@ -5432,20 +5445,24 @@ function SettingsPage({ dk, onToggleDark, userData }) {
         <div className="space-y-5">
           <Card dk={dk}>
             <p className="font-semibold mb-4" style={{ color: c.txt }}>
-              Language
+              {t('language')}
             </p>
             <div className="flex gap-2 flex-wrap">
-              {["🇫🇷 Français", "🇩🇿 العربية", "🇬🇧 English"].map((lang, i) => (
+              {[
+                { id: "fr", label: "Français", flag: "🇫🇷" },
+                { id: "en", label: "English", flag: "🇬🇧" }
+              ].map((l) => (
                 <button
-                  key={lang}
+                  key={l.id}
+                  onClick={() => setLang(l.id)}
                   className="px-4 py-2 rounded-xl text-sm font-semibold border transition-all"
                   style={{
-                    background: i === 0 ? c.blue : "transparent",
-                    color: i === 0 ? "#fff" : c.txt2,
-                    borderColor: i === 0 ? c.blue : c.border,
+                    background: lang === l.id ? c.blue : "transparent",
+                    color: lang === l.id ? "#fff" : c.txt2,
+                    borderColor: lang === l.id ? c.blue : c.border,
                   }}
                 >
-                  {lang}
+                  {l.flag} {l.label}
                 </button>
               ))}
             </div>
@@ -5469,12 +5486,17 @@ function SettingsPage({ dk, onToggleDark, userData }) {
 
 // ─── MAIN SHELL ───────────────────────────────────────────────────────────────
 export default function PatientDashboard({ onLogout }) {
+  const { t } = useLanguage();
   const { userData } = useAuth();
-  const { globalNotifications = [], markAllNotificationsRead, addNotification } = useData();
+  const { theme, toggleTheme } = useTheme();
+  const dk = theme === "dark";
+  const { globalNotifications = [], markAllNotificationsRead, addNotification, unreadChatCount, setUnreadChatCount } = useData();
   const [page, setPage] = useState("dashboard");
-  const [dk, setDk] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
+
+  // ── Chat state ──
+  const [activeConv, setActiveConv] = useState(null);
 
   const [appointments, setAppointments] = useState([]);
   const [medicalProfile, setMedicalProfile] = useState(null);
@@ -5534,16 +5556,17 @@ export default function PatientDashboard({ onLogout }) {
   const fullName =
     userData && (userData.first_name || userData.last_name)
       ? `${userData.first_name || ""} ${userData.last_name || ""}`.trim()
-      : "Mon Compte";
+      : (t('my_account') || "Mon Compte");
 
   const NAV = [
-    { id: "dashboard", label: "Dashboard" },
-    { id: "medical-profile", label: "Medical Profile" },
-    { id: "ai-diagnosis", label: "AI Diagnosis" },
-    { id: "appointments", label: "Appointments" },
-    { id: "prescriptions", label: "Prescriptions" },
-    { id: "pharmacy", label: "Pharmacy" },
-    { id: "care-taker", label: "Care Taker" },
+    { id: "dashboard",       label: t('dashboard')       },
+    { id: "medical-profile", label: t('medical_profile') },
+    { id: "ai-diagnosis",    label: t('ai_diagnosis')    },
+    { id: "appointments",    label: t('appointments')    },
+    { id: "prescriptions",   label: t('prescriptions')   },
+    { id: "pharmacy",        label: t('pharmacy')        },
+    { id: "care-taker",      label: t('care_taker')      },
+    { id: "messages",        label: t('messages')        },
   ];
 
   const renderPage = () => {
@@ -5571,7 +5594,7 @@ export default function PatientDashboard({ onLogout }) {
           />
         );
       case "ai-diagnosis":
-        return <AIDiagnosisPage dk={dk} />;
+        return <AIDiagnosisPage dk={dk} firstName={firstName} />;
       case "appointments":
         return <AppointmentsPage {...props} />;
       case "prescriptions":
@@ -5580,6 +5603,58 @@ export default function PatientDashboard({ onLogout }) {
         return <PharmacyPage dk={dk} />;
       case "care-taker":
         return <CareTakerPage dk={dk} />;
+      case "messages":
+        return (
+          <div className="flex gap-5" style={{ height: "calc(100vh - 120px)", minHeight: 500 }}>
+            {/* ConversationList — 30% */}
+            <div
+              className="rounded-2xl border overflow-hidden shrink-0 flex flex-col"
+              style={{ width: "30%", minWidth: 260, background: c.card, borderColor: c.border }}
+            >
+              <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0" style={{ borderColor: c.border }}>
+                <MessageSquare size={15} style={{ color: c.blue }} />
+                <h2 className="font-bold text-sm" style={{ color: c.txt }}>{t('nav_messages') || "Messages"}</h2>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <ConversationList
+                  open={true}
+                  onClose={() => {}}
+                  onSelectConv={(conv) => setActiveConv(conv)}
+                  isPatient={true}
+                  onUnreadChange={(n) => setUnreadChatCount(n)}
+                  c={c}
+                  dk={dk}
+                  inline={true}
+                />
+              </div>
+            </div>
+            {/* ChatWindow — 70% */}
+            <div className="flex-1 min-w-0">
+              {activeConv ? (
+                <ChatWindow
+                  conv={activeConv}
+                  onClose={() => setActiveConv(null)}
+                  onBack={null}
+                  c={c}
+                  dk={dk}
+                  embedded={true}
+                />
+              ) : (
+                <div
+                  className="h-full rounded-2xl border flex flex-col items-center justify-center gap-4"
+                  style={{ background: c.card, borderColor: c.border }}
+                >
+                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: c.blueLight }}>
+                    <MessageSquare size={28} style={{ color: c.blue }} />
+                  </div>
+                  <p className="text-sm font-medium" style={{ color: c.txt3 }}>
+                    {t('select_conversation_desc') || "Sélectionnez une conversation"}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        );
       case "notifications":
         return (
           <NotificationsPage
@@ -5592,7 +5667,7 @@ export default function PatientDashboard({ onLogout }) {
         return (
           <SettingsPage
             dk={dk}
-            onToggleDark={() => setDk(!dk)}
+            onToggleDark={toggleTheme}
             userData={userData}
           />
         );
@@ -5688,6 +5763,14 @@ export default function PatientDashboard({ onLogout }) {
                 }}
               >
                 {item.label}
+                {item.id === "messages" && unreadChatCount > 0 && (
+                  <span
+                    className="w-4 h-4 rounded-full flex items-center justify-center text-white font-bold"
+                    style={{ background: page === item.id ? "rgba(255,255,255,0.35)" : c.red, fontSize: 9 }}
+                  >
+                    {unreadChatCount > 9 ? "9+" : unreadChatCount}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -5837,7 +5920,7 @@ export default function PatientDashboard({ onLogout }) {
                         size={16}
                         className="hover:rotate-45 transition-transform"
                       />
-                      Settings
+                      {t('nav_settings') || "Settings"}
                     </button>
                     {/* Dark mode */}
                     <button className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer">
@@ -5846,7 +5929,7 @@ export default function PatientDashboard({ onLogout }) {
                         style={{ color: dk ? c.txt3 : "#E8A838" }}
                       />
                       <button
-                        onClick={() => setDk(!dk)}
+                        onClick={toggleTheme}
                         className="relative rounded-full transition-all duration-300  "
                         style={{
                           width: 42,
@@ -5880,7 +5963,7 @@ export default function PatientDashboard({ onLogout }) {
                         size={16}
                         className="hover:translate-x-1 transition-transform"
                       />
-                      Logout
+                      {t('logout_btn') || "Logout"}
                     </button>
                   </div>
                 </div>
@@ -5934,6 +6017,8 @@ export default function PatientDashboard({ onLogout }) {
           onClick={() => setProfileOpen(false)}
         />
       )}
+
+      {/* Chat géré dans renderPage() — case "messages" */}
     </div>
     </div>
   );
