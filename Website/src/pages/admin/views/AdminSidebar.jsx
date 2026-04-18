@@ -221,14 +221,16 @@ export default function AdminSidebar({
           </div>
         </div>
         
-        <div className="mt-6 flex flex-col gap-1">
-           <button className="w-full flex items-center justify-between px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all rounded-lg opacity-40 hover:opacity-100 hover:bg-black/5" style={{ color: c.txt }}>
-              {t('view_profile')}
-              <User size={12} />
-           </button>
-           <button onClick={onLogout} className="w-full flex items-center justify-between px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all rounded-lg text-red-500 hover:bg-red-500/10 active:scale-95">
-              {t('logout')}
-              <LogOut size={12} />
+        <div className="mt-3">
+           <button
+              onClick={onLogout}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all"
+              style={{ background: "transparent", color: c.txt2 }}
+              onMouseEnter={e => { e.currentTarget.style.background = c.row; e.currentTarget.style.color = c.txt; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = c.txt2; }}
+           >
+              <LogOut size={15} className="shrink-0" />
+              <span className="flex-1 text-left truncate">{t('logout')}</span>
            </button>
         </div>
       </div>

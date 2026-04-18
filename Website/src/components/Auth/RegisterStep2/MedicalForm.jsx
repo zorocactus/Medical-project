@@ -2,9 +2,10 @@ import PersonalInfoForm from "./PersonalInfoForm";
 
 export const MEDICAL_STEPS = [
   { key: "auth.register.steps.profile" },
-  { key: "auth.register.steps.documents" },
+  { key: "auth.register.steps.identity" },
   { key: "auth.register.steps.role" },
   { key: "auth.register.steps.activity" },
+  { key: "auth.register.steps.documents" },
   { key: "auth.register.steps.confirm" },
 ];
 

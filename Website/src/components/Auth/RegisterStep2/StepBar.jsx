@@ -27,6 +27,10 @@ export default function StepBar({ steps, current }) {
     doneTxt:      "#2D8C6F",
   };
 
+  const compact = steps.length > 5;
+  const colWidth = compact ? 56 : 64;
+  const connectorWidth = compact ? 22 : 32;
+
   return (
     <div className="flex items-start justify-center mb-8">
       {steps.map((step, i) => {
@@ -35,7 +39,7 @@ export default function StepBar({ steps, current }) {
         const isActive = idx === current;
         return (
           <div key={i} className="flex items-start">
-            <div className="flex flex-col items-center gap-1.5 w-16">
+            <div className="flex flex-col items-center gap-1.5 flex-shrink-0" style={{ width: colWidth }}>
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all flex-shrink-0"
                 style={{
@@ -56,8 +60,8 @@ export default function StepBar({ steps, current }) {
             </div>
             {i < steps.length - 1 && (
               <div
-                className="w-8 h-[2px] mt-4 flex-shrink-0"
-                style={{ background: isDone ? c.connDone : c.connPending }}
+                className="h-[2px] mt-4 flex-shrink-0"
+                style={{ width: connectorWidth, background: isDone ? c.connDone : c.connPending }}
               />
             )}
           </div>

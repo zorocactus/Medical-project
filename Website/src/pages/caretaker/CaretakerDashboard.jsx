@@ -19,40 +19,7 @@ import {
   ClipboardList, ChevronDown, LogOut, Menu, Sun, Moon, Check,
   Link as LinkIcon, Brain, Send, MessageSquare
 } from "lucide-react";
-
-// ─── Theme tokens (Identical to Doctor/Patient Dashboard) ────────────────────
-const T = {
-  light: {
-    bg: "#F0F4F8",
-    card: "#ffffff",
-    nav: "#ffffff",
-    border: "#E4EAF5",
-    txt: "#0D1B2E",
-    txt2: "#5A6E8A",
-    txt3: "#9AACBE",
-    blue: "#4A6FA5",
-    blueLight: "#EEF3FB",
-    green: "#2D8C6F",
-    amber: "#E8A838",
-    red: "#E05555",
-    purple: "#7B5EA7",
-  },
-  dark: {
-    bg: "#0D1117",
-    card: "#141B27",
-    nav: "#141B27",
-    border: "rgba(99,142,203,0.15)",
-    txt: "#F0F3FA",
-    txt2: "#8AAEE0",
-    txt3: "#4A6080",
-    blue: "#638ECB",
-    blueLight: "#1A2333",
-    green: "#4CAF82",
-    amber: "#F0A500",
-    red: "#E05555",
-    purple: "#9B7FD4",
-  },
-};
+import { T } from "../_shared/theme";
 
 // ─── Reusable Card Component ──────────────────────────────────────────────────
 function Card({ children, className = "", style = {}, dk }) {
@@ -174,6 +141,7 @@ const WILAYAS_LIST = [
 
 // ─── EmergencyModal (copie exacte du Patient Dashboard) ──────────────────────
 function EmergencyModal({ onClose, dk }) {
+  const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
   return (
     <div
@@ -399,6 +367,7 @@ function HomeView({ onChangePage, dk, c, setEmergency }) {
 }
 
 function EmergenciesView({ dk, c }) {
+  const { t } = useLanguage();
   const { gmPatients: patients } = useData();
 
   const emergencyContacts = [
@@ -492,6 +461,7 @@ function EmergenciesView({ dk, c }) {
 }
 
 function JobRequestsView({ dk, c }) {
+  const { t } = useLanguage();
   const [profileModal, setProfileModal] = useState(null); // req id
   const [dismissed, setDismissed] = useState([]); // ids refusés
   const [accepted, setAccepted] = useState([]); // ids acceptés (confirmés après 5 min)
@@ -1074,6 +1044,7 @@ function AIDiagnosisPage({ dk, c }) {
 }
 
 function MyPatientsView({ onChangePage, dk, c }) {
+  const { t } = useLanguage();
   const { gmPatients: patients, loadGMDemoData } = useData();
   const [profilePatient, setProfilePatient] = useState(null);
 
@@ -1225,6 +1196,7 @@ function MyPatientsView({ onChangePage, dk, c }) {
 }
 
 function TreatmentsView({ dk, c }) {
+  const { t } = useLanguage();
   const {
     gmPatients: patients, gmTreatments: treatments, loadGMDemoData,
     addMedicationToTreatment, removeMedicationFromTreatment,

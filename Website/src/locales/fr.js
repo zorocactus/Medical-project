@@ -210,6 +210,12 @@ export default {
         caretakerDesc: "Soins à domicile",
         pharmacistDesc:"Officine ou Conseil",
       },
+      documents: {
+        title:            "Documents justificatifs",
+        agreementTitle:   "Agrément",
+        criminalRecord:   "Scan du casier judiciaire",
+        agreementScan:    "Scan d'agrément",
+      },
       activity: {
         doctorLicenseHint:    "Ex: 161234",
         clinicNameHint:       "Cabinet Dr. Benali",

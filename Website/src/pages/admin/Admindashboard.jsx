@@ -3786,22 +3786,6 @@ export default function AdminDashboard({ onLogout }) {
           >
             {dk ? <Sun size={15} /> : <Moon size={15} />}
           </button>
-
-          {/* User avatar */}
-          <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold"
-            style={{ background: "linear-gradient(135deg, #E05555, #c93535)" }}
-          >
-            {(() => {
-              if (!userData) return "AD";
-              return (
-                (
-                  (userData.first_name?.[0] ?? "") +
-                  (userData.last_name?.[0] ?? "")
-                ).toUpperCase() || "AD"
-              );
-            })()}
-          </div>
         </header>
 
         {/* ── Page content ── */}

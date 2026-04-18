@@ -192,7 +192,7 @@ export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Mé
     specialite: "", nInscription: "", cabinetName: "", mapsUrl: "",
     pharmacyName: "", agrement: "", pharmacyMapsUrl: "",
     qualification: "", experienceYears: "", tarifSoin: "", wilaya: "",
-    cnas: "Oui", docFile: null, diplomeFile: null,
+    cnas: "Oui", docFile: null,
   });
   const [errors, setErrors] = useState({});
 
@@ -210,23 +210,23 @@ export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Mé
   const handleSubmit = () => {
     const newErrors = {};
     if (medicalRole === "Médecin") {
-      if (!formData.specialite)              newErrors.specialite      = t('auth.register.fieldRequired');
+      if (!formData.specialite)             newErrors.specialite      = t('auth.register.fieldRequired');
       if (!formData.nInscription.trim())    newErrors.nInscription    = t('auth.register.fieldRequired');
       if (!formData.cabinetName.trim())     newErrors.cabinetName     = t('auth.register.fieldRequired');
       if (!formData.experienceYears.trim()) newErrors.experienceYears = t('auth.register.fieldRequired');
       if (!formData.mapsUrl.trim())         newErrors.mapsUrl         = t('auth.register.fieldRequired');
-      if (!formData.diplomeFile)            newErrors.diplomeFile     = t('auth.register.fieldRequired');
+      if (!formData.docFile)                newErrors.docFile         = t('auth.register.fieldRequired');
     } else if (medicalRole === "Pharmacien") {
       if (!formData.pharmacyName.trim())    newErrors.pharmacyName    = t('auth.register.fieldRequired');
       if (!formData.agrement.trim())        newErrors.agrement        = t('auth.register.fieldRequired');
       if (!formData.pharmacyMapsUrl.trim()) newErrors.pharmacyMapsUrl = t('auth.register.fieldRequired');
+      if (!formData.docFile)                newErrors.docFile         = t('auth.register.fieldRequired');
     } else if (medicalRole === "Garde-malade") {
       if (!formData.qualification)          newErrors.qualification   = t('auth.register.fieldRequired');
       if (!formData.experienceYears.trim()) newErrors.experienceYears = t('auth.register.fieldRequired');
       if (!formData.tarifSoin.trim())       newErrors.tarifSoin       = t('auth.register.fieldRequired');
       if (!formData.wilaya)                 newErrors.wilaya          = t('auth.register.fieldRequired');
     }
-    if (!formData.docFile) newErrors.docFile = t('auth.register.fieldRequired');
     if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
     onComplete({ ...formData, medicalRole });
   };
@@ -234,21 +234,16 @@ export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Mé
   const handleDevFill = () => {
     const f = new File([""], "dev.pdf", { type: "application/pdf" });
     const d = medicalRole === "Médecin"
-      ? { specialite: "Cardiologue", nInscription: "161234", cabinetName: "Cabinet Dr. Dev", experienceYears: "5", mapsUrl: "https://maps.google.com/?q=Alger", cnas: "Oui", docFile: f, diplomeFile: f }
+      ? { specialite: "Cardiologue", nInscription: "161234", cabinetName: "Cabinet Dr. Dev", experienceYears: "5", mapsUrl: "https://maps.google.com/?q=Alger", cnas: "Oui", docFile: f }
       : medicalRole === "Pharmacien"
       ? { pharmacyName: "Pharmacie Dev", agrement: "20241001", pharmacyMapsUrl: "https://maps.google.com/?q=Alger", cnas: "Oui", docFile: f }
-      : { qualification: "Infirmier(ère) diplômé(e) d'État", experienceYears: "5", tarifSoin: "2000", wilaya: "Alger", cnas: "Oui", docFile: f };
+      : { qualification: "Infirmier(ère) diplômé(e) d'État", experienceYears: "5", tarifSoin: "2000", wilaya: "Alger", cnas: "Oui" };
     onComplete({ ...d, medicalRole });
   };
 
   const docChangeHandler = (e) => {
     setFormData(p => ({ ...p, docFile: e.target.files[0] }));
     if (errors.docFile) setErrors(p => ({ ...p, docFile: "" }));
-  };
-
-  const diplomeChangeHandler = (e) => {
-    setFormData(p => ({ ...p, diplomeFile: e.target.files[0] }));
-    if (errors.diplomeFile) setErrors(p => ({ ...p, diplomeFile: "" }));
   };
 
   return (
@@ -291,10 +286,6 @@ export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Mé
               <UploadZone id="autorisationFile" label={t('auth.register.activity.exerciseAuth')}
                 value={formData.docFile} onChange={docChangeHandler} error={errors.docFile} c={c} />
             </div>
-            <div className="col-span-2">
-              <UploadZone id="diplomeFile" label={t('auth.register.activity.diplomaCopy')}
-                value={formData.diplomeFile} onChange={diplomeChangeHandler} error={errors.diplomeFile} c={c} />
-            </div>
           </div>
         )}
 
@@ -336,10 +327,6 @@ export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Mé
                 options={WILAYAS} onSelect={(v) => handleField("wilaya", v)}
                 placeholder={t('auth.register.personalInfo.wilayaHint')} error={errors.wilaya} c={c} />
             </div>
-            <div className="col-span-2">
-              <UploadZone id="diplomeFile" label={t('auth.register.activity.diplomaCopy')}
-                value={formData.docFile} onChange={docChangeHandler} error={errors.docFile} c={c} />
-            </div>
           </div>
         )}
 
@@ -372,7 +359,7 @@ export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Mé
           <button type="button" onClick={handleSubmit}
             className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold transition-all cursor-pointer hover:brightness-110"
             style={{ background: c.blue }}>
-            {t('auth.register.activity.submit')}
+            {t('auth.register.continue')}
           </button>
         </div>
 

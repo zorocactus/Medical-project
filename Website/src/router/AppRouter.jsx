@@ -252,19 +252,22 @@ function RoleRouter() {
 
 // ─── Main Router ──────────────────────────────────────────────────────────────
 export default function AppRouter() {
+  // ⚠️ Tous les hooks DOIVENT être appelés inconditionnellement, avant tout return.
+  // (rules-of-hooks) — sinon l'ordre des hooks change selon le hash et React crashe.
+  const { isAuthenticated, loginWithData } = useAuth();
+  const [authMode, setAuthMode] = useState(null); // null = landing, "login" | "register"
+  const [forcedRole, setForcedRole] = useState("patient"); // Choix: "patient", "doctor", "pharmacist", "admin", "caretaker"
+
+  // Early return après les hooks — page de test des backgrounds (dev only)
   if (window.location.hash === "#/test-bg") {
     return <BackgroundTest />;
   }
-
-  const { isAuthenticated, loginWithData } = useAuth();
-  const [authMode, setAuthMode] = useState(null); // null = landing, "login" | "register"
 
   // =========================================================================
   // ⚡ BYPASS RAPIDE POUR TESTS (Décommenter pour utiliser) ⚡
   // =========================================================================
 
   const FORCE_TEST = true; // Mettre à true pour activer le bypass
-  const [forcedRole, setForcedRole] = useState("patient"); // Choix: "patient", "doctor", "pharmacist", "admin", "caretaker"
 
   if (FORCE_TEST) {
     const ROLE_MAP = {

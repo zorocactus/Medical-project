@@ -636,11 +636,12 @@ export async function completeSession(payload) {
 
 /**
  * Recherche de médicaments par nom
+ * Backend route : /api/medications/registry/ (router DRF dans medications/urls.py)
  * @param {string} query — terme de recherche (min 2 chars)
  * Returns: array of { id, name, dosage_form, strength }
  */
 export async function searchMedications(query) {
-  return apiFetch(`/medications/?search=${encodeURIComponent(query)}`);
+  return apiFetch(`/medications/registry/?search=${encodeURIComponent(query)}`);
 }
 
 /**
@@ -715,7 +716,7 @@ export async function getAdminDashboard() {
 /** (Admin) Catalogue médicaments — ?search=nom&category=cardio */
 export async function getMedications(filters = {}) {
   const params = new URLSearchParams(filters).toString();
-  return apiFetch(`/medications/${params ? "?" + params : ""}`);
+  return apiFetch(`/medications/registry/${params ? "?" + params : ""}`);
 }
 
 /** (Admin) Liste des pharmacies */
@@ -764,7 +765,7 @@ export async function updateQueueStatus(id, status) {
 
 /** (Admin) Créer un nouveau médicament dans le catalogue */
 export async function createMedication(data) {
-  return apiFetch("/medications/", { method: "POST", body: JSON.stringify(data) });
+  return apiFetch("/medications/registry/", { method: "POST", body: JSON.stringify(data) });
 }
 
 /** (Admin) Rejeter un document soumis par un médecin */

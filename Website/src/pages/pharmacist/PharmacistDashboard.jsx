@@ -16,22 +16,7 @@ import ChatButton from "../../components/chat/ChatButton";
 import ConversationList from "../../components/chat/ConversationList";
 import ChatWindow from "../../components/chat/ChatWindow";
 import { useLanguage } from "../../context/LanguageContext";
-
-// ─── Theme tokens (identique au patient dashboard) ────────────────────────────
-const T = {
-  light: {
-    bg: "#F0F4F8", card: "#ffffff", nav: "#ffffff",
-    border: "#E4EAF5", txt: "#0D1B2E", txt2: "#5A6E8A", txt3: "#9AACBE",
-    blue: "#4A6FA5", blueLight: "#EEF3FB", green: "#2D8C6F",
-    amber: "#E8A838", red: "#E05555", purple: "#7B5EA7",
-  },
-  dark: {
-    bg: "#0D1117", card: "#141B27", nav: "#141B27",
-    border: "rgba(99,142,203,0.15)", txt: "#F0F3FA", txt2: "#8AAEE0", txt3: "#4A6080",
-    blue: "#638ECB", blueLight: "#1A2333", green: "#4CAF82",
-    amber: "#F0A500", red: "#E05555", purple: "#9B7FD4",
-  },
-};
+import { T } from "../_shared/theme";
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 const STOCK = [

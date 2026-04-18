@@ -31,6 +31,7 @@ import MedicalForm from "./RegisterStep2/MedicalForm";
 import MedicalIdentityForm from "./RegisterStep2/MedicalIdentityForm";
 import MedicalRoleForm from "./RegisterStep2/MedicalRoleForm";
 import MedicalInfoForm from "./RegisterStep2/MedicalInfoForm";
+import MedicalDocumentsForm from "./RegisterStep2/MedicalDocumentsForm";
 import MedicalSuccess from "./RegisterStep2/MedicalSuccess";
 
 export default function AuthTransition({ onLogin, initialActive = false, onBack }) {
@@ -105,7 +106,12 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
     setStep(5);
   };
 
-  const handleCompletedStep5 = async (additionalData) => {
+  const handleCompletedStep5 = (additionalData) => {
+    setTempUser((prev) => ({ ...prev, ...additionalData }));
+    setStep(6);
+  };
+
+  const handleCompletedStep6 = async (additionalData) => {
     const data = { ...tempUser, ...additionalData };
     setTempUser(data);
 
@@ -131,23 +137,26 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
           await api.registerDoctor({
             ...basePayload,
             specialty:        data.specialite || "Généraliste",
-            license_number:   data.licenseNumber || "",
+            license_number:   data.nInscription || data.licenseNumber || "",
             experience_years: parseInt(data.experienceYears || data.experience) || 0,
           });
         } else if (backendRole === "pharmacist") {
-          await api.registerPharmacist(basePayload);
+          await api.registerPharmacist({
+            ...basePayload,
+            license_number: data.orderNumber || "",
+          });
         } else if (backendRole === "caretaker") {
           await api.registerCaretaker(basePayload);
         }
 
-        setStep(6);
+        setStep(7);
       } catch (err) {
         alert("Erreur lors de l'inscription médicale : " + err.message);
       } finally {
         setIsSubmitting(false);
       }
     } else {
-      setStep(6);
+      setStep(7);
     }
   };
 
@@ -203,6 +212,18 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
     }
 
     if (step === 6) {
+      if (tempUser?.accountType === "personnel médical") {
+        return (
+          <MedicalDocumentsForm
+            onComplete={handleCompletedStep6}
+            onBack={() => setStep(5)}
+            medicalRole={tempUser?.medicalRole || tempUser?.role || "Médecin"}
+          />
+        );
+      }
+    }
+
+    if (step === 7) {
       if (tempUser?.accountType === "personnel médical") {
         return (
           <MedicalSuccess onComplete={() => {

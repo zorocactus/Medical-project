@@ -132,6 +132,7 @@ export default function VisitQueueView({ dk }) {
 }
 
 function QueueCard({ item, c, dk, borderColor, nextAction, onAction }) {
+  const { t } = useLanguage();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -209,6 +210,7 @@ function QueueCard({ item, c, dk, borderColor, nextAction, onAction }) {
 }
 
 function QueueColumn({ title, items, c, dk, icon: Icon, borderColor, nextAction, onAction }) {
+  const { t } = useLanguage();
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between px-2">

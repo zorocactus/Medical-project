@@ -160,7 +160,7 @@ export default {
       accountType:      "Account type",
       patient:          "patient",
       medicalStaff:     "medical staff",
-      continue:         "Continue →",
+      continue:         "Continue",
       back:             "← Back",
       orWith:           "or sign up with",
       alreadyAccount:   "Already have an account?",
@@ -209,6 +209,12 @@ export default {
         doctorDesc:    "GP or Specialist",
         caretakerDesc: "Home care",
         pharmacistDesc:"Pharmacy or Advice",
+      },
+      documents: {
+        title:            "Supporting documents",
+        agreementTitle:   "Licence",
+        criminalRecord:   "Criminal record scan",
+        agreementScan:    "Licence scan",
       },
       activity: {
         doctorLicenseHint:    "Ex: 161234",
