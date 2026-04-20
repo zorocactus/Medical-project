@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const DAYS = ["Lu", "Ma", "Me", "Je", "Ve", "Sa", "Di"];
 const CALENDAR = [
@@ -17,13 +17,59 @@ const SLOTS = [
 export default function Booking() {
   const [selectedSlot, setSelectedSlot] = useState("10:30");
   const [selectedDay, setSelectedDay] = useState(18);
+  const sectionRef = useRef(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setVisible(true);
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.15 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <section id="booking" style={{ fontFamily: "'DM Sans', sans-serif" }} className="py-24 px-8 lg:px-16 bg-[#EEF3FB]">
+    <section id="booking" ref={sectionRef} style={{ fontFamily: "'DM Sans', sans-serif" }} className="py-24 px-8 lg:px-16 bg-[#EEF3FB]">
+      <style>{`
+        @keyframes bookingSlideLeft {
+          from { opacity: 0; transform: translateX(-60px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes bookingScaleIn {
+          from { opacity: 0; transform: scale(0.95); }
+          to   { opacity: 1; transform: scale(1); }
+        }
+        .booking-left { opacity: 0; }
+        .booking-left.is-visible {
+          animation: bookingSlideLeft 800ms cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+        }
+        .booking-right { opacity: 0; }
+        .booking-right.is-visible {
+          animation: bookingScaleIn 700ms ease-out 300ms forwards;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .booking-left, .booking-right,
+          .booking-left.is-visible, .booking-right.is-visible {
+            animation: none !important;
+            opacity: 1 !important;
+            transform: none !important;
+          }
+        }
+      `}</style>
       <div className="max-w-[1100px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
 
         {/* LEFT — text */}
-        <div>
+        <div className={`booking-left ${visible ? "is-visible" : ""}`}>
           <span className="text-[.78rem] font-semibold uppercase tracking-widest text-[#638ECB] mb-3 block">Prendre rendez-vous</span>
           <h2 style={{ fontFamily: "'Cormorant Garamond', serif" }} className="text-[2.8rem] font-bold text-[#0D1B2E] leading-tight mb-4">
             Réservez un RDV<br />aujourd'hui, en ligne.
@@ -48,7 +94,7 @@ export default function Booking() {
         </div>
 
         {/* RIGHT — calendar card */}
-        <div className="bg-white rounded-[20px] shadow-[0_8px_32px_rgba(57,88,134,0.12)] border border-[#E4EAF5] p-5">
+        <div className={`booking-right ${visible ? "is-visible" : ""} bg-white rounded-[20px] shadow-[0_8px_32px_rgba(57,88,134,0.12)] border border-[#E4EAF5] p-5`}>
           {/* Doctor strip */}
           <div className="flex items-center justify-between mb-5 pb-4 border-b border-[#E4EAF5]">
             <div className="flex items-center gap-3">

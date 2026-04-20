@@ -3,11 +3,14 @@
 import { getAdminTheme } from "./adminTheme.js";
 
 /** Shared card component */
-export function Card({ children, className = "", style = {}, dk }) {
+export function Card({ children, className = "", style = {}, dk, empty = false }) {
   const c = getAdminTheme(dk);
+  const hoverClasses = empty
+    ? ""
+    : "transition-transform duration-200 hover:scale-[1.02]";
   return (
     <div
-      className={`rounded-2xl border ${className}`}
+      className={`rounded-2xl border ${hoverClasses} ${className}`}
       style={{
         background: c.card,
         borderColor: c.border,

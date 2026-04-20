@@ -1147,7 +1147,7 @@ function ValidationPage({ dk, onCountChange }) {
       </div>
 
       {pending.length === 0 ? (
-        <Card dk={dk} style={{ padding: 48, textAlign: "center" }}>
+        <Card dk={dk} empty={true} style={{ padding: 48, textAlign: "center" }}>
           <CheckCircle
             size={40}
             style={{ color: c.green, margin: "0 auto 16px" }}
@@ -2071,7 +2071,7 @@ function RendezVousPage({ dk }) {
           />
         </div>
       </Card>
-      <Card dk={dk} style={{ padding: 0, overflow: "hidden" }}>
+      <Card dk={dk} empty={true} style={{ padding: 0, overflow: "hidden" }}>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -2376,7 +2376,7 @@ function MedicamentsPage({ dk }) {
           </div>
         </div>
       </Card>
-      <Card dk={dk} style={{ padding: 0, overflow: "hidden" }}>
+      <Card dk={dk} empty={true} style={{ padding: 0, overflow: "hidden" }}>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -2846,7 +2846,7 @@ function PharmaciesPage({ dk }) {
               </button>
             ))}
           </div>
-          <Card dk={dk} style={{ padding: 0, overflow: "hidden" }}>
+          <Card dk={dk} empty={true} style={{ padding: 0, overflow: "hidden" }}>
             <table className="w-full">
               <thead>
                 <tr
@@ -3151,7 +3151,7 @@ function GardeMaladesPage({ dk }) {
                 </button>
               ))}
           </div>
-          <Card dk={dk} style={{ padding: 0, overflow: "hidden" }}>
+          <Card dk={dk} empty={true} style={{ padding: 0, overflow: "hidden" }}>
             <table className="w-full">
               <thead>
                 <tr
@@ -3370,7 +3370,7 @@ function AuditPage({ dk }) {
           </button>
         ))}
       </div>
-      <Card dk={dk} style={{ padding: 0, overflow: "hidden" }}>
+      <Card dk={dk} empty={true} style={{ padding: 0, overflow: "hidden" }}>
         {loading ? (
           <div
             className="py-16 flex items-center justify-center gap-3"

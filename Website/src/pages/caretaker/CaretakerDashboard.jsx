@@ -22,11 +22,14 @@ import {
 import { T } from "../_shared/theme";
 
 // ─── Reusable Card Component ──────────────────────────────────────────────────
-function Card({ children, className = "", style = {}, dk }) {
+function Card({ children, className = "", style = {}, dk, empty = false }) {
   const c = dk ? T.dark : T.light;
+  const hoverClasses = empty
+    ? ""
+    : "transition-transform duration-200 hover:scale-[1.02]";
   return (
     <div
-      className={`rounded-2xl p-5 shadow-sm border transition-all ${className}`}
+      className={`rounded-2xl p-5 shadow-sm border ${hoverClasses} ${className}`}
       style={{ background: c.card, borderColor: c.border, ...style }}
     >
       {children}
@@ -277,7 +280,7 @@ function HomeView({ onChangePage, dk, c, setEmergency }) {
           </div>
           <div className="space-y-4">
             {patients.length === 0 ? (
-              <Card dk={dk} className="h-48 flex flex-col items-center justify-center text-center">
+              <Card dk={dk} empty={true} className="h-48 flex flex-col items-center justify-center text-center">
                 <Users size={32} style={{ color: c.txt3, opacity: 0.5 }} className="mb-4" />
                 <p style={{ color: c.txt3 }}>{t('no_patients_assigned') || "Aucun patient assigné."}</p>
               </Card>
@@ -307,13 +310,13 @@ function HomeView({ onChangePage, dk, c, setEmergency }) {
           </div>
         </div>
         <div className="space-y-8">
-          <Card dk={dk}>
+          <Card dk={dk} empty={true}>
             <h3 className="text-sm font-bold mb-6" style={{ color: c.txt }}>{t('medication_planning') || "Planning Médicaments"}</h3>
             <div className="space-y-4">
               {schedule.length === 0 ? (
                 <div className="text-center py-6 text-sm" style={{ color: c.txt3 }}>{t('no_care_planned') || "Aucun soin prévu."}</div>
               ) : schedule.map((item, i) => (
-                <div key={i} className="flex items-start gap-3 group">
+                <div key={i} className="flex items-start gap-3 group cursor-pointer transition-transform duration-200 hover:scale-[1.02]">
                   <button className="mt-0.5 shrink-0">
                     {item.status === 'done' ? <CheckCircle2 size={18} style={{ color: c.green }} /> : <Circle size={18} style={{ color: c.border }} className="group-hover:text-blue-500 transition-colors" />}
                   </button>
@@ -328,7 +331,7 @@ function HomeView({ onChangePage, dk, c, setEmergency }) {
               ))}
             </div>
           </Card>
-          <Card dk={dk}>
+          <Card dk={dk} empty={true}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-bold" style={{ color: c.txt }}>{t('my_rating_reviews') || "Ma Note & Avis"}</h3>
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-full" style={{ background: c.amber + "18" }}>
@@ -344,7 +347,7 @@ function HomeView({ onChangePage, dk, c, setEmergency }) {
                 { author: "Dr. Benali", note: "Bonne exécution des prescriptions, communication claire.", stars: 5, date: "Il y a 5 jours" },
                 { author: "Famille Belaid", note: "Service satisfaisant, quelques retards.", stars: 4, date: "Il y a 1 sem." },
               ].map((avis, i) => (
-                <div key={i} className="p-3 rounded-xl border" style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border }}>
+                <div key={i} className="p-3 rounded-xl border cursor-pointer transition-transform duration-200 hover:scale-[1.02]" style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border }}>
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-bold" style={{ color: c.txt }}>{avis.author}</span>
                     <span className="text-[10px]" style={{ color: c.txt3 }}>{avis.date}</span>
@@ -409,7 +412,7 @@ function EmergenciesView({ dk, c }) {
       </div>
 
       {patients.length === 0 ? (
-        <Card dk={dk} className="flex flex-col items-center justify-center min-h-[40vh] text-center p-8">
+        <Card dk={dk} empty={true} className="flex flex-col items-center justify-center min-h-[40vh] text-center p-8">
           <ShieldAlert size={48} style={{ color: c.border }} className="mb-4" />
           <h2 className="text-xl font-bold mb-2" style={{ color: c.txt }}>{t('no_emergency_profile') || "Aucun Profil d'Urgence"}</h2>
           <p className="text-sm" style={{ color: c.txt3 }}>{t('add_patients_emergency_desc') || "Ajoutez des patients pour voir leurs contacts et procédures spécifiques."}</p>
@@ -866,7 +869,7 @@ function AIDiagnosisPage({ dk, c }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Chat */}
         <div className="lg:col-span-2 flex flex-col gap-4" style={{ marginTop: "-60px" }}>
-          <Card dk={dk} style={{ padding: 0, overflow: "hidden" }}>
+          <Card dk={dk} empty={true} style={{ padding: 0, overflow: "hidden" }}>
             {/* Messages */}
             <div className="p-4 space-y-4 overflow-y-auto" style={{ minHeight: 450, maxHeight: 600 }}>
               {messages.map((m, i) => (
@@ -1144,7 +1147,7 @@ function MyPatientsView({ onChangePage, dk, c }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {patients.length === 0 ? (
-          <Card dk={dk} className="col-span-full flex flex-col items-center justify-center min-h-[40vh] text-center p-8">
+          <Card dk={dk} empty={true} className="col-span-full flex flex-col items-center justify-center min-h-[40vh] text-center p-8">
             <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
               style={{ background: c.blue + "15", color: c.blue }}><UserPlus size={32} /></div>
             <h2 className="text-2xl font-bold mb-2" style={{ color: c.txt }}>{t('no_patient_assigned_title') || "Aucun Patient Assigné"}</h2>
@@ -1355,7 +1358,7 @@ function TreatmentsView({ dk, c }) {
 
       {/* ── Liste des plans ── */}
       {treatments.length === 0 ? (
-        <Card dk={dk} className="flex flex-col items-center justify-center py-20 text-center">
+        <Card dk={dk} empty={true} className="flex flex-col items-center justify-center py-20 text-center">
           <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4"
             style={{ background: c.blue + "15" }}>
             <Pill size={28} style={{ color: c.blue }} />

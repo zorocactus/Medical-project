@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from "react";
+
 const features = [
   {
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#638ECB" strokeWidth="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>,
@@ -32,8 +34,46 @@ const features = [
 ];
 
 export default function AIFeatures() {
+  const gridRef = useRef(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setVisible(true);
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <section id="ai-feats" style={{ fontFamily: "'DM Sans', sans-serif" }} className="bg-[#0D1B2E] py-24 px-8 lg:px-16">
+      <style>{`
+        @keyframes aiCardRise {
+          from { opacity: 0; transform: translateY(40px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .ai-card { opacity: 0; }
+        .ai-card.is-visible {
+          animation: aiCardRise 700ms ease-out forwards;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .ai-card, .ai-card.is-visible {
+            animation: none !important;
+            opacity: 1 !important;
+            transform: none !important;
+          }
+        }
+      `}</style>
       <div className="text-center mb-14 max-w-[600px] mx-auto">
         <span className="text-[.78rem] font-semibold uppercase tracking-widest text-[#638ECB] mb-3 block">
           Intelligence artificielle médicale
@@ -45,9 +85,13 @@ export default function AIFeatures() {
           Une IA médicale entraînée pour analyser, interpréter et guider — en toute responsabilité.
         </p>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-[1100px] mx-auto">
+      <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-[1100px] mx-auto">
         {features.map((f, i) => (
-          <div key={i} className="bg-white/[0.03] border border-white/[0.07] rounded-[16px] p-6 hover:-translate-y-1.5 hover:shadow-[0_16px_48px_rgba(8,15,30,0.5)] hover:border-[#638ECB]/28 transition-all duration-300 cursor-default">
+          <div
+            key={i}
+            className={`ai-card ${visible ? "is-visible" : ""} bg-white/[0.03] border border-white/[0.07] rounded-[16px] p-6 hover:-translate-y-1.5 hover:shadow-[0_16px_48px_rgba(8,15,30,0.5)] hover:border-[#638ECB]/28 transition-all duration-300 cursor-default`}
+            style={{ animationDelay: `${i * 100}ms` }}
+          >
             <div className="w-11 h-11 rounded-[11px] bg-[#638ECB]/10 border border-[#638ECB]/15 flex items-center justify-center mb-5">{f.icon}</div>
             <h3 style={{ fontFamily: "'Cormorant Garamond', serif" }} className="text-[1.2rem] font-bold text-white mb-2">{f.title}</h3>
             <p className="text-[.82rem] text-white/45 leading-[1.75]">{f.desc}</p>

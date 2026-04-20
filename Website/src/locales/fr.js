@@ -1298,10 +1298,10 @@ export default {
     // Dashboard Page
     find_doctor: "Trouver un médecin",
     search_doctor_desc: "Réservez une consultation avec les meilleurs spécialistes.",
-    search_doctor_placeholder: "Rechercher un médecin, une spécialité...",
+    search_doctor_placeholder: "Médecin, spécialité...",
     all_specialties: "Toutes les spécialités",
     all_wilayas: "Toutes les wilayas",
-    any_gender: "Tous les genres",
+    any_gender: "Tous",
     male: "Masculin",
     female: "Féminin",
     results_found: "{{count}} médecins trouvés",
@@ -1334,7 +1334,7 @@ export default {
     find_care_taker: "Aide à domicile",
     assign: "Assigner",
     pending: "En attente",
-    view_profile: "Voir Profil",
+    view_profile: "Voir profil",
     care_taker_search: "Rechercher une aide à domicile...",
     // AI Diagnosis
     ai_desc: "Analysez vos symptômes avec notre intelligence médicale.",

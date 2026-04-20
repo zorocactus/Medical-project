@@ -17,6 +17,11 @@ const AUTH_IMAGES = [
     title: "Soins de Haute Qualité",
     subtitle: "La technologie au service de la médecine moderne en Algérie.",
   },
+  {
+    src: "https://cdn.sanity.io/images/0vv8moc6/medec/26bac8f694276aa9486099abf6a9c640a76515b0-1200x800.jpg",
+    title: "Intelligence Artificielle & Santé",
+    subtitle: "La puissance de l'IA au service de diagnostics plus rapides et de soins prédictifs.",
+  }
 ];
 import * as api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";

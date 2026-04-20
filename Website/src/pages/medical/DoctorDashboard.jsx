@@ -80,11 +80,14 @@ function getInitials(a = "", b = "") {
 }
 
 // ─── Reusable components ──────────────────────────────────────────────────────
-function Card({ children, className = "", style = {}, dk }) {
+function Card({ children, className = "", style = {}, dk, empty = false }) {
   const c = dk ? T.dark : T.light;
+  const hoverClasses = empty
+    ? ""
+    : "transition-transform duration-200 hover:scale-[1.02]";
   return (
     <div
-      className={`rounded-2xl p-5 shadow-sm border ${className}`}
+      className={`rounded-2xl p-5 shadow-sm border ${hoverClasses} ${className}`}
       style={{ background: c.card, borderColor: c.border, ...style }}
     >
       {children}
@@ -918,7 +921,7 @@ function PatientsView({ onSelectPatient }) {
         </button>
       </div>
 
-      <Card dk={dk} className="p-0 overflow-hidden">
+      <Card dk={dk} empty={true} className="p-0 overflow-hidden">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div
@@ -970,7 +973,7 @@ function PatientsView({ onSelectPatient }) {
                 return (
                   <div
                     key={idx}
-                    className="grid grid-cols-[2.5fr_0.8fr_1.5fr_1fr_1.3fr_1.2fr_1fr] px-6 py-4 items-center transition-colors hover:bg-opacity-5"
+                    className="grid grid-cols-[2.5fr_0.8fr_1.5fr_1fr_1.3fr_1.2fr_1fr] px-6 py-4 items-center cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
                     style={{ background: "transparent" }}
                   >
                     <div className="flex items-center gap-3">
@@ -1393,7 +1396,7 @@ function PrescriptionsView() {
           </form>
         </Card>
 
-        <Card dk={dk} className="p-6 h-fit">
+        <Card dk={dk} empty={true} className="p-6 h-fit">
           <h2 className="text-[17px] font-bold mb-5" style={{ color: c.txt }}>
             {t('dashboard.doctor.prescription.recent')}
           </h2>
@@ -1413,7 +1416,7 @@ function PrescriptionsView() {
               {rxList.slice(0, 6).map((rx, i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-between p-3 rounded-xl border"
+                  className="flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
                   style={{ background: c.bg + "22", borderColor: c.border }}
                 >
                   <div>
@@ -1572,7 +1575,7 @@ function PatientDetailView({ patient, onBack, dk }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: History & Labs */}
         <div className="lg:col-span-2 space-y-6">
-          <Card dk={dk} className="p-0 overflow-hidden shadow-2xl border-0">
+          <Card dk={dk} empty={true} className="p-0 overflow-hidden shadow-2xl border-0">
             <div className="flex items-center justify-between border-b pr-4" style={{ borderColor: c.border }}>
               <div className="flex">
                 {["history", "lab", "prescriptions"].map((tab) => (
@@ -2851,7 +2854,7 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ── Left column: tabs ── */}
         <div className="lg:col-span-2 space-y-6">
-          <Card dk={dk} className="p-0 overflow-hidden shadow-2xl border-0">
+          <Card dk={dk} empty={true} className="p-0 overflow-hidden shadow-2xl border-0">
             {/* Tab bar */}
             <div className="flex items-center justify-between border-b pr-4" style={{ borderColor: c.border }}>
               <div className="flex">

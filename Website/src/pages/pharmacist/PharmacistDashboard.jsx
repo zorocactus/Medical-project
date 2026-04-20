@@ -78,10 +78,13 @@ const STOCK_CATEGORIES = [
 ];
 
 // ─── Reusable components ──────────────────────────────────────────────────────
-function Card({ children, className = "", style = {}, dk }) {
+function Card({ children, className = "", style = {}, dk, empty = false }) {
   const c = dk ? T.dark : T.light;
+  const hoverClasses = empty
+    ? ""
+    : "transition-transform duration-200 hover:scale-[1.02]";
   return (
-    <div className={`rounded-2xl p-5 shadow-sm border ${className}`}
+    <div className={`rounded-2xl p-5 shadow-sm border ${hoverClasses} ${className}`}
       style={{ background: c.card, borderColor: c.border, ...style }}>
       {children}
     </div>
@@ -439,14 +442,14 @@ function HomePage({ dk, onNav }) {
         <div className="xl:col-span-2 space-y-5">
 
           {/* Alertes stock */}
-          <Card dk={dk}>
+          <Card dk={dk} empty={true}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold" style={{ color: c.txt }}>{t('priority_alerts_title') || "Alertes prioritaires"}</h3>
               <Badge color={c.red} bg={c.red + "18"}>{t('alerts_count', {count: ALERTS.length}) || `${ALERTS.length} alertes`}</Badge>
             </div>
             <div className="space-y-3">
               {ALERTS.map(a => (
-                <div key={a.id} className="flex items-center gap-3 p-3 rounded-xl"
+                <div key={a.id} className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
                   style={{ background: dk ? a.bgDk : a.bg }}>
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                     style={{ background: a.color + "22" }}>
@@ -463,7 +466,7 @@ function HomePage({ dk, onNav }) {
           </Card>
 
           {/* Dernières commandes */}
-          <Card dk={dk}>
+          <Card dk={dk} empty={true}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold" style={{ color: c.txt }}>{t('latest_orders_title') || "Dernières commandes"}</h3>
               <button onClick={() => onNav("commandes")}
@@ -475,7 +478,7 @@ function HomePage({ dk, onNav }) {
               {ORDERS.slice(0, 3).map(o => {
                 const st = STATUS_META[o.status];
                 return (
-                  <div key={o.id} className="flex items-center gap-4 p-3 rounded-xl border transition-all hover:opacity-80"
+                  <div key={o.id} className="flex items-center gap-4 p-3 rounded-xl border cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
                     style={{ borderColor: c.border }}>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                       style={{ background: c.blueLight }}>
@@ -502,7 +505,7 @@ function HomePage({ dk, onNav }) {
         {/* Right col */}
         <div className="space-y-4">
           {/* Mini stock critique */}
-          <Card dk={dk}>
+          <Card dk={dk} empty={true}>
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs font-bold uppercase tracking-wide" style={{ color: c.txt3 }}>{t('stock_alerts_count_label') || "Stock critique"}</p>
               <button onClick={() => onNav("stock")} className="text-xs font-semibold hover:underline" style={{ color: c.blue }}>
@@ -510,7 +513,7 @@ function HomePage({ dk, onNav }) {
               </button>
             </div>
             {STOCK.filter(s => s.qty < s.min).map(item => (
-              <div key={item.id} className="flex items-center gap-3 py-3 border-b last:border-0"
+              <div key={item.id} className="flex items-center gap-3 py-3 px-2 border-b last:border-0 cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
                 style={{ borderColor: c.border }}>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold truncate" style={{ color: c.txt }}>{item.name}</p>
@@ -526,14 +529,14 @@ function HomePage({ dk, onNav }) {
           </Card>
 
           {/* Notifications */}
-          <Card dk={dk}>
+          <Card dk={dk} empty={true}>
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs font-bold uppercase tracking-wide" style={{ color: c.txt3 }}>{t('notifications_label') || "Notifications"}</p>
               <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">3</span>
             </div>
             <div className="space-y-3">
               {NOTIFICATIONS.slice(0, 3).map(n => (
-                <div key={n.id} className="flex items-start gap-3 p-3 rounded-xl"
+                <div key={n.id} className="flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
                   style={{ background: dk ? n.bgDk : n.bg }}>
                   <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: n.color }} />
                   <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
@@ -641,7 +644,7 @@ function StockPage({ dk }) {
       </Card>
 
       {/* Table */}
-      <Card dk={dk} style={{ padding: 0, overflow: "hidden" }}>
+      <Card dk={dk} empty={true} style={{ padding: 0, overflow: "hidden" }}>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>

@@ -238,6 +238,29 @@ export default function Hero({ onStart }) {
         .aw-msgs::-webkit-scrollbar-thumb { background: rgba(99,142,203,0.25); border-radius: 99px; }
         .aw-msgs::-webkit-scrollbar-thumb:hover { background: rgba(99,142,203,0.45); }
 
+        @keyframes heroSlideInLeft {
+          from { opacity: 0; transform: translateX(-60px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes heroSlideInRight {
+          from { opacity: 0; transform: translateX(60px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        .hero-anim-left {
+          opacity: 0;
+          animation: heroSlideInLeft 1000ms cubic-bezier(0.25, 0.46, 0.45, 0.94) 0ms forwards;
+        }
+        .hero-anim-right {
+          opacity: 0;
+          animation: heroSlideInRight 1000ms cubic-bezier(0.25, 0.46, 0.45, 0.94) 250ms forwards;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .hero-anim-left, .hero-anim-right {
+            animation: none !important;
+            opacity: 1 !important;
+            transform: none !important;
+          }
+        }
       `}</style>
 
       <section
@@ -251,7 +274,7 @@ export default function Hero({ onStart }) {
         <div className="absolute bottom-[-80px] right-[-80px] w-[400px] h-[400px] rounded-full bg-[#638ECB]/15 blur-[80px] pointer-events-none" />
 
         {/* LEFT */}
-        <div className="flex flex-col justify-center px-10 lg:px-16 py-16 lg:py-0 relative z-10">
+        <div className="hero-anim-left flex flex-col justify-center px-10 lg:px-16 py-16 lg:py-0 relative z-10">
 
 
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-[#E4EAF5] bg-white text-[.78rem] font-medium text-[#5A6E8A] mb-8 w-fit shadow-sm">
@@ -286,7 +309,7 @@ export default function Hero({ onStart }) {
         </div>
 
         {/* RIGHT — Glassmorphism Chat Window */}
-        <div className="flex items-center justify-center px-8 py-16 relative z-10">
+        <div className="hero-anim-right flex items-center justify-center px-8 py-16 relative z-10">
           {/* Glow behind */}
           <div className="absolute w-[420px] h-[520px] bg-[#395886]/15 rounded-[40px] blur-[70px] pointer-events-none" />
           <div className="absolute w-[280px] h-[280px] bg-[#638ECB]/10 rounded-full blur-[60px] translate-x-16 pointer-events-none" />

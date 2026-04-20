@@ -55,6 +55,7 @@ import {
   ArrowRight,
   Maximize2,
   MessageSquare,
+  ExternalLink,
 } from "lucide-react";
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
@@ -228,10 +229,13 @@ const CARETAKERS = [
 ];
 
 // ─── Card component ───────────────────────────────────────────────────────────
-function Card({ children, className = "", style = {}, dk }) {
+function Card({ children, className = "", style = {}, dk, empty = false }) {
+  const hoverClasses = empty
+    ? ""
+    : "transition-transform duration-200 hover:scale-[1.02]";
   return (
     <div
-      className={`rounded-2xl p-5 shadow-sm border ${className}`}
+      className={`rounded-2xl p-5 shadow-sm border ${hoverClasses} ${className}`}
       style={{
         background: dk ? T.dark.card : T.light.card,
         borderColor: dk ? T.dark.border : T.light.border,
@@ -427,6 +431,7 @@ function EmptyState({
   return (
     <Card
       dk={dk}
+      empty={true}
       className={`text-center w-full ${compact ? "py-6 px-4" : "py-10 px-6"}`}
     >
       <div
@@ -586,7 +591,7 @@ function DashboardPage({
         <div className="flex items-center gap-3 flex-wrap">
           <button
             onClick={() => setEmergency(true)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all hover:opacity-90 active:scale-95 shadow-lg"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 hover:brightness-110 hover:shadow-xl hover:-translate-y-0.5 shadow-lg cursor-pointer"
             style={{
               background: "linear-gradient(135deg, #E05555, #c93535)",
               color: "#fff",
@@ -626,7 +631,7 @@ function DashboardPage({
           />
           <button
             onClick={() => onNav("ai-diagnosis")}
-            className="px-8 py-3 rounded-xl font-bold text-sm transition-all hover:shadow-lg whitespace-nowrap"
+            className="px-8 py-3 rounded-xl font-bold text-sm transition-all duration-200 hover:shadow-lg hover:brightness-110 hover:-translate-y-0.5 whitespace-nowrap cursor-pointer"
             style={{ background: "#ffffff", color: "#304B71" }}
           >
             {t('analyze_btn') || "Analyser"}
@@ -639,7 +644,7 @@ function DashboardPage({
         <div className="xl:col-span-2 flex flex-col gap-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Prochains RDV */}
-            <Card dk={dk}>
+            <Card dk={dk} empty={true}>
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-2">
                   <h3 className="font-bold text-base" style={{ color: c.txt }}>
@@ -653,7 +658,7 @@ function DashboardPage({
                 </div>
                 <button
                   onClick={() => onNav("appointments")}
-                  className="text-sm font-semibold hover:underline"
+                  className="text-sm font-semibold hover:underline hover:opacity-80 transition-all duration-200 cursor-pointer"
                   style={{ color: c.blue }}
                 >
                   {t('view_all_btn') || "View All"}
@@ -672,7 +677,7 @@ function DashboardPage({
                     <div
                       key={a.id}
                       onClick={() => onNav("appointments")}
-                      className="group flex items-center gap-4 p-3 rounded-2xl border transition-all hover:shadow-md cursor-pointer"
+                      className="group flex items-center gap-4 p-3 rounded-2xl border transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 hover:bg-blue-50/40 dark:hover:bg-white/5 active:scale-[0.99] active:shadow-sm cursor-pointer"
                       style={{
                         borderColor: c.border,
                         background: dk ? `${c.blue}05` : "#fff",
@@ -723,13 +728,16 @@ function DashboardPage({
               </div>
             </Card>
             {/* Medications */}
-            <Card dk={dk}>
+            <Card dk={dk} empty={true}>
               <h3 className="font-semibold mb-4" style={{ color: c.txt }}>
                 {t('medication_reminders_title') || "Medication Reminders"}
               </h3>
               <div className="space-y-4">
                 {meds.map((m) => (
-                  <div key={m.id} className="flex items-center gap-3">
+                  <div
+                    key={m.id}
+                    className="flex items-center gap-3 cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
+                  >
                     <button
                       onClick={() =>
                         setMeds((ms) =>
@@ -738,7 +746,7 @@ function DashboardPage({
                           ),
                         )
                       }
-                      className="shrink-0"
+                      className="shrink-0 transition-transform duration-200 hover:scale-110 cursor-pointer"
                     >
                       {m.taken ? (
                         <CheckCircle size={22} style={{ color: c.green }} />
@@ -768,14 +776,14 @@ function DashboardPage({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Documents */}
-            <Card dk={dk}>
+            <Card dk={dk} empty={true}>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold" style={{ color: c.txt }}>
                   Recent Medical Documents
                 </h3>
                 <button
                   onClick={() => onNav("medical-profile")}
-                  className="text-sm font-semibold hover:underline"
+                  className="text-sm font-semibold hover:underline hover:opacity-80 transition-all duration-200 cursor-pointer"
                   style={{ color: c.blue }}
                 >
                   View All
@@ -802,7 +810,7 @@ function DashboardPage({
                   {DOCUMENTS.map((d) => (
                     <tr
                       key={d.id}
-                      className="cursor-pointer hover:opacity-70 transition-opacity"
+                      className="cursor-pointer hover:bg-blue-50 dark:hover:bg-white/5 active:scale-[0.99] transition-all duration-200"
                       style={{ borderBottom: `1px solid ${c.border}` }}
                     >
                       <td className="py-3 text-sm" style={{ color: c.txt }}>
@@ -823,7 +831,7 @@ function DashboardPage({
             <div className="flex flex-col gap-4">
               <div
                 onClick={() => onNav("care-taker")}
-                className="rounded-2xl p-5 flex items-center gap-4 cursor-pointer hover:opacity-90 transition-opacity flex-1"
+                className="rounded-2xl p-5 flex items-center gap-4 cursor-pointer transition-transform duration-200 hover:scale-[1.02] flex-1"
                 style={{
                   background: "linear-gradient(135deg, #2D8C6F, #3aaa88)",
                 }}
@@ -838,7 +846,7 @@ function DashboardPage({
               </div>
               <div
                 onClick={() => onNav("ai-diagnosis")}
-                className="rounded-2xl p-5 flex items-center gap-4 cursor-pointer hover:opacity-90 transition-opacity flex-1"
+                className="rounded-2xl p-5 flex items-center gap-4 cursor-pointer transition-transform duration-200 hover:scale-[1.02] flex-1"
                 style={{
                   background: "linear-gradient(135deg, #304B71, #4A6FA5)",
                 }}
@@ -857,7 +865,7 @@ function DashboardPage({
 
         {/* Right col */}
         <div className="flex flex-col gap-5">
-          <Card dk={dk}>
+          <Card dk={dk} empty={true}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold" style={{ color: c.txt }}>
                 Notifications
@@ -893,7 +901,7 @@ function DashboardPage({
                         }
                       }
                     }}
-                    className="flex items-start gap-3 p-3 rounded-xl cursor-pointer hover:opacity-80 transition-opacity"
+                    className="flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:scale-[0.99] active:shadow-sm"
                     style={{
                       background: isUnread ? c.blueLight : "transparent",
                       border: `1px solid ${c.border}`,
@@ -936,7 +944,7 @@ function DashboardPage({
             {notifications && notifications.length > 3 && (
               <button
                 onClick={() => onNav("notifications")}
-                className="w-full mt-4 py-2.5 rounded-xl text-xs font-bold transition-colors hover:opacity-80"
+                className="w-full mt-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 hover:brightness-110 hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
                 style={{
                   background: c.blueLight,
                   color: c.blue,
@@ -950,20 +958,23 @@ function DashboardPage({
               notifications.length <= 3 && (
                 <button
                   onClick={() => onNav("notifications")}
-                  className="w-full mt-4 py-2 text-xs font-semibold rounded-xl transition-colors hover:opacity-80 border"
+                  className="w-full mt-4 py-2 text-xs font-semibold rounded-xl transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5 hover:shadow-sm border cursor-pointer"
                   style={{ borderColor: c.border, color: c.txt2 }}
                 >
                   Gérer les notifications
                 </button>
               )}
           </Card>
-          <Card dk={dk}>
+          <Card dk={dk} empty={true}>
             <h3 className="font-semibold mb-5" style={{ color: c.txt }}>
               Prescription Status
             </h3>
             <div className="space-y-5">
               {PRESCRIPTIONS.map((p) => (
-                <div key={p.id}>
+                <div
+                  key={p.id}
+                  className="cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
+                >
                   <div className="flex items-center justify-between mb-2">
                     <p
                       className="text-sm font-semibold"
@@ -1868,7 +1879,7 @@ function AIDiagnosisPage({ dk, firstName }) {
           className="lg:col-span-2 flex flex-col gap-4"
           style={{ marginTop: "-60px" }}
         >
-          <Card dk={dk} style={{ padding: 0, overflow: "hidden" }}>
+          <Card dk={dk} empty={true} style={{ padding: 0, overflow: "hidden" }}>
             {/* Messages */}
             <div
               className="p-4 space-y-4 overflow-y-auto"
@@ -2266,7 +2277,7 @@ function AppointmentsPage({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState("");
   const [err, setErr] = useState("");
-  const [tab, setTab] = useState("book"); // "book" | "history"
+  const [tab, setTab] = useState("mesrdv"); // "mesrdv" | "finddoctor"
   const [selectedDoctor, setSelectedDoctor] = useState(null); // for calendar panel
   const [profileDoctor, setProfileDoctor] = useState(null); // for profile modal
 
@@ -2746,24 +2757,17 @@ function AppointmentsPage({
               {/* Contact */}
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt3 }}>Contact</p>
-                <div className="space-y-2">
-                  <a 
-                    href={"tel:" + (profileDoctor.phone || "").replace(/\s/g, "")}
-                    className="text-sm font-medium flex items-center gap-2 transition-all hover:underline hover:opacity-80" 
-                    style={{ color: c.txt }}
-                  >
-                    <Phone size={13} style={{ color: c.blue }} /> {profileDoctor.phone}
-                  </a>
-                  <a 
-                    href={"https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(profileDoctor.name + " " + (profileDoctor.loc || ""))} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-xs flex items-center gap-2 transition-all hover:underline hover:opacity-80" 
-                    style={{ color: c.txt2 }}
-                  >
-                    <MapPin size={12} style={{ color: c.txt3 }} /> {profileDoctor.loc}
-                  </a>
-                </div>
+                <a href={"tel:" + (profileDoctor.phone || "").replace(/\s/g, "")}
+                  className="text-sm font-medium flex items-center gap-2 transition-all hover:opacity-75 transition-opacity w-fit"
+                  style={{ color: c.green }}>
+                  <Phone size={13} /> {profileDoctor.phone}
+                </a>
+                <a href={"https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(profileDoctor.name + " " + (profileDoctor.loc || ""))}
+                  target="_blank" rel="noopener noreferrer"
+                  className="text-xs mt-1 flex items-center gap-2 transition-all hover:opacity-75 transition-opacity w-fit"
+                  style={{ color: c.blue }}>
+                  <MapPin size={12} /> {profileDoctor.loc}
+                </a>
               </div>
 
               {/* Avis des patients */}
@@ -2825,7 +2829,7 @@ function AppointmentsPage({
       {/* ─ Tabs ─ */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <h1 className="text-2xl font-bold" style={{ color: c.txt }}>
-          Prochains rendez-vous
+          Rendez-vous
         </h1>
         <div
           className="flex gap-1 p-1.5 rounded-2xl border transition-all"
@@ -2835,49 +2839,38 @@ function AppointmentsPage({
             boxShadow: "0 4px 12px rgba(0,0,0,0.03)",
           }}
         >
-          {/* Prendre RDV Tab */}
+          {/* Mes RDV Tab */}
           <button
-            onClick={() => setTab("book")}
+            onClick={() => setTab("mesrdv")}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black transition-all"
             style={{
-              background: tab === "book" ? c.blue : "transparent",
-              color: tab === "book" ? "#fff" : c.txt2,
-              boxShadow: tab === "book" ? `0 8px 16px ${c.blue}33` : "none",
+              background: tab === "mesrdv" ? c.blue : "transparent",
+              color: tab === "mesrdv" ? "#fff" : c.txt2,
+              boxShadow: tab === "mesrdv" ? `0 8px 16px ${c.blue}33` : "none",
             }}
           >
-            Prendre RDV
+            <Calendar size={15} />
+            Mes RDV
           </button>
 
-          {/* Historique Tab (with AI Diagnosis style icon) */}
+          {/* Trouver un médecin Tab */}
           <button
-            onClick={() => setTab("history")}
+            onClick={() => setTab("finddoctor")}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black transition-all"
             style={{
-              background: tab === "history" ? c.blue : "transparent",
-              color: tab === "history" ? "#fff" : c.txt2,
-              boxShadow: tab === "history" ? `0 8px 16px ${c.blue}33` : "none",
+              background: tab === "finddoctor" ? c.blue : "transparent",
+              color: tab === "finddoctor" ? "#fff" : c.txt2,
+              boxShadow: tab === "finddoctor" ? `0 8px 16px ${c.blue}33` : "none",
             }}
           >
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 16 14" />
-            </svg>
-            Historique
+            <Search size={15} />
+            Trouver un médecin
           </button>
         </div>
       </div>
 
-      {/* ──── TAB: BOOK ──── */}
-      {tab === "book" && (
+      {/* ──── TAB: MES RDV ──── */}
+      {tab === "mesrdv" && (
         <>
           {/* Success Banner */}
           {success && (
@@ -3036,29 +3029,92 @@ function AppointmentsPage({
             </div>
           </div>
 
-          <div
-            className="h-px w-full mb-8"
-            style={{ background: c.border, opacity: 0.6 }}
-          />
-          <h2 className="font-bold text-lg mb-4" style={{ color: c.txt }}>
-            {t('find_doctor')}
-          </h2>
+          {/* ── Historique Section ── */}
+          <div className="mb-10">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+              <h2 className="font-bold text-lg" style={{ color: c.txt }}>
+                Historique
+              </h2>
+              <span
+                className="text-xs font-bold px-3 py-1 rounded-full"
+                style={{ background: c.blue + "11", color: c.blue }}
+              >
+                {historyAppts.length} {historyAppts.length > 1 ? "entrées" : "entrée"}
+              </span>
+            </div>
+            <div className="space-y-3">
+              {historyAppts.length === 0 ? (
+                <EmptyState
+                  dk={dk}
+                  icon={Clock}
+                  compact={true}
+                  title="Aucun historique"
+                  message="Vous n'avez pas encore de rendez-vous passés ou annulés."
+                />
+              ) : (
+                historyAppts.map((h, i) => (
+                  <Card key={h.id || i} dk={dk} style={{ padding: "14px 18px" }}>
+                    <div className="flex items-center gap-4 flex-wrap">
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                        style={{
+                          background:
+                            (h.status === "completed" ? "#2D8C6F" : "#E05555") + "18",
+                        }}
+                      >
+                        {h.status === "completed" ? (
+                          <CheckCircle size={18} style={{ color: "#2D8C6F" }} />
+                        ) : (
+                          <X size={18} style={{ color: "#E05555" }} />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-48">
+                        <p className="font-bold text-sm" style={{ color: c.txt }}>
+                          {h.doctor_name || "Médecin"}
+                        </p>
+                        <p className="text-xs" style={{ color: c.txt2 }}>
+                          {h.specialty || "Spécialité"} · {h.date_display || h.date}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span
+                          className="text-xs font-bold px-2.5 py-1 rounded-full uppercase"
+                          style={{
+                            background:
+                              (h.status === "completed" ? "#2D8C6F" : "#E05555") + "18",
+                            color: h.status === "completed" ? "#2D8C6F" : "#E05555",
+                          }}
+                        >
+                          {h.status}
+                        </span>
+                      </div>
+                    </div>
+                  </Card>
+                ))
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
-          {/* ── Search bar (Restored) ── */}
+      {/* ──── TAB: TROUVER UN MÉDECIN ──── */}
+      {tab === "finddoctor" && (
+        <>
+          {/* ── Search bar (compact 44px) ── */}
           <div
-            className="relative z-20 flex items-center px-4 py-2 rounded-2xl border transition-all mb-4"
+            className="relative z-20 flex items-center px-3 rounded-xl border transition-all mb-3 max-w-[900px] mx-auto"
             style={{
               borderColor: searchFocused ? c.blue : c.border,
               background: c.card,
               boxShadow: searchFocused
                 ? `0 0 0 4px ${c.blue}1A`
                 : "none",
-              minHeight: 52,
+              height: 44,
             }}
           >
-            <div className="flex items-center gap-3 flex-1 min-w-0 pr-10 md:pr-40">
+            <div className="flex items-center gap-2 flex-1 min-w-0 pr-2 md:pr-36">
               <Search
-                size={18}
+                size={16}
                 style={{ color: searchFocused ? c.blue : c.txt3 }}
               />
               <input
@@ -3075,11 +3131,11 @@ function AppointmentsPage({
 
             {/* Center: location dropdown */}
             <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center">
-              <div className="w-px h-5 mr-3" style={{ background: c.border }} />
+              <div className="w-px h-5 mr-2" style={{ background: c.border }} />
               <div className="relative">
                 <button
                   onClick={() => setLocationOpen((o) => !o)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all hover:bg-opacity-80"
+                  className="flex items-center gap-2 px-2.5 py-1 rounded-lg transition-all hover:bg-opacity-80"
                   style={{ background: "transparent" }}
                 >
                   <MapPin
@@ -3152,19 +3208,19 @@ function AppointmentsPage({
             </div>
 
             <button
-              className="hidden md:block shrink-0 px-8 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 z-10"
-              style={{ background: c.blue }}
+              className="hidden md:inline-flex items-center justify-center shrink-0 px-6 rounded-lg text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 z-10"
+              style={{ background: c.blue, height: 36 }}
             >
-              {t('search')}
+              Rechercher
             </button>
           </div>
 
-          {/* ── Secondary filters row (Restored) ── */}
-          <div className="flex items-center gap-3 mb-6 flex-wrap">
+          {/* ── Secondary filters row (compact pills 36px) ── */}
+          <div className="flex items-center gap-2 mb-6 flex-wrap max-w-[900px] mx-auto">
             {/* Date Filter */}
             <div
               onClick={() => dateInputRef.current?.showPicker?.()}
-              className="relative flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs cursor-pointer transition-all"
+              className="relative flex items-center gap-2 px-3 h-9 rounded-full border text-xs cursor-pointer transition-all"
               style={{ borderColor: c.border, background: c.card }}
             >
               <Calendar size={14} style={{ color: c.blue }} />
@@ -3205,7 +3261,7 @@ function AppointmentsPage({
             <div className="relative">
               <button
                 onClick={() => setSpecOpen((o) => !o)}
-                className="flex items-center gap-2 px-4 py-1.5 rounded-full border text-xs font-medium transition-all"
+                className="flex items-center gap-2 px-4 h-9 rounded-full border text-xs font-medium transition-all"
                 style={{
                   borderColor: specOpen ? c.blue : c.border,
                   background: c.card,
@@ -3275,7 +3331,7 @@ function AppointmentsPage({
             <div className="relative">
               <button
                 onClick={() => setGenderOpen((o) => !o)}
-                className="flex items-center gap-2 px-4 py-1.5 rounded-full border text-xs font-medium transition-all"
+                className="flex items-center gap-2 px-4 h-9 rounded-full border text-xs font-medium transition-all"
                 style={{
                   borderColor: genderOpen ? c.blue : c.border,
                   background: c.card,
@@ -3343,7 +3399,7 @@ function AppointmentsPage({
 
             {/* Rating Filter */}
             <div
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full border"
+              className="flex items-center gap-1.5 px-4 h-9 rounded-full border"
               style={{ borderColor: c.border, background: c.card }}
             >
               <span
@@ -3712,156 +3768,126 @@ function AppointmentsPage({
           {/* Subtle separator before doctor list */}
           <div className="h-px w-full mb-4 mt-2" style={{ background: c.border, opacity: 0.4 }} />
 
-          <div className="space-y-4 mb-10" ref={docListRef}>
+          <div
+            className="grid gap-4 mb-10"
+            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(520px, 1fr))" }}
+            ref={docListRef}
+          >
             {filteredDoctors.map((doc) => {
               const live = getLiveRating(doc);
+              const mapQuery = encodeURIComponent(((doc.clinic_address || doc.loc || "") + ", Algérie").trim());
+              const mapsHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(doc.name + ' ' + (doc.clinic_address || doc.loc))}`;
               return (
-              <div key={doc.id} className="mb-4">
-                <Card dk={dk} style={{ padding: "20px", borderRadius: "24px" }} className="hover:shadow-lg transition-shadow border-0 shadow-sm">
-                  {/* Single-row layout: Avatar | Info | Stats+Buttons */}
-                  <div className="flex items-center gap-4">
-                    {/* Avatar */}
+              <div
+                key={doc.id}
+                className="group flex flex-col rounded-xl border shadow-md hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
+                style={{
+                  background: c.card,
+                  borderColor: c.border,
+                  minWidth: 520,
+                }}
+              >
+                {/* ── Top info ── */}
+                <div className="p-4">
+                  <div className="flex items-start gap-3">
                     <div
-                      className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-black text-lg shrink-0 shadow-md"
+                      className="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl shrink-0 shadow-md"
                       style={{ background: `linear-gradient(135deg, ${doc.color}, ${doc.color}bb)` }}
                     >
                       {doc.initials}
                     </div>
-
-                    {/* Info block — grows to fill space */}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-base leading-tight truncate" style={{ color: c.txt }}>{doc.name}</h3>
-                      <p className="text-xs font-semibold mt-0.5" style={{ color: c.blue }}>{doc.spec}</p>
-
-                      {/* Address + proximity on same row */}
-                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-md" style={{ background: c.blue + "08" }}>
-                          <MapPin size={11} style={{ color: c.blue }} />
-                          <a
-                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(doc.name + ' ' + (doc.clinic_address || doc.loc))}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[10px] font-black uppercase hover:underline cursor-pointer"
-                            style={{ color: c.blue }}
-                          >
-                            {doc.loc}
-                          </a>
-                        </div>
-                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md flex items-center gap-1" style={{ background: c.blue + "15", color: c.blue }}>
-                          <Zap size={8} fill={c.blue} /> 0.8 KM
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Right column: Stats + Buttons */}
-                    <div className="flex flex-col items-end gap-3 shrink-0">
-                      {/* Stats row */}
-                      <div className="flex items-center gap-3">
-                        {/* Clickable rating */}
-                        <button
-                          onClick={() => setReviewModal(doc)}
-                          className="flex items-center gap-1 px-2 py-0.5 rounded-lg transition-all hover:scale-105 active:scale-95 group"
-                          style={{ background: "#E8A83812" }}
-                          title="Laisser un avis"
-                        >
-                          <span className="text-sm font-black" style={{ color: "#E8A838" }}>★ {live.rating}</span>
-                          <span className="text-[10px] opacity-50 group-hover:opacity-80 transition-opacity" style={{ color: c.txt }}>({live.reviews})</span>
-                          <MessageSquare size={11} className="opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: "#E8A838" }} />
-                        </button>
-                        <div className="text-right" style={{ color: c.txt }}>
-                          <span className="text-sm font-bold">{doc.exp}</span>
-                          <span className="text-[10px] opacity-40 ml-0.5">ans</span>
-                        </div>
-                      </div>
-
-                      {/* Buttons row */}
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setProfileDoctor(doc)}
-                          className="px-4 py-2 rounded-xl text-[11px] font-bold transition-all hover:opacity-80 flex items-center gap-1.5 border"
-                          style={{ borderColor: c.border, color: c.txt2, background: c.card }}
-                        >
-                          <User size={12} /> PROFIL
-                        </button>
-                        <button
-                          onClick={() => openCalendar(doc)}
-                          className="px-5 py-2 rounded-xl text-[11px] font-black text-white transition-all hover:scale-[1.03] active:scale-95 shadow-md flex items-center gap-1.5 group"
-                          style={{ background: `linear-gradient(135deg, ${c.blue}, #304B71)` }}
-                        >
-                          RDV <ArrowRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
-                        </button>
-                      </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold truncate group-hover:text-blue-500 transition-colors" style={{ color: c.txt }}>
+                        {doc.name}
+                      </p>
+                      <p className="text-xs mt-0.5 truncate" style={{ color: c.txt2 }}>
+                        {doc.spec} · {doc.exp} ans
+                      </p>
+                      <button
+                        onClick={() => setReviewModal(doc)}
+                        className="flex items-center gap-1 text-xs font-bold mt-1 hover:scale-105 transition-transform"
+                        style={{ color: "#E8A838" }}
+                        title="Laisser un avis"
+                      >
+                        ★ {live.rating}
+                        <span className="font-normal" style={{ color: c.txt3 }}>({live.reviews})</span>
+                      </button>
                     </div>
                   </div>
-                </Card>
+
+                  <div className="flex items-center gap-1.5 text-xs mt-3 truncate" style={{ color: c.txt3 }}>
+                    <MapPin size={12} className="shrink-0" />
+                    <span className="truncate">{doc.clinic_address || doc.loc}</span>
+                  </div>
+
+                  <div className="flex gap-1.5 mt-3 flex-wrap">
+                    <span
+                      className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
+                      style={{ background: c.blueLight, color: c.blue }}
+                    >
+                      {doc.spec}
+                    </span>
+                    {doc.tags?.slice(0, 2).map((tag) => (
+                      <span
+                        key={tag}
+                        className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
+                        style={{ background: c.blueLight, color: c.blue }}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ── Map preview (220px) ── */}
+                <div className="px-4">
+                  <div className="relative overflow-hidden group/map" style={{ height: 220, borderRadius: 8 }}>
+                    <iframe
+                      src={`https://maps.google.com/maps?q=${mapQuery}&z=14&output=embed`}
+                      width="100%"
+                      height="220"
+                      style={{ border: 0, display: "block", pointerEvents: "none" }}
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      title={`Carte ${doc.name}`}
+                    />
+                    <a
+                      href={mapsHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/map:opacity-100 transition-opacity"
+                      style={{ background: "rgba(0,0,0,0.4)" }}
+                    >
+                      <span className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-gray-800 shadow-md flex items-center gap-1.5">
+                        <MapPin size={12} /> Ouvrir dans Maps
+                      </span>
+                    </a>
+                  </div>
+                </div>
+
+                {/* ── Actions ── */}
+                <div className="p-3 mt-3 flex gap-2 border-t" style={{ borderColor: c.border }}>
+                  <button
+                    onClick={() => setProfileDoctor(doc)}
+                    className="flex-1 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors hover:opacity-80"
+                    style={{ color: c.txt2, borderColor: c.border, background: "transparent" }}
+                  >
+                    {t('view_profile') || "Voir profil"}
+                  </button>
+                  <button
+                    onClick={() => openCalendar(doc)}
+                    className="flex-1 text-xs font-bold px-3 py-2 rounded-lg text-white shadow-sm active:scale-95 hover:opacity-90 flex items-center justify-center gap-1"
+                    style={{ background: c.blue }}
+                  >
+                    Prendre RDV
+                    <ArrowRight size={12} />
+                  </button>
+                </div>
               </div>
             );})}
           </div>
           {/* Spacer to prevent absolute dropdowns from cutting into the page background bottom */}
           <div className="h-[260px] w-full pointer-events-none" />
-        </>
-      )}
-
-      {/* ──── TAB: HISTORY ──── */}
-      {tab === "history" && (
-        <>
-          <h2 className="font-bold text-lg mb-4" style={{ color: c.txt }}>
-            Historique des rendez-vous
-          </h2>
-          <div className="space-y-3">
-            {historyAppts.length === 0 ? (
-              <EmptyState
-                dk={dk}
-                icon={Clock}
-                title="Aucun historique"
-                message="Vous n'avez pas encore de rendez-vous passés ou annulés à afficher."
-              />
-            ) : (
-              historyAppts.map((h, i) => (
-                <Card key={h.id || i} dk={dk} style={{ padding: "14px 18px" }}>
-                  <div className="flex items-center gap-4 flex-wrap">
-                    <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                      style={{
-                        background:
-                          (h.status === "completed" ? "#2D8C6F" : "#E05555") +
-                          "18",
-                      }}
-                    >
-                      {h.status === "completed" ? (
-                        <CheckCircle size={18} style={{ color: "#2D8C6F" }} />
-                      ) : (
-                        <X size={18} style={{ color: "#E05555" }} />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-48">
-                      <p className="font-bold text-sm" style={{ color: c.txt }}>
-                        {h.doctor_name || "Médecin"}
-                      </p>
-                      <p className="text-xs" style={{ color: c.txt2 }}>
-                        {h.specialty || "Spécialité"} ·{" "}
-                        {h.date_display || h.date}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span
-                        className="text-xs font-bold px-2.5 py-1 rounded-full uppercase"
-                        style={{
-                          background:
-                            (h.status === "completed" ? "#2D8C6F" : "#E05555") +
-                            "18",
-                          color:
-                            h.status === "completed" ? "#2D8C6F" : "#E05555",
-                        }}
-                      >
-                        {h.status}
-                      </span>
-                    </div>
-                  </div>
-                </Card>
-              ))
-            )}
-          </div>
         </>
       )}
     </>
@@ -3937,7 +3963,7 @@ function PrescriptionsPage({ dk }) {
           </button>
         ))}
       </div>
-      <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredRxList.length === 0 ? (
           <EmptyState
             dk={dk}
