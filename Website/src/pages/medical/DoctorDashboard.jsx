@@ -31,6 +31,9 @@ import {
   MapPin,
   Link as LinkIcon,
   Download,
+  MessageSquare,
+  Zap,
+  ChevronRight,
 } from "lucide-react";
 
 import { useAuth } from "../../context/AuthContext";
@@ -39,6 +42,8 @@ import { useTheme } from "../../context/ThemeContext";
 import { useLanguage } from "../../context/LanguageContext";
 import * as api from "../../services/api";
 import WeekCalendar from "../../components/medical/WeekCalendar";
+import ConversationList from "../../components/chat/ConversationList";
+import ChatWindow from "../../components/chat/ChatWindow";
 import { format, isSameDay } from "date-fns";
 
 // ============================================================================
@@ -3411,6 +3416,264 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
 }
 
 // ============================================================================
+// SUB-VIEW : WORK SCHEDULE MANAGEMENT
+// ============================================================================
+
+function WorkScheduleView({ dk }) {
+  const { t } = useLanguage();
+  const c = dk ? T.dark : T.light;
+  const [schedules, setSchedules] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState(null);
+
+  // Initialize with 7 days if empty
+  const initialDays = [0, 1, 2, 3, 4, 5, 6].map(d => ({
+    day_of_week: d,
+    start_time: "09:00",
+    end_time: "17:00",
+    break_start: "12:00",
+    break_end: "13:00",
+    slot_duration: 30,
+    is_active: true
+  }));
+
+  useEffect(() => {
+    loadSchedules();
+  }, []);
+
+  const loadSchedules = async () => {
+    try {
+      const resp = await api.getSchedules();
+      // Handle both array and paginated results ({ results: [] })
+      const data = Array.isArray(resp) ? resp : (resp?.results || []);
+      
+      // Map existing data to our 7-day grid
+      const fullGrid = initialDays.map(day => {
+        const existing = data.find(s => s.day_of_week === day.day_of_week);
+        if (existing) {
+          return {
+            ...existing,
+            start_time: existing.start_time.slice(0, 5),
+            end_time: existing.end_time.slice(0, 5),
+            break_start: existing.break_start ? existing.break_start.slice(0, 5) : "12:00",
+            break_end: existing.break_end ? existing.break_end.slice(0, 5) : "13:00",
+          };
+        }
+        return day;
+      });
+      setSchedules(fullGrid);
+    } catch (err) {
+      console.error("Error loading schedules:", err);
+      // Even on error, show the default grid so the user can start from scratch
+      setSchedules(initialDays);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleDay = (idx) => {
+    const next = [...schedules];
+    next[idx].is_active = !next[idx].is_active;
+    setSchedules(next);
+  };
+
+  const handleChange = (idx, field, value) => {
+    const next = [...schedules];
+    next[idx][field] = value;
+    setSchedules(next);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setMessage(null);
+    try {
+      // Parallel save for all modified/active days
+      await Promise.all(schedules.map(day => {
+        const payload = {
+          ...day,
+          start_time: day.start_time?.length === 5 ? `${day.start_time}:00` : day.start_time,
+          end_time: day.end_time?.length === 5 ? `${day.end_time}:00` : day.end_time,
+          break_start: (day.break_start && day.break_start.length === 5) ? `${day.break_start}:00` : (day.break_start || null),
+          break_end: (day.break_end && day.break_end.length === 5) ? `${day.break_end}:00` : (day.break_end || null),
+        };
+        return api.saveSchedule(payload);
+      }));
+      setMessage({ type: "success", text: t('dashboard.doctor.workSchedule.saveSuccess') });
+    } catch (err) {
+      setMessage({ type: "error", text: err.message || t('dashboard.doctor.workSchedule.saveError') });
+    } finally {
+      setSaving(false);
+      setTimeout(() => setMessage(null), 5000);
+    }
+  };
+
+  if (loading) return <div className="p-10 text-center opacity-50">{t('common.loading')}</div>;
+
+  return (
+    <div className="animate-in fade-in duration-500 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold" style={{ color: c.txt }}>{t('dashboard.doctor.workSchedule.title')}</h2>
+          <p className="text-sm opacity-70" style={{ color: c.txt2 }}>{t('dashboard.doctor.workSchedule.subtitle')}</p>
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="px-8 py-3 rounded-xl text-white font-bold shadow-lg transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+          style={{ background: "#638ECB" }}
+        >
+          {saving ? t('common.saving') : t('common.save')}
+        </button>
+      </div>
+
+      {message && (
+        <div 
+          className="p-4 rounded-xl border flex items-center gap-3 animate-in slide-in-from-top-4"
+          style={{ 
+            background: (message.type === "success" ? c.green : c.red) + "15",
+            borderColor: (message.type === "success" ? c.green : c.red) + "33",
+            color: message.type === "success" ? c.green : c.red
+          }}
+        >
+          {message.type === "success" ? <Check size={20} /> : <X size={20} />}
+          <span className="font-semibold text-sm">{message.text}</span>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        {schedules.map((day, idx) => (
+          <Card key={idx} dk={dk} className="relative overflow-hidden group">
+            {/* Visual background for active/inactive */}
+            {!day.is_active && (
+              <div className="absolute inset-0 z-10 bg-black/5 dark:bg-black/20 backdrop-blur-[1px] pointer-events-none" />
+            )}
+
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div 
+                  className="w-10 h-10 rounded-xl flex items-center justify-center font-bold"
+                  style={{ 
+                    background: day.is_active ? "#638ECB18" : c.bg,
+                    color: day.is_active ? "#638ECB" : c.txt3
+                  }}
+                >
+                  {t(`dashboard.doctor.workSchedule.days.${day.day_of_week}`).slice(0, 3)}
+                </div>
+                <h3 className="font-bold text-lg" style={{ color: day.is_active ? c.txt : c.txt3 }}>
+                  {t(`dashboard.doctor.workSchedule.days.${day.day_of_week}`)}
+                </h3>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-widest opacity-40 mr-1">
+                  {day.is_active ? t('dashboard.doctor.workSchedule.working') : t('dashboard.doctor.workSchedule.off')}
+                </span>
+                <button
+                  onClick={() => handleToggleDay(idx)}
+                  className="w-12 h-6 rounded-full relative transition-colors duration-300 border"
+                  style={{ 
+                    background: day.is_active ? "#638ECB" : c.bg,
+                    borderColor: day.is_active ? "#638ECB33" : c.border
+                  }}
+                >
+                  <div 
+                    className={`absolute top-1 w-4 h-4 rounded-full transition-all duration-300 ${day.is_active ? "left-7 bg-white" : "left-1 bg-gray-400"}`}
+                  />
+                </button>
+              </div>
+            </div>
+
+            <div className={`grid grid-cols-1 sm:grid-cols-2 gap-6 transition-opacity duration-300 ${day.is_active ? "opacity-100" : "opacity-40"}`}>
+              {/* Working Hours */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-black uppercase tracking-wider flex items-center gap-2" style={{ color: c.blue }}>
+                  <Clock size={14} /> {t('dashboard.doctor.workSchedule.hours')}
+                </h4>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <input
+                      type="time"
+                      disabled={!day.is_active}
+                      value={day.start_time}
+                      onChange={(e) => handleChange(idx, "start_time", e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border text-sm font-bold outline-none focus:ring-2 ring-[#638ECB33]"
+                      style={{ background: c.bg, borderColor: c.border, color: c.txt }}
+                    />
+                  </div>
+                  <span className="opacity-30">→</span>
+                  <div className="flex-1">
+                    <input
+                      type="time"
+                      disabled={!day.is_active}
+                      value={day.end_time}
+                      onChange={(e) => handleChange(idx, "end_time", e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border text-sm font-bold outline-none focus:ring-2 ring-[#638ECB33]"
+                      style={{ background: c.bg, borderColor: c.border, color: c.txt }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Break Time */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-black uppercase tracking-wider flex items-center gap-2" style={{ color: c.amber }}>
+                  <Moon size={14} /> {t('dashboard.doctor.workSchedule.break')}
+                </h4>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <input
+                      type="time"
+                      disabled={!day.is_active}
+                      value={day.break_start}
+                      onChange={(e) => handleChange(idx, "break_start", e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border text-sm font-bold outline-none focus:ring-2 ring-amber-500/20"
+                      style={{ background: c.bg, borderColor: c.border, color: c.txt }}
+                    />
+                  </div>
+                  <span className="opacity-30">→</span>
+                  <div className="flex-1">
+                    <input
+                      type="time"
+                      disabled={!day.is_active}
+                      value={day.break_end}
+                      onChange={(e) => handleChange(idx, "break_end", e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border text-sm font-bold outline-none focus:ring-2 ring-amber-500/20"
+                      style={{ background: c.bg, borderColor: c.border, color: c.txt }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Consultation Duration */}
+              <div className="sm:col-span-2 flex items-center justify-between pt-2 border-t" style={{ borderColor: c.border }}>
+                <div className="flex items-center gap-2">
+                  <Activity size={16} style={{ color: c.green }} />
+                  <span className="text-xs font-bold" style={{ color: c.txt2 }}>{t('dashboard.doctor.workSchedule.duration')}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <select
+                    disabled={!day.is_active}
+                    value={day.slot_duration}
+                    onChange={(e) => handleChange(idx, "slot_duration", parseInt(e.target.value))}
+                    className="px-3 py-1.5 rounded-lg border text-sm font-black outline-none appearance-none cursor-pointer"
+                    style={{ background: c.bg, borderColor: c.border, color: c.blue }}
+                  >
+                    {[15, 20, 30, 45, 60, 90].map(val => (
+                      <option key={val} value={val}>{val} {t('dashboard.doctor.workSchedule.durationHint')}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // COMPOSANT PRINCIPAL
 // ============================================================================
 
@@ -3447,6 +3710,7 @@ export default function DoctorDashboard({ onLogout }) {
   const NAV = [
     { id: "dashboard",     label: t('dashboard.doctor.nav.dashboard') },
     { id: "schedule",      label: t('dashboard.doctor.nav.schedule') },
+    { id: "work-schedule", label: t('dashboard.doctor.nav.workSchedule') || "Emploi du temps" },
     { id: "patients",      label: t('dashboard.doctor.nav.patients') },
     { id: "prescriptions", label: t('dashboard.doctor.nav.prescriptions') },
     { id: "statistics",    label: t('dashboard.doctor.nav.statistics') },
@@ -3480,6 +3744,8 @@ export default function DoctorDashboard({ onLogout }) {
             }}
           />
         );
+      case "work-schedule":
+        return <WorkScheduleView dk={dk} />;
       case "patients":
         return (
           <PatientsView
@@ -3505,6 +3771,20 @@ export default function DoctorDashboard({ onLogout }) {
               setCurrentPage("patients");
             }}
           />
+        );
+      case "messages":
+        return (
+          <div className="flex gap-5" style={{ height: "calc(100vh - 120px)", minHeight: 500 }}>
+            <div
+              className="rounded-2xl border overflow-hidden shrink-0 flex flex-col"
+              style={{ width: "30%", minWidth: 260, background: c.card, borderColor: c.border }}
+            >
+              <ConversationList dk={dk} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <ChatWindow dk={dk} />
+            </div>
+          </div>
         );
       default:
         return (
@@ -3632,6 +3912,31 @@ export default function DoctorDashboard({ onLogout }) {
 
           {/* Right Actions */}
           <div className="flex items-center gap-3 ml-auto shrink-0">
+            {/* Messages Icon */}
+            <button
+              onClick={() => setCurrentPage("messages")}
+              className="relative w-10 h-10 flex items-center justify-center rounded-xl transition-all hover:bg-opacity-80 group"
+              style={{
+                background: currentPage === "messages" ? c.blue : c.card,
+                border: `1px solid ${c.border}`,
+              }}
+            >
+              <MessageSquare
+                size={18}
+                style={{ color: currentPage === "messages" ? "#fff" : c.txt2 }}
+              />
+              <div
+                className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 border-2 flex items-center justify-center animate-pulse"
+                style={{
+                  borderColor: c.nav,
+                  fontSize: 7,
+                  color: "#fff",
+                  fontWeight: 800,
+                }}
+              >
+                2
+              </div>
+            </button>
 
             {/* Profile Dropdown */}
             <div className="relative">

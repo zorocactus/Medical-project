@@ -196,34 +196,37 @@ export async function registerPatient(userData) {
 
 /**
  * Inscription médecin
- * @param {object} userData — { email, password, password_confirm, role, specialty, license_number, experience_years, ... }
+ * @param {FormData} userData — multipart/form-data (practice_authorization FileField requis)
  */
 export async function registerDoctor(userData) {
+  const isFormData = userData instanceof FormData;
   return apiFetch("/auth/register/doctor/", {
     method: "POST",
-    body: JSON.stringify(userData),
+    body: isFormData ? userData : JSON.stringify(userData),
   });
 }
 
 /**
- * Inscription pharmacien (BUG-18 fix)
- * @param {object} userData — { email, password, password_confirm, role, ... }
+ * Inscription pharmacien
+ * @param {FormData} userData — multipart/form-data (agreement_scan + registre_commerce FileFields requis)
  */
 export async function registerPharmacist(userData) {
+  const isFormData = userData instanceof FormData;
   return apiFetch("/auth/register/pharmacist/", {
     method: "POST",
-    body: JSON.stringify(userData),
+    body: isFormData ? userData : JSON.stringify(userData),
   });
 }
 
 /**
- * Inscription garde-malade (BUG-18 fix)
- * @param {object} userData — { email, password, password_confirm, role, ... }
+ * Inscription garde-malade
+ * @param {FormData} userData — multipart/form-data (criminal_record_scan FileField requis)
  */
 export async function registerCaretaker(userData) {
+  const isFormData = userData instanceof FormData;
   return apiFetch("/auth/register/caretaker/", {
     method: "POST",
-    body: JSON.stringify(userData),
+    body: isFormData ? userData : JSON.stringify(userData),
   });
 }
 
@@ -310,9 +313,27 @@ export async function updateDoctorProfile(data) {
 
 /**
  * (Médecin) Liste son planning hebdomadaire
- * BUG-03 fix : URL corrigée de /doctors/slots/ → /doctors/my-schedule/
- * Champs backend : { day_of_week, start_time, end_time, slot_duration, is_active }
  */
+export async function getSchedules() {
+  return apiFetch("/doctors/my-schedule/");
+}
+
+/**
+ * (Médecin) Met à jour ou crée un jour de planning
+ */
+export async function saveSchedule(data) {
+  if (data.id) {
+    return apiFetch(`/doctors/my-schedule/${data.id}/`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+  return apiFetch("/doctors/my-schedule/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
 export async function getMySlots() {
   return apiFetch("/doctors/my-schedule/");
 }
@@ -960,7 +981,7 @@ export async function getAuditLogs(filters = {}) {
 
 /** (Admin) Dashboard global : KPIs de la plateforme */
 export async function getAdminDashboard() {
-  return apiFetch("/dashboard/admin/");
+  return apiFetch("/admin/dashboard/");
 }
 
 /** (Admin) Catalogue médicaments — ?search=nom&category=cardio */
@@ -990,7 +1011,7 @@ export async function getAdminCareRequests(filters = {}) {
 /** (Admin) Tous les rendez-vous — filtres : ?status=pending&... */
 export async function getAdminAppointments(filters = {}) {
   const params = new URLSearchParams(filters).toString();
-  return apiFetch(`/appointments/${params ? "?" + params : ""}`);
+  return apiFetch(`/admin/appointments/${params ? "?" + params : ""}`);
 }
 
 /** (Admin) Liste des garde-malades */

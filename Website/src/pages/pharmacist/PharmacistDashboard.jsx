@@ -48,8 +48,8 @@ const WILAYAS_LIST = [
 ];
 
 const STOCK_CATEGORIES = [
-  "Cardiologie","Diabétologie","Antibiotiques","Antalgiques",
-  "Gastro","Vitamines","Neurologie","Dermatologie","Pédiatrie","Autres",
+  "cardiology_label", "diabetology_label", "antibiotics_label", "analgesics_label",
+  "gastro_label", "vitamins_label", "neurology_label", "dermatology_label", "pediatrics_label", "others_label",
 ];
 
 // ─── Reusable components ──────────────────────────────────────────────────────
@@ -359,7 +359,7 @@ function AddItemModal({ onClose, onAdd, dk }) {
 
           {/* Catégorie — DashSelect */}
           <DashSelect
-            label={t('category_label') || "Catégorie"} value={form.category} options={STOCK_CATEGORIES}
+            label={t('category_label') || "Catégorie"} value={form.category} options={STOCK_CATEGORIES.map(c => t(c) || c)}
             onSelect={v => setForm(f => ({ ...f, category: v }))}
             dk={dk} c={c} placeholder={t('choose_category_placeholder') || "Choisir une catégorie..."} />
 
@@ -813,7 +813,7 @@ function StockPage({ dk }) {
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs" style={{ color: c.txt3 }}>{item.min}</td>
-                    <td className="px-4 py-3"><Badge color={st.color} bg={st.bg}>{st.label}</Badge></td>
+                    <td className="px-4 py-3"><Badge color={st.color} bg={st.bg}>{t(st.label) || st.label}</Badge></td>
                     <td className="px-4 py-3 text-xs" style={{ color: new Date(item.expiry) < new Date() ? c.red : c.txt3 }}>
                       {new Date(item.expiry).toLocaleDateString("fr-FR")}
                     </td>
@@ -1160,10 +1160,10 @@ function StatistiquesPage({ dk }) {
   const fmtDzd = (n) => `${Number(n || 0).toLocaleString("fr-FR")} DZD`;
 
   const kpisFromBackend = stats?.kpis ? [
-    { label: "Commandes aujourd'hui", value: String(stats.kpis.today_orders ?? 0),  icon: ShoppingCart, color: c.blue   },
-    { label: "Revenu du jour",        value: fmtDzd(stats.kpis.today_revenue),       icon: DollarSign,   color: c.green  },
-    { label: "Articles en stock",     value: String(stats.kpis.stock_items ?? 0),    icon: Package,      color: "#7B5EA7" },
-    { label: "Alertes stock",         value: String(stats.kpis.stock_alerts_count ?? 0), icon: AlertTriangle, color: c.amber },
+    { label: t('orders_today_label') || "Commandes aujourd'hui", value: String(stats.kpis.today_orders ?? 0),  icon: ShoppingCart, color: c.blue   },
+    { label: t('daily_revenue_label') || "Revenu du jour",        value: fmtDzd(stats.kpis.today_revenue),       icon: DollarSign,   color: c.green  },
+    { label: t('stock_meds_label') || "Articles en stock",     value: String(stats.kpis.stock_items ?? 0),    icon: Package,      color: "#7B5EA7" },
+    { label: t('stock_alerts_count_label') || "Alertes stock",         value: String(stats.kpis.stock_alerts_count ?? 0), icon: AlertTriangle, color: c.amber },
   ] : null;
 
   // Données graphiques : non encore exposées par le backend → masquées en prod.
@@ -1566,6 +1566,7 @@ function ParametresPage({ dk, onToggleDark }) {
 
 // ─── MESSAGES PAGE (layout 30/70) ────────────────────────────────────────────
 function MessagesPage({ dk, c, chatConvOpen, setChatConvOpen, activeChatConv, setActiveChatConv, setUnreadChatCount }) {
+  const { t } = useLanguage();
   return (
     <div className="flex gap-5 h-[calc(100vh-120px)] min-h-[500px]">
       {/* ConversationList — 30% */}
@@ -1655,7 +1656,6 @@ export default function PharmacistDashboard({ onLogout }) {
     { id: "commandes",   label: t('nav_orders') || "Commandes",  badge: 2 },
     { id: "stock",       label: t('nav_stock') || "Stock"         },
     { id: "statistiques",label: t('nav_stats') || "Statistiques"  },
-    { id: "messages",    label: t('nav_messages') || "Messages"      },
   ];
 
   const renderPage = () => {
@@ -1725,19 +1725,30 @@ export default function PharmacistDashboard({ onLogout }) {
                   <span className="w-4 h-4 rounded-full text-white text-[10px] font-bold flex items-center justify-center"
                     style={{ background: c.red }}>{item.badge}</span>
                 )}
-                {item.id === "messages" && unreadChatCount > 0 && (
-                  <span className="w-4 h-4 rounded-full flex items-center justify-center text-white font-bold"
-                    style={{ background: page === item.id ? "rgba(255,255,255,0.35)" : c.red, fontSize: 9 }}>
-                    {unreadChatCount > 9 ? "9+" : unreadChatCount}
-                  </span>
-                )}
               </button>
             ))}
           </div>
 
           {/* Right */}
           <div className="flex items-center gap-3 ml-auto shrink-0">
-
+            {/* Messages Icon Button */}
+            <button
+              onClick={() => setPage("messages")}
+              className="relative w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:bg-blue-50 dark:hover:bg-white/5 border"
+              style={{ 
+                borderColor: page === "messages" ? c.blue + "44" : c.border, 
+                background: page === "messages" ? c.blue + "11" : "transparent" 
+              }}
+              title={t('nav_messages') || "Messages"}
+            >
+              <MessageSquare size={18} style={{ color: page === "messages" ? c.blue : c.txt2 }} />
+              {unreadChatCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-white font-bold"
+                  style={{ background: c.red, fontSize: 9 }}>
+                  {unreadChatCount > 9 ? "9+" : unreadChatCount}
+                </span>
+              )}
+            </button>
             {/* Profile */}
             <div className="relative">
               <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 border-2 z-10 flex items-center justify-center"

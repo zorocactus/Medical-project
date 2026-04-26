@@ -2291,7 +2291,7 @@ function AppointmentsPage({
   const [reviewHover, setReviewHover] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
 
-  const [calMonth, setCalMonth] = useState(new Date(2026, 2, 1)); // March 2026
+  const [calMonth, setCalMonth] = useState(new Date()); // Current month
   const [calDay, setCalDay] = useState(null);
   const [calSlot, setCalSlot] = useState(null);
   const [availableSlots, setAvailableSlots] = useState([]);
@@ -2308,6 +2308,9 @@ function AppointmentsPage({
   const [specOpen, setSpecOpen] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
   const [genderOpen, setGenderOpen] = useState(false);
+  const [activeMapDoc, setActiveMapDoc] = useState(null);
+  const [isMapLocked, setIsMapLocked] = useState(false);
+  const [showMapMobile, setShowMapMobile] = useState(false);
   const dateInputRef = useRef(null);
   const docListRef = useRef(null);
 
@@ -2421,16 +2424,15 @@ function AppointmentsPage({
             calMonth.getMonth(),
             calDay,
           );
-          const rawSlots = await api.getDoctorSlots(selectedDoctor.id, dateStr);
-          const slots = (rawSlots || [])
-            .filter((s) => !s.is_booked)
-            .map((s) => ({
-              id: s.id,
-              time: s.start_time ? s.start_time.substring(0, 5) : s.time,
-              start_time: s.start_time,
-              end_time: s.end_time,
-              date: dateStr,
-            }));
+          const res = await api.getDoctorSlots(selectedDoctor.id, dateStr);
+          const rawSlots = Array.isArray(res) ? res : (res?.slots || []);
+          const slots = rawSlots.map((s, idx) => ({
+            id: s.id || `${dateStr}-${s.start_time}-${idx}`,
+            time: s.start_time ? s.start_time.substring(0, 5) : s.time,
+            start_time: s.start_time,
+            end_time: s.end_time,
+            date: dateStr,
+          }));
           setAvailableSlots(slots);
         } catch (err) {
           if (import.meta.env.DEV) console.error("Error fetching slots:", err);
@@ -4029,124 +4031,202 @@ function AppointmentsPage({
             </div>
           )}
 
-          {/* Subtle separator before doctor list */}
-          <div className="h-px w-full mb-4 mt-2" style={{ background: c.border, opacity: 0.4 }} />
+          <div className="h-px w-full mb-6 mt-2" style={{ background: c.border, opacity: 0.4 }} />
 
-          <div
-            className="grid gap-5 mb-10 grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
-            ref={docListRef}
-          >
-            {filteredDoctors.map((doc) => {
-              const live = getLiveRating(doc);
-              const mapQuery = encodeURIComponent(((doc.clinic_address || doc.loc || "") + ", Algérie").trim());
-              const mapsHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(doc.name + ' ' + (doc.clinic_address || doc.loc))}`;
-              return (
-              <div
-                key={doc.id}
-                className="group flex flex-col rounded-xl border shadow-md hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 overflow-hidden"
-                style={{
-                  background: c.card,
-                  borderColor: c.border,
-                }}
+          {/* Toggle View for Mobile */}
+          <div className="flex md:hidden mb-4 justify-center">
+            <div className="flex bg-white rounded-full p-1 border shadow-sm" style={{ background: c.card, borderColor: c.border }}>
+              <button 
+                onClick={() => setShowMapMobile(false)}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${!showMapMobile ? 'text-white' : ''}`}
+                style={{ background: !showMapMobile ? c.blue : 'transparent', color: !showMapMobile ? '#fff' : c.txt2 }}
               >
-                {/* ── Top info ── */}
-                <div className="p-4">
-                  <div className="flex items-start gap-3">
-                    <div
-                      className="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl shrink-0 shadow-md"
-                      style={{ background: `linear-gradient(135deg, ${doc.color}, ${doc.color}bb)` }}
-                    >
-                      {doc.initials}
+                Liste
+              </button>
+              <button 
+                onClick={() => setShowMapMobile(true)}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${showMapMobile ? 'text-white' : ''}`}
+                style={{ background: showMapMobile ? c.blue : 'transparent', color: showMapMobile ? '#fff' : c.txt2 }}
+              >
+                Carte
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col lg:flex-row gap-6 relative">
+            {/* List side */}
+            <div className={`flex-1 ${showMapMobile ? 'hidden md:block' : 'block'}`}>
+              <div
+                className="grid gap-5 mb-10 grid-cols-1 md:grid-cols-2 lg:grid-cols-2"
+                ref={docListRef}
+              >
+                {filteredDoctors.map((doc) => {
+                  const live = getLiveRating(doc);
+                  const isSelected = activeMapDoc?.id === doc.id;
+                  const isLocked = isMapLocked && isSelected;
+                  return (
+                  <div
+                    key={doc.id}
+                    onMouseEnter={() => {
+                      if (!isMapLocked) setActiveMapDoc(doc);
+                    }}
+                    onClick={() => {
+                      if (isMapLocked && isSelected) {
+                        setIsMapLocked(false);
+                      } else {
+                        setActiveMapDoc(doc);
+                        setIsMapLocked(true);
+                      }
+                    }}
+                    className="group flex flex-col rounded-xl border shadow-md hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 overflow-hidden cursor-pointer"
+                    style={{
+                      background: c.card,
+                      borderColor: isLocked ? c.blue : (isSelected ? `${c.blue}88` : c.border),
+                      boxShadow: isLocked ? `0 0 0 2px ${c.blue}` : (isSelected ? `0 0 0 2px ${c.blue}33` : 'none')
+                    }}
+                  >
+                    {/* ── Top info ── */}
+                    <div className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div
+                          className="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl shrink-0 shadow-md"
+                          style={{ background: `linear-gradient(135deg, ${doc.color}, ${doc.color}bb)` }}
+                        >
+                          {doc.initials}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold truncate group-hover:text-blue-500 transition-colors" style={{ color: c.txt }}>
+                            {doc.name}
+                          </p>
+                          <p className="text-xs mt-0.5 truncate" style={{ color: c.txt2 }}>
+                            {doc.spec} · {doc.exp} ans
+                          </p>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setReviewModal(doc); }}
+                            className="flex items-center gap-1 text-xs font-bold mt-1 hover:scale-105 transition-transform"
+                            style={{ color: "#E8A838" }}
+                            title="Laisser un avis"
+                          >
+                            ★ {live.rating}
+                            <span className="font-normal" style={{ color: c.txt3 }}>({live.reviews})</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 text-xs mt-3 truncate" style={{ color: c.txt3 }}>
+                        <MapPin size={12} className="shrink-0" />
+                        <span className="truncate">{doc.clinic_address || doc.loc}</span>
+                      </div>
+
+                      <div className="flex gap-1.5 mt-3 flex-wrap">
+                        <span
+                          className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
+                          style={{ background: c.blueLight, color: c.blue }}
+                        >
+                          {doc.spec}
+                        </span>
+                        {doc.tags?.slice(0, 2).map((tag) => (
+                          <span
+                            key={tag}
+                            className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
+                            style={{ background: c.blueLight, color: c.blue }}
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-bold truncate group-hover:text-blue-500 transition-colors" style={{ color: c.txt }}>
-                        {doc.name}
-                      </p>
-                      <p className="text-xs mt-0.5 truncate" style={{ color: c.txt2 }}>
-                        {doc.spec} · {doc.exp} ans
-                      </p>
+
+                    {/* ── Actions ── */}
+                    <div className="p-3 mt-auto flex gap-2 border-t" style={{ borderColor: c.border }}>
                       <button
-                        onClick={() => setReviewModal(doc)}
-                        className="flex items-center gap-1 text-xs font-bold mt-1 hover:scale-105 transition-transform"
-                        style={{ color: "#E8A838" }}
-                        title="Laisser un avis"
+                        onClick={(e) => { e.stopPropagation(); setProfileDoctor(doc); }}
+                        className="flex-1 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors hover:opacity-80"
+                        style={{ color: c.txt2, borderColor: c.border, background: "transparent" }}
                       >
-                        ★ {live.rating}
-                        <span className="font-normal" style={{ color: c.txt3 }}>({live.reviews})</span>
+                        {t('view_profile') || "Voir profil"}
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openCalendar(doc); }}
+                        className="flex-1 text-xs font-bold px-3 py-2 rounded-lg text-white shadow-sm active:scale-95 hover:opacity-90 flex items-center justify-center gap-1"
+                        style={{ background: c.blue }}
+                      >
+                        Prendre RDV
+                        <ArrowRight size={12} />
                       </button>
                     </div>
                   </div>
+                );})}
+              </div>
+            </div>
 
-                  <div className="flex items-center gap-1.5 text-xs mt-3 truncate" style={{ color: c.txt3 }}>
-                    <MapPin size={12} className="shrink-0" />
-                    <span className="truncate">{doc.clinic_address || doc.loc}</span>
-                  </div>
-
-                  <div className="flex gap-1.5 mt-3 flex-wrap">
-                    <span
-                      className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
-                      style={{ background: c.blueLight, color: c.blue }}
-                    >
-                      {doc.spec}
-                    </span>
-                    {doc.tags?.slice(0, 2).map((tag) => (
-                      <span
-                        key={tag}
-                        className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
-                        style={{ background: c.blueLight, color: c.blue }}
+            {/* Map side */}
+            <div 
+              className={`lg:w-[400px] xl:w-[500px] sticky top-24 h-[calc(100vh-180px)] rounded-2xl overflow-hidden border shadow-lg ${showMapMobile ? 'fixed inset-4 z-[60] h-auto top-32' : 'hidden lg:block'}`}
+              style={{ background: c.card, borderColor: c.border }}
+            >
+              {activeMapDoc ? (
+                <>
+                  <div className="absolute top-4 left-4 z-10 flex items-center gap-2 p-3 rounded-xl shadow-lg border animate-in fade-in slide-in-from-top-2" style={{ background: c.card, borderColor: isMapLocked ? c.blue : c.border }}>
+                    {isMapLocked && (
+                      <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: c.blue }} title="Sélection verrouillée" />
+                    )}
+                    <div>
+                      <p className="font-bold text-xs" style={{ color: c.txt }}>{activeMapDoc.name}</p>
+                      <p className="text-[10px] opacity-70" style={{ color: c.txt2 }}>{activeMapDoc.clinic_address || activeMapDoc.loc}</p>
+                    </div>
+                    {isMapLocked && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setIsMapLocked(false); }}
+                        className="ml-2 p-1.5 rounded-lg hover:bg-opacity-10 transition-colors"
+                        style={{ background: c.blue + "15", color: c.blue }}
+                        title="Déverrouiller"
                       >
-                        {tag}
-                      </span>
-                    ))}
+                        <X size={12} />
+                      </button>
+                    )}
                   </div>
-                </div>
-
-                {/* ── Map preview (140px) ── */}
-                <div className="px-4 mt-auto">
-                  <div className="relative overflow-hidden group/map" style={{ height: 140, borderRadius: 8 }}>
-                    <iframe
-                      src={`https://maps.google.com/maps?q=${mapQuery}&z=14&output=embed`}
-                      width="100%"
-                      height="140"
-                      style={{ border: 0, display: "block", pointerEvents: "none" }}
-                      loading="lazy"
-                      referrerPolicy="no-referrer-when-downgrade"
-                      title={`Carte ${doc.name}`}
-                    />
+                  <iframe
+                    src={`https://maps.google.com/maps?q=${encodeURIComponent((activeMapDoc.clinic_address || activeMapDoc.loc || "") + ", Algérie")}&z=15&output=embed`}
+                    width="100%"
+                    height="100%"
+                    className="grayscale-[0.2] contrast-[1.1]"
+                    style={{ border: 0 }}
+                    loading="lazy"
+                    title="Map Explorer"
+                  />
+                  <div className="absolute bottom-4 right-4 z-10">
                     <a
-                      href={mapsHref}
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeMapDoc.name + ' ' + (activeMapDoc.clinic_address || activeMapDoc.loc))}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/map:opacity-100 transition-opacity"
-                      style={{ background: "rgba(0,0,0,0.4)" }}
+                      className="px-4 py-2 rounded-xl text-xs font-bold text-white shadow-lg flex items-center gap-2 hover:scale-105 transition-transform"
+                      style={{ background: c.blue }}
                     >
-                      <span className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-gray-800 shadow-md flex items-center gap-1.5">
-                        <MapPin size={12} /> Ouvrir dans Maps
-                      </span>
+                      <MapPin size={14} />
+                      Ouvrir dans Google Maps
                     </a>
                   </div>
+                </>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center p-10 text-center">
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ background: c.blueLight }}>
+                    <MapPin size={32} style={{ color: c.blue }} />
+                  </div>
+                  <p className="font-bold text-sm" style={{ color: c.txt }}>Sélectionnez un médecin</p>
+                  <p className="text-xs opacity-70 mt-1" style={{ color: c.txt2 }}>Passez votre souris sur un médecin pour voir sa localisation.</p>
                 </div>
-
-                {/* ── Actions ── */}
-                <div className="p-3 mt-3 flex gap-2 border-t" style={{ borderColor: c.border }}>
-                  <button
-                    onClick={() => setProfileDoctor(doc)}
-                    className="flex-1 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors hover:opacity-80"
-                    style={{ color: c.txt2, borderColor: c.border, background: "transparent" }}
-                  >
-                    {t('view_profile') || "Voir profil"}
-                  </button>
-                  <button
-                    onClick={() => openCalendar(doc)}
-                    className="flex-1 text-xs font-bold px-3 py-2 rounded-lg text-white shadow-sm active:scale-95 hover:opacity-90 flex items-center justify-center gap-1"
-                    style={{ background: c.blue }}
-                  >
-                    Prendre RDV
-                    <ArrowRight size={12} />
-                  </button>
-                </div>
-              </div>
-            );})}
+              )}
+              {showMapMobile && (
+                <button 
+                  onClick={() => setShowMapMobile(false)}
+                  className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full flex items-center justify-center text-white shadow-xl"
+                  style={{ background: '#E05555' }}
+                >
+                  <X size={20} />
+                </button>
+              )}
+            </div>
           </div>
           {/* Spacer to prevent absolute dropdowns from cutting into the page background bottom */}
           <div className="h-[260px] w-full pointer-events-none" />
@@ -5963,7 +6043,6 @@ export default function PatientDashboard({ onLogout }) {
     { id: "prescriptions",   label: t('prescriptions')   },
     { id: "pharmacy",        label: t('pharmacy')        },
     { id: "care-taker",      label: t('care_taker')      },
-    { id: "messages",        label: t('messages')        },
   ];
 
   const renderPage = () => {
@@ -6160,20 +6239,30 @@ export default function PatientDashboard({ onLogout }) {
                 }}
               >
                 {item.label}
-                {item.id === "messages" && unreadChatCount > 0 && (
-                  <span
-                    className="w-4 h-4 rounded-full flex items-center justify-center text-white font-bold"
-                    style={{ background: page === item.id ? "rgba(255,255,255,0.35)" : c.red, fontSize: 9 }}
-                  >
-                    {unreadChatCount > 9 ? "9+" : unreadChatCount}
-                  </span>
-                )}
               </button>
             ))}
           </div>
 
           {/* ── Right section ── */}
           <div className="flex items-center gap-3 ml-auto shrink-0">
+            {/* Messages Icon Button */}
+            <button
+              onClick={() => setPage("messages")}
+              className="relative w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:bg-blue-50 dark:hover:bg-white/5 border"
+              style={{ 
+                borderColor: page === "messages" ? c.blue + "44" : c.border, 
+                background: page === "messages" ? c.blue + "11" : "transparent" 
+              }}
+              title={t('messages') || "Messages"}
+            >
+              <MessageSquare size={18} style={{ color: page === "messages" ? c.blue : c.txt2 }} />
+              {unreadChatCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-white font-bold"
+                  style={{ background: c.red, fontSize: 9 }}>
+                  {unreadChatCount > 9 ? "9+" : unreadChatCount}
+                </span>
+              )}
+            </button>
             {/* Profile button — red dot on border corner for notifications */}
             <div className="relative">
               {/* Red dot — API notifications + global notifications */}

@@ -151,7 +151,8 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
         setIsSubmitting(true);
         const roleMap = { "Médecin": "doctor", "Pharmacien": "pharmacist", "Garde-malade": "caretaker" };
         const backendRole = roleMap[data.medicalRole] || "doctor";
-        const sexValue = data.sex === "Masculin" ? "M" : data.sex === "Féminin" ? "F" : "";
+        // Modèle backend : SEX_CHOICES = [('male','Male'), ('female','Female')]
+        const sexValue = data.sex === "Masculin" ? "male" : data.sex === "Féminin" ? "female" : "male";
 
         // Conversion JJ/MM/AAAA → ISO (YYYY-MM-DD) avant envoi backend.
         let isoDob = "";
@@ -160,32 +161,53 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
           if (parts.length === 3) isoDob = `${parts[2]}-${parts[1]}-${parts[0]}`;
         }
 
-        const basePayload = {
-          email:            data.email,
-          password:         data.password,
-          password_confirm: data.password,
-          role:             backendRole,
-          first_name:       data.firstName,
-          last_name:        data.lastName,
-          phone:            data.phone || "",
-          sex:              sexValue,
-          ...(isoDob ? { date_of_birth: isoDob } : {}),
-        };
+        // Tous les profils médicaux envoient des fichiers → FormData obligatoire
+        const fd = new FormData();
+        fd.append("email",            data.email);
+        fd.append("password",         data.password);
+        fd.append("password_confirm", data.password);
+        fd.append("role",             backendRole);
+        fd.append("first_name",       data.firstName || "");
+        fd.append("last_name",        data.lastName  || "");
+        fd.append("phone",            data.phone     || "");
+        fd.append("sex",              sexValue);
+        if (isoDob)             fd.append("date_of_birth",  isoDob);
+        if (data.address)       fd.append("address",        data.address);
+        if (data.postalCode)    fd.append("postal_code",    data.postalCode);
+        if (data.city)          fd.append("city",           data.city);
+        if (data.wilaya)        fd.append("wilaya",         data.wilaya);
+        if (data.idCardNumber)  fd.append("id_card_number", data.idCardNumber);
+        if (data.cinRecto)      fd.append("id_card_recto",  data.cinRecto);
+        if (data.cinVerso)      fd.append("id_card_verso",  data.cinVerso);
+        if (data.profilePhoto)  fd.append("photo",          data.profilePhoto);
 
         if (backendRole === "doctor") {
-          await api.registerDoctor({
-            ...basePayload,
-            specialty:        data.specialite || "Généraliste",
-            license_number:   data.nInscription || data.licenseNumber || "",
-            experience_years: parseInt(data.experienceYears || data.experience) || 0,
-          });
+          fd.append("specialty",             data.specialite   || "Généraliste");
+          fd.append("order_number",          data.nInscription || "");
+          fd.append("clinic_name",           data.cabinetName  || "");
+          fd.append("experience_years",      parseInt(data.experienceYears) || 0);
+          fd.append("cnas_coverage",         data.cnas === "Oui" ? "true" : "false");
+          // practice_authorization : docFile (étape 5, "Autorisation d'exercer")
+          if (data.docFile) fd.append("practice_authorization", data.docFile);
+          await api.registerDoctor(fd);
+
         } else if (backendRole === "pharmacist") {
-          await api.registerPharmacist({
-            ...basePayload,
-            license_number: data.orderNumber || "",
-          });
+          fd.append("order_registration_number", data.orderNumber   || "");
+          fd.append("name",                      data.pharmacyName  || "");
+          fd.append("agreement_number",          data.agrement      || "");
+          fd.append("cnas_coverage",             data.cnas === "Oui" ? "true" : "false");
+          // agreement_scan : agreementFile (étape 6) | registre_commerce : docFile (étape 5)
+          if (data.agreementFile) fd.append("agreement_scan",    data.agreementFile);
+          if (data.docFile)       fd.append("registre_commerce", data.docFile);
+          await api.registerPharmacist(fd);
+
         } else if (backendRole === "caretaker") {
-          await api.registerCaretaker(basePayload);
+          fd.append("availability_area",  data.wilaya       || "");
+          fd.append("experience_years",   parseInt(data.experienceYears) || 0);
+          fd.append("tarif_de_base",      parseFloat(data.tarifSoin) || 0);
+          // criminal_record_scan : criminalRecordFile (étape 6)
+          if (data.criminalRecordFile) fd.append("criminal_record_scan", data.criminalRecordFile);
+          await api.registerCaretaker(fd);
         }
 
         setStep(7);

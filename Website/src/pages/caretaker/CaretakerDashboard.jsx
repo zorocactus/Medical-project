@@ -248,9 +248,9 @@ function HomeView({ onChangePage, dk, c, setEmergency }) {
   ];
 
   const emergencyContacts = patients.length === 0 ? [] : [
-    { name: "Dr. Benali Karim", role: "Primary physician", initials: "BK", color: c.green },
-    { name: "SAMU 15", role: "Medical emergency", initials: "15", color: c.red },
-    { name: "Alex's Family", role: "+213 555 890 123", initials: "FJ", color: c.blue },
+    { name: "Dr. Benali Karim", role: t('primary_physician') || "Médecin traitant", initials: "BK", color: c.green },
+    { name: "SAMU 15", role: t('medical_emergency') || "Urgences Médicales", initials: "15", color: c.red },
+    { name: "Famille Alex", role: "+213 555 890 123", initials: "FJ", color: c.blue },
   ];
 
   return (
@@ -756,12 +756,12 @@ function AIDiagnosisPage({ dk, c }) {
   }, [messages, loading]);
 
   const quickSymptoms = [
-    "Glycémie élevée",
-    "Douleur thoracique",
-    "Hypertension",
-    "Fièvre",
-    "Prise de médicaments",
-    "Chute",
+    t('high_glucose_symptom') || "Glycémie élevée",
+    t('chest_pain_symptom') || "Douleur thoracique",
+    t('hypertension_symptom') || "Hypertension",
+    t('fever_symptom') || "Fièvre",
+    t('medication_intake_symptom') || "Prise de médicaments",
+    t('fall_symptom') || "Chute",
   ];
 
   const send = (text) => {
@@ -776,14 +776,14 @@ function AIDiagnosisPage({ dk, c }) {
       setLoading(false);
       setMessages((m) => [...m, {
         role: "ai",
-        text: "Analyse en cours…",
+        text: t('analysis_in_progress') || "Analyse en cours…",
         result: {
-          urgency: "Urgence modérée",
+          urgency: t('moderate_urgency') || "Urgence modérée",
           color: "#E8A838",
-          diagnosis: "Possible déséquilibre glycémique",
+          diagnosis: t('possible_glucose_imbalance') || "Possible déséquilibre glycémique",
           confidence: 83,
-          body: "Les symptômes décrits suggèrent une instabilité glycémique. Vérifiez la glycémie capillaire immédiatement et ajustez la dose de Metformin si nécessaire. Contactez le médecin traitant si la valeur dépasse 11 mmol/L.",
-          tags: ["Vérifier glycémie", "Contacter médecin", "Hydratation accrue"],
+          body: t('glucose_analysis_desc') || "Les symptômes décrits suggèrent une instabilité glycémique. Vérifiez la glycémie capillaire immédiatement et ajustez la dose de Metformin si nécessaire. Contactez le médecin traitant si la valeur dépasse 11 mmol/L.",
+          tags: [t('check_glucose_tag') || "Vérifier glycémie", t('contact_doctor_tag') || "Contacter médecin", t('increased_hydration_tag') || "Hydratation accrue"],
         },
       }]);
     }, 1500);
@@ -815,13 +815,13 @@ function AIDiagnosisPage({ dk, c }) {
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
           </svg>
-          Voir tout l'historique
+          {t('view_history_btn') || "Voir tout l'historique"}
         </button>
         <button
-          onClick={() => setMessages([{ role: "ai", text: "Nouvelle session. Décrivez les symptômes du patient." }])}
+          onClick={() => setMessages([{ role: "ai", text: t('new_session_welcome') || "Nouvelle session. Décrivez les symptômes du patient." }])}
           className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl border transition-all hover:opacity-80"
           style={{ color: c.blue, borderColor: c.border, background: c.card }}>
-          <Plus size={14} /> Nouvelle session
+          <Plus size={14} /> {t('new_session_btn') || "Nouvelle session"}
         </button>
       </div>
 
@@ -834,7 +834,7 @@ function AIDiagnosisPage({ dk, c }) {
             style={{ background: c.card, borderRight: `1px solid ${c.border}`, animation: "slideInLeft 0.3s ease forwards" }}>
             <style>{`@keyframes slideInLeft { from { transform: translateX(-100%); } to { transform: translateX(0); } }`}</style>
             <div className="px-4 py-4 flex items-center justify-between border-b" style={{ borderColor: c.border }}>
-              <p className="font-bold" style={{ color: c.txt }}>Historique</p>
+              <p className="font-bold" style={{ color: c.txt }}>{t('history_label') || "Historique"}</p>
               <button onClick={() => setShowFullHistory(false)}
                 className="w-8 h-8 flex items-center justify-center rounded-full hover:opacity-70"
                 style={{ color: c.txt3, background: c.bg }}>✕</button>
@@ -889,7 +889,7 @@ function AIDiagnosisPage({ dk, c }) {
                         <div className="mt-3 rounded-xl p-3 border"
                           style={{ background: dk ? "rgba(255,255,255,0.05)" : "#F8FAFC", borderColor: c.border }}>
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-bold uppercase tracking-wide" style={{ color: c.txt3 }}>Analyse IA</span>
+                            <span className="text-xs font-bold uppercase tracking-wide" style={{ color: c.txt3 }}>{t('ai_analysis_label') || "Analyse IA"}</span>
                             <span className="text-xs font-bold px-2.5 py-0.5 rounded-full"
                               style={{ background: m.result.color + "18", color: m.result.color }}>{m.result.urgency}</span>
                           </div>
@@ -953,7 +953,7 @@ function AIDiagnosisPage({ dk, c }) {
                 <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl border"
                   style={{ background: "rgba(224,85,85,0.08)", borderColor: "rgba(224,85,85,0.3)" }}>
                   <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                  <span className="text-xs font-semibold" style={{ color: "#E05555" }}>Enregistrement en cours…</span>
+                  <span className="text-xs font-semibold" style={{ color: "#E05555" }}>{t('recording_in_progress') || "Enregistrement en cours…"}</span>
                 </div>
               )}
               <div className="flex items-center gap-2 rounded-xl border px-3 py-2"
@@ -967,7 +967,7 @@ function AIDiagnosisPage({ dk, c }) {
                 </label>
                 <input value={input} onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && send()}
-                  placeholder={isRecording ? "Enregistrement…" : "Décrivez les symptômes du patient…"}
+                  placeholder={isRecording ? (t('recording_label') || "Enregistrement…") : (t('describe_symptoms_placeholder') || "Décrivez les symptômes du patient…")}
                   disabled={isRecording}
                   className="flex-1 text-sm outline-none bg-transparent" style={{ color: c.txt }} />
                 <button onClick={toggleRecording}
@@ -987,7 +987,7 @@ function AIDiagnosisPage({ dk, c }) {
                 </button>
               </div>
               <p className="text-xs mt-2 text-center" style={{ color: c.txt3 }}>
-                ⏎ Entrée pour envoyer · 🎤 Vocal disponible · 📎 Fichiers acceptés
+                {t('ai_input_tips') || "⏎ Entrée pour envoyer · 🎤 Vocal disponible · 📎 Fichiers acceptés"}
               </p>
             </div>
           </Card>
@@ -996,9 +996,9 @@ function AIDiagnosisPage({ dk, c }) {
         {/* Panneau latéral */}
         <div className="space-y-4">
           <Card dk={dk}>
-            <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: c.txt3 }}>Niveau d'urgence</p>
+            <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: c.txt3 }}>{t('urgency_level_label') || "Niveau d'urgence"}</p>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-bold" style={{ color: "#E8A838" }}>Modérée</span>
+              <span className="text-sm font-bold" style={{ color: "#E8A838" }}>{t('moderate_urgency') || "Modérée"}</span>
               <span className="text-xs font-bold px-2.5 py-0.5 rounded-full" style={{ background: "#E8A83818", color: "#E8A838" }}>65 / 100</span>
             </div>
             <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: c.blueLight }}>
@@ -1006,30 +1006,30 @@ function AIDiagnosisPage({ dk, c }) {
             </div>
           </Card>
           <Card dk={dk}>
-            <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: c.txt3 }}>Médecin traitant</p>
+            <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: c.txt3 }}>{t('primary_physician') || "Médecin traitant"}</p>
             <div className="flex items-center gap-3 p-3 rounded-xl mb-3" style={{ background: c.blueLight }}>
               <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: c.blueLight, border: `1px solid ${c.border}` }}>
                 <User size={16} style={{ color: c.blue }} />
               </div>
               <div>
                 <p className="text-sm font-bold" style={{ color: c.txt }}>Dr. Benali Karim</p>
-                <p className="text-xs" style={{ color: c.txt2 }}>À contacter sous 2h</p>
+                <p className="text-xs" style={{ color: c.txt2 }}>{t('contact_within_2h') || "À contacter sous 2h"}</p>
               </div>
             </div>
             <a href="tel:+21300000000"
               className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-colors hover:opacity-90"
               style={{ background: c.blue }}>
-              <Phone size={14} /> Appeler le médecin
+              <Phone size={14} /> {t('call_doctor_btn') || "Appeler le médecin"}
             </a>
           </Card>
           <Card dk={dk}>
-            <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: c.txt3 }}>Conseils immédiats</p>
+            <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: c.txt3 }}>{t('immediate_advice_label') || "Conseils immédiats"}</p>
             <div className="space-y-2.5">
               {[
-                ["💊", "Vérifier la glycémie capillaire"],
-                ["🛌", "Maintenir le patient au calme"],
-                ["💧", "Assurer une bonne hydratation"],
-                ["📋", "Documenter les symptômes observés"],
+                ["💊", t('check_glucose_capillary') || "Vérifier la glycémie capillaire"],
+                ["🛌", t('keep_patient_calm') || "Maintenir le patient au calme"],
+                ["💧", t('ensure_hydration') || "Assurer une bonne hydratation"],
+                ["📋", t('document_symptoms') || "Documenter les symptômes observés"],
               ].map(([e, t]) => (
                 <div key={t} className="flex items-start gap-2 text-sm" style={{ color: c.txt2 }}>
                   <span>{e}</span>
@@ -1378,7 +1378,7 @@ function TreatmentsView({ dk, c }) {
                   <button onClick={() => { setEditId(t.id); setNewMed({ name: "", dosage: "", slot: "morning" }); }}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold border transition-all hover:opacity-80"
                     style={{ borderColor: c.blue + "40", color: c.blue, background: c.blue + "10" }}>
-                    <Plus size={12} /> Modifier
+                    <Plus size={12} /> {t('modify_btn') || "Modifier"}
                   </button>
                   <button onClick={() => {
                     setRemovedHistory(h => [...h, { id: t.id, initials: t.initials, patientName: t.patientName, condition: t.condition, removedAt: new Date().toLocaleDateString("fr-FR") }]);
@@ -1420,7 +1420,7 @@ function TreatmentsView({ dk, c }) {
                 })}
                 {slots.every(({ key }) => (t[key] || []).length === 0) && (
                   <p className="text-xs text-center py-2 italic" style={{ color: c.txt3 }}>
-                    Aucun médicament — cliquez sur Modifier pour en ajouter.
+                    {t('no_medications_added') || "Aucun médicament — cliquez sur Modifier pour en ajouter."}
                   </p>
                 )}
               </div>
@@ -1470,6 +1470,7 @@ function TreatmentsView({ dk, c }) {
 }
 
 function SettingsView({ onTarifSaved, dk, c, user }) {
+  const { t, lang, setLang } = useLanguage();
   const [showPwd, setShowPwd] = useState(false);
   const [locSaved, setLocSaved] = useState(false);
   const [tarifSaved, setTarifSaved] = useState(false);
@@ -1503,10 +1504,10 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
       const first_name = names[0] || "";
       const last_name = names.slice(1).join(" ") || "";
       await api.updateMe({ first_name, last_name, phone: form.phone });
-      setStatus({ type: "success", msg: "Profil mis à jour avec succès ✅" });
+      setStatus({ type: "success", msg: t('profile_updated_success') || "Profil mis à jour avec succès ✅" });
       setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
     } catch {
-      setStatus({ type: "error", msg: "Erreur lors de la mise à jour ❌" });
+      setStatus({ type: "error", msg: t('update_error') || "Erreur lors de la mise à jour ❌" });
       setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
     } finally {
       setIsSaving(false);
@@ -1518,11 +1519,11 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
       setIsSavingPwd(true);
       setPwdStatus({ type: "", msg: "" });
       await api.changePassword(pwdForm);
-      setPwdStatus({ type: "success", msg: "Mot de passe modifié ✅" });
+      setPwdStatus({ type: "success", msg: t('password_changed_success') || "Mot de passe modifié ✅" });
       setPwdForm({ currentPassword: "", newPassword: "" });
       setTimeout(() => setPwdStatus({ type: "", msg: "" }), 4000);
     } catch {
-      setPwdStatus({ type: "error", msg: "Erreur lors du changement ❌" });
+      setPwdStatus({ type: "error", msg: t('password_change_error') || "Erreur lors du changement ❌" });
       setTimeout(() => setPwdStatus({ type: "", msg: "" }), 4000);
     } finally {
       setIsSavingPwd(false);
@@ -1551,7 +1552,7 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
 
         {/* Profil */}
         <Card dk={dk}>
-          <p className="font-semibold mb-5" style={{ color: c.txt }}>Profile</p>
+          <p className="font-semibold mb-5" style={{ color: c.txt }}>{t('profile_title') || "Profil"}</p>
           {status.msg && (
             <div className="mb-4 p-3 rounded-xl text-xs font-semibold" style={{
               background: status.type === "success" ? "#2D8C6F12" : "#E0555512",
@@ -1560,9 +1561,9 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
             }}>{status.msg}</div>
           )}
           {[
-            { label: "Full Name", key: "name" },
-            { label: "Email", key: "email" },
-            { label: "Phone", key: "phone" },
+            { label: t('full_name_label') || "Nom Complet", key: "name" },
+            { label: t('email_label') || "Email", key: "email" },
+            { label: t('phone_label') || "Téléphone", key: "phone" },
           ].map((field) => (
             <div key={field.key} className="mb-4">
               <label className={labelCls} style={{ color: c.txt2 }}>{field.label}</label>
@@ -1582,13 +1583,13 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
             className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
             style={{ background: c.blue, opacity: isSaving ? 0.7 : 1 }}
           >
-            {isSaving ? "Saving..." : "Save Changes"}
+            {isSaving ? (t('saving_btn') || "Enregistrement...") : (t('save_changes_btn') || "Sauvegarder")}
           </button>
         </Card>
 
         {/* Sécurité */}
         <Card dk={dk}>
-          <p className="font-semibold mb-5" style={{ color: c.txt }}>Security</p>
+          <p className="font-semibold mb-5" style={{ color: c.txt }}>{t('security_title') || "Sécurité"}</p>
           {pwdStatus.msg && (
             <div className="mb-4 p-3 rounded-xl text-xs font-semibold" style={{
               background: pwdStatus.type === "success" ? "#2D8C6F12" : "#E0555512",
@@ -1597,8 +1598,8 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
             }}>{pwdStatus.msg}</div>
           )}
           {[
-            { label: "Current Password", key: "currentPassword" },
-            { label: "New Password", key: "newPassword" },
+            { label: t('current_password_label') || "Mot de passe actuel", key: "currentPassword" },
+            { label: t('new_password_label') || "Nouveau mot de passe", key: "newPassword" },
           ].map((field) => (
             <div key={field.key} className="mb-4 relative">
               <label className={labelCls} style={{ color: c.txt2 }}>{field.label}</label>
@@ -1621,7 +1622,7 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
             className="px-6 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:opacity-80 active:scale-95"
             style={{ color: c.blue, borderColor: c.border, opacity: isSavingPwd ? 0.7 : 1 }}
           >
-            {isSavingPwd ? "Updating..." : "Update Password"}
+            {isSavingPwd ? (t('updating_btn') || "Mise à jour...") : (t('update_password_btn') || "Changer le mot de passe")}
           </button>
         </Card>
       </div>
@@ -1633,8 +1634,8 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
             <MapPin size={18} style={{ color: c.blue }} />
           </div>
           <div>
-            <p className="font-bold text-base" style={{ color: c.txt }}>Zone d'intervention & Maps</p>
-            <p className="text-xs" style={{ color: c.txt3 }}>Gérez votre zone d'intervention à domicile</p>
+            <p className="font-bold text-base" style={{ color: c.txt }}>{t('intervention_zone_title') || "Zone d'intervention & Maps"}</p>
+            <p className="text-xs" style={{ color: c.txt3 }}>{t('intervention_zone_desc') || "Gérez votre zone d'intervention à domicile"}</p>
           </div>
         </div>
 
@@ -1672,13 +1673,13 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
               />
             </div>
             <DashSelect
-              label="Wilaya"
+              label={t('wilaya_label') || "Wilaya"}
               value={locForm.wilaya}
               options={WILAYAS_LIST}
               onSelect={(w) => setLocForm((f) => ({ ...f, wilaya: w }))}
               dk={dk}
               c={c}
-              placeholder="Sélectionner votre wilaya"
+              placeholder={t('select_wilaya_placeholder') || "Sélectionner votre wilaya"}
             />
             <div>
               <label className={labelCls} style={{ color: c.txt2 }}>Lien Google Maps (Optionnel)</label>
@@ -1701,7 +1702,7 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
               className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
               style={{ background: `linear-gradient(135deg, #304B71, ${c.blue})` }}
             >
-              <MapPin size={15} /> Mettre à jour la carte
+              <MapPin size={15} /> {t('update_map_btn') || "Mettre à jour la carte"}
             </button>
           </div>
 
@@ -1757,7 +1758,7 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
                       className="absolute bottom-3 right-3 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-white shadow-lg transition-all hover:opacity-90"
                       style={{ background: c.blue }}
                     >
-                      <MapPin size={12} /> Ouvrir dans Maps
+                      <MapPin size={12} /> {t('open_in_maps_btn') || "Ouvrir dans Maps"}
                     </a>
                   )}
                 </div>
@@ -1790,8 +1791,8 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
             <Shield size={18} style={{ color: c.green }} />
           </div>
           <div>
-            <p className="font-bold text-base" style={{ color: c.txt }}>Tarifs de garde</p>
-            <p className="text-xs" style={{ color: c.txt3 }}>Définissez vos tarifs affichés aux patients</p>
+            <p className="font-bold text-base" style={{ color: c.txt }}>{t('care_tariffs_title') || "Tarifs de garde"}</p>
+            <p className="text-xs" style={{ color: c.txt3 }}>{t('care_tariffs_desc') || "Définissez vos tarifs affichés aux patients"}</p>
           </div>
         </div>
 
@@ -1804,9 +1805,9 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-5">
           {[
-            { key: "tarifSoin", label: "Tarif Soin Ponctuel", placeholder: "Ex: 2000", suffix: "DZD" },
-            { key: "tarifNuit", label: "Tarif Garde de Nuit", placeholder: "Ex: 4000", suffix: "DZD" },
-            { key: "tarifMensuel", label: "Tarif Mensuel (optionnel)", placeholder: "Ex: 45000", suffix: "DZD" },
+            { key: "tarifSoin", label: t('tarif_soin_label') || "Tarif Soin Ponctuel", placeholder: "Ex: 2000", suffix: "DZD" },
+            { key: "tarifNuit", label: t('tarif_nuit_label') || "Tarif Garde de Nuit", placeholder: "Ex: 4000", suffix: "DZD" },
+            { key: "tarifMensuel", label: t('tarif_mensuel_label') || "Tarif Mensuel (optionnel)", placeholder: "Ex: 45000", suffix: "DZD" },
           ].map(({ key, label, placeholder, suffix }) => (
             <div key={key}>
               <label className={labelCls} style={{ color: c.txt2 }}>{label}</label>
@@ -1835,7 +1836,7 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
           className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
           style={{ background: `linear-gradient(135deg, #1F6B50, ${c.green})` }}
         >
-          <Shield size={15} /> Enregistrer les tarifs
+          <Shield size={15} /> {t('save_tariffs_btn') || "Enregistrer les tarifs"}
         </button>
       </Card>
 
@@ -1906,12 +1907,11 @@ export default function GardeMaladeDashboard({ onLogout }) {
   const { unreadChatCount, setUnreadChatCount } = useData();
 
   const NAV = [
-    { id: "dashboard", label: "Accueil" },
-    { id: "jobRequests", label: "Offres & Missions" },
-    { id: "myPatients", label: "Mes Patients" },
-    { id: "treatments", label: "Traitements" },
-    { id: "ai-diagnosis", label: "IA Diagnostic" },
-    { id: "messages", label: "Messages" },
+    { id: "dashboard", label: t('nav_home') || "Accueil" },
+    { id: "jobRequests", label: t('nav_missions') || "Offres & Missions" },
+    { id: "myPatients", label: t('nav_patients') || "Mes Patients" },
+    { id: "treatments", label: t('nav_treatments') || "Traitements" },
+    { id: "ai-diagnosis", label: t('nav_ai_diagnosis') || "IA Diagnostic" },
   ];
 
   const renderPage = () => {
@@ -1933,7 +1933,7 @@ export default function GardeMaladeDashboard({ onLogout }) {
             >
               <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0" style={{ borderColor: c.border }}>
                 <MessageSquare size={15} style={{ color: c.blue }} />
-                <h2 className="font-bold text-sm" style={{ color: c.txt }}>Messages</h2>
+                <h2 className="font-bold text-sm" style={{ color: c.txt }}>{t('messages_title') || "Messages"}</h2>
               </div>
               <div className="flex-1 overflow-hidden">
                 <ConversationList
@@ -1968,7 +1968,7 @@ export default function GardeMaladeDashboard({ onLogout }) {
                     <MessageSquare size={28} style={{ color: c.blue }} />
                   </div>
                   <p className="text-sm font-medium" style={{ color: c.txt3 }}>
-                    Sélectionnez une conversation
+                    {t('select_conversation') || "Sélectionnez une conversation"}
                   </p>
                 </div>
               )}
@@ -2048,18 +2048,30 @@ export default function GardeMaladeDashboard({ onLogout }) {
                 }}
               >
                 {item.label}
-                {item.id === "messages" && unreadChatCount > 0 && (
-                  <span className="w-4 h-4 rounded-full flex items-center justify-center text-white font-bold"
-                    style={{ background: page === item.id ? "rgba(255,255,255,0.35)" : c.red, fontSize: 9 }}>
-                    {unreadChatCount > 9 ? "9+" : unreadChatCount}
-                  </span>
-                )}
               </button>
             ))}
           </div>
 
           {/* Droite — profil + menu mobile */}
           <div className="flex items-center gap-3 ml-auto shrink-0">
+            {/* Bouton Messages Icon */}
+            <button
+              onClick={() => setPage("messages")}
+              className="relative w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:bg-blue-50 dark:hover:bg-white/5 border"
+              style={{ 
+                borderColor: page === "messages" ? c.blue + "44" : c.border, 
+                background: page === "messages" ? c.blue + "11" : "transparent" 
+              }}
+              title={t('messages') || "Messages"}
+            >
+              <MessageSquare size={18} style={{ color: page === "messages" ? c.blue : c.txt2 }} />
+              {unreadChatCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-white font-bold"
+                  style={{ background: c.red, fontSize: 9 }}>
+                  {unreadChatCount > 9 ? "9+" : unreadChatCount}
+                </span>
+              )}
+            </button>
             <div className="relative">
               {/* Point rouge notifications */}
               {unreadCount > 0 && (
@@ -2138,7 +2150,7 @@ export default function GardeMaladeDashboard({ onLogout }) {
                       className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer"
                     >
                       <Bell size={16} className="hover:rotate-45 transition-transform" />
-                      Notifications
+                      {t('notifications_label') || "Notifications"}
                       {unreadCount > 0 && (
                         <span className="ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full"
                           style={{ background: c.red, color: "#fff" }}>{unreadCount}</span>
@@ -2151,7 +2163,7 @@ export default function GardeMaladeDashboard({ onLogout }) {
                       className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer"
                     >
                       <Settings size={16} className="hover:rotate-45 transition-transform" />
-                      Paramètres
+                      {t('settings_label') || "Paramètres"}
                     </button>
 
                     {/* Toggle jour/nuit */}
@@ -2185,7 +2197,7 @@ export default function GardeMaladeDashboard({ onLogout }) {
                       className="pd-item-danger w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-xl cursor-pointer"
                     >
                       <LogOut size={16} className="hover:translate-x-1 transition-transform" />
-                      Déconnexion
+                      {t('logout_label') || "Déconnexion"}
                     </button>
                   </div>
                 </div>
