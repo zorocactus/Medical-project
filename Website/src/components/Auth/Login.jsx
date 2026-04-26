@@ -3,8 +3,17 @@ import { Mail, Lock, EyeOff, Eye, ArrowRight, Facebook, Activity } from "lucide-
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import { useLanguage } from "../../context/LanguageContext";
+import ForgotPassword from "./ForgotPassword";
 
 export default function LoginForm({ onLogin, onSwitchToRegister }) {
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  if (showForgotPassword) {
+    return <ForgotPassword onBack={() => setShowForgotPassword(false)} />;
+  }
+  return <LoginInner onLogin={onLogin} onSwitchToRegister={onSwitchToRegister} onForgotPassword={() => setShowForgotPassword(true)} />;
+}
+
+function LoginInner({ onLogin, onSwitchToRegister, onForgotPassword }) {
   const { login } = useAuth();
   const { theme } = useTheme();
   const { t } = useLanguage();
@@ -164,9 +173,14 @@ export default function LoginForm({ onLogin, onSwitchToRegister }) {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium" style={{ color: c.label }}>{t('auth.login.password')}</label>
-              <a href="#" className="text-xs transition-colors hover:underline" style={{ color: c.blue }}>
+              <button
+                type="button"
+                onClick={onForgotPassword}
+                className="text-xs transition-colors hover:underline cursor-pointer bg-transparent border-0 p-0"
+                style={{ color: c.blue }}
+              >
                 {t('auth.login.forgotPassword')}
-              </a>
+              </button>
             </div>
             <div className="relative">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: c.icon }}>

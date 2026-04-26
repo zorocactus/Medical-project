@@ -10,38 +10,7 @@ import DashSelect from "../../../components/ui/DashSelect.jsx";
 import { useLanguage } from "../../../context/LanguageContext";
 import * as api from "../../../services/api";
 
-const MOCK_REPORTS = [
-  {
-    id: 1,
-    reporter_name: "Samir Hadj",
-    reporter_role: "patient",
-    reported_name: "Karim Benali",
-    reported_role: "garde-malade",
-    reason: "L'utilisateur a annulé la prestation au dernier moment sans prévenir, alors que je m'étais déjà déplacé sur les lieux. C'est inadmissible car cela bloque mon planning pour d'autres patients qui auraient pu avoir besoin de mes soins.",
-    created_at: "2026-04-16T14:30:00Z",
-    status: "pending"
-  },
-  {
-    id: 2,
-    reporter_name: "Lila Brahimi",
-    reporter_role: "pharmacien",
-    reported_name: "Alex Johnson",
-    reported_role: "patient",
-    reason: "Tentative d'utilisation d'une ordonnance déjà périmée ou falsifiée. L'utilisateur a insisté de manière agressive malgré mes explications sur la légalité de la procédure.",
-    created_at: "2026-04-15T09:15:00Z",
-    status: "resolved"
-  },
-  {
-    id: 3,
-    reporter_name: "Yasmine Hadjadj",
-    reporter_role: "garde-malade",
-    reported_name: "Omar Meziani",
-    reported_role: "patient",
-    reason: "Non-respect des règles de sécurité à domicile. L'utilisateur refuse de porter un masque malgré les symptômes grippaux, mettant en danger le personnel soignant.",
-    created_at: "2026-04-17T10:00:00Z",
-    status: "pending"
-  }
-];
+const MOCK_REPORTS = [];
 
 export default function ReportsView({ dk }) {
   const { t } = useLanguage();
@@ -75,7 +44,7 @@ export default function ReportsView({ dk }) {
         r.id === id ? { ...r, status: action === 'resolve' ? 'resolved' : 'dismissed' } : r
       ));
     } catch (err) {
-      alert("Erreur lors du traitement du signalement.");
+      console.error("Erreur lors du traitement du signalement.");
     }
   };
 

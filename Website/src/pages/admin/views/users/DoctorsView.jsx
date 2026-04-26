@@ -273,34 +273,7 @@ function avatarColor(name = "", c) {
 }
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
-const MOCK_DOCTORS = [
-  {
-    id: 101, first_name: "Sarah", last_name: "Smith", email: "sarah.smith@medsmart.dz",
-    full_name: "Sarah Smith",
-    is_active: true, verification_status: "verified", specialty: "Cardiologie",
-    wilaya: "Oran", phone: "+213 41 22 33 44", date_joined: "2024-01-08",
-    rating: 4.9, patients_count: 142, clinic_name: "Clinique El-Bahia",
-    consultation_fee: 3500, experience_years: 12, bio: "Spécialiste en cardiologie interventionnelle.",
-    docs: [{ title: "Diplôme de médecine" }, { title: "Agrément d'exercice" }]
-  },
-  {
-    id: 102, first_name: "Karim", last_name: "Benali", email: "karim.benali@medsmart.dz",
-    full_name: "Karim Benali",
-    is_active: true, verification_status: "pending", specialty: "Pédiatrie",
-    wilaya: "Alger", phone: "+213 21 55 66 77", date_joined: "2024-02-15",
-    rating: 4.7, patients_count: 89, clinic_name: "Cabinet Benali",
-    consultation_fee: 2000, experience_years: 8, bio: "Passionné par la santé infantile.",
-    docs: [{ title: "Certificat de spécialité" }]
-  },
-  {
-    id: 103, first_name: "Yasmine", last_name: "Amara", email: "yasmine.amara@medsmart.dz",
-    full_name: "Yasmine Amara",
-    is_active: false, verification_status: "verified", specialty: "Généraliste",
-    wilaya: "Constantine", phone: "+213 31 88 99 00", date_joined: "2024-03-01",
-    rating: 4.5, patients_count: 210, clinic_name: "Centre Médical Cirta",
-    consultation_fee: 1500, experience_years: 15, bio: "Médecine générale et préventive."
-  },
-];
+const MOCK_DOCTORS = [];
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 export default function DoctorsView({ dk }) {

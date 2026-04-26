@@ -6,19 +6,15 @@ import {
 } from "lucide-react";
 import * as api from "../../services/api";
 
-// ─── Mocks ────────────────────────────────────────────────────────────────────
-const MOCK_MESSAGES = [
+// ─── Démo uniquement en DEV — aucune trace visible en production ──────────────
+const MOCK_MESSAGES = import.meta.env.DEV ? [
   { id: 1, sender: "other", content: "Bonjour, comment puis-je vous aider ?",
     time: new Date(Date.now() - 7 * 60000).toISOString(), read: true },
   { id: 2, sender: "me",    content: "Mon ordonnance est-elle prête ?",
     time: new Date(Date.now() - 6 * 60000).toISOString(), read: true },
   { id: 3, sender: "other", content: "Votre ordonnance est prête, vous pouvez passer la récupérer.",
     time: new Date(Date.now() - 5 * 60000).toISOString(), read: true },
-  { id: 4, sender: "me",    content: "Merci beaucoup ! Je serai là dans 30 minutes.",
-    time: new Date(Date.now() - 2 * 60000).toISOString(), read: true },
-  { id: 5, sender: "other", content: "Parfait, nous vous attendons. Bonne journée 🙏",
-    time: new Date(Date.now() - 1 * 60000).toISOString(), read: false },
-];
+] : [];
 
 const EMOJIS = [
   // Populaire / Faces
@@ -369,6 +365,7 @@ export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = fa
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [reporting, setReporting]     = useState(false);
+  const [chatNotif, setChatNotif]     = useState(null); // { type: 'success'|'error', msg: '' }
 
   const bottomRef   = useRef(null);
   const bodyRef     = useRef(null);
@@ -513,6 +510,7 @@ export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = fa
     setMessages(prev => prev.map(m =>
       m.id === id ? { ...m, deleted: true } : m
     ));
+    api.deleteMessage?.(id).catch(() => {});
   };
 
   const handleBlock = async () => {
@@ -531,9 +529,11 @@ export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = fa
       await api.reportUser?.(conv.id, reportReason);
       setShowReportModal(false);
       setReportReason("");
-      alert("Merci. Votre signalement a été transmis aux administrateurs.");
+      setChatNotif({ type: "success", msg: "Merci. Votre signalement a été transmis aux administrateurs." });
+      setTimeout(() => setChatNotif(null), 4000);
     } catch {
-      alert("Erreur lors de l'envoi du signalement.");
+      setChatNotif({ type: "error", msg: "Erreur lors de l'envoi du signalement." });
+      setTimeout(() => setChatNotif(null), 4000);
     } finally {
       setReporting(false);
     }
@@ -544,7 +544,8 @@ export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = fa
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > MAX_FILE_SIZE) {
-      alert("Fichier trop volumineux (max 10 Mo)");
+      setChatNotif({ type: "error", msg: "Fichier trop volumineux (max 10 Mo)" });
+      setTimeout(() => setChatNotif(null), 4000);
       return;
     }
     const previewUrl = URL.createObjectURL(file);
@@ -591,6 +592,15 @@ export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = fa
       `}</style>
 
       <div style={containerStyle}>
+
+        {/* ── Inline notification banner ── */}
+        {chatNotif && (
+          <div className="px-4 py-2.5 text-xs font-semibold flex items-center justify-between animate-in slide-in-from-top-2 duration-200"
+            style={{ background: chatNotif.type === 'success' ? '#2D8C6F15' : '#E0555515', color: chatNotif.type === 'success' ? '#2D8C6F' : '#E05555', borderBottom: `1px solid ${chatNotif.type === 'success' ? '#2D8C6F30' : '#E0555530'}` }}>
+            <span>{chatNotif.msg}</span>
+            <button onClick={() => setChatNotif(null)} className="ml-2 opacity-60 hover:opacity-100 transition-opacity"><X size={12} /></button>
+          </div>
+        )}
 
         {/* ══ HEADER ═════════════════════════════════════════════════════════ */}
         <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0"

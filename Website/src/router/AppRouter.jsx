@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
+import { getNotifications } from "../services/api";
 import AuthTransition from "../components/Auth/AuthTransition";
 import PatientDashboard from "../pages/patient/Dashboard";
 import DoctorDashboard from "../pages/medical/DoctorDashboard";
@@ -165,6 +166,146 @@ function PendingApprovalPage({ logout }) {
   );
 }
 
+function RejectedPage({ logout }) {
+  const { t } = useLanguage();
+  const [reason, setReason] = useState("");
+
+  useEffect(() => {
+    getNotifications()
+      .then((list) => {
+        const items = Array.isArray(list) ? list : list?.results || [];
+        const rejection = items.find(
+          (n) =>
+            (n.notification_type === "system" || n.type === "system") &&
+            typeof n.message === "string" &&
+            /motif|refus|rejet/i.test(n.message)
+        );
+        if (rejection?.message) {
+          const cleaned = rejection.message.replace(/^.*?motif\s*:\s*/i, "").trim();
+          setReason(cleaned || rejection.message);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#F0F4F8",
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
+      }}
+    >
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 24,
+          padding: "48px 40px",
+          maxWidth: 460,
+          width: "100%",
+          textAlign: "center",
+          boxShadow: "0 8px 40px rgba(74,111,165,0.12)",
+        }}
+      >
+        <div
+          style={{
+            width: 72,
+            height: 72,
+            borderRadius: 20,
+            background: "linear-gradient(135deg, #E05555, #B33B3B)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 24px",
+          }}
+        >
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="15" y1="9" x2="9" y2="15" />
+            <line x1="9" y1="9" x2="15" y2="15" />
+          </svg>
+        </div>
+
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0D1B2E", marginBottom: 12 }}>
+          {t("rejected_title") || "Votre dossier a été rejeté"}
+        </h1>
+
+        <p style={{ fontSize: 14, color: "#5A6E8A", lineHeight: 1.7, marginBottom: 20 }}>
+          {t("rejected_desc") ||
+            "Notre équipe administrative a examiné votre dossier et n'a pas pu valider votre inscription en l'état."}
+        </p>
+
+        <div
+          style={{
+            background: "#FDECEC",
+            border: "1px solid #E0555540",
+            borderRadius: 14,
+            padding: "16px 20px",
+            marginBottom: 28,
+            textAlign: "left",
+          }}
+        >
+          <p
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: "#B33B3B",
+              textTransform: "uppercase",
+              letterSpacing: 1,
+              marginBottom: 8,
+            }}
+          >
+            {t("rejection_reason_label") || "Motif"}
+          </p>
+          <p style={{ fontSize: 13, color: "#5A6E8A", lineHeight: 1.6 }}>
+            {reason ||
+              t("rejection_reason_unknown") ||
+              "Aucun motif détaillé n'a été communiqué. Contactez le support pour plus d'informations."}
+          </p>
+        </div>
+
+        <a
+          href="mailto:support@medsmart.dz?subject=Demande%20d'information%20-%20Dossier%20rejeté"
+          style={{
+            display: "block",
+            width: "100%",
+            padding: "14px",
+            borderRadius: 14,
+            background: "linear-gradient(135deg, #304B71, #6492C9)",
+            color: "#fff",
+            fontWeight: 700,
+            fontSize: 15,
+            textDecoration: "none",
+            marginBottom: 12,
+          }}
+        >
+          {t("contact_support_btn") || "Contacter le support"}
+        </a>
+
+        <button
+          onClick={logout}
+          style={{
+            width: "100%",
+            padding: "14px",
+            borderRadius: 14,
+            background: "transparent",
+            color: "#5A6E8A",
+            fontWeight: 700,
+            fontSize: 15,
+            border: "1px solid #E4EAF5",
+            cursor: "pointer",
+          }}
+        >
+          {t("logout_btn") || "Se déconnecter"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function RoleRouter() {
   const { accountType, userData, logout, isApproved } = useAuth();
   const { t } = useLanguage();
@@ -180,6 +321,10 @@ function RoleRouter() {
   }
 
   if (type === "personnel médical") {
+    // Rejected dossier takes priority over the generic "pending" screen.
+    if (userData?.verification_status === "rejected") {
+      return <RejectedPage logout={logout} />;
+    }
     // Block unapproved medical staff with a friendly pending page
     if (!isApproved) return <PendingApprovalPage logout={logout} />;
 
@@ -267,7 +412,7 @@ export default function AppRouter() {
   // ⚡ BYPASS RAPIDE POUR TESTS (Décommenter pour utiliser) ⚡
   // =========================================================================
 
-  const FORCE_TEST = true; // Mettre à true pour activer le bypass
+  const FORCE_TEST = false; // Mettre à true pour activer le bypass
 
   if (FORCE_TEST) {
     const ROLE_MAP = {

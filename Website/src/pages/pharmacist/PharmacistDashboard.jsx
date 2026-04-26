@@ -1,9 +1,11 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useTheme } from "../../context/ThemeContext";
 import ErrorBoundary from "../../components/ErrorBoundary";
 import DashSelect from "../../components/ui/DashSelect";
 import { ParticlesHero } from '../../components/backgrounds/MedParticles';
 import { useData } from "../../context/DataContext";
+import { useAuth } from "../../context/AuthContext";
+import * as api from "../../services/api";
 import {
   Search, Bell, Settings, LogOut, Menu, ChevronDown, Sun, Moon,
   Package, Pill, ShoppingCart, FileText, AlertTriangle, Check,
@@ -18,41 +20,14 @@ import ChatWindow from "../../components/chat/ChatWindow";
 import { useLanguage } from "../../context/LanguageContext";
 import { T } from "../_shared/theme";
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
-const STOCK = [
-  { id: 1,  name: "Lisinopril 10mg",     molecule: "Lisinopril Dihydrate",   qty: 142, min: 50,  price: 320,  cnas: true,  category: "Cardiologie",   expiry: "2026-08-15" },
-  { id: 2,  name: "Metformin 500mg",     molecule: "Metformin HCl",          qty: 89,  min: 40,  price: 180,  cnas: true,  category: "Diabétologie",  expiry: "2026-11-20" },
-  { id: 3,  name: "Amoxicillin 500mg",   molecule: "Amoxicillin Trihydrate", qty: 12,  min: 30,  price: 240,  cnas: true,  category: "Antibiotiques", expiry: "2025-12-01" },
-  { id: 4,  name: "Vitamin D3 2000IU",   molecule: "Cholecalciferol",        qty: 215, min: 60,  price: 450,  cnas: false, category: "Vitamines",     expiry: "2027-03-10" },
-  { id: 5,  name: "Aspirin 100mg",       molecule: "Acetylsalicylic Acid",   qty: 330, min: 80,  price: 90,   cnas: false, category: "Cardiologie",   expiry: "2027-01-05" },
-  { id: 6,  name: "Omeprazole 20mg",     molecule: "Omeprazole",             qty: 67,  min: 40,  price: 280,  cnas: true,  category: "Gastro",        expiry: "2026-06-30" },
-  { id: 7,  name: "Atorvastatin 20mg",   molecule: "Atorvastatin Calcium",   qty: 8,   min: 25,  price: 520,  cnas: true,  category: "Cardiologie",   expiry: "2026-04-15" },
-  { id: 8,  name: "Paracetamol 1g",      molecule: "Acetaminophen",          qty: 480, min: 100, price: 75,   cnas: false, category: "Antalgiques",   expiry: "2027-06-20" },
-  { id: 9,  name: "Ibuprofen 400mg",     molecule: "Ibuprofen",              qty: 155, min: 50,  price: 120,  cnas: false, category: "Antalgiques",   expiry: "2027-02-28" },
-  { id: 10, name: "Amlodipine 5mg",      molecule: "Amlodipine Besylate",    qty: 44,  min: 30,  price: 390,  cnas: true,  category: "Cardiologie",   expiry: "2026-09-12" },
-];
+// ─── Données de démonstration ─────────────────────────────────────────────────
+// Activées uniquement en développement — jamais visibles en production.
+const STOCK = [];
 
-const ORDERS = [
-  { id: "ORD-2026-0482", patient: "Alex Johnson",   doctor: "Dr. Sarah Smith",  date: "Auj. 11:05",  status: "new",        items: ["Lisinopril 10mg ×30", "Metformin 500mg ×60"], total: 19800, cnas: true,  source: "click_collect" },
-  { id: "ORD-2026-0481", patient: "Samira Meziane", doctor: "Dr. Benali Karim", date: "Auj. 10:24",  status: "new",        items: ["Amoxicillin 500mg ×21"],                      total: 5040,  cnas: true,  source: "click_collect" },
-  { id: "ORD-2026-0480", patient: "Karim Boudali",  doctor: "Dr. Amira Boudali",date: "Auj. 09:51",  status: "processing", items: ["Aspirin 100mg ×90", "Atorvastatin 20mg ×30"], total: 23700, cnas: false, source: "click_collect" },
-  { id: "ORD-2026-0479", patient: "Fatima Benali",  doctor: "Dr. Sarah Smith",  date: "Hier 16:30",  status: "ready",      items: ["Vitamin D3 2000IU ×60"],                      total: 27000, cnas: false, source: "click_collect" },
-  { id: "ORD-2026-0478", patient: "Omar Meziani",   doctor: "Dr. Karim Benali", date: "Hier 14:15",  status: "delivered",  items: ["Omeprazole 20mg ×30", "Paracetamol 1g ×20"],  total: 9900,  cnas: true,  source: "scan"          },
-];
+const ORDERS = [];
 
-const ALERTS = [
-  { id: 1, type: "rupture",  icon: AlertTriangle, color: "#E05555", bg: "#FFF0F0", bgDk: "#2A1515", text: "Amoxicillin 500mg — Stock critique (12 unités)",     action: "Commander" },
-  { id: 2, type: "rupture",  icon: AlertTriangle, color: "#E05555", bg: "#FFF0F0", bgDk: "#2A1515", text: "Atorvastatin 20mg — Stock critique (8 unités)",      action: "Commander" },
-  { id: 3, type: "expiry",   icon: Clock,         color: "#E8A838", bg: "#FFFAEC", bgDk: "#2A1E08", text: "Amoxicillin 500mg — Expire le 01/12/2025",           action: "Retirer" },
-  { id: 4, type: "cnas",     icon: Shield,        color: "#4A6FA5", bg: "#EEF3FB", bgDk: "#1A2333", text: "3 ordonnances CNAS en attente de validation",        action: "Valider" },
-];
-
-const NOTIFICATIONS = [
-  { id: 1, icon: ShoppingCart, color: "#4A6FA5", bg: "#EEF3FB", bgDk: "#1A2333", title: "Nouvelle commande",        sub: "Alex Johnson — il y a 5 min",     unread: true  },
-  { id: 2, icon: AlertCircle,  color: "#E05555", bg: "#FFF0F0", bgDk: "#2A1515", title: "Stock critique",            sub: "Atorvastatin 20mg — 8 unités",    unread: true  },
-  { id: 3, icon: Check,        color: "#2D8C6F", bg: "#EEF8F4", bgDk: "#1A2D28", title: "Livraison confirmée",       sub: "Commande fournisseur #FL-881",    unread: false },
-  { id: 4, icon: Shield,       color: "#4A6FA5", bg: "#EEF3FB", bgDk: "#1A2333", title: "Validation CNAS",           sub: "3 ordonnances à traiter",         unread: true  },
-];
+const ALERTS = [];
+const NOTIFICATIONS = [];
 
 const STATUS_META = {
   new:        { label: "new_status",   color: "#4A6FA5", bg: "#4A6FA518" },
@@ -130,10 +105,29 @@ function QrModal({ onClose, dk, onScan }) {
   const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
   const [scanned, setScanned] = useState(false);
+  const [token, setToken] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const simulateScan = () => {
-    setScanned(true);
-    setTimeout(() => { onScan(); onClose(); }, 1200);
+  const submitToken = async () => {
+    setError("");
+    if (!token.trim()) {
+      setError(t('qr_token_required') || "Saisissez le contenu du QR code.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await api.scanPrescriptionQr(token.trim());
+      setScanned(true);
+      setTimeout(() => {
+        onScan?.(result);
+        onClose();
+      }, 800);
+    } catch (err) {
+      setError(err?.message || (t('qr_invalid_token') || "QR invalide ou expiré."));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -151,54 +145,71 @@ function QrModal({ onClose, dk, onScan }) {
 
         {/* Camera zone */}
         <div className="relative rounded-2xl overflow-hidden mb-5"
-          style={{ background: "#000", height: 220 }}>
-          {/* Scan lines animation */}
+          style={{ background: "#000", height: 180 }}>
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-40 h-40 relative">
-              {/* Corner brackets */}
+            <div className="w-32 h-32 relative">
               {[["top-0 left-0","border-t-2 border-l-2"],["top-0 right-0","border-t-2 border-r-2"],
                 ["bottom-0 left-0","border-b-2 border-l-2"],["bottom-0 right-0","border-b-2 border-r-2"]
               ].map(([pos, border], i) => (
                 <div key={i} className={`absolute w-5 h-5 ${pos} ${border} rounded-sm`}
                   style={{ borderColor: scanned ? "#2D8C6F" : "#6492C9" }} />
               ))}
-              <QrCode size={64} className="absolute inset-0 m-auto"
+              <QrCode size={56} className="absolute inset-0 m-auto"
                 style={{ color: scanned ? "#2D8C6F" : "rgba(255,255,255,0.15)" }} />
             </div>
           </div>
-          {/* Scan line */}
-          {!scanned && (
-            <div className="absolute left-4 right-4 h-0.5 bg-blue-400 opacity-80"
-              style={{ top: "50%", boxShadow: "0 0 8px #6492C9", animation: "scanLine 2s ease-in-out infinite" }} />
-          )}
           {scanned && (
             <div className="absolute inset-0 flex items-center justify-center"
               style={{ background: "rgba(45,140,111,0.3)" }}>
-              <div className="w-16 h-16 rounded-full flex items-center justify-center"
+              <div className="w-14 h-14 rounded-full flex items-center justify-center"
                 style={{ background: "#2D8C6F" }}>
-                <Check size={32} className="text-white" strokeWidth={3} />
+                <Check size={28} className="text-white" strokeWidth={3} />
               </div>
             </div>
           )}
         </div>
 
-        <p className="text-center text-sm mb-5" style={{ color: c.txt2 }}>
-          {scanned ? (t('scanned_success') || "Ordonnance détectée !") : (t('position_qr_desc') || "Positionnez le QR code de l'ordonnance")}
-        </p>
+        {/* Saisie manuelle (fallback caméra) */}
+        <label className="block text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt2 }}>
+          {t('qr_token_label') || "Contenu du QR code"}
+        </label>
+        <input
+          type="text"
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+          placeholder={t('qr_token_placeholder') || "Collez le token QR ici…"}
+          className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border mb-3"
+          style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border, color: c.txt }}
+        />
+
+        {error && (
+          <p className="text-xs font-semibold mb-3 px-3 py-2 rounded-lg border"
+             style={{ color: "#E05555", background: "#E0555518", borderColor: "#E0555544" }}>
+            {error}
+          </p>
+        )}
 
         <div className="flex gap-3">
-          <button onClick={simulateScan}
-            className="flex-1 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
-            style={{ background: c.blue }}>
-            {scanned ? (t('in_progress') || "Traitement…") : `📷 ${t('simulate_scan_btn') || "Simuler scan"}`}
+          <button
+            type="button"
+            onClick={submitToken}
+            disabled={loading || scanned}
+            className="flex-1 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            style={{ background: c.blue }}
+          >
+            {loading && <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
+            {scanned ? (t('in_progress') || "Traitement…") : (t('validate_btn') || "Valider")}
           </button>
-          <button className="px-4 py-3 rounded-xl text-sm font-semibold border transition-all hover:opacity-80"
-            style={{ borderColor: c.border, color: c.txt2 }}>
-            📁 {t('file_label') || "Fichier"}
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-3 rounded-xl text-sm font-semibold border transition-all hover:opacity-80"
+            style={{ borderColor: c.border, color: c.txt2 }}
+          >
+            {t('cancel_btn') || "Annuler"}
           </button>
         </div>
       </div>
-      <style>{`@keyframes scanLine { 0%,100%{top:20%} 50%{top:80%} }`}</style>
     </div>
   );
 }
@@ -575,14 +586,74 @@ function StockPage({ dk }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all"); // all | critical | ok
   const [editQty, setEditQty] = useState(null);
+  const [editValue, setEditValue] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
-  const [addedItems, setAddedItems] = useState([]);
+  const [stockItems, setStockItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [banner, setBanner] = useState(null);
+  const [updatingId, setUpdatingId] = useState(null);
 
-  const allStock = [...STOCK, ...addedItems];
+  const mapStockRow = (row) => {
+    const m = row.medication_details || {};
+    return {
+      id:       row.id,
+      name:     m.name || `Médicament #${row.medication}`,
+      molecule: m.molecule || "",
+      qty:      Number(row.quantity) || 0,
+      min:      Number(m.min_threshold) || 10,
+      price:    Number(row.selling_price) || Number(m.price_dzd) || 0,
+      cnas:     !!m.cnas_covered,
+      category: m.category || "—",
+      expiry:   row.expiry_date || "—",
+    };
+  };
+
+  const reload = async () => {
+    setLoading(true);
+    try {
+      const data = await api.getPharmacyStock();
+      const list = Array.isArray(data) ? data : (data?.results || []);
+      setStockItems(list.map(mapStockRow));
+    } catch (err) {
+      console.error("Erreur chargement stock:", err);
+      setStockItems([]);
+      setBanner({ type: "error", msg: err?.message || "Erreur lors du chargement du stock." });
+      setTimeout(() => setBanner(null), 4000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { reload(); }, []);
+
+  const handleSaveQty = async (item) => {
+    const newQty = parseInt(editValue, 10);
+    if (Number.isNaN(newQty) || newQty < 0) {
+      setBanner({ type: "error", msg: "Quantité invalide." });
+      setTimeout(() => setBanner(null), 3000);
+      return;
+    }
+    const previous = stockItems;
+    setStockItems(prev => prev.map(s => s.id === item.id ? { ...s, qty: newQty } : s));
+    setUpdatingId(item.id);
+    try {
+      await api.updatePharmacyStock(item.id, { quantity: newQty });
+      setEditQty(null);
+      setBanner({ type: "success", msg: "Stock mis à jour." });
+    } catch (err) {
+      setStockItems(previous);
+      setBanner({ type: "error", msg: err?.message || "Échec de la mise à jour." });
+    } finally {
+      setUpdatingId(null);
+      setTimeout(() => setBanner(null), 3000);
+    }
+  };
+
+  const allStock = stockItems;
 
   const filtered = allStock.filter(s => {
-    const matchSearch = s.name.toLowerCase().includes(search.toLowerCase()) ||
-                        s.molecule.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = (s.name || "").toLowerCase().includes(search.toLowerCase()) ||
+                        (s.molecule || "").toLowerCase().includes(search.toLowerCase());
     if (filter === "critical") return matchSearch && s.qty < s.min;
     if (filter === "ok")       return matchSearch && s.qty >= s.min;
     return matchSearch;
@@ -601,8 +672,37 @@ function StockPage({ dk }) {
         <AddItemModal
           dk={dk}
           onClose={() => setShowAddModal(false)}
-          onAdd={item => setAddedItems(prev => [...prev, item])}
+          onAdd={async (item) => {
+            // Persiste côté backend (medication_id requis si dispo, sinon le payload sera rejeté)
+            try {
+              await api.createPharmacyStock({
+                medication: item.medication_id,
+                quantity:   item.qty,
+                selling_price: item.price,
+                expiry_date: item.expiry,
+              });
+              await reload();
+              setBanner({ type: "success", msg: "Article ajouté." });
+            } catch (err) {
+              setBanner({ type: "error", msg: err?.message || "Échec de l'ajout." });
+            } finally {
+              setTimeout(() => setBanner(null), 4000);
+            }
+          }}
         />
+      )}
+
+      {banner && (
+        <div
+          className="mb-4 px-4 py-2.5 rounded-xl border text-sm font-semibold"
+          style={{
+            background: (banner.type === "success" ? c.green : c.red) + "18",
+            borderColor: (banner.type === "success" ? c.green : c.red) + "44",
+            color: banner.type === "success" ? c.green : c.red,
+          }}
+        >
+          {banner.msg}
+        </div>
       )}
 
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
@@ -690,12 +790,23 @@ function StockPage({ dk }) {
                     <td className="px-4 py-3">
                       {editQty === item.id ? (
                         <div className="flex items-center gap-1">
-                          <button onClick={() => setEditQty(null)}
+                          <button onClick={() => handleSaveQty(item)}
+                            disabled={updatingId === item.id}
+                            className="w-6 h-6 rounded flex items-center justify-center text-xs disabled:opacity-50"
+                            style={{ background: c.green, color: "#fff" }}>
+                            {updatingId === item.id ? "…" : "✓"}
+                          </button>
+                          <button onClick={() => { setEditQty(null); setEditValue(""); }}
                             className="w-6 h-6 rounded flex items-center justify-center text-xs"
-                            style={{ background: c.green, color: "#fff" }}>✓</button>
-                          <input type="number" defaultValue={item.qty}
+                            style={{ background: c.red, color: "#fff" }}>✕</button>
+                          <input
+                            type="number"
+                            min={0}
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
                             className="w-16 px-2 py-1 rounded-lg text-xs outline-none border"
-                            style={{ background: c.blueLight, borderColor: c.border, color: c.txt }} />
+                            style={{ background: c.blueLight, borderColor: c.border, color: c.txt }}
+                          />
                         </div>
                       ) : (
                         <span className="text-sm font-bold" style={{ color: st.color }}>{item.qty}</span>
@@ -709,14 +820,14 @@ function StockPage({ dk }) {
                     <td className="px-4 py-3 text-sm font-semibold" style={{ color: c.blue }}>{item.price} DZD</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <button onClick={() => setEditQty(item.id)}
+                        <button
+                          type="button"
+                          onClick={() => { setEditQty(item.id); setEditValue(String(item.qty)); }}
                           className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:opacity-70"
-                          style={{ borderColor: c.border, color: c.txt3 }}>
+                          style={{ borderColor: c.border, color: c.txt3 }}
+                          title="Modifier la quantité"
+                        >
                           <RefreshCw size={12} />
-                        </button>
-                        <button className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:opacity-70"
-                          style={{ borderColor: c.border, color: c.blue }}>
-                          <Truck size={12} />
                         </button>
                       </div>
                     </td>
@@ -737,8 +848,56 @@ function CommandesPage({ dk }) {
   const c = dk ? T.dark : T.light;
   const [tab, setTab]                   = useState("all");
   const [showQr, setShowQr]             = useState(false);
-  const [orders, setOrders]             = useState(ORDERS);
+  const [orders, setOrders]             = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [loadError, setLoadError]       = useState("");
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [updatingId, setUpdatingId]     = useState(null);
+
+  const mapOrder = (o) => {
+    const status = (o.status || "new").toLowerCase();
+    // Backend statuses (typiques) : pending|preparing|ready|delivered|cancelled
+    const statusMap = { pending: "new", preparing: "processing", ready: "ready", delivered: "delivered", cancelled: "cancelled" };
+    const displayStatus = statusMap[status] || status;
+    const itemsArr = Array.isArray(o.items)
+      ? o.items.map(it => {
+          const name = it.drug_name || it.medication_name || it.name || "";
+          const qty  = it.quantity || it.duration || "";
+          return qty ? `${name} ×${qty}` : name;
+        })
+      : [];
+    const dateStr = o.created_at ? new Date(o.created_at).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+    return {
+      id: o.prescription_ref || `ORD-${o.id}`,
+      _rawId: o.id,
+      patient: o.patient_name || "Patient",
+      doctor: o.doctor_name || "",
+      date: dateStr,
+      status: displayStatus,
+      items: itemsArr,
+      total: o.total || 0,
+      cnas: !!o.cnas_covered,
+      source: o.order_type === "direct" ? "scan" : "click_collect",
+    };
+  };
+
+  const loadOrders = async () => {
+    setLoading(true);
+    try {
+      const data = await api.getPharmacyOrders();
+      const results = Array.isArray(data) ? data : (data?.results || []);
+      setOrders(results.map(mapOrder));
+      setLoadError("");
+    } catch (err) {
+      console.error("Erreur chargement commandes:", err);
+      setLoadError(err?.message || "Erreur lors du chargement des commandes.");
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadOrders(); }, []);
 
   const newCount = orders.filter(o => o.status === "new").length;
 
@@ -752,13 +911,46 @@ function CommandesPage({ dk }) {
 
   const displayed = tab === "all" ? orders : orders.filter(o => o.status === tab);
 
-  const acceptOrder   = (id) => setOrders(prev => prev.map(o => o.id === id ? { ...o, status: "processing" } : o));
-  const markReady     = (id) => setOrders(prev => prev.map(o => o.id === id ? { ...o, status: "ready"      } : o));
-  const markDelivered = (id) => setOrders(prev => prev.map(o => o.id === id ? { ...o, status: "delivered"  } : o));
+  // Mapping display status → backend status pour PATCH
+  const BACK_STATUS = { processing: "preparing", ready: "ready", delivered: "delivered" };
+
+  const updateOrderStatus = async (o, nextDisplayStatus) => {
+    const backendStatus = BACK_STATUS[nextDisplayStatus] || nextDisplayStatus;
+    const rawId = o._rawId;
+    // Optimistic update
+    setOrders(prev => prev.map(x => x.id === o.id ? { ...x, status: nextDisplayStatus } : x));
+    // Si c'est un mock (pas de _rawId), ne fait que local
+    if (!rawId) return;
+    setUpdatingId(o.id);
+    try {
+      await api.apiFetch(`/pharmacy/orders/${rawId}/status/`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: backendStatus }),
+      });
+    } catch (err) {
+      console.error("Erreur update statut commande:", err);
+      // Revert optimistic update
+      setOrders(prev => prev.map(x => x.id === o.id ? { ...x, status: o.status } : x));
+      setLoadError(err?.message || "Impossible de mettre à jour le statut.");
+      setTimeout(() => setLoadError(""), 4000);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const acceptOrder   = (order) => updateOrderStatus(order, "processing");
+  const markReady     = (order) => updateOrderStatus(order, "ready");
+  const markDelivered = (order) => updateOrderStatus(order, "delivered");
 
   return (
     <>
-      {showQr && <QrModal dk={dk} onClose={() => setShowQr(false)} onScan={() => {}} />}
+      {showQr && (
+        <QrModal
+          dk={dk}
+          onClose={() => setShowQr(false)}
+          onScan={() => loadOrders()}
+        />
+      )}
       {selectedOrder && (
         <OrderDetailModal order={selectedOrder} dk={dk} onClose={() => setSelectedOrder(null)} />
       )}
@@ -803,9 +995,24 @@ function CommandesPage({ dk }) {
         ))}
       </div>
 
+      {loadError && (
+        <div
+          className="mb-4 px-3 py-2 rounded-lg text-xs font-semibold border"
+          style={{ background: c.red + "18", borderColor: c.red + "44", color: c.red }}
+        >
+          {loadError}
+        </div>
+      )}
+
       {/* Orders list */}
       <div className="space-y-4">
-        {displayed.length === 0 && (
+        {loading && (
+          <div className="text-center py-12" style={{ color: c.txt3 }}>
+            <span className="inline-block w-5 h-5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: c.blue, borderTopColor: "transparent" }} />
+            <p className="text-sm font-semibold mt-2">Chargement…</p>
+          </div>
+        )}
+        {!loading && displayed.length === 0 && (
           <div className="text-center py-12" style={{ color: c.txt3 }}>
             <ShoppingCart size={32} className="mx-auto mb-3 opacity-40" />
             <p className="text-sm font-semibold">{t('no_orders_found') || "Aucune commande dans cet onglet"}</p>
@@ -869,28 +1076,34 @@ function CommandesPage({ dk }) {
                   <div className="flex flex-col gap-2">
                     {/* Nouvelle → Accepter & Préparer (Bleu) */}
                     {isNew && (
-                      <button onClick={() => acceptOrder(o.id)}
-                        className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95"
+                      <button onClick={() => acceptOrder(o)} disabled={updatingId === o.id}
+                        className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-60"
                         style={{ background: "linear-gradient(135deg, #304B71, #6492C9)" }}>
-                        <Check size={13} strokeWidth={3} /> {t('accept_prepare_btn') || "Accepter & Préparer"}
+                        {updatingId === o.id
+                          ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          : <><Check size={13} strokeWidth={3} /> {t('accept_prepare_btn') || "Accepter & Préparer"}</>}
                       </button>
                     )}
 
                     {/* En préparation → Marquer Prêt (Vert) */}
                     {isProcessing && (
-                      <button onClick={() => markReady(o.id)}
-                        className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95"
+                      <button onClick={() => markReady(o)} disabled={updatingId === o.id}
+                        className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-60"
                         style={{ background: c.green }}>
-                        <CheckCircle size={13} /> {t('mark_ready_btn') || "Marquer Prêt"}
+                        {updatingId === o.id
+                          ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          : <><CheckCircle size={13} /> {t('mark_ready_btn') || "Marquer Prêt"}</>}
                       </button>
                     )}
 
                     {/* Prêt → Livré / Récupéré (Gris neutre) */}
                     {isReady && (
-                      <button onClick={() => markDelivered(o.id)}
-                        className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all hover:opacity-80 active:scale-95"
+                      <button onClick={() => markDelivered(o)} disabled={updatingId === o.id}
+                        className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all hover:opacity-80 active:scale-95 disabled:opacity-60"
                         style={{ background: c.blueLight, color: c.txt2, border: `1px solid ${c.border}` }}>
-                        <Truck size={13} /> {t('delivered_btn') || "Récupéré"}
+                        {updatingId === o.id
+                          ? <span className="w-3 h-3 border-2 rounded-full animate-spin" style={{ borderColor: c.txt2, borderTopColor: "transparent" }} />
+                          : <><Truck size={13} /> {t('delivered_btn') || "Récupéré"}</>}
                       </button>
                     )}
 
@@ -924,21 +1137,50 @@ function CommandesPage({ dk }) {
 // ─── PAGE: STATISTIQUES ───────────────────────────────────────────────────────
 function StatistiquesPage({ dk }) {
   const c = dk ? T.dark : T.light;
+  const { t } = useLanguage();
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
-  const monthlyData = [
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      try {
+        const data = await api.getPharmacyStats();
+        if (!cancel) setStats(data || null);
+      } catch (err) {
+        if (!cancel) setLoadError(err?.message || "Erreur lors du chargement des statistiques.");
+      } finally {
+        if (!cancel) setLoading(false);
+      }
+    })();
+    return () => { cancel = true; };
+  }, []);
+
+  const fmtDzd = (n) => `${Number(n || 0).toLocaleString("fr-FR")} DZD`;
+
+  const kpisFromBackend = stats?.kpis ? [
+    { label: "Commandes aujourd'hui", value: String(stats.kpis.today_orders ?? 0),  icon: ShoppingCart, color: c.blue   },
+    { label: "Revenu du jour",        value: fmtDzd(stats.kpis.today_revenue),       icon: DollarSign,   color: c.green  },
+    { label: "Articles en stock",     value: String(stats.kpis.stock_items ?? 0),    icon: Package,      color: "#7B5EA7" },
+    { label: "Alertes stock",         value: String(stats.kpis.stock_alerts_count ?? 0), icon: AlertTriangle, color: c.amber },
+  ] : null;
+
+  // Données graphiques : non encore exposées par le backend → masquées en prod.
+  const monthlyData = import.meta.env.DEV ? [
     { month: "Oct", ventes: 62, cnas: 38 }, { month: "Nov", ventes: 75, cnas: 44 },
     { month: "Déc", ventes: 88, cnas: 52 }, { month: "Jan", ventes: 71, cnas: 43 },
     { month: "Fév", ventes: 83, cnas: 50 }, { month: "Mar", ventes: 91, cnas: 57 },
-  ];
+  ] : [];
   const maxVal = 100;
 
-  const topMeds = [
+  const topMeds = import.meta.env.DEV ? [
     { name: "Paracetamol 1g",   qty: 480, pct: 95, color: c.blue  },
     { name: "Aspirin 100mg",    qty: 330, pct: 68, color: c.green },
     { name: "Vitamin D3 2000IU",qty: 215, pct: 44, color: "#7B5EA7" },
     { name: "Lisinopril 10mg",  qty: 142, pct: 30, color: c.amber },
     { name: "Ibuprofen 400mg",  qty: 155, pct: 32, color: c.red   },
-  ];
+  ] : [];
 
   return (
     <>
@@ -947,14 +1189,21 @@ function StatistiquesPage({ dk }) {
         <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>{t('stats_desc_pharmacist') || "Analyse des ventes et remboursements CNAS"}</p>
       </div>
 
+      {loadError && (
+        <div className="mb-4 px-4 py-2.5 rounded-xl border text-sm font-semibold"
+             style={{ background: c.red + "18", borderColor: c.red + "44", color: c.red }}>
+          {loadError}
+        </div>
+      )}
+
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {[
-          { label: t('monthly_sales_label') || "Ventes ce mois",    value: "1 248 400 DZD", icon: DollarSign,   color: c.blue,  trend: 9  },
-          { label: t('reimbursed_cnas_label') || "Remboursé CNAS",    value: "773 600 DZD",   icon: Shield,       color: c.green, trend: 5  },
-          { label: t('prescriptions_processed_label') || "Ordonnances traitées",value: "342",          icon: FileText,     color: "#7B5EA7",trend: 14 },
-          { label: t('unique_customers_label') || "Clients uniques",   value: "128",           icon: Users,        color: c.amber, trend: 3  },
-        ].map(s => <StatCard key={s.label} {...s} dk={dk} />)}
+        {(kpisFromBackend || [
+          { label: t('monthly_sales_label') || "Ventes ce mois",    value: loading ? "…" : "—", icon: DollarSign,    color: c.blue   },
+          { label: t('reimbursed_cnas_label') || "Remboursé CNAS",  value: loading ? "…" : "—", icon: Shield,        color: c.green  },
+          { label: t('prescriptions_processed_label') || "Ordonnances traitées", value: loading ? "…" : "—", icon: FileText, color: "#7B5EA7" },
+          { label: t('unique_customers_label') || "Clients uniques",value: loading ? "…" : "—", icon: Users,         color: c.amber  },
+        ]).map(s => <StatCard key={s.label} {...s} dk={dk} />)}
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
@@ -1377,6 +1626,7 @@ function MessagesPage({ dk, c, chatConvOpen, setChatConvOpen, activeChatConv, se
 export default function PharmacistDashboard({ onLogout }) {
   const { t } = useLanguage();
   const { theme, toggleTheme } = useTheme();
+  const { userData } = useAuth();
   const dk = theme === "dark";
   const [page, setPage] = useState("accueil");
   const [profileOpen, setProfileOpen] = useState(false);
@@ -1384,6 +1634,16 @@ export default function PharmacistDashboard({ onLogout }) {
   const { globalNotifications, markAllNotificationsRead } = useData();
   const notifCount = globalNotifications.filter(n => !n.read).length;
   const c = dk ? T.dark : T.light;
+
+  const pharmacyName =
+    userData?.pharmacy_name ||
+    userData?.pharmacy?.name ||
+    (userData?.first_name || userData?.last_name
+      ? `${userData?.first_name || ""} ${userData?.last_name || ""}`.trim()
+      : "El Shifa Pharmacy");
+  const pharmacyCity = userData?.wilaya || userData?.city || "Alger";
+  const pharmacyInitials =
+    (pharmacyName.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase()).join("") || "ES").slice(0, 2);
 
   // ── Chat state ──
   const [chatConvOpen, setChatConvOpen] = useState(false);
@@ -1489,11 +1749,11 @@ export default function PharmacistDashboard({ onLogout }) {
                 style={{ border: `1px solid ${c.border}`, background: "transparent" }}>
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"
                   style={{ background: "linear-gradient(135deg, #2D8C6F, #3aaa88)" }}>
-                  ES
+                  {pharmacyInitials}
                 </div>
                 <div className="hidden sm:block text-left">
-                  <p className="text-sm font-semibold leading-tight" style={{ color: c.txt }}>El Shifa Pharmacy</p>
-                  <p className="text-xs" style={{ color: c.txt3 }}>{t('pharmacist_role_label') || "Pharmacien"} · Alger</p>
+                  <p className="text-sm font-semibold leading-tight" style={{ color: c.txt }}>{pharmacyName}</p>
+                  <p className="text-xs" style={{ color: c.txt3 }}>{t('pharmacist_role_label') || "Pharmacien"} · {pharmacyCity}</p>
                 </div>
                 <ChevronDown size={13} style={{ color: c.txt3 }} />
               </button>
@@ -1507,9 +1767,9 @@ export default function PharmacistDashboard({ onLogout }) {
                   <div className="px-4 py-3 border-b" style={{ borderColor: dk ? c.border : "#F1F5F9" }}>
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold shrink-0"
-                        style={{ background: "linear-gradient(135deg, #2D8C6F, #3aaa88)" }}>ES</div>
+                        style={{ background: "linear-gradient(135deg, #2D8C6F, #3aaa88)" }}>{pharmacyInitials}</div>
                       <div>
-                        <p className="text-sm font-bold" style={{ color: c.txt }}>El Shifa Pharmacy</p>
+                        <p className="text-sm font-bold" style={{ color: c.txt }}>{pharmacyName}</p>
                         <p className="text-xs" style={{ color: c.txt3 }}>{t('pharmacist_role_label') || "Pharmacien"} · {t('cnas_connected_desc') || "CNAS Conventionné"}</p>
                       </div>
                     </div>

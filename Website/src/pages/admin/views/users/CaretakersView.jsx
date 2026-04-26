@@ -201,22 +201,7 @@ function avatarColor(name = "", c) {
 }
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
-const MOCK_CARETAKERS = [
-  {
-    id: 201, first_name: "Malika", last_name: "Ziri", full_name: "Malika Ziri", email: "malika.z@email.dz",
-    is_active: true, verification_status: "verified", specialty: "Garde-malade Senior",
-    wilaya: "Alger", phone: "+213 550 11 22 33", experience_years: 10,
-    services: "Aide à domicile, Préparation des repas, Accompagnement médical",
-    bio: "Excellente relation avec les personnes âgées."
-  },
-  {
-    id: 202, first_name: "Ahmed", last_name: "Rahmani", full_name: "Ahmed Rahmani", email: "ahmed.r@email.dz",
-    is_active: true, verification_status: "pending", specialty: "Aide Soignant",
-    wilaya: "Oran", phone: "+213 661 44 55 66", experience_years: 4,
-    services: "Soins d'hygiène, Mobilité, Observation",
-    bio: "Dévoué et attentif aux besoins des patients."
-  },
-];
+const MOCK_CARETAKERS = [];
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 export default function CaretakersView({ dk }) {

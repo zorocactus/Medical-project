@@ -310,36 +310,7 @@ function avatarColor(name = "", c) {
 }
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
-const MOCK_PATIENTS = [
-  {
-    id: 1, first_name: "Samir", last_name: "Hadj", full_name: "Samir Hadj", email: "samir.hadj@email.dz",
-    is_active: true, verification_status: "verified", date_joined: "2024-01-15",
-    wilaya: "Alger", phone: "+213 550 11 22 33", blood_type: "A+",
-    height: 178, weight: 75, allergies: "Pénicilline",
-    chronic_diseases: "Hypertension légère", current_medications: "Amlodipine 5mg"
-  },
-  {
-    id: 2, first_name: "Fatima", last_name: "Bensalah", full_name: "Fatima Bensalah", email: "fatima.bensalah@email.dz",
-    is_active: true, verification_status: "verified", date_joined: "2024-02-20",
-    wilaya: "Oran", phone: "+213 561 44 55 66", blood_type: "O+",
-    height: 165, weight: 62, allergies: "Pollen, Poussière",
-    chronic_diseases: "Diabète Type 2", current_medications: "Metformine"
-  },
-  {
-    id: 3, first_name: "Omar", last_name: "Meziani", full_name: "Omar Meziani", email: "omar.meziani@email.dz",
-    is_active: false, verification_status: "verified", date_joined: "2024-03-10",
-    wilaya: "Constantine", phone: "+213 550 77 88 99", blood_type: "B-",
-    height: 182, weight: 88, allergies: "Aspirine, Ibuprofène",
-    chronic_diseases: "Asthme", current_medications: "Ventoline"
-  },
-  {
-    id: 4, first_name: "Zohra", last_name: "Boudiaf", full_name: "Zohra Boudiaf", email: "zohra.b@email.dz",
-    is_active: true, verification_status: "pending", date_joined: "2024-04-01",
-    wilaya: "Alger", phone: "+213 552 11 44 77", blood_type: "AB+",
-    height: 160, weight: 55, allergies: "Aucune",
-    chronic_diseases: "Aucune", current_medications: "Aucun"
-  },
-];
+const MOCK_PATIENTS = [];
 
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 export default function PatientsView({ dk }) {
@@ -383,7 +354,7 @@ export default function PatientsView({ dk }) {
       setEditPatient(null);
       fetchPatients();
     } catch (err) {
-      alert("Erreur: " + err.message);
+      console.error("Erreur mise à jour patient:", err.message);
     }
   };
 

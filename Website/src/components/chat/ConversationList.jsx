@@ -2,22 +2,17 @@ import { useState, useEffect, useRef } from "react";
 import { X, Plus, Search, MessageSquare } from "lucide-react";
 import * as api from "../../services/api";
 
-// ─── Mocks ────────────────────────────────────────────────────────────────────
-const MOCK_CONVERSATIONS = [
+// ─── Démo uniquement en DEV — aucun mock visible en production ────────────────
+const MOCK_CONVERSATIONS = import.meta.env.DEV ? [
   { id: 1, name: "Pharmacie Centrale",  role: "pharmacist",
     lastMessage: "Votre ordonnance est prête", unread: 2,
     timestamp: "10:30", isNew: true },
-  { id: 2, name: "Karim Benali",        role: "caretaker",
-    lastMessage: "Je serai là à 14h",   unread: 0,
-    timestamp: "Hier", isNew: false },
-];
+] : [];
 
-const MOCK_INTERLOCUTORS = [
+const MOCK_INTERLOCUTORS = import.meta.env.DEV ? [
   { id: 10, name: "Pharmacie El Shifa",  role: "pharmacist" },
-  { id: 11, name: "Pharmacie Centrale",  role: "pharmacist" },
   { id: 20, name: "Karim Benali",        role: "caretaker"  },
-  { id: 21, name: "Nadia Messaoud",      role: "caretaker"  },
-];
+] : [];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function avatarColor(role) {

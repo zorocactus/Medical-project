@@ -155,16 +155,7 @@ function TodaysSchedule({ appointments = [], onStartConsultation }) {
   const [startingId, setStartingId] = useState(null);
   const [startErrors, setStartErrors] = useState({});
 
-  const defaultData = [
-    { id: 1, time: "08:00", name: "Ahmed Meziane", type: "In-Person", status: "confirmed" },
-    { time: "09:00", type: "empty" },
-    { id: 2, time: "10:00", name: "Nadia Khelifa", type: "Teleconsultation", status: "confirmed" },
-    { id: 3, time: "10:30", name: "Alex Johnson", type: "In-Person", status: "scheduled" },
-    { time: "11:30", type: "empty" },
-    { id: 4, time: "14:00", name: "Youcef Belaid", type: "Home Visit", status: "confirmed" },
-    { id: 5, time: "15:30", name: "Sara Ait", type: "In-Person", status: "scheduled" },
-    { time: "17:00", type: "empty" },
-  ];
+  const defaultData = [];
 
   // Defensive array handling
   const safeAppointments = Array.isArray(appointments) ? appointments : [];
@@ -296,48 +287,59 @@ function TodaysSchedule({ appointments = [], onStartConsultation }) {
 
 // ─── NEW COMPONENT : PATIENT REQUESTS ─────────────────────────────────────────
 
-const MOCK_REQUESTS = [
-  {
-    id: 101,
-    initials: "MK",
-    name: "Meriem Kaci",
-    detail: "First visit",
-    date: "Oct 26",
-    time: "09:45",
-    color: "bg-[#6492C9]",
-    status: "confirmed",
-  },
-  {
-    id: 102,
-    initials: "RB",
-    name: "Riad Bensalem",
-    detail: "Follow-up",
-    date: "Oct 27",
-    time: "14:30",
-    color: "bg-[#3DAA73]",
-    status: "scheduled",
-  },
-  {
-    id: 103,
-    initials: "LB",
-    name: "Lynda Boudaoud",
-    detail: "First visit",
-    date: "Oct 28",
-    time: "11:00",
-    color: "bg-[#F0A500]",
-    status: "confirmed",
-  },
-];
+// Plus de données fictives — l'UI affiche un état vide propre si le backend retourne [].
+const MOCK_REQUESTS = [];
 
-function PatientRequests({ requests = MOCK_REQUESTS, onStartConsultation }) {
+function PatientRequests({ requests, onStartConsultation }) {
   const { theme } = useTheme();
   const dk = theme === "dark";
   const c = dk ? T.dark : T.light;
   const { t } = useLanguage();
   const [startingId, setStartingId] = useState(null);
   const [startErrors, setStartErrors] = useState({});
-  const safeRequests =
-    Array.isArray(requests) && requests.length > 0 ? requests : MOCK_REQUESTS;
+  const [processingId, setProcessingId] = useState(null);
+  const [actionError, setActionError] = useState("");
+  const { refreshDoctorAppointments, refreshPatientRequests, setPatientRequests } = useData();
+  const isRealRequest = Array.isArray(requests) && requests.length > 0;
+  // En production : pas de données fictives. En dev : MOCK_REQUESTS pour visualiser le rendu.
+  const safeRequests = isRealRequest ? requests : MOCK_REQUESTS;
+
+  const handleConfirm = async (reqId) => {
+    if (!reqId || !isRealRequest) return;
+    setActionError("");
+    setProcessingId(`confirm-${reqId}`);
+    try {
+      await api.confirmAppointment(reqId);
+      if (typeof setPatientRequests === "function") {
+        setPatientRequests(prev => prev.filter(r => r.id !== reqId));
+      }
+      if (typeof refreshDoctorAppointments === "function") refreshDoctorAppointments();
+      if (typeof refreshPatientRequests === "function") refreshPatientRequests();
+    } catch (err) {
+      setActionError(err?.message || "Erreur lors de la confirmation.");
+      setTimeout(() => setActionError(""), 4000);
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleRefuse = async (reqId) => {
+    if (!reqId || !isRealRequest) return;
+    setActionError("");
+    setProcessingId(`refuse-${reqId}`);
+    try {
+      await api.refuseAppointment(reqId);
+      if (typeof setPatientRequests === "function") {
+        setPatientRequests(prev => prev.filter(r => r.id !== reqId));
+      }
+      if (typeof refreshPatientRequests === "function") refreshPatientRequests();
+    } catch (err) {
+      setActionError(err?.message || "Erreur lors du refus.");
+      setTimeout(() => setActionError(""), 4000);
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
   return (
     <div
@@ -360,9 +362,26 @@ function PatientRequests({ requests = MOCK_REQUESTS, onStartConsultation }) {
         </span>
       </div>
 
+      {actionError && (
+        <div
+          className="mb-4 px-3 py-2 rounded-lg text-xs font-semibold border"
+          style={{ background: c.red + "18", borderColor: c.red + "44", color: c.red }}
+        >
+          {actionError}
+        </div>
+      )}
+
+      {safeRequests.length === 0 ? (
+        <div className="text-center py-10 opacity-70">
+          <Clock size={28} className="mx-auto mb-2" style={{ color: c.txt3 }} />
+          <p className="text-sm font-semibold" style={{ color: c.txt2 }}>
+            Aucune demande en attente
+          </p>
+        </div>
+      ) : (
       <div className="flex flex-col gap-5">
         {safeRequests.map((req, idx) => (
-          <div key={idx} className="flex items-center justify-between group">
+          <div key={req.id || idx} className="flex items-center justify-between group">
             <div className="flex items-center gap-3">
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-[13px] font-bold ${req.color || "bg-[#6492C9]"}`}
@@ -403,24 +422,36 @@ function PatientRequests({ requests = MOCK_REQUESTS, onStartConsultation }) {
 
                 <div className="flex items-center gap-1.5">
                   <button
-                    className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all hover:bg-emerald-500 hover:text-white ${
+                    onClick={() => handleConfirm(req.id)}
+                    disabled={!isRealRequest || processingId === `confirm-${req.id}` || processingId === `refuse-${req.id}`}
+                    className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all hover:bg-emerald-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed ${
                       dk
                         ? "bg-emerald-900/20 text-emerald-400 border-emerald-800/30"
                         : "bg-emerald-50 text-emerald-600 border-emerald-100"
                     }`}
-                    title="Accept"
+                    title={isRealRequest ? "Accept" : "Données de démo"}
                   >
-                    <Check size={16} strokeWidth={2.5} />
+                    {processingId === `confirm-${req.id}` ? (
+                      <span className="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Check size={16} strokeWidth={2.5} />
+                    )}
                   </button>
                   <button
-                    className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all hover:bg-red-500 hover:text-white ${
+                    onClick={() => handleRefuse(req.id)}
+                    disabled={!isRealRequest || processingId === `confirm-${req.id}` || processingId === `refuse-${req.id}`}
+                    className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all hover:bg-red-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed ${
                       dk
                         ? "bg-red-900/20 text-red-400 border-red-800/30"
                         : "bg-red-50 text-red-500 border-red-100"
                     }`}
-                    title="Decline"
+                    title={isRealRequest ? "Decline" : "Données de démo"}
                   >
-                    <X size={16} strokeWidth={2.5} />
+                    {processingId === `refuse-${req.id}` ? (
+                      <span className="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <X size={16} strokeWidth={2.5} />
+                    )}
                   </button>
                 </div>
               </div>
@@ -429,6 +460,7 @@ function PatientRequests({ requests = MOCK_REQUESTS, onStartConsultation }) {
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }
@@ -483,43 +515,12 @@ function DashboardHome({
     return false;
   };
 
+  const DEV_SCHEDULE_FALLBACK = [];
+
   const scheduleItems =
     Array.isArray(appointments) && appointments.length > 0
       ? appointments
-      : [
-          {
-            id: 1,
-            time: "08:30",
-            patient: "Mounir Benali",
-            type: "in-person",
-            status: "Completed",
-            detail: "Monthly Checkup",
-          },
-          {
-            id: 2,
-            time: "10:15",
-            patient: "Sonia Ghomari",
-            type: "tele",
-            status: "confirmed",
-            detail: "Follow-up",
-          },
-          {
-            id: 3,
-            time: "11:00",
-            patient: "Karim Brahimi",
-            type: "in-person",
-            status: "scheduled",
-            detail: "New Consultation",
-          },
-          {
-            id: 4,
-            time: "14:30",
-            patient: "Amel Ziani",
-            type: "tele",
-            status: "confirmed",
-            detail: "Results Analysis",
-          },
-        ];
+      : DEV_SCHEDULE_FALLBACK;
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -571,34 +572,7 @@ function ScheduleView({ dk, onStartConsultation }) {
     }, 800);
   };
 
-  // MOCK DATA if needed
-  const SAMPLE = [
-    {
-      id: 1,
-      time: "08:00",
-      name: "Ahmed Meziane",
-      type: "in-person",
-      date: format(new Date(), "yyyy-MM-dd"),
-      status: "confirmed",
-    },
-    {
-      id: 2,
-      time: "08:45",
-      name: "Meriem Kaci",
-      type: "in-person",
-      date: format(new Date(), "yyyy-MM-dd"),
-      status: "scheduled",
-    },
-    {
-      id: 3,
-      time: "10:00",
-      name: "Nadia Khelifa",
-      type: "tele",
-      date: format(new Date(), "yyyy-MM-dd"),
-      status: "confirmed",
-    },
-    { time: "12:00", type: "break" },
-  ];
+  const SAMPLE = [];
 
   const allAppointments =
     Array.isArray(appointments) && appointments.length > 0
@@ -629,8 +603,31 @@ function ScheduleView({ dk, onStartConsultation }) {
     return counts;
   }, [allAppointments]);
 
-  const handleSlotCreated = (_slot) => {
-    // Potential integration: api.createSlot(_slot).then(...)
+  const [slotBanner, setSlotBanner] = useState(null);
+  const handleSlotCreated = async (slot) => {
+    // Convertit { date, startTime, endTime, note } → payload backend
+    if (!slot?.date || !slot?.startTime || !slot?.endTime) {
+      setSlotBanner({ type: "error", msg: "Créneau incomplet." });
+      setTimeout(() => setSlotBanner(null), 4000);
+      return;
+    }
+    // day_of_week : Lundi = 0, Dimanche = 6 côté backend (cf WeeklySchedule)
+    const jsDay = new Date(slot.date).getDay(); // dim=0..sam=6
+    const dayOfWeek = (jsDay + 6) % 7;
+    try {
+      await api.createSlot({
+        day_of_week: dayOfWeek,
+        start_time: slot.startTime.length === 5 ? slot.startTime + ":00" : slot.startTime,
+        end_time: slot.endTime.length === 5 ? slot.endTime + ":00" : slot.endTime,
+        slot_duration: 30,
+        is_active: true,
+      });
+      setSlotBanner({ type: "success", msg: "Créneau enregistré." });
+    } catch (err) {
+      setSlotBanner({ type: "error", msg: err?.message || "Échec de l'enregistrement." });
+    } finally {
+      setTimeout(() => setSlotBanner(null), 4000);
+    }
   };
 
   return (
@@ -642,7 +639,20 @@ function ScheduleView({ dk, onStartConsultation }) {
           style={{ background: c.green + "18", borderColor: c.green + "44", color: c.green }}
         >
           <Check size={16} />
-          {t('consultation_started_msg')}
+          Consultation démarrée.
+        </div>
+      )}
+
+      {slotBanner && (
+        <div
+          className="flex items-center gap-3 px-5 py-3 rounded-xl border font-semibold text-sm animate-in fade-in duration-300"
+          style={{
+            background: (slotBanner.type === "success" ? c.green : c.red) + "18",
+            borderColor: (slotBanner.type === "success" ? c.green : c.red) + "44",
+            color: slotBanner.type === "success" ? c.green : c.red,
+          }}
+        >
+          {slotBanner.msg}
         </div>
       )}
 
@@ -717,16 +727,26 @@ function PatientsView({ onSelectPatient }) {
     setPage(1);
   };
 
-  const defaultFallback = [
-    { firstName: "Ahmed", lastName: "Meziane", age: 45, condition: "Diabetes Type 2", lastVisit: "2023-11-12", nextAppt: "Today at 10:00" },
-    { firstName: "Nadia", lastName: "Khelifa", age: 32, condition: "Hypertension", lastVisit: "2023-10-05", nextAppt: "Tomorrow at 14:30" },
-    { firstName: "Alex", lastName: "Johnson", age: 58, condition: "Stable", lastVisit: "2023-12-01", nextAppt: "In 2 days" },
-    { firstName: "Youcef", lastName: "Belaid", age: 29, condition: "Recovering", lastVisit: "2023-11-20", nextAppt: "Next Monday" },
-    { firstName: "Sara", lastName: "Ait", age: 39, condition: "Checkup", lastVisit: "2023-11-15", nextAppt: "Today at 11:30" },
-    { firstName: "Meriem", lastName: "Kaci", age: 50, condition: "Critical", lastVisit: "2023-12-05", nextAppt: "Immediate" }
-  ];
+  // Liste réelle issue de /api/patients/my-patients/. Plus de fallback fictif en prod.
+  // En dev uniquement : un échantillon est conservé pour itérer sur l'UI sans backend.
+  const DEV_PATIENTS_FALLBACK = [];
 
-  const base = (Array.isArray(patients) && patients.length > 0) ? patients : defaultFallback;
+  // Mappe les enregistrements DRF (user.first_name, user.last_name, age via @property)
+  const apiPatients = (Array.isArray(patients) ? patients : []).map((p) => {
+    const u = p.user || {};
+    return {
+      id: p.id,
+      firstName: p.firstName || u.first_name || "",
+      lastName:  p.lastName  || u.last_name  || "",
+      age:       p.age || "",
+      condition: p.condition || "—",
+      lastVisit: p.lastVisit || "—",
+      nextAppt:  p.nextAppt  || "—",
+      status:    p.status    || "Active",
+    };
+  });
+
+  const base = apiPatients.length > 0 ? apiPatients : DEV_PATIENTS_FALLBACK;
   const safe = [...addedPatients, ...base];
   const filtered = safe.filter((p) =>
     `${p.firstName || ""} ${p.lastName || ""} ${p.condition || ""}`
@@ -1102,6 +1122,7 @@ function PrescriptionsView() {
 
   const { patients = [], prescriptions = [], addPrescription } = useData();
   const [form, setForm] = useState({
+    patientId: "",
     patientName: "",
     medication: "",
     strength: "",
@@ -1112,6 +1133,8 @@ function PrescriptionsView() {
   });
   const [errors, setErrors] = useState({});
   const [success, setSuccess] = useState("");
+  const [errorBanner, setErrorBanner] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
   const [showPatientSuggestions, setShowPatientSuggestions] = useState(false);
 
@@ -1121,58 +1144,92 @@ function PrescriptionsView() {
     if (errors[name]) setErrors((p) => ({ ...p, [name]: "" }));
     if (name === "patientName") {
       setShowPatientSuggestions(true);
+      // Si le nom ne correspond plus à l'ID stocké, on l'invalide.
+      setForm((p) => ({ ...p, patientId: "" }));
     }
   };
 
-  const handleSubmit = (e) => {
+  // Map UI frequency → backend choices
+  const frequencyMap = {
+    "Once daily":         "1x_day",
+    "Twice daily":        "2x_day",
+    "Three times daily":  "3x_day",
+    "As needed":          "as_needed",
+  };
+
+  const handleSubmit = async (e) => {
     e?.preventDefault();
+    setErrorBanner("");
     const err = {};
     if (!form.patientName?.trim()) err.patientName = t('dashboard.doctor.prescription.required');
     if (!form.medication.trim()) err.medication = t('dashboard.doctor.prescription.required');
     if (!form.dosage.trim()) err.dosage = t('dashboard.doctor.prescription.required');
     if (!form.duration.trim()) err.duration = t('dashboard.doctor.prescription.required');
+    if (!form.patientId) err.patientName = "Sélectionnez un patient depuis la liste suggérée.";
     if (Object.keys(err).length > 0) return setErrors(err);
-    if (typeof addPrescription === "function") {
-      addPrescription({
-        id: `#RX${String((Array.isArray(prescriptions) ? prescriptions.length : 0) + 1001).padStart(4, "0")}`,
-        patientName: form.patientName,
-        ...form,
-        date: new Date().toLocaleDateString("en-US", {
-          day: "numeric",
-          month: "short",
-        }),
-        status: "Active",
+
+    setSubmitting(true);
+    try {
+      const created = await api.createQuickPrescription({
+        patient_id: form.patientId,
+        chief_complaint: "Ordonnance rapide",
+        notes: form.notes || "",
+        items: [{
+          drug_name: form.medication + (form.strength ? ` ${form.strength}` : ""),
+          dosage: form.dosage,
+          frequency: frequencyMap[form.frequency] || "1x_day",
+          duration: form.duration,
+        }],
       });
+      if (typeof addPrescription === "function") {
+        addPrescription({
+          id: created?.id || `#RX${String((Array.isArray(prescriptions) ? prescriptions.length : 0) + 1001).padStart(4, "0")}`,
+          patientName: form.patientName,
+          medication: form.medication,
+          strength: form.strength,
+          dosage: form.dosage,
+          frequency: form.frequency,
+          duration: form.duration,
+          notes: form.notes,
+          date: new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "short" }),
+          status: "Active",
+          qr_token: created?.qr_token,
+        });
+      }
+      setForm({
+        patientId: "",
+        patientName: "",
+        medication: "",
+        strength: "",
+        dosage: "",
+        frequency: "Once daily",
+        duration: "",
+        notes: "",
+      });
+      setSuccess(t('dashboard.doctor.prescription.created'));
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (apiErr) {
+      setErrorBanner(apiErr?.message || "Échec de la création de l'ordonnance.");
+      setTimeout(() => setErrorBanner(""), 5000);
+    } finally {
+      setSubmitting(false);
     }
-    setForm({
-      patientName: "",
-      medication: "",
-      strength: "",
-      dosage: "",
-      frequency: "Once daily",
-      duration: "",
-      notes: "",
-    });
-    setSuccess(t('dashboard.doctor.prescription.created'));
-    setTimeout(() => setSuccess(""), 3000);
   };
 
   const rxList = Array.isArray(prescriptions) ? prescriptions : [];
 
-  const fallbackPatients = [
-    { name: "Ahmed Meziane" },
-    { name: "Nadia Khelifa" },
-    { name: "Alex Johnson" },
-    { name: "Youcef Belaid" },
-    { name: "Sara Ait" },
-    { name: "Meriem Kaci" },
-    { name: "Riad Bensalem" },
-    { name: "Lynda Boudaoud" }
-  ];
-  const safePatients = Array.isArray(patients) && patients.length > 0 ? patients : fallbackPatients;
+  // Source patients : /api/patients/my-patients/ (DataContext.patients).
+  // En dev uniquement on conserve un échantillon pour pouvoir tester sans backend.
+  const DEV_SUGGEST = [];
+  const apiSuggest = (Array.isArray(patients) ? patients : []).map((p) => {
+    const u = p.user || {};
+    const name = `${u.first_name || p.firstName || ""} ${u.last_name || p.lastName || ""}`.trim() || u.email || `Patient #${p.id}`;
+    return { id: p.id, name };
+  });
+  const safePatients = apiSuggest.length > 0 ? apiSuggest : DEV_SUGGEST;
   const filteredPatients = form.patientName
     ? safePatients.filter((p) =>
-        (p.name || p.patient || "").toLowerCase().startsWith(form.patientName.toLowerCase())
+        (p.name || "").toLowerCase().includes(form.patientName.toLowerCase())
       )
     : safePatients;
 
@@ -1194,7 +1251,7 @@ function PrescriptionsView() {
           {label || name.charAt(0).toUpperCase() + name.slice(1)}
         </label>
         <label
-          className="relative flex items-center px-5 rounded-2xl border transition-all duration-300 cursor-text"
+          className="relative flex items-stretch rounded-2xl border transition-all duration-300 cursor-text overflow-hidden"
           style={{
             borderColor: error ? c.red : isFocused ? "#6492C9" : c.border,
             background: dk ? c.bg + "22" : "#F8FAFC",
@@ -1227,6 +1284,18 @@ function PrescriptionsView() {
         </div>
       )}
 
+      {errorBanner && (
+        <div
+          className="mb-5 px-4 py-3 rounded-xl border flex items-center gap-2"
+          style={{ background: c.red + "15", borderColor: c.red + "44" }}
+        >
+          <X size={16} style={{ color: c.red }} />
+          <p className="text-sm font-bold" style={{ color: c.red }}>
+            {errorBanner}
+          </p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <Card dk={dk} className="lg:col-span-2 p-8">
           <h2 className="text-[17px] font-bold mb-8" style={{ color: c.txt }}>
@@ -1253,7 +1322,7 @@ function PrescriptionsView() {
                     setTimeout(() => setShowPatientSuggestions(false), 200);
                   }}
                   placeholder={t('dashboard.doctor.prescription.patientNamePh')}
-                  className="w-full h-full py-4 bg-transparent border-none outline-none text-sm font-semibold"
+                  className="w-full px-5 py-4 bg-transparent border-none outline-none text-sm font-semibold"
                   style={{ color: c.txt }}
                   autoComplete="off"
                 />
@@ -1265,11 +1334,15 @@ function PrescriptionsView() {
                   >
                     {filteredPatients.map((p, idx) => (
                       <button
-                        key={idx}
+                        key={p.id || idx}
                         type="button"
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          setForm((prev) => ({ ...prev, patientName: p.name || p.patient || "" }));
+                          setForm((prev) => ({
+                            ...prev,
+                            patientName: p.name || p.patient || "",
+                            patientId:   p.id || "",
+                          }));
                           setShowPatientSuggestions(false);
                         }}
                         className="w-full flex items-center px-5 py-3 text-sm font-bold transition-all text-left hover:bg-opacity-5"
@@ -1295,7 +1368,7 @@ function PrescriptionsView() {
                   onFocus={() => setFocusedField("medication")}
                   onBlur={() => setFocusedField(null)}
                   placeholder="e.g. Amoxicillin"
-                  className="w-full h-full py-4 bg-transparent border-none outline-none text-sm font-semibold"
+                  className="w-full px-5 py-4 bg-transparent border-none outline-none text-sm font-semibold"
                   style={{ color: c.txt }}
                 />
               </FieldWrapper>
@@ -1309,7 +1382,7 @@ function PrescriptionsView() {
                   onFocus={() => setFocusedField("strength")}
                   onBlur={() => setFocusedField(null)}
                   placeholder="e.g. 500mg"
-                  className="w-full h-full py-4 bg-transparent border-none outline-none text-sm font-semibold"
+                  className="w-full px-5 py-4 bg-transparent border-none outline-none text-sm font-semibold"
                   style={{ color: c.txt }}
                 />
               </FieldWrapper>
@@ -1325,7 +1398,7 @@ function PrescriptionsView() {
                   onFocus={() => setFocusedField("dosage")}
                   onBlur={() => setFocusedField(null)}
                   placeholder="e.g. 1 tablet"
-                  className="w-full h-full py-4 bg-transparent border-none outline-none text-sm font-semibold"
+                  className="w-full px-5 py-4 bg-transparent border-none outline-none text-sm font-semibold"
                   style={{ color: c.txt }}
                 />
               </FieldWrapper>
@@ -1351,7 +1424,7 @@ function PrescriptionsView() {
                 onFocus={() => setFocusedField("duration")}
                 onBlur={() => setFocusedField(null)}
                 placeholder="e.g. 7 days"
-                className="w-full h-full py-4 bg-transparent border-none outline-none text-sm font-semibold"
+                className="w-full px-5 py-4 bg-transparent border-none outline-none text-sm font-semibold"
                 style={{ color: c.txt }}
               />
             </FieldWrapper>
@@ -1385,13 +1458,17 @@ function PrescriptionsView() {
 
             <button
               type="submit"
-              className="w-full text-white font-black py-4 rounded-xl transition-all shadow-md hover:scale-[1.01] active:scale-[0.99]"
+              disabled={submitting}
+              className="w-full text-white font-black py-4 rounded-xl transition-all shadow-md hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               style={{
                 background: c.blue,
                 boxShadow: `0 4px 15px ${c.blue}44`,
               }}
             >
-              {t('dashboard.doctor.prescription.generate')}
+              {submitting && (
+                <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              )}
+              {submitting ? "Génération…" : t('dashboard.doctor.prescription.generate')}
             </button>
           </form>
         </Card>
@@ -2600,7 +2677,40 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
   const [terminateError, setTerminateError] = useState(null);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [sessionResult, setSessionResult] = useState(null);
+  const [pdfDownloading, setPdfDownloading] = useState(null);
+  const [pdfError, setPdfError] = useState(null);
   const diagnosisRef = useRef(null);
+
+  const handleDownloadRxPdf = async (rxId) => {
+    if (!rxId) return;
+    const idStr = String(rxId);
+    setPdfDownloading(idStr);
+    setPdfError(null);
+    try {
+      const blob = await api.apiFetchBlob(`/prescriptions/${idStr}/pdf-download/`);
+      if (blob.type === "application/json") {
+        const text = await blob.text();
+        const errData = JSON.parse(text);
+        throw new Error(errData.detail || "Erreur serveur");
+      }
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.style.display = "none";
+      a.href = url;
+      a.download = `ordonnance-${idStr.slice(0, 8)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }, 100);
+    } catch (err) {
+      console.error("Erreur PDF:", err);
+      setPdfError({ id: idStr, msg: err.message || "Erreur de téléchargement" });
+    } finally {
+      setPdfDownloading(null);
+    }
+  };
 
   // ── Patient info (from appointment or API) ──
   const patientName = appointment?.patient_name || appointment?.patient || appointment?.name || "Patient";
@@ -2807,10 +2917,33 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                   <p style={{ fontSize: 11, color: c.txt3, margin: 0, marginTop: 3 }}>
                     Token : {sessionResult?.prescription_token || "—"}
                   </p>
-                  <a href={qrUrl} target="_blank" rel="noreferrer"
-                    style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "6px 14px", borderRadius: 8, background: c.blue + "15", color: c.blue, fontSize: 12, fontWeight: 700, textDecoration: "none" }}>
-                    <Download size={13} /> {t('dashboard.doctor.consultation.downloadRx')}
-                  </a>
+                  {(() => {
+                    const summaryRxId = sessionResult?.prescription_id || sessionResult?.prescription?.id;
+                    const idStr = summaryRxId ? String(summaryRxId) : null;
+                    const isLoading = idStr && pdfDownloading === idStr;
+                    const hasErr = idStr && pdfError?.id === idStr;
+                    return (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadRxPdf(summaryRxId)}
+                          disabled={!summaryRxId || isLoading}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "6px 14px", borderRadius: 8, background: c.blue + "15", color: c.blue, fontSize: 12, fontWeight: 700, border: "none", cursor: summaryRxId && !isLoading ? "pointer" : "not-allowed", opacity: !summaryRxId || isLoading ? 0.6 : 1 }}>
+                          {isLoading ? (
+                            <span className="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: c.blue }} />
+                          ) : (
+                            <Download size={13} />
+                          )}
+                          {t('dashboard.doctor.consultation.downloadRx')}
+                        </button>
+                        {hasErr && (
+                          <p style={{ marginTop: 6, padding: "6px 10px", borderRadius: 8, background: c.red + "15", border: `1px solid ${c.red}40`, color: c.red, fontSize: 11, fontWeight: 600 }}>
+                            {pdfError.msg}
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             )}
@@ -3140,15 +3273,34 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                             {p.prescription_qr_url ? t('dashboard.doctor.medicalRecord.qrAvailable') : t('dashboard.doctor.medicalRecord.qrAfterValidation')}
                           </p>
                           {p.prescription_qr_url ? (
-                            <a
-                              href={p.prescription_qr_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all hover:opacity-80 active:scale-95 w-fit"
-                              style={{ background: c.blue + "15", color: c.blue }}
-                            >
-                              <Download size={12} /> {t('dashboard.doctor.medicalRecord.download')}
-                            </a>
+                            (() => {
+                              const idStr = p.id ? String(p.id) : null;
+                              const isLoading = idStr && pdfDownloading === idStr;
+                              const hasErr = idStr && pdfError?.id === idStr;
+                              return (
+                                <div className="flex flex-col gap-1.5 w-fit">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDownloadRxPdf(p.id)}
+                                    disabled={!p.id || isLoading}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all hover:opacity-80 active:scale-95 w-fit disabled:opacity-60 disabled:cursor-not-allowed"
+                                    style={{ background: c.blue + "15", color: c.blue, border: "none" }}
+                                  >
+                                    {isLoading ? (
+                                      <span className="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: c.blue }} />
+                                    ) : (
+                                      <Download size={12} />
+                                    )}
+                                    {t('dashboard.doctor.medicalRecord.download')}
+                                  </button>
+                                  {hasErr && (
+                                    <p className="px-2 py-1 rounded-md text-[10px] font-semibold border" style={{ background: c.red + "15", borderColor: c.red + "40", color: c.red }}>
+                                      {pdfError.msg}
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            })()
                           ) : (
                             <span className="text-[10px] font-medium" style={{ color: c.txt3 }}>
                               #{p.prescription_token || "—"}

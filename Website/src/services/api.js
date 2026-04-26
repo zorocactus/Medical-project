@@ -33,11 +33,16 @@ const clearTokens = () => {
  * Fonction fetch centrale avec gestion automatique des erreurs et du token.
  * Si le token expire (401), elle tente un refresh automatique.
  */
-async function apiFetch(endpoint, options = {}) {
+export async function apiFetch(endpoint, options = {}) {
   const headers = {
     "Content-Type": "application/json",
     ...options.headers,
   };
+
+  // Ne pas forcer application/json si c'est un FormData
+  if (options.body instanceof FormData) {
+    delete headers["Content-Type"];
+  }
 
   // Ajoute le token JWT si disponible
   const token = getToken();
@@ -89,6 +94,43 @@ async function apiFetch(endpoint, options = {}) {
   return response.json();
 }
 
+/**
+ * Version de apiFetch pour récupérer des fichiers binaires (blobs)
+ * Utile pour les PDF, Images, etc. qui nécessitent authentification.
+ */
+export async function apiFetchBlob(endpoint, options = {}) {
+  const token = getToken();
+  const headers = { ...options.headers };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  let response = await fetch(`${BASE_URL}${endpoint}`, {
+    ...options,
+    headers,
+  });
+
+  // Token expiré → on tente un refresh automatique
+  if (response.status === 401) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      // Retry la requête originale avec le nouveau token
+      headers["Authorization"] = `Bearer ${getToken()}`;
+      response = await fetch(`${BASE_URL}${endpoint}`, {
+        ...options,
+        headers,
+      });
+      if (!response.ok) throw new Error(`Erreur ${response.status}`);
+      return response.blob();
+    } else {
+      clearTokens();
+      window.location.href = "/?expired=1";
+      return;
+    }
+  }
+
+  if (!response.ok) throw new Error(`Erreur ${response.status}`);
+  return response.blob();
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. AUTHENTIFICATION  →  /api/auth/
 // ─────────────────────────────────────────────────────────────────────────────
@@ -99,7 +141,7 @@ async function apiFetch(endpoint, options = {}) {
  * @param {string} password
  */
 export async function login(email, password) {
-  const responseData = await apiFetch("/auth/token/", {
+  const responseData = await apiFetch("/auth/login/", {
     method: "POST",
     body: JSON.stringify({ email, password }),
   });
@@ -117,7 +159,7 @@ export async function refreshAccessToken() {
     const refresh = getRefreshToken();
     if (!refresh) return false;
 
-    const res = await fetch(`${BASE_URL}/auth/token/refresh/`, {
+    const res = await fetch(`${BASE_URL}/auth/refresh/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh }),
@@ -145,9 +187,10 @@ export function logout() {
  * @param {object} userData — { email, email, password, first_name, last_name, ... }
  */
 export async function registerPatient(userData) {
+  const isFormData = userData instanceof FormData;
   return apiFetch("/auth/register/patient/", {
     method: "POST",
-    body: JSON.stringify(userData),
+    body: isFormData ? userData : JSON.stringify(userData),
   });
 }
 
@@ -362,7 +405,7 @@ export async function getAntecedents() {
  * Returns: [{ id, status, notes, valid_until, created_at, items: [{drug_name, dosage, frequency, duration}], qr_token: {token}, doctor_name }]
  */
 export async function getMyPrescriptions() {
-  return apiFetch("/prescriptions/");
+  return apiFetch("/prescriptions/prescriptions/");
 }
 
 /**
@@ -370,7 +413,7 @@ export async function getMyPrescriptions() {
  * Returns: [{ id, doctor_name, patient_name, chief_complaint, diagnosis, status, consulted_at }]
  */
 export async function getMyConsultations() {
-  return apiFetch("/consultations/");
+  return apiFetch("/consultations/consultations/");
 }
 
 /**
@@ -384,7 +427,7 @@ export async function getTreatments() {
  * Résultats d'examens et analyses
  */
 export async function getLabResults() {
-  return apiFetch("/patients/lab-results/");
+  return apiFetch("/patients/medical-documents/");
 }
 
 /**
@@ -404,7 +447,7 @@ export async function getSymptomHistory() {
  * Liste les rendez-vous du patient connecté
  */
 export async function getMyAppointments() {
-  return apiFetch("/appointments/");
+  return apiFetch("/appointments/appointments/");
 }
 
 /**
@@ -414,7 +457,7 @@ export async function getMyAppointments() {
  * @param {object} data — { doctor_id, date, start_time, end_time, motif }
  */
 export async function bookAppointment(data) {
-  return apiFetch("/appointments/", {
+  return apiFetch("/appointments/appointments/", {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -425,7 +468,7 @@ export async function bookAppointment(data) {
  * @param {number} appointmentId
  */
 export async function getAppointmentById(appointmentId) {
-  return apiFetch(`/appointments/${appointmentId}/`);
+  return apiFetch(`/appointments/appointments/${appointmentId}/`);
 }
 
 /**
@@ -433,7 +476,7 @@ export async function getAppointmentById(appointmentId) {
  * @param {number} appointmentId
  */
 export async function cancelAppointment(appointmentId) {
-  return apiFetch(`/appointments/${appointmentId}/cancel/`, {
+  return apiFetch(`/appointments/appointments/${appointmentId}/cancel/`, {
     method: "POST",
   });
 }
@@ -444,7 +487,9 @@ export async function cancelAppointment(appointmentId) {
  * @param {object} data — { new_slot_id, ... }
  */
 export async function rescheduleAppointment(appointmentId, data) {
-  return apiFetch(`/appointments/${appointmentId}/reschedule/`, {
+  // NOTE: le backend monte `appointments/<pk>/reschedule/` sous le prefix
+  // `/api/appointments/`, d'où le double segment "appointments/".
+  return apiFetch(`/appointments/appointments/${appointmentId}/reschedule/`, {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -557,6 +602,154 @@ export async function getPharmacyBranches() {
   return apiFetch("/pharmacy/branches/");
 }
 
+// ─── Pharmacien : stock & stats ───────────────────────────────────────────────
+
+/**
+ * (Pharmacien) Liste de son stock
+ * GET /api/pharmacy/stock/
+ */
+export async function getPharmacyStock() {
+  return apiFetch("/pharmacy/stock/");
+}
+
+/**
+ * (Pharmacien) Crée une ligne de stock
+ * POST /api/pharmacy/stock/
+ * @param {object} data — { medication, quantity, selling_price?, expiry_date? }
+ */
+export async function createPharmacyStock(data) {
+  return apiFetch("/pharmacy/stock/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * (Pharmacien) Met à jour une ligne de stock (PATCH partiel : quantity/prix/etc.)
+ * PATCH /api/pharmacy/stock/{id}/
+ * @param {number} stockId
+ * @param {object} data
+ */
+export async function updatePharmacyStock(stockId, data) {
+  return apiFetch(`/pharmacy/stock/${stockId}/`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * (Pharmacien) Supprime une ligne de stock
+ * DELETE /api/pharmacy/stock/{id}/
+ */
+export async function deletePharmacyStock(stockId) {
+  return apiFetch(`/pharmacy/stock/${stockId}/`, { method: "DELETE" });
+}
+
+/**
+ * (Pharmacien) KPIs et alertes du dashboard
+ * GET /api/pharmacy/dashboard/
+ */
+export async function getPharmacyStats() {
+  return apiFetch("/pharmacy/dashboard/");
+}
+
+/**
+ * (Pharmacien) Mise à jour de statut d'une commande
+ * PATCH /api/pharmacy/orders/{id}/status/
+ * @param {string|number} orderId
+ * @param {object} data — { status, pharmacist_note?, estimated_ready? }
+ */
+export async function updatePharmacyOrderStatus(orderId, data) {
+  return apiFetch(`/pharmacy/orders/${orderId}/status/`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * (Pharmacien) Scan d'un QR code de prescription (saisie manuelle ou caméra)
+ * POST /api/prescriptions/scan/
+ * @param {string} token
+ */
+export async function scanPrescriptionQr(token) {
+  return apiFetch("/prescriptions/scan/", {
+    method: "POST",
+    body: JSON.stringify({ token }),
+  });
+}
+
+// ─── Médecin : patients ayant un RDV avec le médecin connecté ─────────────────
+
+/**
+ * (Médecin) Liste les patients qui ont eu au moins un RDV avec le médecin
+ * GET /api/patients/my-patients/
+ */
+export async function getDoctorPatients() {
+  return apiFetch("/patients/my-patients/");
+}
+
+// ─── Garde-malade : patients assignés + dashboard ─────────────────────────────
+
+/**
+ * (Garde-malade) Dashboard : patients acceptés + nb demandes en attente
+ * GET /api/caretaker/dashboard/
+ */
+export async function getCaretakerDashboard() {
+  return apiFetch("/caretaker/dashboard/");
+}
+
+/**
+ * (Garde-malade ou Patient) Liste des demandes de soins
+ * GET /api/caretaker/requests/
+ */
+export async function getCareRequests() {
+  return apiFetch("/caretaker/requests/");
+}
+
+/**
+ * (Patient) Crée une nouvelle demande de soins
+ * POST /api/caretaker/requests/
+ */
+export async function createCareRequest(data) {
+  return apiFetch("/caretaker/requests/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * (Garde-malade) Répondre à une offre (accepter / refuser)
+ * POST /api/caretaker/requests/{id}/respond_to_offer/
+ * @param {number} requestId
+ * @param {"accepted"|"rejected"} status
+ */
+export async function respondToCareRequest(requestId, status) {
+  return apiFetch(`/caretaker/requests/${requestId}/respond_to_offer/`, {
+    method: "POST",
+    body: JSON.stringify({ status }),
+  });
+}
+
+/**
+ * (Garde-malade) Liste des ordonnances de ses patients assignés
+ * GET /api/prescriptions/caregiver-patients/
+ */
+export async function getCaretakerPatientsPrescriptions() {
+  return apiFetch("/prescriptions/caregiver-patients/");
+}
+
+/**
+ * (Patient/Médecin) Dashboard endpoint dédié
+ * GET /api/patients/dashboard/  ou  GET /api/doctors/dashboard/
+ */
+export async function getPatientDashboard() {
+  return apiFetch("/patients/dashboard/");
+}
+
+export async function getDoctorDashboard() {
+  return apiFetch("/doctors/dashboard/");
+}
+
 // IMP-02 : getCaretakerServices supprimée car non utilisée.
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -581,6 +774,50 @@ export async function changePassword(data) {
   });
 }
 
+// ─── Mot de passe oublié — flux 3 étapes ─────────────────────────────────────
+
+/**
+ * Étape 1 : demande l'envoi d'un OTP par email.
+ * Le backend répond toujours 200 (anti-énumération).
+ * @param {string} email
+ */
+export async function requestPasswordReset(email) {
+  return apiFetch("/auth/password/reset/request/", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+/**
+ * Étape 2 : valide le code OTP et récupère un reset_token signé.
+ * @param {string} email
+ * @param {string} code — OTP à 6 chiffres
+ * Returns: { message, reset_token }
+ */
+export async function verifyResetCode(email, code) {
+  return apiFetch("/auth/password/reset/verify/", {
+    method: "POST",
+    body: JSON.stringify({ email, otp: code }),
+  });
+}
+
+/**
+ * Étape 3 : définit le nouveau mot de passe via le reset_token.
+ * @param {string} token — reset_token reçu à l'étape 2
+ * @param {string} newPassword
+ * @param {string} confirmPassword
+ */
+export async function confirmPasswordReset(token, newPassword, confirmPassword) {
+  return apiFetch("/auth/password/reset/set/", {
+    method: "POST",
+    body: JSON.stringify({
+      reset_token: token,
+      new_password: newPassword,
+      new_password_confirm: confirmPassword,
+    }),
+  });
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 8. DOSSIER PATIENT (vue médecin)  →  /api/doctor/patients/
@@ -601,6 +838,19 @@ export async function getPatientRecord(patientId) {
  */
 export async function addPrescription(data) {
   return apiFetch("/consultations/prescriptions/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * (Médecin) Crée une ordonnance "rapide" sans rendez-vous parent.
+ * Le backend crée automatiquement une consultation détachée.
+ * POST /api/prescriptions/quick/
+ * @param {object} data — { patient_id, chief_complaint, notes, valid_until?, items: [{drug_name, dosage, frequency, duration, instructions?, quantity?}] }
+ */
+export async function createQuickPrescription(data) {
+  return apiFetch("/prescriptions/quick/", {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -812,6 +1062,28 @@ export async function sendMessage(conversationId, content) {
   return apiFetch(`/chat/conversations/${conversationId}/messages/`, {
     method: "POST",
     body: JSON.stringify({ content }),
+  });
+}
+
+/**
+ * Modifie un message existant
+ * @param {number} messageId
+ * @param {string} content
+ */
+export async function updateMessage(messageId, content) {
+  return apiFetch(`/chat/messages/${messageId}/`, {
+    method: "PATCH",
+    body: JSON.stringify({ content }),
+  });
+}
+
+/**
+ * Supprime (désactive) un message
+ * @param {number} messageId
+ */
+export async function deleteMessage(messageId) {
+  return apiFetch(`/chat/messages/${messageId}/`, {
+    method: "DELETE",
   });
 }
 

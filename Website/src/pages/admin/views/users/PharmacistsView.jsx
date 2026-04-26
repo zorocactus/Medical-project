@@ -190,22 +190,7 @@ function avatarColor(name = "", c) {
 }
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
-const MOCK_PHARMACISTS = [
-  {
-    id: 301, first_name: "Meriem", last_name: "Lounis", full_name: "Meriem Lounis",
-    email: "m.lounis@pharmacie.dz", is_active: true, verification_status: "verified",
-    wilaya: "Alger", pharmacy_name: "Pharmacie El Chifaa",
-    license_number: "PH-2024-001", address: "12 Rue Didouche Mourad, Alger",
-    business_hours: "08:00 - 00:00"
-  },
-  {
-    id: 302, first_name: "Sofiane", last_name: "Kaci", full_name: "Sofiane Kaci",
-    email: "sofiane.k@email.dz", is_active: true, verification_status: "pending",
-    wilaya: "Alger", pharmacy_name: "Pharmacie Nouvelle",
-    license_number: "PH-2024-042", address: "Hydra, Secteur 4",
-    business_hours: "08:30 - 20:00"
-  },
-];
+const MOCK_PHARMACISTS = [];
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 export default function PharmacistsView({ dk }) {

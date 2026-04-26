@@ -5,6 +5,7 @@ import { useTheme } from "../../../context/ThemeContext";
 import { useLanguage } from "../../../context/LanguageContext";
 
 const SEXE_OPTIONS = ["Masculin", "Féminin"];
+const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", "Inconnu"];
 const WILAYAS = ["Alger", "Oran", "Constantine", "Annaba", "Blida", "Batna", "Sétif", "Tlemcen", "Tizi Ouzou", "Béjaïa", "Jijel", "Autre"];
 
 function CustomSelect({ label, value, options, onSelect, placeholder = "Sélectionner...", error, c }) {
@@ -101,12 +102,27 @@ export default function PersonalInfoForm({ onComplete, onBack, steps, currentSte
 
   const [formData, setFormData] = useState({
     birthDate: "", sex: "Masculin", phone: "", idCardNumber: "",
-    address: "", postalCode: "", city: "", wilaya: "Alger",
+    address: "", postalCode: "", city: "", wilaya: "Alger", bloodGroup: "",
   });
   const [errors, setErrors] = useState({});
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    
+    // Auto-mask pour la date (JJ/MM/AAAA)
+    if (name === "birthDate") {
+      let v = value.replace(/\D/g, "");
+      if (v.length > 8) v = v.substring(0, 8);
+      
+      let masked = v;
+      if (v.length > 2) masked = v.substring(0, 2) + "/" + v.substring(2);
+      if (v.length > 4) masked = masked.substring(0, 5) + "/" + v.substring(4);
+      
+      setFormData((prev) => ({ ...prev, birthDate: masked }));
+      if (errors.birthDate) setErrors((prev) => ({ ...prev, birthDate: "" }));
+      return;
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
   };
@@ -125,9 +141,37 @@ export default function PersonalInfoForm({ onComplete, onBack, steps, currentSte
   };
 
   const handleSubmit = () => {
+    // bloodGroup est optionnel (cf spec) — ne pas bloquer la suite du formulaire.
     const required = ["birthDate", "phone", "idCardNumber", "address", "postalCode", "city"];
     const newErrors = {};
     required.forEach((f) => { if (!formData[f]?.trim()) newErrors[f] = t('auth.register.fieldRequired'); });
+
+    // Validation stricte de la date
+    if (formData.birthDate) {
+      const parts = formData.birthDate.split("/");
+      if (parts.length === 3) {
+        const d = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        const y = parseInt(parts[2], 10);
+        const dateObj = new Date(y, m - 1, d);
+        const currentYear = new Date().getFullYear();
+
+        const isValid = 
+          parts[2].length === 4 &&
+          dateObj.getFullYear() === y &&
+          dateObj.getMonth() === m - 1 &&
+          dateObj.getDate() === d &&
+          y >= 1900 &&
+          y <= currentYear;
+
+        if (!isValid) {
+          newErrors.birthDate = t('auth.register.invalidDate');
+        }
+      } else {
+        newErrors.birthDate = t('auth.register.invalidDate');
+      }
+    }
+
     if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
     onComplete(formData);
   };
@@ -155,27 +199,35 @@ export default function PersonalInfoForm({ onComplete, onBack, steps, currentSte
 
           <div className="grid grid-cols-2 gap-3 mb-3">
             <Field label={t('auth.register.personalInfo.birthDate')} error={errors.birthDate} c={c}>
-              <input type="date" name="birthDate" value={formData.birthDate} onChange={handleChange}
+              <input type="text" name="birthDate" value={formData.birthDate} onChange={handleChange}
+                placeholder={t('auth.register.personalInfo.birthDatePlaceholder')}
+                maxLength={10}
                 className={inputCls(false, errors.birthDate)}
-                style={{ background: c.inputBg, color: c.txt, colorScheme: isDark ? "dark" : "light" }}
+                style={{ background: c.inputBg, color: c.txt }}
               />
             </Field>
             <CustomSelect label={t('auth.register.personalInfo.sex')} value={formData.sex} options={SEXE_OPTIONS}
               onSelect={(v) => handleField("sex", v)} error={errors.sex} c={c} />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={t('auth.register.personalInfo.phone')} icon={<Phone size={14} />} error={errors.phone} c={c}>
-              <input type="text" name="phone" placeholder={t('auth.register.personalInfo.phonePlaceholder')}
-                value={formData.phone} onChange={(e) => handleNumberChange(e, "phone", 10)}
-                className={inputCls(true, errors.phone)}
-                style={{ background: c.inputBg, color: c.txt }}
-              />
-            </Field>
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <CustomSelect label={t('auth.register.personalInfo.bloodGroup')} value={formData.bloodGroup} options={BLOOD_GROUPS}
+              onSelect={(v) => handleField("bloodGroup", v)} placeholder={t('auth.register.personalInfo.selectBloodGroup')} 
+              error={errors.bloodGroup} c={c} />
             <Field label={t('auth.register.personalInfo.nationalId')} icon={<User size={14} />} error={errors.idCardNumber} c={c}>
               <input type="text" name="idCardNumber" placeholder={t('auth.register.personalInfo.nationalIdHint')}
                 value={formData.idCardNumber} onChange={(e) => handleNumberChange(e, "idCardNumber", 18)}
                 className={inputCls(true, errors.idCardNumber)}
+                style={{ background: c.inputBg, color: c.txt }}
+              />
+            </Field>
+          </div>
+
+          <div className="mb-3">
+            <Field label={t('auth.register.personalInfo.phone')} icon={<Phone size={14} />} error={errors.phone} c={c}>
+              <input type="text" name="phone" placeholder={t('auth.register.personalInfo.phonePlaceholder')}
+                value={formData.phone} onChange={(e) => handleNumberChange(e, "phone", 10)}
+                className={inputCls(true, errors.phone)}
                 style={{ background: c.inputBg, color: c.txt }}
               />
             </Field>

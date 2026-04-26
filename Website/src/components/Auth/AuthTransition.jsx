@@ -49,6 +49,7 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
   const [step, setStep]               = useState(1);
   const [tempUser, setTempUser]       = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [regError, setRegError]         = useState(null);
   const [activeImg, setActiveImg] = useState(0);
 
   useEffect(() => {
@@ -83,21 +84,46 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
     if (data.accountType === "patient") {
       try {
         setIsSubmitting(true);
-        await api.registerPatient({
-          email:            data.email,
-          password:         data.password,
-          password_confirm: data.password,
-          role:             "patient",
-          first_name:       data.firstName,
-          last_name:        data.lastName,
-          phone:            data.phone || "",
-          date_of_birth:    data.birthDate || null,
-          sex:              data.sex === "Masculin" ? "M" : data.sex === "Féminin" ? "F" : "",
-          address:          data.address || "",
-        });
+        const formData = new FormData();
+        formData.append("email", data.email);
+        formData.append("password", data.password);
+        formData.append("password_confirm", data.password);
+        formData.append("role", "patient");
+        formData.append("first_name", data.firstName || "");
+        formData.append("last_name", data.lastName || "");
+        if (data.phone) formData.append("phone", data.phone);
+        
+        if (data.birthDate) {
+          // Conversion DD/MM/YYYY -> YYYY-MM-DD
+          const parts = data.birthDate.split("/");
+          if (parts.length === 3) {
+            const isoDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+            formData.append("date_of_birth", isoDate);
+          }
+        }
+        
+        const sexValue = data.sex === "Masculin" ? "male" : data.sex === "Féminin" ? "female" : "male";
+        formData.append("sex", sexValue);
+        
+        if (data.address) formData.append("address", data.address);
+        if (data.idCardNumber) formData.append("id_card_number", data.idCardNumber);
+        if (data.postalCode) formData.append("postal_code", data.postalCode);
+        if (data.city) formData.append("city", data.city);
+        if (data.wilaya) formData.append("wilaya", data.wilaya);
+        // "Inconnu" = absence de donnée → on ne l'envoie pas au backend (choices stricts)
+        if (data.bloodGroup && data.bloodGroup !== "Inconnu") {
+          formData.append("blood_group", data.bloodGroup);
+        }
+        
+        // Fichiers
+        if (data.cinRecto) formData.append("id_card_recto", data.cinRecto);
+        if (data.cinVerso) formData.append("id_card_verso", data.cinVerso);
+        if (data.profilePhoto) formData.append("photo", data.profilePhoto);
+
+        await api.registerPatient(formData);
         setStep(4);
       } catch (err) {
-        alert("Erreur lors de l'inscription : " + err.message);
+        setRegError("Erreur lors de l'inscription : " + err.message);
       } finally {
         setIsSubmitting(false);
       }
@@ -127,6 +153,13 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
         const backendRole = roleMap[data.medicalRole] || "doctor";
         const sexValue = data.sex === "Masculin" ? "M" : data.sex === "Féminin" ? "F" : "";
 
+        // Conversion JJ/MM/AAAA → ISO (YYYY-MM-DD) avant envoi backend.
+        let isoDob = "";
+        if (data.birthDate && data.birthDate.includes("/")) {
+          const parts = data.birthDate.split("/");
+          if (parts.length === 3) isoDob = `${parts[2]}-${parts[1]}-${parts[0]}`;
+        }
+
         const basePayload = {
           email:            data.email,
           password:         data.password,
@@ -136,6 +169,7 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
           last_name:        data.lastName,
           phone:            data.phone || "",
           sex:              sexValue,
+          ...(isoDob ? { date_of_birth: isoDob } : {}),
         };
 
         if (backendRole === "doctor") {
@@ -156,7 +190,7 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
 
         setStep(7);
       } catch (err) {
-        alert("Erreur lors de l'inscription médicale : " + err.message);
+        setRegError("Erreur lors de l'inscription médicale : " + err.message);
       } finally {
         setIsSubmitting(false);
       }
@@ -259,6 +293,15 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
         >
           <div className="w-12 h-12 border-4 border-[#638ECB]/30 border-t-[#638ECB] rounded-full animate-spin" />
           <p className="mt-4 font-bold" style={{ color: isDark ? "#F0F3FA" : "#0D1B2E" }}>{t('auth.transition.creating')}</p>
+        </div>
+      )}
+
+      {/* ── Inline registration error banner ── */}
+      {regError && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] max-w-lg w-[90%] px-5 py-3 rounded-2xl text-sm font-semibold shadow-2xl flex items-center justify-between animate-in slide-in-from-top-3 duration-300"
+          style={{ background: isDark ? '#2A1215' : '#FFF0F0', color: '#E05555', border: '1px solid #E0555530' }}>
+          <span>{regError}</span>
+          <button onClick={() => setRegError(null)} className="ml-3 opacity-60 hover:opacity-100 transition-opacity">✕</button>
         </div>
       )}
 

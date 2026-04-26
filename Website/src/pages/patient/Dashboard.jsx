@@ -58,176 +58,6 @@ import {
   ExternalLink,
 } from "lucide-react";
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
-const MEDICATIONS = [
-  { id: 1, name: "Lisinopril (10mg)", time: "8:00 AM · 1 Tablet", taken: true },
-  {
-    id: 2,
-    name: "Vitamin D3 (2000 IU)",
-    time: "1:00 PM · 1 Capsule",
-    taken: false,
-  },
-  {
-    id: 3,
-    name: "Metformin (500mg)",
-    time: "8:00 PM · 1 Tablet",
-    taken: false,
-  },
-];
-const PRESCRIPTIONS = [
-  {
-    id: 1,
-    name: "Lisinopril Refill",
-    status: "READY",
-    color: "#2D8C6F",
-    pct: 100,
-    note: "Pick up at: CVS Pharmacy, 5th Ave",
-  },
-  {
-    id: 2,
-    name: "New Antibiotic",
-    status: "PROCESSING",
-    color: "#E8A838",
-    pct: 55,
-    note: "Est. Time: Tomorrow, 2 PM",
-  },
-];
-const DOCUMENTS = [
-  { id: 1, name: "Complete Blood Count", date: "Oct 18" },
-  { id: 2, name: "Chest X-Ray Report", date: "Oct 10" },
-  { id: 3, name: "ECG Analysis", date: "Sep 28" },
-];
-const PHARMACY_ITEMS = [
-  {
-    id: 1,
-    name: "Lisinopril 10mg",
-    molecule: "Lisinopril Dihydrate",
-    price: "320 DZD",
-    stock: "In Stock",
-    cnas: true,
-    qty: 1,
-  },
-  {
-    id: 2,
-    name: "Metformin 500mg",
-    molecule: "Metformin HCl",
-    price: "180 DZD",
-    stock: "In Stock",
-    cnas: true,
-    qty: 2,
-  },
-  {
-    id: 3,
-    name: "Vitamin D3 2000IU",
-    molecule: "Cholecalciferol",
-    price: "450 DZD",
-    stock: "In Stock",
-    cnas: false,
-    qty: 0,
-  },
-  {
-    id: 4,
-    name: "Aspirin 100mg",
-    molecule: "Acetylsalicylic Acid",
-    price: "90 DZD",
-    stock: "In Stock",
-    cnas: false,
-    qty: 0,
-  },
-  {
-    id: 5,
-    name: "Amoxicillin 500mg",
-    molecule: "Amoxicillin Trihydrate",
-    price: "240 DZD",
-    stock: "Out of Stock",
-    cnas: true,
-    qty: 0,
-  },
-  {
-    id: 6,
-    name: "Omeprazole 20mg",
-    molecule: "Omeprazole",
-    price: "280 DZD",
-    stock: "In Stock",
-    cnas: true,
-    qty: 0,
-  },
-];
-const CARETAKERS = [
-  {
-    id: 1,
-    name: "Amira Hadj Salem",
-    role: "Infirmière diplômée d'État",
-    exp: "7 ans",
-    rating: 4.8,
-    reviews: 52,
-    tarifSoin: "2 500 DZD/soin",
-    tarifNuit: "4 000 DZD/nuit",
-    tarifMensuel: "45 000 DZD/mois",
-    zone: "Alger-Centre",
-    wilaya: "Alger",
-    tags: ["Diabète", "Hypertension", "Soins post-op"],
-    initials: "AH",
-    color: "#2D8C6F",
-    bio: "Infirmière diplômée avec 7 ans d'expérience en soins à domicile. Spécialisée en suivi des maladies chroniques, notamment le diabète et l'hypertension.",
-    phone: "+213 555 12 34 56",
-  },
-  {
-    id: 2,
-    name: "Yassine Boukhalfa",
-    role: "Aide-soignant certifié",
-    exp: "4 ans",
-    rating: 4.5,
-    reviews: 31,
-    tarifSoin: "1 800 DZD/soin",
-    tarifNuit: "3 200 DZD/nuit",
-    tarifMensuel: "32 000 DZD/mois",
-    zone: "El Biar – Hydra",
-    wilaya: "Alger",
-    tags: ["Personnes âgées", "Rééducation"],
-    initials: "YB",
-    color: "#4A6FA5",
-    bio: "Aide-soignant certifié spécialisé en gériatrie et rééducation fonctionnelle. Approche bienveillante et patiente pour les personnes âgées dépendantes.",
-    phone: "+213 555 98 76 54",
-  },
-  {
-    id: 3,
-    name: "Nora Benmansour",
-    role: "Garde-malade certifiée",
-    exp: "10 ans",
-    rating: 5.0,
-    reviews: 88,
-    tarifSoin: "3 000 DZD/soin",
-    tarifNuit: "5 500 DZD/nuit",
-    tarifMensuel: "58 000 DZD/mois",
-    zone: "Kouba – Bir Mourad Raïs",
-    wilaya: "Alger",
-    tags: ["Soins palliatifs", "Handicap", "Post-chirurgie"],
-    initials: "NB",
-    color: "#7B5EA7",
-    bio: "Garde-malade certifiée avec 10 ans d'expérience dans les soins palliatifs et post-chirurgicaux. Accompagnement de patients en situation de handicap et en fin de vie.",
-    phone: "+213 555 45 67 89",
-  },
-  {
-    id: 4,
-    name: "Karim Messaoudi",
-    role: "Infirmier diplômé d'État",
-    exp: "5 ans",
-    rating: 4.6,
-    reviews: 44,
-    tarifSoin: "2 200 DZD/soin",
-    tarifNuit: "3 800 DZD/nuit",
-    tarifMensuel: "40 000 DZD/mois",
-    zone: "Oran-Centre",
-    wilaya: "Oran",
-    tags: ["Cardiologie", "Diabète", "Soins intensifs"],
-    initials: "KM",
-    color: "#E8A838",
-    bio: "Infirmier diplômé spécialisé en soins cardiaques à domicile. Formation en soins intensifs et suivi post-infarctus.",
-    phone: "+213 555 22 33 44",
-  },
-];
-
 // ─── Card component ───────────────────────────────────────────────────────────
 function Card({ children, className = "", style = {}, dk, empty = false }) {
   const hoverClasses = empty
@@ -261,19 +91,19 @@ function Badge({ color, bg, children }) {
 
 
 // ─── Modal : Transmettre ordonnance à une pharmacie ───────────────────────────
-const PHARMACIES_LIST = [
-  "Pharmacie El Shifa",
-  "Pharmacie Centrale",
-  "Pharmacie de Garde",
-  "Pharmacie Bab Ezzouar",
-  "Pharmacie El Hakim",
-];
 
 function SendToPharmacyModal({ rx, onClose, onConfirm, dk }) {
   const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
   const [selectedPharmacy, setSelectedPharmacy] = useState("");
   const [notes, setNotes] = useState("");
+  const [pharmacies, setPharmacies] = useState([]);
+
+  useEffect(() => {
+    api.getAllPharmacies().then(data => {
+      if (Array.isArray(data)) setPharmacies(data.map(p => p.name || p.pharm_name));
+    }).catch(() => {});
+  }, []);
 
   const handleConfirm = () => {
     if (!selectedPharmacy) return;
@@ -324,7 +154,7 @@ function SendToPharmacyModal({ rx, onClose, onConfirm, dk }) {
           <DashSelect
             label={t('choose_pharmacy_label') || "Choisir une pharmacie"}
             value={selectedPharmacy}
-            options={PHARMACIES_LIST}
+            options={pharmacies.length > 0 ? pharmacies : ["Chargement..."]}
             onSelect={setSelectedPharmacy}
             dk={dk} c={c}
             placeholder={t('select_pharmacy_placeholder') || "Sélectionner une pharmacie..."}
@@ -563,12 +393,41 @@ function DashboardPage({
   setNotifications,
 }) {
   const { t } = useLanguage();
-  const [meds, setMeds] = useState(MEDICATIONS);
+  const [meds, setMeds] = useState([]);
+  const [prescriptions, setPrescriptions] = useState([]);
+  const [docs, setDocs] = useState([]);
   const [symptom, setSymptom] = useState("");
   const [emergency, setEmergency] = useState(false);
   const c = dk ? T.dark : T.light;
 
-  const firstName = userData?.first_name || "Guest";
+  useEffect(() => {
+    const handleList = (res) => Array.isArray(res) ? res : (res?.results || []);
+
+    // Fetch medications/treatments
+    api.getTreatments().then(res => {
+      const list = handleList(res);
+      setMeds(list.map(t => ({
+        id: t.id,
+        name: t.drug_name || t.medication_name || "Médicament",
+        time: t.dosage || t.frequency || "1 fois par jour",
+        taken: false
+      })));
+    }).catch(() => {});
+
+    // Fetch recent prescriptions
+    api.getMyPrescriptions().then(res => {
+      const list = handleList(res);
+      setPrescriptions(list.slice(0, 2));
+    }).catch(() => {});
+
+    // Fetch recent documents
+    api.getLabResults().then(res => {
+      const list = handleList(res);
+      setDocs(list.slice(0, 3));
+    }).catch(() => {});
+  }, []);
+
+  const firstName = userData?.first_name || userData?.email?.split('@')[0] || "Guest";
   const safeAppts = Array.isArray(appointments) ? appointments : [];
   const upcomingAppts =
     safeAppts.filter(
@@ -807,20 +666,20 @@ function DashboardPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {DOCUMENTS.map((d) => (
+                  {docs.map((d) => (
                     <tr
                       key={d.id}
                       className="cursor-pointer hover:bg-blue-50 dark:hover:bg-white/5 active:scale-[0.99] transition-all duration-200"
                       style={{ borderBottom: `1px solid ${c.border}` }}
                     >
                       <td className="py-3 text-sm" style={{ color: c.txt }}>
-                        {d.name}
+                        {d.test_name || d.name}
                       </td>
                       <td
                         className="py-3 text-sm text-right"
                         style={{ color: c.txt2 }}
                       >
-                        {d.date}
+                        {d.date || d.created_at?.split('T')[0]}
                       </td>
                     </tr>
                   ))}
@@ -970,7 +829,7 @@ function DashboardPage({
               Prescription Status
             </h3>
             <div className="space-y-5">
-              {PRESCRIPTIONS.map((p) => (
+              {prescriptions.map((p) => (
                 <div
                   key={p.id}
                   className="cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
@@ -980,9 +839,9 @@ function DashboardPage({
                       className="text-sm font-semibold"
                       style={{ color: c.txt }}
                     >
-                      {p.name}
+                      Prescription #{p.id.substring(0, 8)}
                     </p>
-                    <Badge color={p.color} bg={p.color + "18"}>
+                    <Badge color={p.status === 'ACTIVE' ? c.green : c.red} bg={(p.status === 'ACTIVE' ? c.green : c.red) + "18"}>
                       {p.status}
                     </Badge>
                   </div>
@@ -992,11 +851,11 @@ function DashboardPage({
                   >
                     <div
                       className="h-full rounded-full transition-all"
-                      style={{ width: `${p.pct}%`, background: p.color }}
+                      style={{ width: `100%`, background: p.status === 'ACTIVE' ? c.green : c.red }}
                     />
                   </div>
                   <p className="text-xs mt-1.5" style={{ color: c.txt3 }}>
-                    {p.note}
+                    Issued by {p.doctor_name || "Doctor"} · {p.date || p.created_at?.split('T')[0]}
                   </p>
                 </div>
               ))}
@@ -1012,6 +871,49 @@ function DashboardPage({
 function MedicalProfilePage({ dk, profile, userId, userData }) {
   const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
+
+  const handleDownloadPDF = async (rxId) => {
+    if (!rxId) return;
+    const idStr = String(rxId);
+    try {
+      const blob = await api.apiFetchBlob(`/prescriptions/${idStr}/pdf-download/`);
+      if (blob.type === "application/json") {
+        const text = await blob.text();
+        const errData = JSON.parse(text);
+        throw new Error(errData.detail || "Erreur serveur");
+      }
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.style.display = "none";
+      a.href = url;
+      a.download = `ordonnance-${idStr.slice(0, 8)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }, 100);
+    } catch (err) {
+      console.error("Erreur PDF:", err);
+      setStatus({ type: "error", msg: `Erreur de téléchargement : ${err.message}` });
+      setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
+    }
+  };
+
+  const handleViewQR = async (rxId) => {
+    if (!rxId) return;
+    const idStr = String(rxId);
+    try {
+      const blob = await api.apiFetchBlob(`/prescriptions/${idStr}/qr-image/`);
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    } catch (err) {
+      console.error("Erreur QR:", err);
+      setStatus({ type: "error", msg: "Impossible d'afficher le QR Code." });
+      setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
+    }
+  };
+
   const [tab, setTab] = useState("antecedents");
   const [data, setData] = useState({
     antecedents: [],
@@ -1053,25 +955,29 @@ function MedicalProfilePage({ dk, profile, userId, userData }) {
       try {
         if (tab === "antecedents") {
           const res = await api.getAntecedents().catch(() => []);
-          setData((d) => ({ ...d, antecedents: Array.isArray(res) ? res : [] }));
+          const list = Array.isArray(res) ? res : (res?.results || []);
+          setData((d) => ({ ...d, antecedents: list }));
         } else if (tab === "treatments") {
           const res = await api.getTreatments().catch(() => []);
-          setData((d) => ({ ...d, treatments: Array.isArray(res) ? res : [] }));
+          const list = Array.isArray(res) ? res : (res?.results || []);
+          setData((d) => ({ ...d, treatments: list }));
         } else if (tab === "analyses") {
           const res = await api.getLabResults().catch(() => []);
-          setData((d) => ({ ...d, analyses: Array.isArray(res) ? res : [] }));
+          const list = Array.isArray(res) ? res : (res?.results || []);
+          setData((d) => ({ ...d, analyses: list }));
         } else if (tab === "diagnostics") {
           const res = await api.getMyConsultations().catch(() => []);
-          const diags = Array.isArray(res)
-            ? res.filter((c) => c.status === "completed" && c.diagnosis)
-            : [];
+          const list = Array.isArray(res) ? res : (res?.results || []);
+          const diags = list.filter((c) => c.status === "completed" && c.diagnosis);
           setData((d) => ({ ...d, diagnostics: diags }));
         } else if (tab === "prescriptions") {
           const res = await api.getMyPrescriptions().catch(() => []);
-          setData((d) => ({ ...d, prescriptions: Array.isArray(res) ? res : [] }));
+          const list = Array.isArray(res) ? res : (res?.results || []);
+          setData((d) => ({ ...d, prescriptions: list }));
         } else if (tab === "symptom-history") {
           const res = await api.getSymptomHistory().catch(() => []);
-          setData((d) => ({ ...d, "symptom-history": Array.isArray(res) ? res : [] }));
+          const list = Array.isArray(res) ? res : (res?.results || []);
+          setData((d) => ({ ...d, "symptom-history": list }));
         }
       } catch (_) {}
       loadedTabs.current.add(tab);
@@ -1090,16 +996,58 @@ function MedicalProfilePage({ dk, profile, userId, userData }) {
   ];
   const safeProfile = profile || {};
 
+  // Liste d'options alignée avec la spec (Inconnu = absence côté UI)
+  const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", "Inconnu"];
+
+  // Convertit une ISO (YYYY-MM-DD) → affichage JJ/MM/AAAA dans l'input.
+  const isoToFr = (iso) => {
+    if (!iso) return "";
+    const s = String(iso);
+    if (s.includes("/")) return s.length > 10 ? s.slice(0, 10) : s;
+    const parts = s.split("-");
+    if (parts.length !== 3) return "";
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  };
+  // Convertit JJ/MM/AAAA → ISO YYYY-MM-DD (ou "" si invalide).
+  const frToIso = (fr) => {
+    if (!fr) return "";
+    const parts = String(fr).split("/");
+    if (parts.length !== 3 || parts[2].length !== 4) return "";
+    return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+  };
+  // Masque JJ/MM/AAAA pour l'input texte.
+  const maskDob = (raw) => {
+    let v = String(raw || "").replace(/\D/g, "").slice(0, 8);
+    if (v.length > 4) return `${v.slice(0, 2)}/${v.slice(2, 4)}/${v.slice(4)}`;
+    if (v.length > 2) return `${v.slice(0, 2)}/${v.slice(2)}`;
+    return v;
+  };
+
   const handleSaveProfile = async () => {
     try {
       setLoading(true);
-      await api.updateMedicalProfile(editForm);
-      setStatus({ type: "success", msg: "Profil mis à jour avec succès ✅" });
+      // Normalise : "Inconnu" = pas de groupe sanguin côté backend (choices stricts).
+      const payload = { ...editForm };
+      if (payload.blood_type === "Inconnu") payload.blood_type = "";
+      // Convertit la DOB si saisie en JJ/MM/AAAA
+      if (payload.dob && String(payload.dob).includes("/")) {
+        const iso = frToIso(payload.dob);
+        if (iso) payload.dob = iso;
+      }
+      // Allergies : string → array si backend attend une liste
+      if (typeof payload.allergies === "string") {
+        payload.allergies = payload.allergies
+          .split(",")
+          .map((a) => a.trim())
+          .filter(Boolean);
+      }
+      await api.updateMedicalProfile(payload);
+      setStatus({ type: "success", msg: "Profil mis à jour" });
       setEditMode(false);
       setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
     } catch (err) {
-      setStatus({ type: "error", msg: "Erreur lors de la mise à jour ❌" });
-      setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
+      setStatus({ type: "error", msg: err?.message || "Erreur lors de la mise à jour" });
+      setTimeout(() => setStatus({ type: "", msg: "" }), 5000);
     } finally {
       setLoading(false);
     }
@@ -1139,33 +1087,39 @@ function MedicalProfilePage({ dk, profile, userId, userData }) {
           <div className="flex-1 min-w-[250px]">
             {editMode ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                {/* Infos fixes (depuis l'inscription) — lecture seule */}
-                <div className="sm:col-span-2">
-                  <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>
-                    Informations personnelles (depuis l'inscription)
-                  </p>
-                  <p className="text-sm font-semibold px-3 py-2 rounded-xl border"
-                    style={{ background: c.blueLight, borderColor: c.border, color: c.txt2 }}>
-                    {userData?.first_name || safeProfile.first_name || ""}{" "}
-                    {userData?.last_name || safeProfile.last_name || ""} ·{" "}
-                    {userData?.phone || safeProfile.phone || "—"} ·{" "}
-                    {safeProfile.city || "—"}{safeProfile.wilaya ? `, ${safeProfile.wilaya}` : ""} ·{" "}
-                    Né(e) le {safeProfile.dob || "—"}
-                  </p>
-                </div>
-
-                {/* Seuls champs éditables : infos médicales spécifiques */}
+                {/* Prénom */}
                 <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Groupe sanguin</label>
-                  <input
-                    type="text"
-                    placeholder="A+, B−, O+…"
-                    value={editForm.blood_type ?? safeProfile.blood_type ?? ""}
-                    onChange={(e) => setEditForm({ ...editForm, blood_type: e.target.value })}
+                  <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Prénom</label>
+                  <input type="text"
+                    value={editForm.first_name ?? userData?.first_name ?? safeProfile.first_name ?? ""}
+                    onChange={(e) => setEditForm({ ...editForm, first_name: e.target.value })}
                     className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
                     style={{ background: c.card, borderColor: c.border, color: c.txt }}
                   />
                 </div>
+                {/* Nom */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Nom</label>
+                  <input type="text"
+                    value={editForm.last_name ?? userData?.last_name ?? safeProfile.last_name ?? ""}
+                    onChange={(e) => setEditForm({ ...editForm, last_name: e.target.value })}
+                    className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                    style={{ background: c.card, borderColor: c.border, color: c.txt }}
+                  />
+                </div>
+
+                {/* Date de naissance — JJ/MM/AAAA */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Date de naissance</label>
+                  <input type="text" inputMode="numeric" placeholder="JJ/MM/AAAA" maxLength={10}
+                    value={maskDob(editForm.dob ?? isoToFr(safeProfile.dob) ?? "")}
+                    onChange={(e) => setEditForm({ ...editForm, dob: maskDob(e.target.value) })}
+                    className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                    style={{ background: c.card, borderColor: c.border, color: c.txt }}
+                  />
+                </div>
+
+                {/* Sexe */}
                 <div>
                   <DashSelect
                     label="Sexe"
@@ -1180,10 +1134,60 @@ function MedicalProfilePage({ dk, profile, userId, userData }) {
                     c={c}
                   />
                 </div>
+
+                {/* Téléphone */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Téléphone</label>
+                  <input type="tel" inputMode="tel" maxLength={15}
+                    value={editForm.phone ?? userData?.phone ?? safeProfile.phone ?? ""}
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value.replace(/[^\d+ ]/g, "") })}
+                    className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                    style={{ background: c.card, borderColor: c.border, color: c.txt }}
+                  />
+                </div>
+
+                {/* Groupe sanguin — select conforme à la spec */}
+                <div>
+                  <DashSelect
+                    label="Groupe sanguin"
+                    value={editForm.blood_type ?? safeProfile.blood_type ?? ""}
+                    options={[
+                      { value: "", label: "Non spécifié" },
+                      ...BLOOD_GROUPS.map((g) => ({ value: g, label: g })),
+                    ]}
+                    onSelect={(v) => setEditForm({ ...editForm, blood_type: v })}
+                    dk={dk}
+                    c={c}
+                  />
+                </div>
+
+                {/* Ville */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Ville</label>
+                  <input type="text"
+                    value={editForm.city ?? safeProfile.city ?? userData?.city ?? ""}
+                    onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                    className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                    style={{ background: c.card, borderColor: c.border, color: c.txt }}
+                  />
+                </div>
+
+                {/* Wilaya */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Wilaya</label>
+                  <input type="text"
+                    value={editForm.wilaya ?? safeProfile.wilaya ?? userData?.wilaya ?? ""}
+                    onChange={(e) => setEditForm({ ...editForm, wilaya: e.target.value })}
+                    className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                    style={{ background: c.card, borderColor: c.border, color: c.txt }}
+                  />
+                </div>
+
+                {/* Allergies */}
                 <div className="sm:col-span-2">
                   <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Allergies (séparées par des virgules)</label>
                   <input type="text" placeholder="Ex: Pénicilline, Aspirine"
-                    value={editForm.allergies ?? safeProfile.allergies ?? ""}
+                    value={editForm.allergies ?? (Array.isArray(safeProfile.allergies) ? safeProfile.allergies.join(", ") : (safeProfile.allergies || ""))}
                     onChange={(e) => setEditForm({ ...editForm, allergies: e.target.value })}
                     className="px-3 py-2 border rounded-xl text-sm w-full outline-none"
                     style={{ background: c.card, borderColor: c.border, color: c.txt }} />
@@ -1192,7 +1196,7 @@ function MedicalProfilePage({ dk, profile, userId, userData }) {
             ) : (
               <>
                 <h2 className="text-xl font-bold" style={{ color: c.txt }}>
-                  {userData?.first_name || safeProfile.first_name || ""}{" "}
+                  {userData?.first_name || userData?.email?.split('@')[0] || safeProfile.first_name || ""}{" "}
                   {userData?.last_name || safeProfile.last_name || safeProfile.name || "Mon Profil Médical"}
                 </h2>
                 <p className="text-sm mt-1 mb-3" style={{ color: c.txt2 }}>
@@ -1213,7 +1217,7 @@ function MedicalProfilePage({ dk, profile, userId, userData }) {
                   >
                     Groupe Sanguin: {safeProfile.blood_type || "Non spécifié"}
                   </span>
-                  {(safeProfile.allergies ? safeProfile.allergies.split(",") : [])
+                  {(Array.isArray(safeProfile.allergies) ? safeProfile.allergies : (typeof safeProfile.allergies === 'string' ? safeProfile.allergies.split(",") : []))
                     .filter((v) => v.trim())
                     .map((a, i) => (
                       <span
@@ -1512,28 +1516,24 @@ function MedicalProfilePage({ dk, profile, userId, userData }) {
                       {/* QR + PDF actions */}
                       <div className="flex items-center gap-2 flex-wrap">
                         {qrUrl && rx.qr_token && (
-                          <a
-                            href={qrUrl}
-                            target="_blank"
-                            rel="noreferrer"
+                          <button
+                            onClick={() => handleViewQR(rx.id)}
                             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-opacity hover:opacity-75"
-                            style={{ color: c.blue, borderColor: c.border, textDecoration: "none" }}
+                            style={{ color: c.blue, borderColor: c.border, background: "transparent" }}
                           >
                             <QrCode size={13} />
                             QR Code
-                          </a>
+                          </button>
                         )}
                         {pdfUrl && (
-                          <a
-                            href={pdfUrl}
-                            target="_blank"
-                            rel="noreferrer"
+                          <button
+                            onClick={() => handleDownloadPDF(rx.id)}
                             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-opacity hover:opacity-75"
-                            style={{ color: c.txt2, borderColor: c.border, textDecoration: "none" }}
+                            style={{ color: c.txt2, borderColor: c.border, background: "transparent" }}
                           >
                             <Download size={13} />
                             PDF
-                          </a>
+                          </button>
                         )}
                       </div>
                     </Card>
@@ -2278,6 +2278,9 @@ function AppointmentsPage({
   const [success, setSuccess] = useState("");
   const [err, setErr] = useState("");
   const [tab, setTab] = useState("mesrdv"); // "mesrdv" | "finddoctor"
+  const { globalSearch, setGlobalSearch } = useData();
+  const searchTerm = globalSearch;
+  const setSearchTerm = setGlobalSearch;
   const [selectedDoctor, setSelectedDoctor] = useState(null); // for calendar panel
   const [profileDoctor, setProfileDoctor] = useState(null); // for profile modal
 
@@ -2296,7 +2299,6 @@ function AppointmentsPage({
 
   const [specFilter, setSpecFilter] = useState("All");
   const [searchFocused, setSearchFocused] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
   const [searchAppt, setSearchAppt] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCity, setSelectedCity] = useState("");
@@ -2354,32 +2356,28 @@ function AppointmentsPage({
         if (specFilter !== "All") filters.specialty = specFilter;
         if (selectedCity)
           filters.city = selectedCity;
-        if (debouncedSearch) filters.q = debouncedSearch;
+        if (debouncedSearch) filters.search = debouncedSearch;
 
         const data = await api.getDoctors(filters).catch(() => []);
+        const results = Array.isArray(data) ? data : (data?.results || []);
         // Normalize backend Doctor data to UI expectations
-        const normalized = (Array.isArray(data) ? data : []).map((d) => ({
+        const normalized = results.map((d) => ({
           id: d.id,
-          name: d.user
-            ? `Dr. ${d.user.first_name} ${d.user.last_name}`
-            : "Dr. Inconnu",
+          name: d.full_name ? `Dr. ${d.full_name}` : "Dr. Inconnu",
           spec: d.specialty_display || d.specialty || "Généraliste",
-          loc:
-            d.clinic_name || (d.user && d.user.city) || selectedCity || "Alger",
+          loc: d.clinic_name || d.est_city || "Alger",
           rating: parseFloat(d.rating) || 4.5,
           exp: d.experience_years || 5,
-          initials: d.user
-            ? `${d.user.first_name?.[0] || ""}${d.user.last_name?.[0] || ""}`.toUpperCase()
-            : "DR",
+          initials: (d.full_name || "DR").split(" ").map(n => n[0]).join("").toUpperCase().substring(0, 2),
           color: (d.specialty || "").toLowerCase().includes("cardio")
             ? "#4A6FA5"
             : "#2D8C6F",
-          phone: (d.user && d.user.phone) || "+213 -- -- --",
+          phone: d.pro_phone || "+213 -- -- --",
           lang: d.languages 
             ? (Array.isArray(d.languages) ? d.languages : String(d.languages).split(",")) 
             : ["Français", "Arabe"],
           bio: d.bio || "Le docteur n'a pas rédigé de biographie.",
-          edu: d.education || "Faculté de Médecine.",
+          edu: "Faculté de Médecine.",
           reviews: d.total_reviews || 0,
           gender: d.gender || "M",
         }));
@@ -2429,6 +2427,9 @@ function AppointmentsPage({
             .map((s) => ({
               id: s.id,
               time: s.start_time ? s.start_time.substring(0, 5) : s.time,
+              start_time: s.start_time,
+              end_time: s.end_time,
+              date: dateStr,
             }));
           setAvailableSlots(slots);
         } catch (err) {
@@ -2447,11 +2448,13 @@ function AppointmentsPage({
     rawAppointments?.filter((a) =>
       ["completed", "cancelled", "refused"].includes(a.status),
     ) || [];
-  const filteredUpcoming = upcomingAppts.filter(
-    (a) =>
-      (a.doctor_name || "").toLowerCase().includes(searchAppt.toLowerCase()) ||
-      (a.specialty || "").toLowerCase().includes(searchAppt.toLowerCase()),
-  );
+  const filteredUpcoming = upcomingAppts
+    .filter((a) => !localHidden.includes(a.id))
+    .filter(
+      (a) =>
+        (a.doctor_name || "").toLowerCase().includes(searchAppt.toLowerCase()) ||
+        (a.specialty || "").toLowerCase().includes(searchAppt.toLowerCase()),
+    );
 
   const year = calMonth.getFullYear();
   const month = calMonth.getMonth();
@@ -2485,9 +2488,18 @@ function AppointmentsPage({
     setErr("");
     setSuccess("");
     try {
+      // Backend attend { doctor_id, date, start_time, end_time, motif }
+      const normalizeTime = (t) => {
+        if (!t) return undefined;
+        const s = String(t);
+        return s.length > 5 ? s.substring(0, 5) : s;
+      };
+      const bookingDate = slotObj.date || formatDate(year, month, calDay);
       await api.bookAppointment({
         doctor_id: selectedDoctor.id,
-        slot_id: slotObj.id,
+        date: bookingDate,
+        start_time: normalizeTime(slotObj.start_time || slotObj.time),
+        end_time: normalizeTime(slotObj.end_time),
         motif: "Consultation",
       });
       setSuccess("Rendez-vous réservé avec succès !");
@@ -2579,6 +2591,124 @@ function AppointmentsPage({
     () => availableSlots.filter((s) => s.time >= "12:00"),
     [availableSlots],
   );
+
+  // ─── Cancel / Reschedule state ─────────────────────────────────────────────
+  const [localHidden, setLocalHidden] = useState([]); // IDs retirés localement
+  const [cancellingId, setCancellingId] = useState(null);
+  const [rescheduleTarget, setRescheduleTarget] = useState(null); // appointment
+  const [rescheduleDate, setRescheduleDate] = useState(""); // YYYY-MM-DD
+  const [rescheduleSlots, setRescheduleSlots] = useState([]);
+  const [rescheduleSlotsLoading, setRescheduleSlotsLoading] = useState(false);
+  const [rescheduleSlotId, setRescheduleSlotId] = useState(null);
+  const [rescheduling, setRescheduling] = useState(false);
+  const [rescheduleErr, setRescheduleErr] = useState("");
+
+  const handleCancelAppointment = async (appt) => {
+    if (!appt?.id) return;
+    setErr("");
+    setSuccess("");
+    setCancellingId(appt.id);
+    try {
+      await api.cancelAppointment(appt.id);
+      // Retrait optimiste local
+      setLocalHidden((prev) => [...prev, appt.id]);
+      setSuccess("Rendez-vous annulé");
+      setTimeout(() => setSuccess(""), 4000);
+      if (refreshAppointments) refreshAppointments();
+    } catch (e) {
+      setErr(e?.message || "Erreur lors de l'annulation.");
+      setTimeout(() => setErr(""), 5000);
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
+  const openReschedule = (appt) => {
+    setRescheduleTarget(appt);
+    setRescheduleDate("");
+    setRescheduleSlots([]);
+    setRescheduleSlotId(null);
+    setRescheduleErr("");
+  };
+
+  const closeReschedule = () => {
+    if (rescheduling) return;
+    setRescheduleTarget(null);
+    setRescheduleDate("");
+    setRescheduleSlots([]);
+    setRescheduleSlotId(null);
+    setRescheduleErr("");
+  };
+
+  // Charge les créneaux du même médecin quand la date change
+  useEffect(() => {
+    if (!rescheduleTarget || !rescheduleDate) {
+      setRescheduleSlots([]);
+      return;
+    }
+    const doctorId = rescheduleTarget.doctor_id || rescheduleTarget.doctor?.id;
+    if (!doctorId) {
+      setRescheduleErr("Identifiant médecin introuvable — reprogrammation impossible.");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        setRescheduleSlotsLoading(true);
+        setRescheduleErr("");
+        const res = await api.getDoctorSlots(doctorId, rescheduleDate);
+        // Le backend renvoie { slots: [...] } ou un tableau
+        const raw = Array.isArray(res) ? res : (res?.slots || []);
+        const slots = raw.map((s, i) => ({
+          id: s.id || `${rescheduleDate}-${s.start_time || i}`,
+          start_time: (s.start_time || "").toString().substring(0, 5),
+          end_time:   (s.end_time   || "").toString().substring(0, 5),
+        })).filter((s) => s.start_time && s.end_time);
+        if (!cancelled) setRescheduleSlots(slots);
+      } catch (e) {
+        if (!cancelled) setRescheduleErr(e?.message || "Impossible de charger les créneaux.");
+      } finally {
+        if (!cancelled) setRescheduleSlotsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [rescheduleTarget, rescheduleDate]);
+
+  const confirmReschedule = async () => {
+    if (!rescheduleTarget || !rescheduleSlotId) return;
+    const slot = rescheduleSlots.find((s) => s.id === rescheduleSlotId);
+    if (!slot) return;
+    const doctorId = rescheduleTarget.doctor_id || rescheduleTarget.doctor?.id;
+    setRescheduling(true);
+    setRescheduleErr("");
+    try {
+      await api.rescheduleAppointment(rescheduleTarget.id, {
+        doctor_id: doctorId,
+        date: rescheduleDate,
+        start_time: slot.start_time,
+        end_time:   slot.end_time,
+        motif: rescheduleTarget.motif || "Consultation",
+      });
+      setSuccess("Rendez-vous reprogrammé");
+      setTimeout(() => setSuccess(""), 4000);
+      // L'ancien RDV est annulé côté backend → on le masque localement.
+      setLocalHidden((prev) => [...prev, rescheduleTarget.id]);
+      closeReschedule();
+      if (refreshAppointments) refreshAppointments();
+    } catch (e) {
+      setRescheduleErr(e?.message || "Erreur lors de la reprogrammation.");
+    } finally {
+      setRescheduling(false);
+    }
+  };
+
+  // Format JJ/MM/AAAA pour affichage
+  const fmtFr = (iso) => {
+    if (!iso) return "";
+    const parts = iso.split("-");
+    if (parts.length !== 3) return iso;
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  };
 
   return (
     <>
@@ -2869,6 +2999,131 @@ function AppointmentsPage({
         </div>
       </div>
 
+      {/* ──── Reschedule Modal ──── */}
+      {rescheduleTarget && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}
+          onClick={(e) => { if (e.target === e.currentTarget) closeReschedule(); }}
+        >
+          <div
+            className="rounded-2xl w-full max-w-md overflow-hidden shadow-2xl border"
+            style={{ background: c.card, borderColor: c.border }}
+          >
+            <div className="p-5 border-b flex items-center justify-between" style={{ borderColor: c.border }}>
+              <div>
+                <h3 className="font-bold text-base" style={{ color: c.txt }}>Reprogrammer</h3>
+                <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>
+                  {rescheduleTarget.doctor_name || "Médecin"} · {rescheduleTarget.specialty || rescheduleTarget.doctor_specialty || ""}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeReschedule}
+                disabled={rescheduling}
+                className="w-8 h-8 rounded-full flex items-center justify-center hover:opacity-70 disabled:opacity-50"
+                style={{ background: c.blueLight }}
+              >
+                <X size={15} style={{ color: c.txt3 }} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wide block mb-1.5" style={{ color: c.txt3 }}>
+                  Nouvelle date (JJ/MM/AAAA)
+                </label>
+                <div className="relative">
+                  <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: c.blue }} />
+                  <input
+                    type="date"
+                    value={rescheduleDate}
+                    min={new Date().toISOString().slice(0, 10)}
+                    onChange={(e) => { setRescheduleDate(e.target.value); setRescheduleSlotId(null); }}
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border text-sm outline-none transition-all"
+                    style={{ background: c.bg, borderColor: c.border, color: c.txt }}
+                  />
+                  {rescheduleDate && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-semibold pointer-events-none" style={{ color: c.txt3 }}>
+                      {fmtFr(rescheduleDate)}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wide block mb-1.5" style={{ color: c.txt3 }}>
+                  Créneaux disponibles
+                </label>
+                {!rescheduleDate ? (
+                  <p className="text-xs italic py-3" style={{ color: c.txt3 }}>Sélectionnez d'abord une date.</p>
+                ) : rescheduleSlotsLoading ? (
+                  <div className="py-4 flex justify-center">
+                    <div className="w-6 h-6 rounded-full border-2 animate-spin" style={{ borderColor: `${c.blue}40`, borderTopColor: c.blue }} />
+                  </div>
+                ) : rescheduleSlots.length === 0 ? (
+                  <p className="text-xs italic py-3" style={{ color: c.txt3 }}>
+                    Aucun créneau libre ce jour-là.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {rescheduleSlots.map((s) => {
+                      const active = rescheduleSlotId === s.id;
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => setRescheduleSlotId(s.id)}
+                          className="py-2 rounded-lg text-xs font-bold border transition-all"
+                          style={{
+                            background: active ? c.blue : c.card,
+                            color: active ? "#fff" : c.txt,
+                            borderColor: active ? c.blue : c.border,
+                          }}
+                        >
+                          {s.start_time}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {rescheduleErr && (
+                <div
+                  className="px-3 py-2 rounded-lg text-xs font-semibold border"
+                  style={{ background: "#E0555518", borderColor: "#E0555544", color: "#E05555" }}
+                >
+                  {rescheduleErr}
+                </div>
+              )}
+            </div>
+
+            <div className="px-5 pb-5 flex gap-2">
+              <button
+                type="button"
+                onClick={closeReschedule}
+                disabled={rescheduling}
+                className="flex-1 py-2.5 rounded-xl border text-sm font-semibold transition-all hover:opacity-80 disabled:opacity-50"
+                style={{ borderColor: c.border, color: c.txt2 }}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={confirmReschedule}
+                disabled={rescheduling || !rescheduleSlotId}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
+                style={{ background: c.blue }}
+              >
+                {rescheduling && <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
+                {rescheduling ? "…" : "Confirmer"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ──── TAB: MES RDV ──── */}
       {tab === "mesrdv" && (
         <>
@@ -3010,16 +3265,25 @@ function AppointmentsPage({
                         style={{ borderColor: c.border }}
                       >
                         <button
-                          className="flex-1 py-1.5 rounded-lg text-[11px] font-bold transition-all hover:bg-opacity-80"
+                          type="button"
+                          onClick={() => openReschedule(a)}
+                          disabled={cancellingId === a.id}
+                          className="flex-1 py-1.5 rounded-lg text-[11px] font-bold transition-all hover:bg-opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
                           style={{ background: c.blueLight, color: c.blue }}
                         >
                           {t('modify')}
                         </button>
                         <button
-                          className="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all hover:bg-red-50"
+                          type="button"
+                          onClick={() => handleCancelAppointment(a)}
+                          disabled={cancellingId === a.id}
+                          className="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
                           style={{ color: "#E05555" }}
                         >
-                          {t('cancel_appointment')}
+                          {cancellingId === a.id && (
+                            <span className="w-3 h-3 border-2 rounded-full animate-spin" style={{ borderColor: "#E0555540", borderTopColor: "#E05555" }} />
+                          )}
+                          {cancellingId === a.id ? "…" : t('cancel_appointment')}
                         </button>
                       </div>
                     </Card>
@@ -3769,8 +4033,7 @@ function AppointmentsPage({
           <div className="h-px w-full mb-4 mt-2" style={{ background: c.border, opacity: 0.4 }} />
 
           <div
-            className="grid gap-4 mb-10"
-            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(520px, 1fr))" }}
+            className="grid gap-5 mb-10 grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
             ref={docListRef}
           >
             {filteredDoctors.map((doc) => {
@@ -3780,11 +4043,10 @@ function AppointmentsPage({
               return (
               <div
                 key={doc.id}
-                className="group flex flex-col rounded-xl border shadow-md hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
+                className="group flex flex-col rounded-xl border shadow-md hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 overflow-hidden"
                 style={{
                   background: c.card,
                   borderColor: c.border,
-                  minWidth: 520,
                 }}
               >
                 {/* ── Top info ── */}
@@ -3839,13 +4101,13 @@ function AppointmentsPage({
                   </div>
                 </div>
 
-                {/* ── Map preview (220px) ── */}
-                <div className="px-4">
-                  <div className="relative overflow-hidden group/map" style={{ height: 220, borderRadius: 8 }}>
+                {/* ── Map preview (140px) ── */}
+                <div className="px-4 mt-auto">
+                  <div className="relative overflow-hidden group/map" style={{ height: 140, borderRadius: 8 }}>
                     <iframe
                       src={`https://maps.google.com/maps?q=${mapQuery}&z=14&output=embed`}
                       width="100%"
-                      height="220"
+                      height="140"
                       style={{ border: 0, display: "block", pointerEvents: "none" }}
                       loading="lazy"
                       referrerPolicy="no-referrer-when-downgrade"
@@ -3902,47 +4164,92 @@ function PrescriptionsPage({ dk }) {
   const [selectedQr, setSelectedQr] = useState(null);
   const [downloading, setDownloading] = useState(null);
   // Click & Collect state
-  const [sendingRx, setSendingRx] = useState(null);   // rx en cours d'envoi
-  const [ccStatuses, setCcStatuses] = useState({});   // { [rxId]: { ccStatus, pharmacy, notes } }
+  const [rxList, setRxList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [sendingRx, setSendingRx] = useState(null);
+  const [ccStatuses, setCcStatuses] = useState({});
 
-  const handleSendConfirm = (rxId, data) => {
-    setCcStatuses(prev => ({ ...prev, [rxId]: { ccStatus: "sent", ...data } }));
+  const handleSendConfirm = async (rxId, data) => {
+    // Optimistic UI
+    setCcStatuses(prev => ({
+      ...prev,
+      [rxId]: {
+        ccStatus: "sent",
+        pharmacy: data.pharmacy,
+        notes: data.notes
+      }
+    }));
+    setSendingRx(null);
+    // Crée la commande côté backend (non bloquant pour l'UI)
+    try {
+      await api.apiFetch("/pharmacy/orders/", {
+        method: "POST",
+        body: JSON.stringify({
+          prescription: rxId,
+          patient_message: data.notes || "",
+          order_type: "prescription",
+          withdrawal_method: "pickup",
+        }),
+      });
+    } catch (err) {
+      console.error("Erreur envoi ordonnance à la pharmacie:", err);
+      // Revert optimistic state
+      setCcStatuses(prev => {
+        const next = { ...prev };
+        delete next[rxId];
+        return next;
+      });
+    }
   };
 
-  const rxList = [
-    {
-      id: "RX-2023-0847",
-      doctor: "Dr. Sarah Smith",
-      date: "Oct 20, 2023",
-      status: "ACTIVE",
-      statusColor: "#2D8C6F",
-      meds: [
-        "Lisinopril 10mg — 1 tablet daily",
-        "Metformin 500mg — 1 tablet twice daily",
-      ],
-    },
-    {
-      id: "RX-2023-0791",
-      doctor: "Dr. Benali Karim",
-      date: "Sep 05, 2023",
-      status: "EXPIRED",
-      statusColor: "#E05555",
-      meds: [
-        "Amoxicillin 500mg — 3x daily for 7 days",
-        "Vitamin D3 2000 IU — 1 capsule daily",
-      ],
-    },
-  ];
+  useEffect(() => {
+    api.getMyPrescriptions().then(data => {
+      const results = Array.isArray(data) ? data : (data?.results || []);
+      setRxList(results.map(rx => ({
+        id: rx.id,
+        doctor: rx.doctor_name || (rx.doctor ? "Dr. " + rx.doctor.last_name : "Inconnu"),
+        date: rx.created_at?.split('T')[0] || "Date inconnue",
+        status: rx.status || "ACTIVE",
+        statusColor: (rx.status || "ACTIVE").toUpperCase() === "ACTIVE" ? "#2D8C6F" : "#E05555",
+        meds: (rx.items || []).map(item => item.drug_name) || rx.medication_list || [],
+      })));
+    }).catch(err => {
+      console.error("Erreur chargement prescriptions:", err);
+      setRxList([]);
+    }).finally(() => setLoading(false));
+  }, []);
 
   const filteredRxList = rxList.filter(
     (rx) => filter === "All" || rx.status === filter.toUpperCase(),
   );
 
-  const handleDownload = (id) => {
+  const handleDownload = async (id) => {
+    if (!id) return;
+    const idStr = String(id);
     setDownloading(id);
-    setTimeout(() => {
+    try {
+      const blob = await api.apiFetchBlob(`/prescriptions/${idStr}/pdf-download/`);
+      if (blob.type === "application/json") {
+        const text = await blob.text();
+        const errData = JSON.parse(text);
+        throw new Error(errData.detail || "Erreur serveur");
+      }
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.style.display = "none";
+      a.href = url;
+      a.download = `ordonnance-${idStr.slice(0, 8)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }, 100);
+    } catch (err) {
+      console.error("Erreur PDF:", err);
+    } finally {
       setDownloading(null);
-    }, 2500);
+    }
   };
 
   return (
@@ -4097,8 +4404,16 @@ function PrescriptionsPage({ dk }) {
             <p className="text-xs font-bold text-gray-500 mb-8 uppercase tracking-widest">
               {selectedQr.doctor} • {selectedQr.date}
             </p>
-            <div className="p-4 rounded-[32px] mb-8 bg-gray-50 border border-gray-100 shadow-inner">
-              <QrCode size={200} className="text-gray-900" />
+            <div className="p-4 rounded-[32px] mb-8 bg-white border border-gray-100 shadow-xl">
+              <img
+                src={`${import.meta.env.VITE_API_URL || "http://localhost:8000/api"}/prescriptions/${selectedQr.id}/qr-image/`}
+                alt="Prescription QR Code"
+                className="w-48 h-48 object-contain"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" + selectedQr.id;
+                }}
+              />
             </div>
             <p className="text-[13px] text-center font-bold text-gray-600 mb-2 px-4 leading-relaxed">
               Présentez ce QR Code à votre pharmacien pour récupérer vos
@@ -4128,10 +4443,50 @@ function PrescriptionsPage({ dk }) {
 function PharmacyPage({ dk }) {
   const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
-  const [cart, setCart] = useState({ 1: 1, 2: 2 });
+  const [cart, setCart] = useState({});
+  const [pharmacyItems, setPharmacyItems] = useState([]);
+  const [activeTags, setActiveTags] = useState([]);
+  const { globalSearch, setGlobalSearch } = useData();
+  const searchTerm = globalSearch;
+  const setSearchTerm = setGlobalSearch;
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    setLoading(true);
+    const filters = { search: debouncedSearch };
+    if (activeTags.includes("CNAS")) filters.cnas_covered = "true";
+    
+    api.getMedications(filters).then(data => {
+      const results = Array.isArray(data) ? data : (data?.results || []);
+      setPharmacyItems(results.map(m => ({
+        id: m.id,
+        name: m.name,
+        molecule: m.molecule,
+        price: m.price_dzd ? `${m.price_dzd} DZD` : "—",
+        stock: m.is_active ? "In Stock" : "Out of Stock",
+        cnas: m.cnas_covered,
+        qty: 0,
+      })));
+    }).catch(err => {
+      console.error("Erreur chargement médicaments:", err);
+      setPharmacyItems([]);
+    }).finally(() => setLoading(false));
+  }, [debouncedSearch, activeTags]);
+
+  const toggleTag = (tag) => {
+    setActiveTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
+  };
 
   const addToCart = (id) => setCart((c) => ({ ...c, [id]: (c[id] || 0) + 1 }));
-  const cartItems = PHARMACY_ITEMS.filter((item) => (cart[item.id] || 0) > 0);
+  const cartItems = pharmacyItems.filter((item) => (cart[item.id] || 0) > 0);
   const subtotal = cartItems.reduce(
     (sum, item) => sum + parseInt(item.price) * (cart[item.id] || 0),
     0,
@@ -4146,29 +4501,35 @@ function PharmacyPage({ dk }) {
             <div className="flex items-center gap-2">
               <Search size={15} style={{ color: c.txt3 }} />
               <input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder={t('search_medication_placeholder')}
                 className="outline-none text-sm bg-transparent flex-1"
                 style={{ color: c.txt }}
               />
               <div className="flex gap-2">
-                {["In Stock", "Generic", "CNAS"].map((tag) => (
-                  <span
-                    key={tag}
-                    className="text-xs px-2.5 py-1 rounded-full cursor-pointer border transition-colors"
-                    style={{
-                      color: c.blue,
-                      borderColor: c.border,
-                      background: c.blueLight,
-                    }}
-                  >
-                    {tag}
-                  </span>
-                ))}
+                {["In Stock", "Generic", "CNAS"].map((tag) => {
+                  const isActive = activeTags.includes(tag);
+                  return (
+                    <span
+                      key={tag}
+                      onClick={() => toggleTag(tag)}
+                      className="text-xs px-2.5 py-1 rounded-full cursor-pointer border transition-all"
+                      style={{
+                        color: isActive ? "#fff" : c.blue,
+                        borderColor: isActive ? c.blue : c.border,
+                        background: isActive ? c.blue : c.blueLight,
+                      }}
+                    >
+                      {tag}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           </Card>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {PHARMACY_ITEMS.map((item) => (
+            {pharmacyItems.map((item) => (
               <Card
                 key={item.id}
                 dk={dk}
@@ -4332,7 +4693,7 @@ const WILAYAS_LIST = [
 function CareTakerPage({ dk }) {
   const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
-  const { addNotification } = useData();
+  const { addNotification, globalSearch, setGlobalSearch } = useData();
 
   // ── Navigation ──
   const [tab, setTab] = useState("find");
@@ -4345,7 +4706,8 @@ function CareTakerPage({ dk }) {
   const [homeAddress, setHomeAddress]             = useState("");
 
   // ── Recherche & filtres ──
-  const [searchTerm, setSearchTerm]   = useState("");
+  const searchTerm = globalSearch;
+  const setSearchTerm = setGlobalSearch;
   const [wilayaFilter, setWilayaFilter] = useState("Toutes");
   const [starFilter, setStarFilter]   = useState(1);
   const [profileModal, setProfileModal] = useState(null); // ct object
@@ -4358,37 +4720,81 @@ function CareTakerPage({ dk }) {
   const [reviewComment, setReviewComment] = useState("");
 
   // ── Caretakers API ──
-  const [caretakers, setCaretakers] = useState(CARETAKERS);
+  const [caretakers, setCaretakers] = useState([]);
   const [ctLoading, setCtLoading] = useState(true);
   const [ctError, setCtError] = useState("");
 
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const { userData } = useData();
+
   useEffect(() => {
-    api.getCaretakers()
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    setCtLoading(true);
+    const filters = {};
+    if (debouncedSearch) filters.search = debouncedSearch;
+    if (wilayaFilter !== "Toutes") filters.availability_area = wilayaFilter;
+
+    api.getCaretakers(filters)
       .then(data => {
-        if (Array.isArray(data) && data.length > 0) {
-          const normalized = data.map(ct => ({
-            id: ct.id,
-            name: `${ct.first_name || ""} ${ct.last_name || ""}`.trim() || ct.name || "—",
-            role: ct.role_label || ct.specialty || "Garde-malade",
-            exp: ct.experience_years != null ? `${ct.experience_years} ans` : "—",
-            rating: parseFloat(ct.rating) || 0,
-            reviews: ct.reviews_count ?? ct.reviews ?? 0,
-            tarifSoin: ct.tarif_soin || "—",
-            tarifNuit: ct.tarif_nuit || "—",
-            tarifMensuel: ct.tarif_mensuel || "—",
-            zone: ct.zone || ct.city || "—",
-            wilaya: ct.wilaya || ct.city || "—",
-            tags: ct.tags || ct.specializations || [],
-            initials: ((ct.first_name?.[0] || "") + (ct.last_name?.[0] || "")).toUpperCase() || "??",
-            color: "#4A6FA5",
-            bio: ct.bio || ct.description || "",
-            phone: ct.phone || "—",
-          }));
-          setCaretakers(normalized);
-        }
+        const results = Array.isArray(data) ? data : (data?.results || []);
+        const normalized = results.map(ct => ({
+          id: ct.id,
+          name: ct.full_name || "—",
+          role: ct.certification || "Garde-malade",
+          exp: ct.experience_years != null ? `${ct.experience_years} ans` : "—",
+          rating: 5.0,
+          reviews: 0,
+          tarifSoin: ct.tarif_de_base ? `${ct.tarif_de_base} DZD` : "—",
+          tarifNuit: "—",
+          tarifMensuel: "—",
+          zone: ct.availability_area || "—",
+          wilaya: ct.availability_area || "—",
+          tags: ct.services?.map(s => s.service_name) || [],
+          initials: (ct.full_name?.[0] || "?").toUpperCase(),
+          color: "#4A6FA5",
+          bio: ct.bio || "",
+          phone: "—",
+        }));
+        setCaretakers(normalized);
       })
-      .catch(() => setCtError("Impossible de charger les gardes-malades. Affichage des données locales."))
+      .catch(() => setCtError("Impossible de charger les gardes-malades."))
       .finally(() => setCtLoading(false));
+  }, [debouncedSearch, wilayaFilter]);
+
+  useEffect(() => {
+    // 2. Fetch existing request
+    api.getAdminCareRequests().then(data => {
+      const results = Array.isArray(data) ? data : (data?.results || []);
+      if (results.length > 0) {
+        const req = results[0];
+        setPendingRequest({
+          id: req.caretaker,
+          name: req.caretaker_name,
+          initials: (req.caretaker_name?.[0] || "C").toUpperCase(),
+          color: "#4A6FA5",
+          role: "Garde-malade",
+          exp: "—",
+          rating: 5.0,
+          reviews: 0,
+          phone: "—",
+          zone: "—",
+          tags: [],
+          bio: ""
+        });
+        setIsAccepted(req.status === 'accepted');
+        if (req.status === 'accepted') {
+          setTab("assigned");
+        }
+      }
+    }).catch(err => {
+      console.error("Erreur chargement demandes de soins:", err);
+    });
   }, []);
 
   // ── Filtre des gardes-malades ──

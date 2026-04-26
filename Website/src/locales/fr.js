@@ -168,6 +168,7 @@ export default {
       required:         "Ce champ est requis",
       fieldRequired:    "Ce champ est obligatoire",
       creating:         "Création de votre compte...",
+      invalidDate:      "Date invalide (JJ/MM/AAAA)",
       steps: {
         profile:   "Profil",
         documents: "Documents",
@@ -179,11 +180,14 @@ export default {
       personalInfo: {
         title:              "Informations personnelles",
         birthDate:          "Date de naissance",
+        birthDatePlaceholder: "JJ/MM/AAAA",
         sex:                "Sexe",
         phone:              "Téléphone",
         phonePlaceholder:   "0555123456",
         nationalId:         "N° Carte d'identité",
         nationalIdHint:     "Ex: 10123456789",
+        bloodGroup:         "Groupe sanguin",
+        selectBloodGroup:   "Sélectionner...",
         residentialAddress: "Adresse résidentielle",
         address:            "Adresse",
         streetHint:         "Rue, numéro...",

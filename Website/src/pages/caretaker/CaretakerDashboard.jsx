@@ -72,11 +72,9 @@ function StatCard({ label, value, sub, icon: Icon, color, dk }) {
 // CONSTANTES STATIQUES
 // ============================================================================
 
-const SAMPLE_REQUESTS = [
-  { id: 1, patientName: "Nadia Khelifa", age: 58, location: "Algiers Center (2.5 km away)", condition: "Diabetes T2 Monitoring", duration: "Full-time (8h/day)", pay: "45,000 DA/month", posted: "2 hours ago", urgency: "Normal", initials: "NK" },
-  { id: 2, patientName: "Youcef Belaid", age: 72, location: "El Biar (4.8 km away)", condition: "Post-cardiac surgery care", duration: "Night shift (10h)", pay: "55,000 DA/month", posted: "5 hours ago", urgency: "High", initials: "YB" },
-  { id: 3, patientName: "Meriem Kaci", age: 32, location: "Sidi Yahia (1.2 km away)", condition: "Temporary disability support", duration: "Part-time (4h/day)", pay: "28,000 DA/month", posted: "Yesterday", urgency: "Normal", initials: "MK" }
-];
+// Données de démonstration uniquement actives en développement
+// Plus de données fictives — les offres de missions proviennent de l'API.
+const SAMPLE_REQUESTS = [];
 
 // ─── Profils patients détaillés (pour le modal "Détails du profil") ────────────
 const PATIENT_PROFILES = {
@@ -1151,11 +1149,7 @@ function MyPatientsView({ onChangePage, dk, c }) {
             <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
               style={{ background: c.blue + "15", color: c.blue }}><UserPlus size={32} /></div>
             <h2 className="text-2xl font-bold mb-2" style={{ color: c.txt }}>{t('no_patient_assigned_title') || "Aucun Patient Assigné"}</h2>
-            <p className="text-sm max-w-md mb-8" style={{ color: c.txt3 }}>{t('no_patient_assigned_desc') || "Vous n'avez pas encore été assigné à des patients. Cliquez ci-dessous pour charger les données de test."}</p>
-            <button onClick={loadGMDemoData} className="px-8 py-3 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-500/25 active:scale-95"
-              style={{ background: c.blue }}>
-              {t('add_demo_patients_btn') || "Ajouter Patients Démo (Alex, Youcef, Nadia)"}
-            </button>
+            <p className="text-sm max-w-md mb-8" style={{ color: c.txt3 }}>{t('no_patient_assigned_desc_prod') || "Vous n'avez pas encore été assigné à des patients. Les patients apparaitront ici lorsqu'une demande de soins sera acceptée."}</p>
           </Card>
         ) : patients.map((p) => (
           <Card key={p.id} dk={dk} className="p-8 group relative overflow-hidden hover:shadow-xl hover:border-blue-500/20">
@@ -1346,13 +1340,7 @@ function TreatmentsView({ dk, c }) {
               )}
             </div>
           )}
-          {treatments.length === 0 && patients.length === 0 && (
-            <button onClick={loadGMDemoData}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all active:scale-95"
-              style={{ background: c.blue }}>
-              <Plus size={15} /> {t('load_demo_data_btn') || "Charger données démo"}
-            </button>
-          )}
+          {treatments.length === 0 && patients.length === 0 && null}
         </div>
       </div>
 

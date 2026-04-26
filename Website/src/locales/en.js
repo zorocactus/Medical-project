@@ -168,6 +168,7 @@ export default {
       required:         "This field is required",
       fieldRequired:    "This field is required",
       creating:         "Creating your account...",
+      invalidDate:      "Invalid date (DD/MM/YYYY)",
       steps: {
         profile:   "Profile",
         documents: "Documents",
@@ -179,11 +180,14 @@ export default {
       personalInfo: {
         title:              "Personal information",
         birthDate:          "Date of birth",
+        birthDatePlaceholder: "DD/MM/YYYY",
         sex:                "Sex",
         phone:              "Phone",
         phonePlaceholder:   "0555123456",
         nationalId:         "National ID number",
         nationalIdHint:     "Ex: 10123456789",
+        bloodGroup:         "Blood group",
+        selectBloodGroup:   "Select...",
         residentialAddress: "Residential address",
         address:            "Address",
         streetHint:         "Street, number...",
