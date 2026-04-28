@@ -24,9 +24,7 @@ import { T } from "../_shared/theme";
 // ─── Reusable Card Component ──────────────────────────────────────────────────
 function Card({ children, className = "", style = {}, dk, empty = false }) {
   const c = dk ? T.dark : T.light;
-  const hoverClasses = empty
-    ? ""
-    : "transition-transform duration-200 hover:scale-[1.02]";
+  const hoverClasses = empty ? "" : "card-hover";
   return (
     <div
       className={`rounded-2xl p-5 shadow-sm border ${hoverClasses} ${className}`}
@@ -314,7 +312,7 @@ function HomeView({ onChangePage, dk, c, setEmergency }) {
               {schedule.length === 0 ? (
                 <div className="text-center py-6 text-sm" style={{ color: c.txt3 }}>{t('no_care_planned') || "Aucun soin prévu."}</div>
               ) : schedule.map((item, i) => (
-                <div key={i} className="flex items-start gap-3 group cursor-pointer transition-transform duration-200 hover:scale-[1.02]">
+                <div key={i} className="flex items-start gap-3 group cursor-pointer card-hover">
                   <button className="mt-0.5 shrink-0">
                     {item.status === 'done' ? <CheckCircle2 size={18} style={{ color: c.green }} /> : <Circle size={18} style={{ color: c.border }} className="group-hover:text-blue-500 transition-colors" />}
                   </button>
@@ -345,7 +343,7 @@ function HomeView({ onChangePage, dk, c, setEmergency }) {
                 { author: "Dr. Benali", note: "Bonne exécution des prescriptions, communication claire.", stars: 5, date: "Il y a 5 jours" },
                 { author: "Famille Belaid", note: "Service satisfaisant, quelques retards.", stars: 4, date: "Il y a 1 sem." },
               ].map((avis, i) => (
-                <div key={i} className="p-3 rounded-xl border cursor-pointer transition-transform duration-200 hover:scale-[1.02]" style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border }}>
+                <div key={i} className="p-3 rounded-xl border cursor-pointer card-hover" style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border }}>
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-bold" style={{ color: c.txt }}>{avis.author}</span>
                     <span className="text-[10px]" style={{ color: c.txt3 }}>{avis.date}</span>

@@ -55,9 +55,7 @@ const STOCK_CATEGORIES = [
 // ─── Reusable components ──────────────────────────────────────────────────────
 function Card({ children, className = "", style = {}, dk, empty = false }) {
   const c = dk ? T.dark : T.light;
-  const hoverClasses = empty
-    ? ""
-    : "transition-transform duration-200 hover:scale-[1.02]";
+  const hoverClasses = empty ? "" : "card-hover";
   return (
     <div className={`rounded-2xl p-5 shadow-sm border ${hoverClasses} ${className}`}
       style={{ background: c.card, borderColor: c.border, ...style }}>
@@ -460,7 +458,7 @@ function HomePage({ dk, onNav }) {
             </div>
             <div className="space-y-3">
               {ALERTS.map(a => (
-                <div key={a.id} className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
+                <div key={a.id} className="flex items-center gap-3 p-3 rounded-xl cursor-pointer card-hover"
                   style={{ background: dk ? a.bgDk : a.bg }}>
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                     style={{ background: a.color + "22" }}>
@@ -489,7 +487,7 @@ function HomePage({ dk, onNav }) {
               {ORDERS.slice(0, 3).map(o => {
                 const st = STATUS_META[o.status];
                 return (
-                  <div key={o.id} className="flex items-center gap-4 p-3 rounded-xl border cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
+                  <div key={o.id} className="flex items-center gap-4 p-3 rounded-xl border cursor-pointer card-hover"
                     style={{ borderColor: c.border }}>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                       style={{ background: c.blueLight }}>
@@ -524,7 +522,7 @@ function HomePage({ dk, onNav }) {
               </button>
             </div>
             {STOCK.filter(s => s.qty < s.min).map(item => (
-              <div key={item.id} className="flex items-center gap-3 py-3 px-2 border-b last:border-0 cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
+              <div key={item.id} className="flex items-center gap-3 py-3 px-2 border-b last:border-0 cursor-pointer card-hover"
                 style={{ borderColor: c.border }}>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold truncate" style={{ color: c.txt }}>{item.name}</p>
@@ -547,7 +545,7 @@ function HomePage({ dk, onNav }) {
             </div>
             <div className="space-y-3">
               {NOTIFICATIONS.slice(0, 3).map(n => (
-                <div key={n.id} className="flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
+                <div key={n.id} className="flex items-start gap-3 p-3 rounded-xl cursor-pointer card-hover"
                   style={{ background: dk ? n.bgDk : n.bg }}>
                   <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: n.color }} />
                   <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"

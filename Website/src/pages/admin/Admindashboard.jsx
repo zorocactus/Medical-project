@@ -259,11 +259,14 @@ const CARE_STATUS = {
 // ─────────────────────────────────────────────────────────────────────────────
 // PAGE: VALIDATION (kept here until migrated to views/)
 // ─────────────────────────────────────────────────────────────────────────────
+const PRO_ROLES = new Set(['doctor', 'pharmacist', 'caretaker', 'médecin', 'pharmacien', 'garde-malade']);
+
 function ValidationPage({ dk, onCountChange }) {
   const c = getAdminTheme(dk);
   const { t } = useLanguage();
   const [pending, setPending] = useState(PENDING_PROS);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
   const [history, setHistory] = useState([]);
   const [docModal, setDocModal] = useState(null);
   const [rejectModal, setRejectModal] = useState(null); // { pro } | null
@@ -271,11 +274,14 @@ function ValidationPage({ dk, onCountChange }) {
   const [rejecting, setRejecting] = useState(false);
 
   useEffect(() => {
+    setFetchError(null);
     api
       .getPendingDoctors()
       .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          const normalized = data.map((d) => ({
+        if (Array.isArray(data)) {
+          // Filtre : uniquement les professionnels de santé (exclut les patients)
+          const pros = data.filter((d) => PRO_ROLES.has(d.role));
+          const normalized = pros.map((d) => ({
             id: d.id,
             name: `${d.first_name || ""} ${d.last_name || ""}`.trim() || "—",
             role: d.role || "médecin",
@@ -295,7 +301,10 @@ function ValidationPage({ dk, onCountChange }) {
           if (onCountChange) onCountChange(normalized.length);
         }
       })
-      .catch(() => {})
+      .catch((err) => {
+        console.error("ValidationPage — erreur chargement:", err);
+        setFetchError(err?.message || "Erreur lors du chargement des inscriptions en attente.");
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -523,7 +532,23 @@ function ValidationPage({ dk, onCountChange }) {
         </div>
       </div>
 
-      {pending.length === 0 ? (
+      {fetchError && (
+        <div
+          className="mb-4 p-4 rounded-xl border flex items-start gap-3"
+          style={{ background: c.red + "12", borderColor: c.red + "40", color: c.red }}
+        >
+          <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold text-sm">Erreur de chargement</p>
+            <p className="text-xs mt-0.5" style={{ color: c.txt2 }}>{fetchError}</p>
+            <p className="text-xs mt-1" style={{ color: c.txt3 }}>
+              Vérifiez que votre compte admin a bien <code>is_staff=True</code> en base de données.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!fetchError && pending.length === 0 ? (
         <Card dk={dk} empty={true} style={{ padding: 48, textAlign: "center" }}>
           <CheckCircle
             size={40}

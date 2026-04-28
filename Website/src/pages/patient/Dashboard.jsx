@@ -56,13 +56,14 @@ import {
   Maximize2,
   MessageSquare,
   ExternalLink,
+  Mic,
+  Paperclip,
 } from "lucide-react";
+
 
 // ─── Card component ───────────────────────────────────────────────────────────
 function Card({ children, className = "", style = {}, dk, empty = false }) {
-  const hoverClasses = empty
-    ? ""
-    : "transition-transform duration-200 hover:scale-[1.02]";
+  const hoverClasses = empty ? "" : "card-hover";
   return (
     <div
       className={`rounded-2xl p-5 shadow-sm border ${hoverClasses} ${className}`}
@@ -595,7 +596,7 @@ function DashboardPage({
                 {meds.map((m) => (
                   <div
                     key={m.id}
-                    className="flex items-center gap-3 cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
+                    className="flex items-center gap-3 cursor-pointer card-hover"
                   >
                     <button
                       onClick={() =>
@@ -690,7 +691,7 @@ function DashboardPage({
             <div className="flex flex-col gap-4">
               <div
                 onClick={() => onNav("care-taker")}
-                className="rounded-2xl p-5 flex items-center gap-4 cursor-pointer transition-transform duration-200 hover:scale-[1.02] flex-1"
+                className="rounded-2xl p-5 flex items-center gap-4 cursor-pointer card-hover flex-1"
                 style={{
                   background: "linear-gradient(135deg, #2D8C6F, #3aaa88)",
                 }}
@@ -705,7 +706,7 @@ function DashboardPage({
               </div>
               <div
                 onClick={() => onNav("ai-diagnosis")}
-                className="rounded-2xl p-5 flex items-center gap-4 cursor-pointer transition-transform duration-200 hover:scale-[1.02] flex-1"
+                className="rounded-2xl p-5 flex items-center gap-4 cursor-pointer card-hover flex-1"
                 style={{
                   background: "linear-gradient(135deg, #304B71, #4A6FA5)",
                 }}
@@ -832,7 +833,7 @@ function DashboardPage({
               {prescriptions.map((p) => (
                 <div
                   key={p.id}
-                  className="cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
+                  className="cursor-pointer card-hover"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <p
@@ -1582,59 +1583,35 @@ function MedicalProfilePage({ dk, profile, userId, userData }) {
 
 // ─── AI DIAGNOSIS PAGE ────────────────────────────────────────────────────────
 const HISTORY_SESSIONS = [
-  {
-    id: 1,
-    title: "Douleurs thoraciques",
-    date: "Aujourd'hui · 2h",
-    badge: "med",
-    badgeLabel: "Modérée",
-  },
-  {
-    id: 2,
-    title: "Maux de tête persistants",
-    date: "Hier · 5 échanges",
-    badge: "low",
-    badgeLabel: "Faible",
-  },
-  {
-    id: 3,
-    title: "Fatigue intense & vertiges",
-    date: "Hier · 4 échanges",
-    badge: "low",
-    badgeLabel: "Faible",
-  },
-  {
-    id: 4,
-    title: "Douleur poitrine + bras",
-    date: "18 Mar · 2 échanges",
-    badge: "high",
-    badgeLabel: "Élevée",
-  },
-  {
-    id: 5,
-    title: "Toux sèche + fièvre 38.2°",
-    date: "16 Mar · 6 échanges",
-    badge: "low",
-    badgeLabel: "Faible",
-  },
-  {
-    id: 6,
-    title: "Douleur lombaire chronique",
-    date: "14 Mar · 4 échanges",
-    badge: "med",
-    badgeLabel: "Modérée",
-  },
+  { id: 1, title: "Douleurs thoraciques", date: "Aujourd'hui · 2h" },
+  { id: 2, title: "Maux de tête persistants", date: "Hier · 5 échanges" },
+  { id: 3, title: "Fatigue intense & vertiges", date: "Hier · 4 échanges" },
+  { id: 4, title: "Douleur poitrine + bras", date: "18 Mar · 2 échanges" },
 ];
-const BADGE_COLORS = { low: "#2D8C6F", med: "#E8A838", high: "#E05555" };
 
-function AIDiagnosisPage({ dk, firstName }) {
+function AIDiagnosisPage({ dk, firstName, setPage }) {
   const { t } = useLanguage();
-  const c = dk ? T.dark : T.light;
+  
+  const theme = useMemo(() => ({
+    bg: dk ? "#0d1117" : "#f6f8fa",
+    chatBg: dk ? "#161b22" : "#ffffff",
+    accent: dk ? "#3b82f6" : "#2563eb",
+    text: dk ? "#e6edf3" : "#0d1117",
+    aiMsgBg: dk ? "#161b22" : "#f8fafc",
+    border: dk ? "#30363d" : "#d0d7de",
+    cardUrgency: dk ? "rgba(239, 68, 68, 0.15)" : "#FEF2F2",
+    textUrgency: dk ? "#F87171" : "#B91C1C",
+    cardSpec: dk ? "rgba(59, 130, 246, 0.15)" : "#EFF6FF",
+    textSpec: dk ? "#60A5FA" : "#1D4ED8",
+    cardRDV: dk ? "rgba(16, 185, 129, 0.15)" : "#ECFDF5",
+    textRDV: dk ? "#34D399" : "#059669",
+  }), [dk]);
+
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([
     {
       role: "ai",
-      text: t('ai_intro_msg', {name: firstName || 'Alex'}) || "Bonjour 👋 Décrivez vos symptômes en détail — localisation, intensité, durée — et je vous fournirai une analyse immédiate avec des recommandations adaptées.",
+      text: "Nouvelle session. Décrivez vos symptômes en détail — localisation, intensité, durée — et je vous fournirai une analyse immédiate.",
     },
   ]);
   const [loading, setLoading] = useState(false);
@@ -1642,625 +1619,330 @@ function AIDiagnosisPage({ dk, firstName }) {
   const [isRecording, setIsRecording] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState([]);
   const messagesEndRef = useRef(null);
+  const textareaRef = useRef(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  const quickSymptoms = [
-    "Maux de tête",
-    "Fièvre",
-    "Fatigue",
-    "Douleur thoracique",
-    "Nausées",
-    "Toux",
-  ];
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
+    }
+  }, [input]);
 
-  const send = (text) => {
+  const quickSymptoms = ["Maux de tête", "Fièvre", "Fatigue", "Douleur thoracique", "Nausées", "Toux"];
+
+  const send = async (text) => {
     const msg = text || input.trim();
     if (!msg && attachedFiles.length === 0) return;
-    const displayText = msg || `📎 ${attachedFiles.length} fichier(s) joint(s)`;
-    setMessages((m) => [
-      ...m,
-      { role: "user", text: displayText, files: attachedFiles },
-    ]);
+    
+    const userMsg = { 
+      role: "user", 
+      text: msg || `📎 ${attachedFiles.length} fichier(s)`, 
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+    };
+    
+    setMessages((m) => [...m, userMsg]);
     setInput("");
     setAttachedFiles([]);
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+
+    try {
+      // Préparation de l'historique pour le backend
+      const history = messages
+        .filter(m => m.role !== "ai" || !m.text.includes("Nouvelle session"))
+        .map(m => ({
+          role: m.role === "user" ? "user" : "assistant",
+          content: m.text
+        }));
+
+      let aiResponseText = "";
+      let metaData = null;
+
+      // Ajoute un message IA vide qui sera rempli par le stream
       setMessages((m) => [
         ...m,
         {
           role: "ai",
-          text: "J'analyse vos symptômes…",
-          result: {
-            urgency: "Urgence modérée",
-            color: "#E8A838",
-            diagnosis: "Possible Angine de Poitrine",
-            confidence: 87,
-            body: "La combinaison douleurs thoraciques + fatigue à l'effort peut indiquer une réduction du flux sanguin cardiaque. Une consultation médicale dans les 24–48h est fortement recommandée.",
-            tags: [
-              "Consultation sous 24h",
-              "Éviter les efforts",
-              "ECG recommandé",
-            ],
-          },
-        },
+          text: "",
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isStreaming: true
+        }
       ]);
-    }, 1500);
+
+      await api.analyzeSymptomsStream(
+        { symptoms: msg, lang: "fr", history },
+        (chunk) => {
+          aiResponseText += chunk;
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            const updated = { ...last, text: aiResponseText };
+            return [...prev.slice(0, -1), updated];
+          });
+        },
+        (meta) => {
+          metaData = meta;
+        }
+      );
+
+      // Une fois le stream terminé, on applique les métadonnées (urgence, diagnostic, etc.)
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        
+        // Conversion des données du backend vers le format attendu par le frontend
+        const result = metaData ? {
+          urgency: metaData.urgency === "urgent" ? "Urgence Élevée" : 
+                   metaData.urgency === "modéré" ? "Urgence modérée" : "Faible priorité",
+          color: metaData.urgency === "urgent" ? "#ef4444" : 
+                 metaData.urgency === "modéré" ? "#2563eb" : "#10b981",
+          diagnosis: metaData.diseases?.[0]?.name_fr || "Analyse terminée",
+          confidence: Math.round((metaData.diseases?.[0]?.confidence || 0.8) * 100),
+          body: aiResponseText,
+          tags: metaData.diseases?.[0]?.key_symptoms?.split(",").map(s => s.trim()) || [],
+          advice: [
+            { 
+              icon: metaData.urgency === "urgent" ? "⚠️" : "🚨", 
+              text: `Urgence : ${metaData.urgency === "urgent" ? "Haute" : metaData.urgency === "modéré" ? "Modérée" : "Faible"}`, 
+              type: "urgency" 
+            },
+            { 
+              icon: "👨‍⚕️", 
+              text: `Spécialiste : ${metaData.specialist?.specialty_fr || "Généraliste"}`, 
+              type: "spec" 
+            },
+            { icon: "📅", text: "Prendre RDV", type: "rdv" }
+          ]
+        } : null;
+
+        return [...prev.slice(0, -1), { ...last, result, isStreaming: false }];
+      });
+
+    } catch (err) {
+      console.error("AI Error:", err);
+      setMessages((m) => [
+        ...m,
+        { role: "ai", text: "Désolé, une erreur est survenue lors de l'analyse. Veuillez réessayer." }
+      ]);
+    } finally {
+      setLoading(false);
+    }
   };
+
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
     setAttachedFiles((prev) => [...prev, ...files.map((f) => f.name)]);
-    e.target.value = "";
   };
 
   const toggleRecording = () => {
-    setIsRecording((r) => !r);
+    setIsRecording(!isRecording);
     if (!isRecording) {
-      // Simulate voice input after 2s
       setTimeout(() => {
         setIsRecording(false);
-        setInput(
-          "J'ai des douleurs thoraciques et de la fatigue depuis 2 jours",
-        );
+        setInput("J'ai des douleurs thoraciques et de la fatigue");
       }, 2000);
     }
   };
 
+  const TypewriterText = useMemo(() => ({ text, isLast }) => {
+    const [displayedText, setDisplayedText] = useState(isLast ? "" : text);
+    useEffect(() => {
+      if (isLast) {
+        let i = 0;
+        const interval = setInterval(() => {
+          setDisplayedText(text.substring(0, i));
+          i++;
+          if (i > text.length) clearInterval(interval);
+        }, 10);
+        return () => clearInterval(interval);
+      } else {
+        setDisplayedText(text);
+      }
+    }, [text, isLast]);
+    return <span>{displayedText}</span>;
+  }, []);
+
   return (
-    <>
-      <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-end justify-end w-full gap-2">
-          {/* History button */}
-          <div className="relative">
-            <button
-              onClick={() => setShowFullHistory(true)}
-              className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl border transition-all hover:opacity-80"
-              style={{
-                color: showFullHistory ? "#fff" : c.blue,
-                borderColor: c.blue,
-                background: showFullHistory ? c.blue : c.card,
-                cursor: "pointer",
-              }}
-            >
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-              </svg>
-              Voir tout l'historique
-            </button>
-          </div>
-          {/* New chat button */}
-          <button
-            onClick={() => {
-              setMessages([
-                {
-                  role: "ai",
-                  text: "Nouvelle session. Décrivez vos symptômes.",
-                },
-              ]);
-            }}
-            className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl border transition-all hover:opacity-80"
-            style={{
-              color: c.blue,
-              borderColor: c.border,
-              background: c.card,
-              cursor: "pointer",
-            }}
-          >
-            <Plus size={14} /> New Chat
-          </button>
+    <div className="relative flex flex-col h-[calc(100vh-60px)]" style={{ color: theme.text, fontFamily: 'Inter, sans-serif' }}>
+      <style>{`
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .ai-border-left { border-left: 3px solid #2563eb; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-slide-up { animation: slideUp 0.4s ease-out forwards; }
+        .card-hover { transition: transform 280ms ease, box-shadow 280ms ease, border-color 280ms ease; }
+        .card-hover:hover { 
+          transform: translateY(-4px); 
+          box-shadow: 0 16px 44px rgba(57,88,134,0.15); 
+          border-color: #B1C9EF !important;
+          background: #ffffff !important;
+          color: #2563eb !important;
+        }
+      `}</style>
+
+      {/* TOP RIGHT FIXED BUTTONS */}
+      <div className="absolute top-2 right-4 z-20 flex items-center gap-2">
+        <button 
+          onClick={() => setShowFullHistory(true)}
+          className="card-hover px-3 py-1.5 text-[11px] font-bold rounded-lg border bg-transparent backdrop-blur-md shadow-sm"
+          style={{ borderColor: theme.border, color: theme.text }}>
+          Historique
+        </button>
+        <button 
+          onClick={() => setMessages([{ role: "ai", text: "Nouvelle session. Décrivez vos symptômes en détail — localisation, intensité, durée — et je vous fournirai une analyse immédiate." }])}
+          className="card-hover px-3 py-1.5 text-[11px] font-bold rounded-lg border bg-transparent backdrop-blur-md shadow-sm"
+          style={{ borderColor: theme.border, color: theme.text }}>
+          New Chat
+        </button>
+      </div>
+
+
+
+      <div className="flex-1 overflow-y-auto px-4 pt-10 pb-4">
+        <div className="max-w-[800px] mx-auto space-y-12">
+          {messages.map((m, i) => {
+            const isLast = i === messages.length - 1 && m.role === "ai" && !loading;
+            return (
+              <div key={i} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
+                <div className={`flex gap-4 w-full ${m.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
+                  {m.role === "ai" && (
+                    <div className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center mt-1" 
+                         style={{ background: "linear-gradient(135deg, #2563eb, #10b981)" }}>
+                      <Brain size={14} className="text-white" />
+                    </div>
+                  )}
+                  
+                  <div className={`flex flex-col gap-1 ${m.role === "user" ? "max-w-[85%]" : "flex-1"}`}>
+                    <div className={`${m.role === "user" 
+                      ? "bg-[#2563eb] text-white rounded-[18px] px-5 py-3 shadow-sm" 
+                      : `bg-transparent px-4 py-3 w-full ${m.isStreaming ? "" : "ai-border-left"}`}`}
+                      style={m.role === "ai" ? { background: theme.aiMsgBg } : {}}>
+                      
+                      {m.role === "ai" ? (
+                        <div className="text-[15px] leading-relaxed relative">
+                          {m.result && <h3 className="text-lg font-bold mb-2">{m.result.diagnosis}</h3>}
+                          {m.result && (
+                            <div className="mb-3">
+                              <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider" 
+                                    style={{ background: `${m.result.color}20`, color: m.result.color }}>
+                                {m.result.urgency}
+                              </span>
+                            </div>
+                          )}
+                          <TypewriterText text={m.text} isLast={isLast} />
+                          {m.result && (
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              {m.result.tags.map(tag => (
+                                <span key={tag} className="text-[11px] px-2.5 py-1 rounded-md" 
+                                      style={{ background: `${theme.accent}15`, color: theme.accent }}>
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-[15px] leading-relaxed">{m.text}</p>
+                      )}
+                    </div>
+                    {m.timestamp && <span className="text-[10px] opacity-40 mt-1 px-1">{m.timestamp}</span>}
+                  </div>
+                </div>
+
+                {m.result && (
+                  <div className="mt-4 w-full animate-slide-up flex flex-wrap gap-3 ml-11">
+                    {m.result.advice.map((ad, idx) => {
+                      const colors = ad.type === "urgency" ? { bg: theme.cardUrgency, text: theme.textUrgency } 
+                                   : ad.type === "spec" ? { bg: theme.cardSpec, text: theme.textSpec }
+                                   : { bg: theme.cardRDV, text: theme.textRDV };
+                      return (
+                        <div key={idx} 
+                             className="border rounded-xl px-4 py-2.5 flex items-center gap-3 shadow-sm transition-all hover:shadow-md hover:scale-105 active:scale-95 cursor-pointer"
+                             style={{ background: colors.bg, borderColor: colors.text + "40", color: colors.text }}
+                             onClick={() => (ad.type === "rdv" || ad.type === "spec") && setPage("appointments")}>
+                          <span className="text-base">{ad.icon}</span>
+                          <span className="text-[13px] font-bold">{ad.text}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {loading && (
+            <div className="flex items-center gap-1 ml-11">
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+          )}
+          <div ref={messagesEndRef} className="h-8" />
         </div>
       </div>
 
-      {/* Full History Sidebar (Slide-in from left) */}
+      {/* INPUT ZONE - BOTTOM STICKY */}
+      <div className="w-full px-4 pb-1 pt-1">
+        <div className="max-w-[800px] mx-auto flex flex-col gap-2">
+          <div className="flex gap-2 overflow-x-auto hide-scrollbar px-1 py-1">
+            {quickSymptoms.map(s => (
+              <button key={s} onClick={() => send(s)} className="whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-medium border transition-all hover:bg-blue-500 hover:text-white" style={{ background: theme.chatBg, borderColor: theme.border, color: theme.text }}>{s}</button>
+            ))}
+          </div>
+          <div className="relative group rounded-[24px] border shadow-md transition-all focus-within:shadow-lg" style={{ background: theme.chatBg, borderColor: theme.border }}>
+            <div className="flex flex-col p-2">
+              <textarea 
+                ref={textareaRef} 
+                rows={1} 
+                value={input} 
+                onChange={(e) => setInput(e.target.value)} 
+                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), send())} 
+                placeholder="Décrivez vos symptômes..." 
+                className="w-full px-4 py-3 bg-transparent outline-none resize-none text-[15px] leading-relaxed diagnosis-textarea" 
+                style={{ color: theme.text, maxHeight: '180px' }} 
+              />
+              <style>{`
+                .diagnosis-textarea::placeholder {
+                  color: ${dk ? 'rgba(230, 237, 243, 0.4)' : 'rgba(13, 17, 23, 0.4)'} !important;
+                  opacity: 1;
+                }
+              `}</style>
+              <div className="flex items-center justify-between px-2 pb-1">
+                <div className="flex items-center gap-1">
+                  <button onClick={toggleRecording} className={`p-2 rounded-full transition-colors ${isRecording ? 'text-red-500 bg-red-50' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}><Mic size={20} /></button>
+                  <label className="p-2 rounded-full text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"><input type="file" multiple className="hidden" onChange={handleFileChange} /><Paperclip size={20} /></label>
+                </div>
+                <button onClick={() => send()} disabled={!input.trim() && attachedFiles.length === 0} className={`p-2.5 rounded-full transition-all ${input.trim() || attachedFiles.length > 0 ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-400 dark:bg-gray-800'}`}><Send size={18} /></button>
+              </div>
+            </div>
+          </div>
+          <p className="text-[11px] text-center opacity-50" style={{ color: theme.text }}>
+            MedSmart AI est une intelligence artificielle et peut faire des erreurs. Veuillez vérifier les réponses importantes avec un professionnel de santé.
+          </p>
+        </div>
+      </div>
+
       {showFullHistory && (
         <>
-          {/* Overlay */}
-          <div
-            className="fixed inset-0 z-40 transition-opacity"
-            style={{ background: "rgba(0,0,0,0.5)" }}
-            onClick={() => setShowFullHistory(false)}
-            aria-hidden="true"
-          />
-          {/* Sidebar Panel */}
-          <div
-            className="fixed top-0 left-0 w-[280px] h-full z-50 flex flex-col shadow-2xl"
-            style={{
-              background: c.card,
-              borderRight: `1px solid ${c.border}`,
-              animation: "slideInLeft 0.3s ease forwards",
-            }}
-          >
-            <style>{`
-              @keyframes slideInLeft {
-                from { transform: translateX(-100%); }
-                to { transform: translateX(0); }
-              }
-            `}</style>
-
-            <div
-              className="px-4 py-4 flex items-center justify-between border-b"
-              style={{ borderColor: c.border }}
-            >
-              <p
-                className="font-bold whitespace-nowrap"
-                style={{ color: c.txt }}
-              >
-                Historique COMPLET
-              </p>
-              <button
-                onClick={() => setShowFullHistory(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-full hover:opacity-70 transition-all font-bold"
-                style={{ color: c.txt3, background: c.bg }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto w-full">
-              {HISTORY_SESSIONS.length === 0 ? (
-                <div className="p-8 text-center" style={{ color: c.txt3 }}>
-                  <Brain size={24} className="mx-auto mb-2 opacity-50" />
-                  <p className="text-xs">Aucun historique disponible.</p>
-                </div>
-              ) : (
-                HISTORY_SESSIONS.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => {
-                      setShowFullHistory(false);
-                      setMessages([
-                        {
-                          role: "ai",
-                          text: `Session chargée : "${s.title}"`,
-                        },
-                      ]);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-4 border-b text-left transition-colors hover:opacity-80"
-                    style={{
-                      borderColor: c.border,
-                      background: "transparent",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                      style={{ background: BADGE_COLORS[s.badge] + "18" }}
-                    >
-                      <Brain
-                        size={16}
-                        style={{ color: BADGE_COLORS[s.badge] }}
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0 pr-2">
-                      <p
-                        className="text-sm font-semibold truncate leading-tight mb-1"
-                        style={{ color: c.txt }}
-                      >
-                        {s.title}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <p className="text-xs" style={{ color: c.txt3 }}>
-                          {s.date}
-                        </p>
-                      </div>
-                    </div>
-                    <span
-                      className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
-                      style={{
-                        color: BADGE_COLORS[s.badge],
-                        background: BADGE_COLORS[s.badge] + "18",
-                      }}
-                    >
-                      {s.badgeLabel}
-                    </span>
-                  </button>
-                ))
-              )}
+          <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setShowFullHistory(false)} />
+          <div className="fixed top-0 left-0 w-[320px] h-full z-50 flex flex-col shadow-2xl border-r" style={{ background: theme.chatBg, borderColor: theme.border, animation: "slideInLeft 0.3s ease forwards" }}>
+            <div className="p-6 flex items-center justify-between border-b" style={{ borderColor: theme.border }}><h2 className="font-bold text-lg">Historique</h2><button onClick={() => setShowFullHistory(false)} className="text-gray-400 hover:text-black dark:hover:text-white"><X size={20} /></button></div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              {HISTORY_SESSIONS.map(s => (
+                <button key={s.id} onClick={() => setShowFullHistory(false)} className="w-full text-left p-4 rounded-xl border transition-all hover:bg-black/5 dark:hover:bg-white/5" style={{ borderColor: theme.border }}><p className="font-semibold text-sm mb-1">{s.title}</p><p className="text-[11px] opacity-60">{s.date}</p></button>
+              ))}
             </div>
           </div>
         </>
       )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Chat */}
-        <div
-          className="lg:col-span-2 flex flex-col gap-4"
-          style={{ marginTop: "-60px" }}
-        >
-          <Card dk={dk} empty={true} style={{ padding: 0, overflow: "hidden" }}>
-            {/* Messages */}
-            <div
-              className="p-4 space-y-4 overflow-y-auto"
-              style={{ minHeight: 450, maxHeight: 600 }}
-            >
-              {messages.map((m, i) => (
-                <div
-                  key={i}
-                  className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : ""}`}
-                >
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-                    style={{
-                      background:
-                        m.role === "ai"
-                          ? "linear-gradient(135deg, #4A6FA5, #304B71)"
-                          : "linear-gradient(135deg, #2D8C6F, #3aaa88)",
-                    }}
-                  >
-                    {m.role === "ai" ? "AI" : "AJ"}
-                  </div>
-                  <div className="max-w-[80%]">
-                    <div
-                      className="rounded-2xl p-3.5 text-sm"
-                      style={{
-                        background: m.role === "ai" ? c.card : c.blue,
-                        color: m.role === "ai" ? c.txt : "#fff",
-                        border:
-                          m.role === "ai" ? `1px solid ${c.border}` : "none",
-                        borderRadius:
-                          m.role === "ai"
-                            ? "4px 16px 16px 16px"
-                            : "16px 4px 16px 16px",
-                      }}
-                    >
-                      {m.text}
-                      {m.result && (
-                        <div
-                          className="mt-3 rounded-xl p-3 border"
-                          style={{
-                            background: dk
-                              ? "rgba(255,255,255,0.05)"
-                              : "#F8FAFC",
-                            borderColor: c.border,
-                          }}
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <span
-                              className="text-xs font-bold uppercase tracking-wide"
-                              style={{ color: c.txt3 }}
-                            >
-                              Analyse IA
-                            </span>
-                            <Badge
-                              color={m.result.color}
-                              bg={m.result.color + "18"}
-                            >
-                              {m.result.urgency}
-                            </Badge>
-                          </div>
-                          <p
-                            className="font-bold text-sm mb-1"
-                            style={{ color: c.txt }}
-                          >
-                            {m.result.diagnosis}
-                          </p>
-                          <p className="text-xs mb-2" style={{ color: c.txt2 }}>
-                            {m.result.body}
-                          </p>
-                          <div className="flex flex-wrap gap-1">
-                            {m.result.tags.map((t) => (
-                              <span
-                                key={t}
-                                className="text-xs px-2 py-0.5 rounded-full"
-                                style={{
-                                  background: c.blueLight,
-                                  color: c.blue,
-                                }}
-                              >
-                                {t}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {loading && (
-                <div className="flex gap-3">
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                    style={{
-                      background: "linear-gradient(135deg, #4A6FA5, #304B71)",
-                    }}
-                  >
-                    AI
-                  </div>
-                  <div
-                    className="rounded-2xl p-3.5 flex items-center gap-1.5"
-                    style={{
-                      background: c.card,
-                      border: `1px solid ${c.border}`,
-                    }}
-                  >
-                    {[0, 1, 2].map((i) => (
-                      <div
-                        key={i}
-                        className="w-1.5 h-1.5 rounded-full animate-bounce"
-                        style={{
-                          background: c.txt3,
-                          animationDelay: `${i * 0.15}s`,
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Input area */}
-            <div className="p-4 border-t" style={{ borderColor: c.border }}>
-              {/* Quick symptoms */}
-              <div className="flex gap-2 flex-wrap mb-3">
-                {quickSymptoms.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => send(s)}
-                    className="text-xs px-3 py-1.5 rounded-full border transition-colors hover:opacity-80"
-                    style={{
-                      background: c.blueLight,
-                      color: c.blue,
-                      borderColor: c.blue + "40",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-
-              {/* Attached files preview */}
-              {attachedFiles.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {attachedFiles.map((f, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border"
-                      style={{
-                        background: c.blueLight,
-                        borderColor: c.border,
-                        color: c.txt,
-                      }}
-                    >
-                      <FileText size={11} style={{ color: c.blue }} />
-                      {f.length > 20 ? f.slice(0, 18) + "…" : f}
-                      <button
-                        onClick={() =>
-                          setAttachedFiles((fs) => fs.filter((_, j) => j !== i))
-                        }
-                        className="ml-1 hover:opacity-70"
-                        style={{ color: c.txt3, cursor: "pointer" }}
-                      >
-                        <X size={11} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Recording indicator */}
-              {isRecording && (
-                <div
-                  className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl border"
-                  style={{
-                    background: "rgba(224,85,85,0.08)",
-                    borderColor: "rgba(224,85,85,0.3)",
-                  }}
-                >
-                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                  <span
-                    className="text-xs font-semibold"
-                    style={{ color: "#E05555" }}
-                  >
-                    Enregistrement en cours… parlez maintenant
-                  </span>
-                </div>
-              )}
-
-              {/* Input row */}
-              <div
-                className="flex items-center gap-2 rounded-xl border px-3 py-2"
-                style={{ background: c.blueLight, borderColor: c.border }}
-              >
-                {/* Add files button */}
-                <label
-                  title="Ajouter fichiers ou photos"
-                  className="w-9 h-9 rounded-lg flex items-center justify-center border transition-colors hover:opacity-70 shrink-0"
-                  style={{
-                    borderColor: c.border,
-                    background: c.card,
-                    cursor: "pointer",
-                  }}
-                >
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*,.pdf,.doc,.docx"
-                    className="hidden"
-                    onChange={handleFileChange}
-                  />
-                  <svg
-                    width="15"
-                    height="15"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    style={{ color: c.txt2 }}
-                  >
-                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                  </svg>
-                </label>
-
-                {/* Text input */}
-                <input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && send()}
-                  placeholder={
-                    isRecording
-                      ? "Enregistrement…"
-                      : "Décrivez vos symptômes en détail…"
-                  }
-                  disabled={isRecording}
-                  className="flex-1 text-sm outline-none bg-transparent"
-                  style={{ color: c.txt }}
-                />
-
-                {/* Voice button */}
-                <button
-                  onClick={toggleRecording}
-                  title={
-                    isRecording ? "Arrêter l'enregistrement" : "Message vocal"
-                  }
-                  className="w-9 h-9 rounded-lg flex items-center justify-center border transition-all hover:opacity-80 shrink-0"
-                  style={{
-                    borderColor: isRecording ? "rgba(224,85,85,0.5)" : c.border,
-                    background: isRecording ? "rgba(224,85,85,0.12)" : c.card,
-                    cursor: "pointer",
-                  }}
-                >
-                  <svg
-                    width="15"
-                    height="15"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    style={{ color: isRecording ? "#E05555" : c.txt2 }}
-                  >
-                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                    <line x1="12" y1="19" x2="12" y2="23" />
-                    <line x1="8" y1="23" x2="16" y2="23" />
-                  </svg>
-                </button>
-
-                {/* Send button */}
-                <button
-                  onClick={() => send()}
-                  title="Envoyer"
-                  className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:opacity-80 shrink-0"
-                  style={{ background: c.blue, cursor: "pointer" }}
-                >
-                  <Send size={14} className="text-white" />
-                </button>
-              </div>
-
-              <p className="text-xs mt-2 text-center" style={{ color: c.txt3 }}>
-                ⏎ Entrée pour envoyer · 🎤 Vocal disponible · 📎 Fichiers
-                acceptés
-              </p>
-            </div>
-          </Card>
-        </div>
-        {/* Panel */}
-        <div className="space-y-4">
-          <Card dk={dk}>
-            <p
-              className="text-xs font-bold uppercase tracking-wide mb-3"
-              style={{ color: c.txt3 }}
-            >
-              Niveau d'urgence
-            </p>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-bold" style={{ color: "#E8A838" }}>
-                Modérée
-              </span>
-              <Badge color="#E8A838" bg="#E8A83818">
-                65 / 100
-              </Badge>
-            </div>
-            <div
-              className="w-full h-2 rounded-full overflow-hidden"
-              style={{ background: c.blueLight }}
-            >
-              <div
-                className="h-full rounded-full"
-                style={{ width: "65%", background: "#E8A838" }}
-              />
-            </div>
-          </Card>
-          <Card dk={dk}>
-            <p
-              className="text-xs font-bold uppercase tracking-wide mb-3"
-              style={{ color: c.txt3 }}
-            >
-              Spécialiste recommandé
-            </p>
-            <div
-              className="flex items-center gap-3 p-3 rounded-xl mb-3"
-              style={{ background: c.blueLight }}
-            >
-              <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center"
-                style={{
-                  background: c.blueLight,
-                  border: `1px solid ${c.border}`,
-                }}
-              >
-                <User size={16} style={{ color: c.blue }} />
-              </div>
-              <div>
-                <p className="text-sm font-bold" style={{ color: c.txt }}>
-                  Cardiologue
-                </p>
-                <p className="text-xs" style={{ color: c.txt2 }}>
-                  Sous 24–48 heures
-                </p>
-              </div>
-            </div>
-            <button
-              className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-colors hover:opacity-90"
-              style={{ background: c.blue }}
-            >
-              Prendre rendez-vous
-            </button>
-          </Card>
-          <Card dk={dk}>
-            <p
-              className="text-xs font-bold uppercase tracking-wide mb-3"
-              style={{ color: c.txt3 }}
-            >
-              Conseils immédiats
-            </p>
-            <div className="space-y-2.5">
-              {[
-                ["💊", "Paracétamol 1g max toutes 6h"],
-                ["🛌", "Repos strict"],
-                ["💧", "Hydratation 1.5L/jour"],
-                ["🧂", "Réduire sel et caféine"],
-              ].map(([e, t]) => (
-                <div
-                  key={t}
-                  className="flex items-start gap-2 text-sm"
-                  style={{ color: c.txt2 }}
-                >
-                  <span>{e}</span>
-                  <span>{t}</span>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-      </div>
-    </>
+    </div>
   );
 }
+
+
+
 
 // ─── APPOINTMENTS PAGE ────────────────────────────────────────────────────────
 function AppointmentsPage({
@@ -5949,7 +5631,8 @@ export default function PatientDashboard({ onLogout }) {
           />
         );
       case "ai-diagnosis":
-        return <AIDiagnosisPage dk={dk} firstName={userData?.first_name || "Guest"} />;
+        return <AIDiagnosisPage dk={dk} firstName={userData?.first_name || "Guest"} setPage={setPage} />;
+
       case "appointments":
         return <AppointmentsPage {...props} />;
       case "prescriptions":
@@ -6373,7 +6056,9 @@ export default function PatientDashboard({ onLogout }) {
       </nav>
 
       {/* Page content */}
-      <main className="w-full px-6 py-6"><ErrorBoundary>{renderPage()}</ErrorBoundary></main>
+      <main className={`w-full ${page === "ai-diagnosis" ? "px-0 py-0" : "px-6 py-6"}`}>
+        <ErrorBoundary>{renderPage()}</ErrorBoundary>
+      </main>
 
       {/* Close dropdown on outside click */}
       {profileOpen && (

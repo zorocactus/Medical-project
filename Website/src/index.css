@@ -1,5 +1,30 @@
 @import "tailwindcss";
 
+:root {
+  --ai-light-bg: #f6f8fa;
+  --ai-light-chat: #ffffff;
+  --ai-light-accent: #2563eb;
+  --ai-light-text: #0d1117;
+  --ai-light-ai-msg: #f8fafc;
+  
+  --ai-dark-bg: #0d1117;
+  --ai-dark-chat: #161b22;
+  --ai-dark-accent: #3b82f6;
+  --ai-dark-text: #e6edf3;
+  --ai-dark-ai-msg: #161b22;
+}
+
+
+/* ── Hover animation partagée — même effet que les cartes médecins de la landing ── */
+.card-hover {
+  transition: transform 280ms ease, box-shadow 280ms ease, border-color 280ms ease;
+}
+.card-hover:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 16px 44px rgba(57, 88, 134, 0.15);
+  border-color: #B1C9EF !important;
+}
+
 @layer utilities {
   .animate-in {
     animation-fill-mode: both;
@@ -40,3 +65,24 @@
       transform: translateY(0);
     }
   }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes typewriter {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.4s ease-out forwards;
+  }
+

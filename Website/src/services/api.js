@@ -1181,3 +1181,90 @@ export async function handleReportAction(reportId, action) {
     body: JSON.stringify({ action }),
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 11. DIAGNOSTIC IA  →  /api/diagnostic/
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Envoie les symptômes pour analyse IA (Streaming ou Normal)
+ * @param {object} data — { symptoms, lang, history }
+ */
+export async function analyzeSymptoms(data) {
+  return apiFetch("/diagnostic/chat/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Version streaming pour une expérience plus fluide (type ChatGPT)
+ * @param {object} data — { symptoms, lang, history }
+ * @param {function} onChunk — callback appelé pour chaque morceau de texte
+ * @param {function} onMeta — callback appelé pour les données (urgence, spécialiste...)
+ */
+export async function analyzeSymptomsStream(data, onChunk, onMeta) {
+  const token = getToken();
+  const response = await fetch(`${BASE_URL}/diagnostic/chat/stream/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) throw new Error("Erreur streaming");
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    const chunk = decoder.decode(value);
+    const lines = chunk.split("\n");
+
+    for (const line of lines) {
+      if (line.startsWith("data: ")) {
+        const dataStr = line.slice(6).trim();
+        if (dataStr === "[DONE]") break;
+        try {
+          const payload = JSON.parse(dataStr);
+          if (payload.type === "chunk") onChunk(payload.text);
+          if (payload.type === "meta") onMeta(payload);
+        } catch (e) {
+          console.warn("Erreur parsing stream chunk:", e);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Analyse un document médical (Ordonnance, Radio, Labo)
+ * @param {File} file
+ * @param {string} message — question ou contexte de l'utilisateur
+ */
+export async function analyzeMedicalFile(file, message = "", lang = "fr") {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("message", message);
+  formData.append("lang", lang);
+
+  return apiFetch("/diagnostic/chat/analyze-file/", {
+    method: "POST",
+    body: formData,
+  });
+}
+
+/** Récupère les sessions de conversation IA passées */
+export async function getAISessions() {
+  return apiFetch("/diagnostic/chat/sessions/");
+}
+
+/** Récupère l'historique complet des interactions IA */
+export async function getAIHistory() {
+  return apiFetch("/diagnostic/chat/history/");
+}

@@ -86,9 +86,7 @@ function getInitials(a = "", b = "") {
 // ─── Reusable components ──────────────────────────────────────────────────────
 function Card({ children, className = "", style = {}, dk, empty = false }) {
   const c = dk ? T.dark : T.light;
-  const hoverClasses = empty
-    ? ""
-    : "transition-transform duration-200 hover:scale-[1.02]";
+  const hoverClasses = empty ? "" : "card-hover";
   return (
     <div
       className={`rounded-2xl p-5 shadow-sm border ${hoverClasses} ${className}`}
@@ -1497,7 +1495,7 @@ function PrescriptionsView() {
               {rxList.slice(0, 6).map((rx, i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
+                  className="flex items-center justify-between p-3 rounded-xl border cursor-pointer card-hover"
                   style={{ background: c.bg + "22", borderColor: c.border }}
                 >
                   <div>
