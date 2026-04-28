@@ -12,7 +12,7 @@ const DEV_DATA = {
   postalCode: "16000", city: "Alger-Centre", wilaya: "Alger",
 };
 
-export default function PatientForm({ onComplete, onBack }) {
+export default function PatientForm({ onComplete, onBack, initialData }) {
   return (
     <PersonalInfoForm
       onComplete={onComplete}
@@ -20,6 +20,7 @@ export default function PatientForm({ onComplete, onBack }) {
       steps={PATIENT_STEPS}
       currentStep={1}
       devFillData={DEV_DATA}
+      initialData={initialData}
     />
   );
 }

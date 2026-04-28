@@ -58,7 +58,35 @@ const ROLE_CONFIG = {
   "Garde-malade": { icon: <Users size={16} />,       color: "#9B7FD4", title: "Garde-Malade" },
 };
 
-export default function MedicalDocumentsForm({ onComplete, onBack, medicalRole = "Médecin" }) {
+// Mapping clé backend → label lisible pour le bloc récapitulatif
+const FIELD_LABELS = {
+  id_card_recto:            "CIN Recto",
+  id_card_verso:            "CIN Verso",
+  photo:                    "Photo de profil",
+  wilaya:                   "Wilaya",
+  practice_authorization:   "Autorisation d'exercer",
+  registre_commerce:        "Registre de commerce",
+  specialty:                "Spécialité",
+  order_number:             "N° d'inscription Ordre",
+  clinic_name:              "Nom du cabinet",
+  experience_years:         "Années d'expérience",
+  cnas_coverage:            "Conventionné CNAS",
+  email:                    "Email",
+  phone:                    "Téléphone",
+  address:                  "Adresse",
+  postal_code:              "Code postal",
+  city:                     "Ville",
+  non_field_errors:         "Erreur générale",
+};
+
+// Clés gérées inline selon le rôle (pas dans le récapitulatif)
+const INLINE_KEYS = {
+  "Médecin":      [],
+  "Pharmacien":   ["agreement_scan", "order_registration_number"],
+  "Garde-malade": ["criminal_record_scan"],
+};
+
+export default function MedicalDocumentsForm({ onComplete, onBack, medicalRole = "Médecin", serverErrors = {} }) {
   const { theme } = useTheme();
   const { t } = useLanguage();
   const isDark = theme === "dark";
@@ -167,6 +195,24 @@ export default function MedicalDocumentsForm({ onComplete, onBack, medicalRole =
           {sectionTitle}
         </p>
 
+        {/* ── Récapitulatif des erreurs serveur non gérées inline ────────────── */}
+        {(() => {
+          const inlineKeys = new Set(INLINE_KEYS[medicalRole] || []);
+          const summaryEntries = Object.entries(serverErrors).filter(([k]) => !inlineKeys.has(k));
+          if (!summaryEntries.length) return null;
+          return (
+            <div className="mb-5 rounded-xl border px-4 py-3 space-y-1"
+              style={{ borderColor: "#f87171", background: "rgba(248,113,113,0.07)" }}>
+              {summaryEntries.map(([key, msgs]) => (
+                <p key={key} className="text-[12px] text-red-400">
+                  <span className="font-semibold">{FIELD_LABELS[key] || key} :</span>{" "}
+                  {Array.isArray(msgs) ? msgs[0] : msgs}
+                </p>
+              ))}
+            </div>
+          );
+        })()}
+
         {medicalRole === "Médecin" && (
           <div className="space-y-3 mb-6">
             <UploadZone id="doc-diploma" label={t('auth.register.activity.diplomaCopy')}
@@ -177,7 +223,8 @@ export default function MedicalDocumentsForm({ onComplete, onBack, medicalRole =
         {medicalRole === "Garde-malade" && (
           <div className="space-y-3 mb-6">
             <UploadZone id="doc-criminal" label={t('auth.register.documents.criminalRecord')}
-              value={formData.criminalRecordFile} onChange={handleFile("criminalRecordFile")} error={errors.criminalRecordFile} c={c} />
+              value={formData.criminalRecordFile} onChange={handleFile("criminalRecordFile")}
+              error={errors.criminalRecordFile || serverErrors?.criminal_record_scan?.[0]} c={c} />
             <UploadZone id="doc-diploma" label={t('auth.register.activity.diplomaCopy')}
               value={formData.diplomaFile} onChange={handleFile("diplomaFile")} error={errors.diplomaFile} c={c} />
           </div>
@@ -186,10 +233,11 @@ export default function MedicalDocumentsForm({ onComplete, onBack, medicalRole =
         {medicalRole === "Pharmacien" && (
           <div className="space-y-3 mb-6">
             <UploadZone id="doc-agreement" label={t('auth.register.documents.agreementScan')}
-              value={formData.agreementFile} onChange={handleFile("agreementFile")} error={errors.agreementFile} c={c} />
+              value={formData.agreementFile} onChange={handleFile("agreementFile")}
+              error={errors.agreementFile || serverErrors?.agreement_scan?.[0]} c={c} />
             <TextField name="orderNumber" label={t('auth.register.activity.orderRegistration')}
               placeholder={t('auth.register.activity.registrationHint')} value={formData.orderNumber}
-              onChange={handleText} error={errors.orderNumber} c={c} />
+              onChange={handleText} error={errors.orderNumber || serverErrors?.order_registration_number?.[0]} c={c} />
           </div>
         )}
 

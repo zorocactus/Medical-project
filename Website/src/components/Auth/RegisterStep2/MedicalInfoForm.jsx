@@ -145,7 +145,7 @@ const ROLE_CONFIG = {
   "Garde-malade": { icon: <Users size={16} />,       color: "#9B7FD4", title: "Garde-Malade" },
 };
 
-export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Médecin" }) {
+export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Médecin", initialData, serverErrors = {} }) {
   const { theme } = useTheme();
   const { t } = useLanguage();
   const isDark = theme === "dark";
@@ -191,7 +191,8 @@ export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Mé
   const [formData, setFormData] = useState({
     specialite: "", nInscription: "", cabinetName: "", mapsUrl: "",
     pharmacyName: "", agrement: "", pharmacyMapsUrl: "",
-    qualification: "", experienceYears: "", tarifSoin: "", wilaya: "",
+    qualification: "", experienceYears: "", tarifSoin: "",
+    wilaya: initialData?.wilaya || "Alger",
     cnas: "Oui", docFile: null,
   });
   const [errors, setErrors] = useState({});
@@ -228,7 +229,11 @@ export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Mé
       if (!formData.wilaya)                 newErrors.wilaya          = t('auth.register.fieldRequired');
     }
     if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
-    onComplete({ ...formData, medicalRole });
+    const result = { ...formData, medicalRole };
+    // Pour médecin et pharmacien, wilaya vient de l'étape 2 (tempUser).
+    // On ne l'inclut pas ici pour éviter de l'écraser avec "" ou la valeur de ce step.
+    if (medicalRole !== "Garde-malade") delete result.wilaya;
+    onComplete(result);
   };
 
   const handleDevFill = () => {
@@ -269,22 +274,23 @@ export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Mé
           <div className="grid grid-cols-2 gap-3 mb-6">
             <div className="col-span-2">
               <CustomSelect label={t('auth.register.activity.medicalSpecialty')} value={formData.specialite} options={SPECIALITES}
-                onSelect={(v) => handleField("specialite", v)} error={errors.specialite} c={c} />
+                onSelect={(v) => handleField("specialite", v)} error={errors.specialite || serverErrors?.specialty?.[0]} c={c} />
             </div>
             <TextField name="nInscription" label={t('auth.register.activity.orderRegistration')}
               placeholder={t('auth.register.activity.registrationHint')} value={formData.nInscription}
-              onChange={handleChange} onFieldChange={handleField} numeric maxLen={10} error={errors.nInscription} c={c} />
+              onChange={handleChange} onFieldChange={handleField} numeric maxLen={10} error={errors.nInscription || serverErrors?.order_number?.[0]} c={c} />
             <TextField name="cabinetName" label={t('auth.register.activity.clinicName')}
               placeholder={t('auth.register.activity.clinicNameHint')} value={formData.cabinetName}
-              onChange={handleChange} onFieldChange={handleField} error={errors.cabinetName} c={c} />
+              onChange={handleChange} onFieldChange={handleField} error={errors.cabinetName || serverErrors?.clinic_name?.[0]} c={c} />
             <TextField name="experienceYears" label={t('auth.register.activity.experienceYears')}
               placeholder={t('auth.register.activity.experienceHint')} value={formData.experienceYears}
-              onChange={handleChange} onFieldChange={handleField} numeric maxLen={2} suffix="ans" error={errors.experienceYears} c={c} />
+              onChange={handleChange} onFieldChange={handleField} numeric maxLen={2} suffix="ans" error={errors.experienceYears || serverErrors?.experience_years?.[0]} c={c} />
             <MapsInput label={t('auth.register.activity.googleMaps')} value={formData.mapsUrl}
               onChange={(e) => handleField("mapsUrl", e.target.value)} error={errors.mapsUrl} c={c} />
             <div className="col-span-2">
               <UploadZone id="autorisationFile" label={t('auth.register.activity.exerciseAuth')}
-                value={formData.docFile} onChange={docChangeHandler} error={errors.docFile} c={c} />
+                value={formData.docFile} onChange={docChangeHandler}
+                error={errors.docFile || serverErrors?.practice_authorization?.[0]} c={c} />
             </div>
           </div>
         )}
@@ -294,17 +300,18 @@ export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Mé
           <div className="grid grid-cols-2 gap-3 mb-6">
             <TextField name="pharmacyName" label={t('auth.register.activity.pharmacyName')}
               placeholder={t('auth.register.activity.pharmacyNameHint')} value={formData.pharmacyName}
-              onChange={handleChange} onFieldChange={handleField} error={errors.pharmacyName} c={c} />
+              onChange={handleChange} onFieldChange={handleField} error={errors.pharmacyName || serverErrors?.name?.[0]} c={c} />
             <TextField name="agrement" label={t('auth.register.activity.nationalAgreement')}
               placeholder={t('auth.register.activity.pharmacyLicenseHint')} value={formData.agrement}
-              onChange={handleChange} onFieldChange={handleField} numeric maxLen={12} error={errors.agrement} c={c} />
+              onChange={handleChange} onFieldChange={handleField} numeric maxLen={12} error={errors.agrement || serverErrors?.agreement_number?.[0]} c={c} />
             <div className="col-span-2">
               <MapsInput label={t('auth.register.activity.googleMaps')} value={formData.pharmacyMapsUrl}
                 onChange={(e) => handleField("pharmacyMapsUrl", e.target.value)} error={errors.pharmacyMapsUrl} c={c} />
             </div>
             <div className="col-span-2">
               <UploadZone id="registreFile" label={t('auth.register.activity.tradeRegister')}
-                value={formData.docFile} onChange={docChangeHandler} error={errors.docFile} c={c} />
+                value={formData.docFile} onChange={docChangeHandler}
+                error={errors.docFile || serverErrors?.registre_commerce?.[0]} c={c} />
             </div>
           </div>
         )}
@@ -318,14 +325,14 @@ export default function MedicalInfoForm({ onComplete, onBack, medicalRole = "Mé
             </div>
             <TextField name="experienceYears" label={t('auth.register.activity.experienceYears')}
               placeholder={t('auth.register.activity.experienceHint')} value={formData.experienceYears}
-              onChange={handleChange} onFieldChange={handleField} numeric maxLen={2} suffix="ans" error={errors.experienceYears} c={c} />
+              onChange={handleChange} onFieldChange={handleField} numeric maxLen={2} suffix="ans" error={errors.experienceYears || serverErrors?.experience_years?.[0]} c={c} />
             <TextField name="tarifSoin" label={t('auth.register.activity.careRate')}
               placeholder={t('auth.register.activity.rateHint')} value={formData.tarifSoin}
-              onChange={handleChange} onFieldChange={handleField} numeric maxLen={6} suffix="DZD" error={errors.tarifSoin} c={c} />
+              onChange={handleChange} onFieldChange={handleField} numeric maxLen={6} suffix="DZD" error={errors.tarifSoin || serverErrors?.tarif_de_base?.[0]} c={c} />
             <div className="col-span-2">
               <CustomSelect label={t('auth.register.activity.interventionZone')} value={formData.wilaya}
                 options={WILAYAS} onSelect={(v) => handleField("wilaya", v)}
-                placeholder={t('auth.register.personalInfo.wilayaHint')} error={errors.wilaya} c={c} />
+                placeholder={t('auth.register.personalInfo.wilayaHint')} error={errors.wilaya || serverErrors?.availability_area?.[0]} c={c} />
             </div>
           </div>
         )}

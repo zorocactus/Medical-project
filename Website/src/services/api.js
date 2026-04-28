@@ -795,6 +795,31 @@ export async function changePassword(data) {
   });
 }
 
+// ─── Inscription — pré-vérification email (étape 1.5) ────────────────────────
+
+/**
+ * Envoie un OTP à l'email pour vérifier qu'il est disponible avant inscription.
+ * @param {string} email
+ */
+export async function sendRegisterOTP(email) {
+  return apiFetch("/auth/register/send-otp/", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+/**
+ * Vérifie le code OTP de pré-inscription (sans le marquer utilisé).
+ * @param {string} email
+ * @param {string} code — 6 chiffres
+ */
+export async function verifyRegisterOTP(email, code) {
+  return apiFetch("/auth/register/verify-otp/", {
+    method: "POST",
+    body: JSON.stringify({ email, code }),
+  });
+}
+
 // ─── Mot de passe oublié — flux 3 étapes ─────────────────────────────────────
 
 /**

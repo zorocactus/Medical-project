@@ -3366,335 +3366,224 @@ function AppointmentsPage({
       {/* ──── TAB: TROUVER UN MÉDECIN ──── */}
       {tab === "finddoctor" && (
         <>
-          {/* ── Search bar (compact 44px) ── */}
-          <div
-            className="relative z-20 flex items-center px-3 rounded-xl border transition-all mb-3 max-w-[900px] mx-auto"
-            style={{
-              borderColor: searchFocused ? c.blue : c.border,
-              background: c.card,
-              boxShadow: searchFocused
-                ? `0 0 0 4px ${c.blue}1A`
-                : "none",
-              height: 44,
-            }}
-          >
-            <div className="flex items-center gap-2 flex-1 min-w-0 pr-2 md:pr-36">
-              <Search
-                size={16}
-                style={{ color: searchFocused ? c.blue : c.txt3 }}
-              />
-              <input
-                type="text"
-                placeholder={t('search_doctor_placeholder')}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onFocus={() => setSearchFocused(true)}
-                onBlur={() => setSearchFocused(false)}
-                className="w-full bg-transparent border-none outline-none text-[.87rem] font-medium placeholder:text-[#9AACBE]"
-                style={{ color: c.txt }}
-              />
+          {/* ── Mobile toggle list/map ── */}
+          <div className="flex md:hidden mb-4 justify-center">
+            <div className="flex p-1 rounded-full border shadow-sm" style={{ background: c.card, borderColor: c.border }}>
+              <button
+                onClick={() => setShowMapMobile(false)}
+                className="px-4 py-1.5 rounded-full text-xs font-bold transition-all"
+                style={{ background: !showMapMobile ? c.blue : 'transparent', color: !showMapMobile ? '#fff' : c.txt2 }}
+              >
+                Liste
+              </button>
+              <button
+                onClick={() => setShowMapMobile(true)}
+                className="px-4 py-1.5 rounded-full text-xs font-bold transition-all"
+                style={{ background: showMapMobile ? c.blue : 'transparent', color: showMapMobile ? '#fff' : c.txt2 }}
+              >
+                Carte
+              </button>
             </div>
+          </div>
 
-            {/* Center: location dropdown */}
-            <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center">
-              <div className="w-px h-5 mr-2" style={{ background: c.border }} />
-              <div className="relative">
-                <button
-                  onClick={() => setLocationOpen((o) => !o)}
-                  className="flex items-center gap-2 px-2.5 py-1 rounded-lg transition-all hover:bg-opacity-80"
-                  style={{ background: "transparent" }}
+          <div style={{ display: "flex", gap: "24px", alignItems: "flex-start" }}>
+
+            {/* Colonne gauche — scrollable */}
+            <div className={showMapMobile ? 'hidden md:block' : ''} style={{ flex: "0 0 65%", minWidth: 0 }}>
+              {/* Searchbar principale */}
+              <div className="mb-4">
+                <div
+                  className="rounded-2xl border flex items-center gap-3 px-4 py-3 transition-all"
+                  style={{
+                    background: dk ? '#1a2235' : c.card,
+                    borderColor: searchFocused ? c.blue : c.border,
+                    boxShadow: searchFocused ? `0 0 0 3px ${c.blue}22` : '0 2px 8px rgba(0,0,0,0.06)',
+                  }}
                 >
-                  <MapPin
-                    size={16}
-                    style={{ color: locationOpen ? c.blue : c.txt3 }}
+                  <Search size={18} style={{ color: searchFocused ? c.blue : c.txt3, flexShrink: 0 }} />
+                  <input
+                    type="text"
+                    placeholder="Rechercher un médecin, une spécialité..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onFocus={() => setSearchFocused(true)}
+                    onBlur={() => setSearchFocused(false)}
+                    className="flex-1 bg-transparent border-none outline-none text-sm font-medium placeholder:opacity-50"
+                    style={{ color: c.txt }}
                   />
-                  <span
-                    className="text-[.87rem] whitespace-nowrap font-medium"
-                    style={{ color: c.txt2 }}
-                  >
-                    {selectedCity ? `${selectedCity}, Algérie` : t('all_wilayas')}
+                  {searchTerm && (
+                    <button onClick={() => setSearchTerm("")} className="shrink-0 hover:opacity-70 transition-opacity" style={{ color: c.txt3 }}>
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Filtres avancés */}
+              <div
+                className="rounded-2xl border mb-6 p-4"
+                style={{ background: dk ? '#141B27' : c.card, borderColor: c.border }}
+              >
+                {/* Header filtres */}
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-[11px] font-black uppercase tracking-wider" style={{ color: c.txt3 }}>
+                    Filtres avancés
                   </span>
-                  <ChevronDown
-                    size={13}
-                    className="transition-transform duration-200"
-                    style={{
-                      color: c.txt3,
-                      transform: locationOpen
-                        ? "rotate(180deg)"
-                        : "rotate(0deg)",
+                  <button
+                    onClick={() => {
+                      setSelectedCity("");
+                      setSpecFilter("All");
+                      setSelectedDate("");
+                      setStarFilter(1);
+                      setSelectedGender("Any Gender");
                     }}
-                  />
-                </button>
-                {locationOpen && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-10"
-                      onClick={() => setLocationOpen(false)}
-                    />
-                    <div
-                      className="absolute top-[calc(100%+8px)] left-1/2 -translate-x-1/2 z-50 rounded-2xl shadow-xl border overflow-x-hidden min-w-[160px]"
-                      style={{
-                        background: c.card,
-                        borderColor: c.border,
-                        maxHeight: "260px",
-                        overflowY: "auto",
-                        scrollbarWidth: "none",
-                      }}
+                    className="text-[11px] font-bold uppercase tracking-wide hover:opacity-70 transition-opacity"
+                    style={{ color: c.blue }}
+                  >
+                    Réinitialiser
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+                  {/* Wilaya */}
+                  <div className="relative">
+                    <label className="block text-[10px] font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt3 }}>Wilaya</label>
+                    <button
+                      onClick={() => setLocationOpen((o) => !o)}
+                      className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-xs font-medium transition-all"
+                      style={{ borderColor: locationOpen ? c.blue : c.border, background: dk ? 'rgba(255,255,255,0.05)' : c.bg, color: selectedCity ? c.txt : c.txt3 }}
                     >
-                      <p
-                        className="text-[10px] font-bold uppercase tracking-wider px-4 pt-3 pb-1"
-                        style={{ color: c.txt3 }}
-                      >
-                        Wilaya
-                      </p>
-                      {CITIES.map((city) => (
+                      <div className="flex items-center gap-2">
+                        <MapPin size={13} style={{ color: c.blue }} />
+                        <span>{selectedCity || "Toutes les wilayas"}</span>
+                      </div>
+                      <ChevronDown size={13} className="transition-transform" style={{ transform: locationOpen ? 'rotate(180deg)' : 'none', color: c.txt3 }} />
+                    </button>
+                    {locationOpen && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={() => setLocationOpen(false)} />
+                        <div className="absolute top-[calc(100%+4px)] left-0 right-0 z-50 rounded-xl shadow-xl border py-1 max-h-52 overflow-y-auto"
+                          style={{ background: c.card, borderColor: c.border, scrollbarWidth: 'none' }}>
+                          <button onClick={() => { setSelectedCity(""); setLocationOpen(false); }}
+                            className="w-full px-4 py-2 text-xs text-left transition-all hover:opacity-80"
+                            style={{ color: !selectedCity ? c.blue : c.txt, fontWeight: !selectedCity ? 700 : 400 }}>
+                            Toutes les wilayas
+                          </button>
+                          {CITIES.map((city) => (
+                            <button key={city} onClick={() => { setSelectedCity(city); setLocationOpen(false); }}
+                              className="w-full px-4 py-2 text-xs text-left transition-all hover:opacity-80"
+                              style={{ background: selectedCity === city ? c.blue + "18" : "transparent", color: selectedCity === city ? c.blue : c.txt, fontWeight: selectedCity === city ? 700 : 400 }}>
+                              {city}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Spécialité */}
+                  <div className="relative">
+                    <label className="block text-[10px] font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt3 }}>Spécialité</label>
+                    <button
+                      onClick={() => setSpecOpen((o) => !o)}
+                      className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-xs font-medium transition-all"
+                      style={{ borderColor: specOpen ? c.blue : c.border, background: dk ? 'rgba(255,255,255,0.05)' : c.bg, color: specFilter === "All" ? c.txt3 : c.txt }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Zap size={13} style={{ color: c.blue }} />
+                        <span>{specFilter !== "All" ? specFilter : "Toutes les spécialités"}</span>
+                      </div>
+                      <ChevronDown size={13} className="transition-transform" style={{ transform: specOpen ? 'rotate(180deg)' : 'none', color: c.txt3 }} />
+                    </button>
+                    {specOpen && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={() => setSpecOpen(false)} />
+                        <div className="absolute top-[calc(100%+4px)] left-0 right-0 z-50 rounded-xl shadow-xl border py-1 max-h-52 overflow-y-auto"
+                          style={{ background: c.card, borderColor: c.border, scrollbarWidth: 'thin' }}>
+                          {SPECIALTIES.map((s) => (
+                            <button key={s} onClick={() => { setSpecFilter(s); setSpecOpen(false); }}
+                              className="w-full px-4 py-2 text-xs text-left transition-all hover:opacity-80 flex items-center justify-between"
+                              style={{ background: specFilter === s ? c.blue + "18" : "transparent", color: specFilter === s ? c.blue : c.txt, fontWeight: specFilter === s ? 700 : 400 }}>
+                              {s}
+                              {specFilter === s && <span>✓</span>}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Calendrier */}
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt3 }}>Date de disponibilité</label>
+                    <div
+                      className="relative flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer transition-all"
+                      style={{ borderColor: selectedDate ? c.blue : c.border, background: dk ? 'rgba(255,255,255,0.05)' : c.bg }}
+                      onClick={() => dateInputRef.current?.showPicker?.()}
+                    >
+                      <Calendar size={13} style={{ color: c.blue }} />
+                      <span className="text-xs font-medium flex-1 select-none" style={{ color: selectedDate ? c.txt : c.txt3 }}>
+                        {selectedDate ? new Date(selectedDate).toLocaleDateString("fr-FR") : "JJ/MM/AAAA"}
+                      </span>
+                      {selectedDate && (
+                        <button onClick={(e) => { e.stopPropagation(); setSelectedDate(""); }}
+                          className="text-[10px] hover:opacity-70 relative z-10" style={{ color: c.txt3 }}>✕</button>
+                      )}
+                      <input ref={dateInputRef} type="date" value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="absolute inset-0 opacity-0 w-full cursor-pointer" style={{ zIndex: 1 }} />
+                    </div>
+                  </div>
+
+                  {/* Note minimale */}
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt3 }}>Note minimale</label>
+                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl border"
+                      style={{ borderColor: c.border, background: dk ? 'rgba(255,255,255,0.05)' : c.bg }}>
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button key={star} onClick={() => setStarFilter(star)}
+                          className="text-xl leading-none transition-transform hover:scale-110"
+                          style={{ color: star <= starFilter ? "#E8A838" : (dk ? "rgba(255,255,255,0.15)" : "#e2e8f0") }}>
+                          ★
+                        </button>
+                      ))}
+                      <span className="text-[11px] ml-1 font-semibold" style={{ color: c.txt3 }}>
+                        {starFilter}★ et +
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Genre */}
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt3 }}>Genre du médecin</label>
+                    <div className="flex gap-2">
+                      {[
+                        { id: "Any Gender", label: "Tous" },
+                        { id: "Masculin", label: "Masculin" },
+                        { id: "Féminin", label: "Féminin" },
+                      ].map((opt) => (
                         <button
-                          key={city}
-                          onClick={() => {
-                            setSelectedCity(city);
-                            setLocationOpen(false);
-                          }}
-                          className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-medium text-left transition-all hover:opacity-80"
+                          key={opt.id}
+                          onClick={() => setSelectedGender(opt.id)}
+                          className="px-4 py-1.5 rounded-full text-xs font-bold border transition-all"
                           style={{
-                            background:
-                              selectedCity === city
-                                ? c.blue + "18"
-                                : "transparent",
-                            color: selectedCity === city ? c.blue : c.txt,
-                            fontWeight: selectedCity === city ? 700 : 400,
+                            background: selectedGender === opt.id ? c.blue : 'transparent',
+                            color: selectedGender === opt.id ? '#fff' : c.txt2,
+                            borderColor: selectedGender === opt.id ? c.blue : c.border,
                           }}
                         >
-                          {city}
+                          {opt.label}
                         </button>
                       ))}
                     </div>
-                  </>
-                )}
+                  </div>
+
+                </div>
               </div>
-            </div>
 
-            <button
-              className="hidden md:inline-flex items-center justify-center shrink-0 px-6 rounded-lg text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 z-10"
-              style={{ background: c.blue, height: 36 }}
-            >
-              Rechercher
-            </button>
-          </div>
-
-          {/* ── Secondary filters row (compact pills 36px) ── */}
-          <div className="flex items-center gap-2 mb-6 flex-wrap max-w-[900px] mx-auto">
-            {/* Date Filter */}
-            <div
-              onClick={() => dateInputRef.current?.showPicker?.()}
-              className="relative flex items-center gap-2 px-3 h-9 rounded-full border text-xs cursor-pointer transition-all"
-              style={{ borderColor: c.border, background: c.card }}
-            >
-              <Calendar size={14} style={{ color: c.blue }} />
-              <span
-                className="text-xs font-medium select-none"
-                style={{
-                  color: selectedDate ? c.txt : c.txt3,
-                  letterSpacing: selectedDate ? 0 : "0.5px",
-                }}
-              >
-                {selectedDate
-                  ? new Date(selectedDate).toLocaleDateString("fr-FR")
-                  : "JJ / MM / AAAA"}
-              </span>
-              {selectedDate && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedDate("");
-                  }}
-                  className="text-[10px] ml-1 leading-none hover:opacity-70"
-                  style={{ color: c.txt3, position: "relative", zIndex: 2 }}
-                >
-                  ✕
-                </button>
-              )}
-              <input
-                ref={dateInputRef}
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="absolute inset-0 opacity-0 w-full cursor-pointer"
-                style={{ zIndex: 1 }}
-              />
-            </div>
-
-            {/* Specialty Dropdown (Syncs with the buttons below) */}
-            <div className="relative">
-              <button
-                onClick={() => setSpecOpen((o) => !o)}
-                className="flex items-center gap-2 px-4 h-9 rounded-full border text-xs font-medium transition-all"
-                style={{
-                  borderColor: specOpen ? c.blue : c.border,
-                  background: c.card,
-                  color: specFilter === "All" ? c.txt3 : c.txt,
-                }}
-              >
-                <Zap size={14} style={{ color: c.blue }} />
-                <span>{specFilter !== "All" ? specFilter : "Spécialité"}</span>
-                <ChevronDown
-                  size={13}
-                  className="transition-transform duration-200"
-                  style={{
-                    transform: specOpen ? "rotate(180deg)" : "rotate(0deg)",
-                    color: c.txt3,
-                  }}
-                />
-              </button>
-              {specOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setSpecOpen(false)}
-                  />
-                  <div
-                    className="absolute top-[calc(100%+6px)] left-0 z-50 rounded-2xl shadow-xl border overflow-x-hidden min-w-[160px]"
-                    style={{
-                      background: c.card,
-                      borderColor: c.border,
-                      maxHeight: "260px",
-                      overflowY: "auto",
-                      scrollbarWidth: "thin",
-                    }}
-                  >
-                    <p
-                      className="text-[10px] font-bold uppercase tracking-wider px-4 pt-3 pb-1"
-                      style={{ color: c.txt3 }}
-                    >
-                      Spécialité
-                    </p>
-                    {SPECIALTIES.map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => {
-                          setSpecFilter(s);
-                          setSpecOpen(false);
-                        }}
-                        className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-medium text-left transition-all hover:opacity-80"
-                        style={{
-                          background:
-                            specFilter === s ? c.blue + "18" : "transparent",
-                          color: specFilter === s ? c.blue : c.txt,
-                          fontWeight: specFilter === s ? 700 : 400,
-                        }}
-                      >
-                        <span className="flex-1">{s}</span>
-                        {specFilter === s && (
-                          <span style={{ color: c.blue }}>✓</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Gender Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setGenderOpen((o) => !o)}
-                className="flex items-center gap-2 px-4 h-9 rounded-full border text-xs font-medium transition-all"
-                style={{
-                  borderColor: genderOpen ? c.blue : c.border,
-                  background: c.card,
-                  color: selectedGender === "Any Gender" ? c.txt3 : c.txt,
-                }}
-              >
-                <User size={14} style={{ color: c.blue }} />
-                <span>{selectedGender === "Any Gender" ? t('any_gender') : (selectedGender === "Masculin" ? t('male') : t('female'))}</span>
-                <ChevronDown
-                  size={13}
-                  className="transition-transform duration-200"
-                  style={{
-                    transform: genderOpen ? "rotate(180deg)" : "rotate(0deg)",
-                    color: c.txt3,
-                  }}
-                />
-              </button>
-              {genderOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setGenderOpen(false)}
-                  />
-                  <div
-                    className="absolute top-[calc(100%+6px)] left-0 z-50 rounded-2xl shadow-xl border overflow-x-hidden min-w-[140px]"
-                    style={{
-                      background: c.card,
-                      borderColor: c.border,
-                      maxHeight: "260px",
-                      overflowY: "auto",
-                      scrollbarWidth: "thin",
-                    }}
-                  >
-                    {[
-                      { id: "Any Gender", label: t('any_gender') },
-                      { id: "Masculin", label: t('male') },
-                      { id: "Féminin", label: t('female') }
-                    ].map((opt) => (
-                      <button
-                        key={opt.id}
-                        onClick={() => {
-                          setSelectedGender(opt.id);
-                          setGenderOpen(false);
-                        }}
-                        className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-medium text-left transition-all hover:opacity-80"
-                        style={{
-                          background:
-                            selectedGender === opt.id
-                              ? c.blue + "18"
-                              : "transparent",
-                          color: selectedGender === opt.id ? c.blue : c.txt,
-                          fontWeight: selectedGender === opt.id ? 700 : 400,
-                        }}
-                      >
-                        {selectedGender === opt.id && (
-                          <span style={{ color: c.blue }}>✓</span>
-                        )}
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Rating Filter */}
-            <div
-              className="flex items-center gap-1.5 px-4 h-9 rounded-full border"
-              style={{ borderColor: c.border, background: c.card }}
-            >
-              <span
-                className="text-xs font-medium mr-1"
-                style={{ color: c.txt3 }}
-              >
-                {t('min_rating')}
-              </span>
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  onClick={() => setStarFilter(star)}
-                  className="text-base leading-none transition-colors"
-                  style={{ color: star <= starFilter ? "#E8A838" : c.border }}
-                >
-                  ★
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Subtle separator instead of specialty buttons */}
-          <div
-            className="h-px w-full mb-8"
-            style={{ background: c.border, opacity: 0.6 }}
-          />
-
-          {/* Calendar panel — Enhanced two-column layout */}
-          {selectedDoctor && (
+              {/* Calendar panel — Enhanced two-column layout */}
+              {selectedDoctor && (
             <div
               className="mb-6 rounded-3xl border overflow-hidden shadow-xl transition-all duration-500 animate-in fade-in slide-in-from-top-4"
               style={{ background: c.card, borderColor: c.border }}
@@ -4031,33 +3920,9 @@ function AppointmentsPage({
             </div>
           )}
 
-          <div className="h-px w-full mb-6 mt-2" style={{ background: c.border, opacity: 0.4 }} />
-
-          {/* Toggle View for Mobile */}
-          <div className="flex md:hidden mb-4 justify-center">
-            <div className="flex bg-white rounded-full p-1 border shadow-sm" style={{ background: c.card, borderColor: c.border }}>
-              <button 
-                onClick={() => setShowMapMobile(false)}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${!showMapMobile ? 'text-white' : ''}`}
-                style={{ background: !showMapMobile ? c.blue : 'transparent', color: !showMapMobile ? '#fff' : c.txt2 }}
-              >
-                Liste
-              </button>
-              <button 
-                onClick={() => setShowMapMobile(true)}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${showMapMobile ? 'text-white' : ''}`}
-                style={{ background: showMapMobile ? c.blue : 'transparent', color: showMapMobile ? '#fff' : c.txt2 }}
-              >
-                Carte
-              </button>
-            </div>
-          </div>
-
-          <div className="flex flex-col lg:flex-row gap-6 relative">
-            {/* List side */}
-            <div className={`flex-1 ${showMapMobile ? 'hidden md:block' : 'block'}`}>
+              {/* ── Grille médecins ── */}
               <div
-                className="grid gap-5 mb-10 grid-cols-1 md:grid-cols-2 lg:grid-cols-2"
+                className="grid gap-5 mb-10 grid-cols-1 md:grid-cols-2"
                 ref={docListRef}
               >
                 {filteredDoctors.map((doc) => {
@@ -4158,13 +4023,25 @@ function AppointmentsPage({
                   </div>
                 );})}
               </div>
+
             </div>
 
-            {/* Map side */}
-            <div 
-              className={`lg:w-[400px] xl:w-[500px] sticky top-24 h-[calc(100vh-180px)] rounded-2xl overflow-hidden border shadow-lg ${showMapMobile ? 'fixed inset-4 z-[60] h-auto top-32' : 'hidden lg:block'}`}
-              style={{ background: c.card, borderColor: c.border }}
+            {/* ── Carte ── */}
+            <div
+              className={showMapMobile ? 'fixed inset-4 z-[60] shadow-2xl' : ''}
+              style={{
+                flex: "0 0 35%",
+                position: "sticky",
+                top: "72px",
+                height: "calc(100vh - 90px)",
+                borderRadius: "16px",
+                background: dk ? "#0f1b2d" : "#dce6f0",
+                padding: "12px",
+                overflow: "hidden",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+              }}
             >
+              <div style={{ borderRadius: "12px", overflow: "hidden", height: "100%", position: "relative" }}>
               {activeMapDoc ? (
                 <>
                   <div className="absolute top-4 left-4 z-10 flex items-center gap-2 p-3 rounded-xl shadow-lg border animate-in fade-in slide-in-from-top-2" style={{ background: c.card, borderColor: isMapLocked ? c.blue : c.border }}>
@@ -4176,7 +4053,7 @@ function AppointmentsPage({
                       <p className="text-[10px] opacity-70" style={{ color: c.txt2 }}>{activeMapDoc.clinic_address || activeMapDoc.loc}</p>
                     </div>
                     {isMapLocked && (
-                      <button 
+                      <button
                         onClick={(e) => { e.stopPropagation(); setIsMapLocked(false); }}
                         className="ml-2 p-1.5 rounded-lg hover:bg-opacity-10 transition-colors"
                         style={{ background: c.blue + "15", color: c.blue }}
@@ -4218,7 +4095,7 @@ function AppointmentsPage({
                 </div>
               )}
               {showMapMobile && (
-                <button 
+                <button
                   onClick={() => setShowMapMobile(false)}
                   className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full flex items-center justify-center text-white shadow-xl"
                   style={{ background: '#E05555' }}
@@ -4226,9 +4103,11 @@ function AppointmentsPage({
                   <X size={20} />
                 </button>
               )}
+              </div>
             </div>
-          </div>
-          {/* Spacer to prevent absolute dropdowns from cutting into the page background bottom */}
+
+          </div>{/* end flex */}
+
           <div className="h-[260px] w-full pointer-events-none" />
         </>
       )}

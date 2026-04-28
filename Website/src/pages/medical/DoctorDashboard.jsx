@@ -31,7 +31,6 @@ import {
   MapPin,
   Link as LinkIcon,
   Download,
-  MessageSquare,
   Zap,
   ChevronRight,
 } from "lucide-react";
@@ -3912,32 +3911,6 @@ export default function DoctorDashboard({ onLogout }) {
 
           {/* Right Actions */}
           <div className="flex items-center gap-3 ml-auto shrink-0">
-            {/* Messages Icon */}
-            <button
-              onClick={() => setCurrentPage("messages")}
-              className="relative w-10 h-10 flex items-center justify-center rounded-xl transition-all hover:bg-opacity-80 group"
-              style={{
-                background: currentPage === "messages" ? c.blue : c.card,
-                border: `1px solid ${c.border}`,
-              }}
-            >
-              <MessageSquare
-                size={18}
-                style={{ color: currentPage === "messages" ? "#fff" : c.txt2 }}
-              />
-              <div
-                className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 border-2 flex items-center justify-center animate-pulse"
-                style={{
-                  borderColor: c.nav,
-                  fontSize: 7,
-                  color: "#fff",
-                  fontWeight: 800,
-                }}
-              >
-                2
-              </div>
-            </button>
-
             {/* Profile Dropdown */}
             <div className="relative">
               {safeRequests.length > 0 && (

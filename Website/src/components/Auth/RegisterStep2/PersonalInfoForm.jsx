@@ -63,7 +63,7 @@ function Field({ label, icon, error, children, c }) {
   );
 }
 
-export default function PersonalInfoForm({ onComplete, onBack, steps, currentStep, devFillData }) {
+export default function PersonalInfoForm({ onComplete, onBack, steps, currentStep, devFillData, initialData }) {
   const { theme } = useTheme();
   const { t } = useLanguage();
   const isDark = theme === "dark";
@@ -101,8 +101,15 @@ export default function PersonalInfoForm({ onComplete, onBack, steps, currentSte
   };
 
   const [formData, setFormData] = useState({
-    birthDate: "", sex: "Masculin", phone: "", idCardNumber: "",
-    address: "", postalCode: "", city: "", wilaya: "Alger", bloodGroup: "",
+    birthDate:    initialData?.birthDate    || "",
+    sex:          initialData?.sex          || "Masculin",
+    phone:        initialData?.phone        || "",
+    idCardNumber: initialData?.idCardNumber || "",
+    address:      initialData?.address      || "",
+    postalCode:   initialData?.postalCode   || "",
+    city:         initialData?.city         || "",
+    wilaya:       initialData?.wilaya       || "Alger",
+    bloodGroup:   initialData?.bloodGroup   || "",
   });
   const [errors, setErrors] = useState({});
 
