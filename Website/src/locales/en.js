@@ -609,7 +609,7 @@ export default {
         settings:    "Settings",
       },
       home: {
-        welcome:           "Hello,",
+        welcome:           "Hello",
         myAccount:         "My Account",
         emergency:         "EMERGENCY",
         myPatients:        "MY PATIENTS",
@@ -2255,7 +2255,7 @@ export default {
     no_treatment_plan_title: "No treatment plan",
     retract_acceptance_btn: "Retract acceptance",
     accept_btn: "Accept",
-    welcome_back_prefix: "Hello,",
+    welcome_back_prefix: "Hello",
     emergency_label: "Emergency",
     load_demo_first_desc: "Load demo data to get started.",
     add_patient_to_planning_desc: "Add a patient to the schedule.",

@@ -3829,7 +3829,7 @@ function PrescriptionsPage({ dk }) {
           prescription: rxId,
           patient_message: data.notes || "",
           order_type: "prescription",
-          withdrawal_method: "pickup",
+          withdrawal_method: "patient",
         }),
       });
     } catch (err) {

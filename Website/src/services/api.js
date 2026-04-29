@@ -610,10 +610,20 @@ export async function markNotificationRead(notificationId) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Liste des pharmacies partenaires
+ * Liste des pharmacies partenaires avec filtres optionnels
+ * @param {object} filters — { city, is_open_24h, search }
  */
-export async function getPharmacies() {
-  return apiFetch("/pharmacy/list/");
+export async function getPharmacies(filters = {}) {
+  const params = new URLSearchParams(filters).toString();
+  return apiFetch(`/pharmacy/list/${params ? "?" + params : ""}`);
+}
+
+/**
+ * Recherche de pharmacies par nom ou ville
+ * @param {string} query
+ */
+export async function searchPharmacies(query) {
+  return apiFetch(`/pharmacy/list/?search=${encodeURIComponent(query)}`);
 }
 
 /**
@@ -953,6 +963,90 @@ export async function getCaretakers(filters = {}) {
  * Exporte clearTokens pour que AuthContext puisse l'utiliser
  */
 export { clearTokens };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DOSSIER PATIENT — écriture par le médecin
+// POST /api/doctor/patients/{id}/add-diagnosis/
+// POST /api/doctor/patients/{id}/add-treatment/
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * (Médecin) Ajoute un diagnostic/antécédent dans le dossier du patient
+ * @param {number} patientId
+ * @param {object} data — { condition: str, description?: str, diagnosis_date?: "YYYY-MM-DD" }
+ */
+export async function addDiagnosisToPatient(patientId, data) {
+  return apiFetch(`/doctor/patients/${patientId}/add-diagnosis/`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * (Médecin) Ajoute un traitement en cours dans le dossier du patient
+ * @param {number} patientId
+ * @param {object} data — { medication_name: str, dosage?: str, start_date?: "YYYY-MM-DD", end_date?: "YYYY-MM-DD" }
+ */
+export async function addTreatmentToPatient(patientId, data) {
+  return apiFetch(`/doctor/patients/${patientId}/add-treatment/`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GARDE-MALADE — tâches  →  /api/caretaker/tasks/
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * (Garde-malade / Patient) Liste les tâches (filtrées par rôle côté backend)
+ */
+export async function getCaretakerTasks() {
+  return apiFetch("/caretaker/tasks/");
+}
+
+/**
+ * (Garde-malade) Crée une tâche liée à une demande de soins acceptée
+ * @param {object} data — { care_request: uuid, title: str, description?: str, due_date?: "YYYY-MM-DD" }
+ */
+export async function createCaretakerTask(data) {
+  return apiFetch("/caretaker/tasks/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * (Garde-malade) Mise à jour partielle d'une tâche (ex: marquer comme effectuée)
+ * @param {number|string} taskId
+ * @param {object} data — { status: "done" | "cancelled", title?, description?, due_date? }
+ */
+export async function updateCaretakerTask(taskId, data) {
+  return apiFetch(`/caretaker/tasks/${taskId}/`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * (Garde-malade) Supprime une tâche
+ * @param {number|string} taskId
+ */
+export async function deleteCaretakerTask(taskId) {
+  return apiFetch(`/caretaker/tasks/${taskId}/`, { method: "DELETE" });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN — stats alias
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * (Admin) Statistiques globales — alias de getAdminDashboard()
+ * GET /api/admin/stats/
+ */
+export async function getAdminStats() {
+  return apiFetch("/admin/stats/");
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ADMIN — fonctions supplémentaires

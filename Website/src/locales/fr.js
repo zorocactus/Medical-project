@@ -609,7 +609,7 @@ export default {
         settings:    "Paramètres",
       },
       home: {
-        welcome:           "Bonjour,",
+        welcome:           "Bonjour",
         myAccount:         "Mon Compte",
         emergency:         "URGENCE",
         myPatients:        "MES PATIENTS",
@@ -2255,7 +2255,7 @@ export default {
     no_treatment_plan_title: "Aucun plan de traitement",
     retract_acceptance_btn: "Rétracter l'acceptation",
     accept_btn: "Accepter",
-    welcome_back_prefix: "Bonjour,",
+    welcome_back_prefix: "Bonjour",
     emergency_label: "Urgence",
     load_demo_first_desc: "Chargez des données démo pour commencer.",
     add_patient_to_planning_desc: "Ajoutez un patient au planning.",

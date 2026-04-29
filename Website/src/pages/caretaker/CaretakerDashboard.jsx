@@ -1880,6 +1880,7 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
 export default function GardeMaladeDashboard({ onLogout }) {
   const { theme, toggleTheme } = useTheme();
   const { userData: user } = useAuth();
+  const { t } = useLanguage();
   const [page, setPage] = useState("dashboard");
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
