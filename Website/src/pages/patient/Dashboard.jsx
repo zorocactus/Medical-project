@@ -590,13 +590,14 @@ function DashboardPage({
             {/* Medications */}
             <Card dk={dk} empty={true}>
               <h3 className="font-semibold mb-4" style={{ color: c.txt }}>
-                {t('medication_reminders_title') || "Medication Reminders"}
+                {t('medication_reminders_title') || "Rappels médicaments"}
               </h3>
               <div className="space-y-4">
-                {meds.map((m) => (
+                {meds.map((m, i) => (
                   <div
                     key={m.id}
-                    className="flex items-center gap-3 cursor-pointer card-hover"
+                    className="flex items-center gap-3 cursor-pointer hover:scale-[1.01] active:scale-[0.98] transition-all duration-150 animate-in fade-in slide-in-from-bottom-2"
+                    style={{ animationDelay: `${i * 100}ms` }}
                   >
                     <button
                       onClick={() =>
@@ -611,7 +612,7 @@ function DashboardPage({
                       {m.taken ? (
                         <CheckCircle size={22} style={{ color: c.green }} />
                       ) : (
-                        <Circle size={22} style={{ color: c.txt3 }} />
+                        <Circle size={22} style={{ color: c.blue, opacity: 0.8 }} />
                       )}
                     </button>
                     <div>
@@ -830,10 +831,11 @@ function DashboardPage({
               Prescription Status
             </h3>
             <div className="space-y-5">
-              {prescriptions.map((p) => (
+              {prescriptions.map((p, i) => (
                 <div
                   key={p.id}
-                  className="cursor-pointer card-hover"
+                  className="cursor-pointer hover:scale-[1.01] active:scale-[0.98] transition-all duration-150 animate-in fade-in slide-in-from-bottom-2"
+                  style={{ animationDelay: `${i * 100}ms` }}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <p
@@ -842,17 +844,22 @@ function DashboardPage({
                     >
                       Prescription #{p.id.substring(0, 8)}
                     </p>
-                    <Badge color={p.status === 'ACTIVE' ? c.green : c.red} bg={(p.status === 'ACTIVE' ? c.green : c.red) + "18"}>
+                    <Badge 
+                      color={p.status?.toUpperCase() === 'ACTIVE' ? c.green : c.red} 
+                      bg={(p.status?.toUpperCase() === 'ACTIVE' ? c.green : c.red) + "18"}
+                    >
                       {p.status}
                     </Badge>
                   </div>
                   <div
-                    className="w-full h-2 rounded-full overflow-hidden"
-                    style={{ background: c.blueLight }}
+                    className="w-full h-2 rounded-full overflow-hidden relative bg-black/5 dark:bg-white/5"
                   >
                     <div
-                      className="h-full rounded-full transition-all"
-                      style={{ width: `100%`, background: p.status === 'ACTIVE' ? c.green : c.red }}
+                      className="h-full rounded-full transition-all animate-fill bar-shimmer"
+                      style={{ 
+                        width: `100%`, 
+                        background: p.status?.toUpperCase() === 'ACTIVE' ? c.green : c.red 
+                      }}
                     />
                   </div>
                   <p className="text-xs mt-1.5" style={{ color: c.txt3 }}>
@@ -1772,14 +1779,7 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
         .ai-border-left { border-left: 3px solid #2563eb; }
         @keyframes slideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
         .animate-slide-up { animation: slideUp 0.4s ease-out forwards; }
-        .card-hover { transition: transform 280ms ease, box-shadow 280ms ease, border-color 280ms ease; }
-        .card-hover:hover { 
-          transform: translateY(-4px); 
-          box-shadow: 0 16px 44px rgba(57,88,134,0.15); 
-          border-color: #B1C9EF !important;
-          background: #ffffff !important;
-          color: #2563eb !important;
-        }
+        .animate-slide-up { animation: slideUp 0.4s ease-out forwards; }
       `}</style>
 
       {/* TOP RIGHT FIXED BUTTONS */}
@@ -1995,6 +1995,14 @@ function AppointmentsPage({
   const [showMapMobile, setShowMapMobile] = useState(false);
   const dateInputRef = useRef(null);
   const docListRef = useRef(null);
+  const appointmentRef = useRef(null);
+
+  // Auto-scroll to appointment section when a doctor is selected
+  useEffect(() => {
+    if (selectedDoctor && appointmentRef.current) {
+      appointmentRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [selectedDoctor]);
 
   // Removed auto-scroll downward block as requested.
 
@@ -2814,7 +2822,7 @@ function AppointmentsPage({
           {/* Success Banner */}
           {success && (
             <div
-              className="mb-6 p-4 rounded-2xl border flex items-center gap-3 animate-in fade-in duration-300"
+              className="mb-6 p-4 rounded-2xl border flex items-center gap-3 animate-in fade-in duration-200"
               style={{ background: "#2D8C6F12", borderColor: "#2D8C6F44" }}
             >
               <CheckCircle size={20} style={{ color: "#2D8C6F" }} />
@@ -2827,7 +2835,7 @@ function AppointmentsPage({
           {/* Error Banner */}
           {err && (
             <div
-              className="mb-6 p-4 rounded-2xl border flex items-center gap-3 animate-in fade-in duration-300"
+              className="mb-6 p-4 rounded-2xl border flex items-center gap-3 animate-in fade-in duration-200"
               style={{ background: "#E0555512", borderColor: "#E0555544" }}
             >
               <X size={20} style={{ color: "#E05555" }} />
@@ -3075,7 +3083,7 @@ function AppointmentsPage({
               {/* Searchbar principale */}
               <div className="mb-4">
                 <div
-                  className="rounded-2xl border flex items-center gap-3 px-4 py-3 transition-all"
+                  className="rounded-2xl border flex items-center gap-3 px-4 py-3 search-hover"
                   style={{
                     background: dk ? '#1a2235' : c.card,
                     borderColor: searchFocused ? c.blue : c.border,
@@ -3103,7 +3111,7 @@ function AppointmentsPage({
 
               {/* Filtres avancés */}
               <div
-                className="rounded-2xl border mb-6 p-4"
+                className="rounded-2xl border mb-6 p-4 hover:shadow-sm transition-all duration-200"
                 style={{ background: dk ? '#141B27' : c.card, borderColor: c.border }}
               >
                 {/* Header filtres */}
@@ -3133,7 +3141,7 @@ function AppointmentsPage({
                     <label className="block text-[10px] font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt3 }}>Wilaya</label>
                     <button
                       onClick={() => setLocationOpen((o) => !o)}
-                      className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-xs font-medium transition-all"
+                      className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-xs font-medium filter-hover"
                       style={{ borderColor: locationOpen ? c.blue : c.border, background: dk ? 'rgba(255,255,255,0.05)' : c.bg, color: selectedCity ? c.txt : c.txt3 }}
                     >
                       <div className="flex items-center gap-2">
@@ -3169,7 +3177,7 @@ function AppointmentsPage({
                     <label className="block text-[10px] font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt3 }}>Spécialité</label>
                     <button
                       onClick={() => setSpecOpen((o) => !o)}
-                      className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-xs font-medium transition-all"
+                      className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-xs font-medium filter-hover"
                       style={{ borderColor: specOpen ? c.blue : c.border, background: dk ? 'rgba(255,255,255,0.05)' : c.bg, color: specFilter === "All" ? c.txt3 : c.txt }}
                     >
                       <div className="flex items-center gap-2">
@@ -3267,7 +3275,8 @@ function AppointmentsPage({
               {/* Calendar panel — Enhanced two-column layout */}
               {selectedDoctor && (
             <div
-              className="mb-6 rounded-3xl border overflow-hidden shadow-xl transition-all duration-500 animate-in fade-in slide-in-from-top-4"
+              ref={appointmentRef}
+              className="mb-6 rounded-3xl border overflow-hidden shadow-xl transition-all duration-200 animate-in fade-in slide-in-from-top-4"
               style={{ background: c.card, borderColor: c.border }}
             >
               {/* Doctor header (Premium) */}
@@ -4031,8 +4040,8 @@ function PrescriptionsPage({ dk }) {
 
       {/* QR Modal Overlay */}
       {selectedQr && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white p-8 rounded-3xl max-w-sm w-full shadow-2xl relative flex flex-col items-center animate-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white p-8 rounded-3xl max-w-sm w-full shadow-2xl relative flex flex-col items-center animate-in zoom-in-95 duration-200">
             <button
               onClick={() => setSelectedQr(null)}
               className="absolute top-5 right-5 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
@@ -4714,7 +4723,7 @@ function CareTakerPage({ dk }) {
 
           ) : !isAccepted ? (
             /* ── ÉTAPE 1 : En attente de réponse du garde-malade ── */
-            <div className="space-y-5 animate-in fade-in duration-300">
+            <div className="space-y-5 animate-in fade-in duration-200">
               {/* Carte "En attente" */}
               <div className="rounded-2xl p-6 border-2 flex flex-col md:flex-row items-start md:items-center gap-5"
                 style={{ background: c.amber + "08", borderColor: c.amber + "40" }}>
@@ -4768,7 +4777,7 @@ function CareTakerPage({ dk }) {
 
           ) : !emergencyContactFilled ? (
             /* ── ÉTAPE 2 : Offre acceptée — saisir numéro d'urgence ── */
-            <div className="animate-in fade-in duration-300 space-y-5">
+            <div className="animate-in fade-in duration-200 space-y-5">
               {/* Bannière acceptée */}
               <div className="rounded-2xl p-6 flex items-center gap-5 flex-wrap"
                 style={{ background: `linear-gradient(135deg, ${pendingRequest.color}, ${pendingRequest.color}cc)` }}>
@@ -4864,7 +4873,7 @@ function CareTakerPage({ dk }) {
 
           ) : (
             /* ── ÉTAPE 3 : Vue complète Mon Garde-Malade ── */
-            <div className="animate-in fade-in duration-300 space-y-5">
+            <div className="animate-in fade-in duration-200 space-y-5">
               {/* Bannière principale */}
               <div className="rounded-2xl p-6 flex items-center gap-5 flex-wrap"
                 style={{ background: `linear-gradient(135deg, ${pendingRequest.color}, ${pendingRequest.color}cc)` }}>
@@ -4975,15 +4984,15 @@ function CareTakerPage({ dk }) {
         <div className="space-y-6">
 
           {/* ── Grande barre de recherche ── */}
-          <div className="relative">
+          <div className="relative search-hover rounded-2xl overflow-hidden">
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: c.txt3 }} />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Rechercher par nom, spécialité ou zone..."
-              className="w-full pl-12 pr-5 py-3.5 rounded-2xl text-sm outline-none border transition-all"
-              style={{ background: c.card, borderColor: searchTerm ? c.blue : c.border, color: c.txt, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}
+              className="w-full pl-12 pr-5 py-3.5 text-sm outline-none border transition-all bg-transparent"
+              style={{ borderColor: searchTerm ? c.blue : c.border, color: c.txt }}
             />
           </div>
 
@@ -5004,13 +5013,13 @@ function CareTakerPage({ dk }) {
             {/* Note minimale */}
             <div>
               <label className="block text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt2 }}>Note minimum</label>
-              <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border w-fit"
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border w-fit filter-hover"
                 style={{ background: c.card, borderColor: c.border }}>
                 <span className="text-xs font-medium" style={{ color: c.txt3 }}>Note min :</span>
                 <div className="flex gap-0.5">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button key={star} onClick={() => setStarFilter(star)}
-                      className="text-lg leading-none transition-colors"
+                      className="text-lg leading-none transition-transform hover:scale-125 active:scale-90"
                       style={{ color: star <= starFilter ? "#E8A838" : c.border }}>
                       ★
                     </button>
@@ -5978,7 +5987,7 @@ export default function PatientDashboard({ onLogout }) {
                       />
                       <button
                         onClick={toggleTheme}
-                        className="relative rounded-full transition-all duration-300  "
+                        className="relative rounded-full transition-all duration-150  "
                         style={{
                           width: 42,
                           height: 24,
@@ -5990,7 +5999,7 @@ export default function PatientDashboard({ onLogout }) {
                         }}
                       >
                         <div
-                          className="absolute top-0.5 rounded-full bg-white shadow-md transition-all duration-300"
+                          className="absolute top-0.5 rounded-full bg-white shadow-md transition-all duration-150"
                           style={{ width: 18, height: 18, left: dk ? 20 : 2 }}
                         />
                       </button>

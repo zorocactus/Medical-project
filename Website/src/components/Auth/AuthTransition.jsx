@@ -58,6 +58,13 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
     return () => clearInterval(id);
   }, []);
 
+  // Efface les données temporaires quand l'utilisateur bascule entre Login et Register
+  useEffect(() => {
+    setTempUser(null);
+    setStep(1);
+    setIsExpanded(false);
+  }, [isActive]);
+
   // ── Step handlers ─────────────────────────────────────────────────────────
 
   // Étape 1 → 2 : expand le panneau gauche
@@ -70,7 +77,14 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
   // Retour étape 2 → 1 : collapse le panneau (animation inverse)
   const handleBackFromStep2 = () => {
     setIsExpanded(false);
-    setStep(1);
+    setTimeout(() => setStep(1), 300);
+  };
+
+  const handleBack = (prevStep, currentData) => {
+    if (currentData) {
+      setTempUser(prev => ({ ...prev, ...currentData }));
+    }
+    setStep(prevStep);
   };
 
   const handleCompletedStep2 = (additionalData) => {
@@ -191,13 +205,25 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
           fd.append("cnas_coverage",         data.cnas === "Oui" ? "true" : "false");
           // practice_authorization : docFile (étape 5, "Autorisation d'exercer")
           if (data.docFile) fd.append("practice_authorization", data.docFile);
-          // ── DIAGNOSTIC LOG — retirer après debug ──
-          console.group("🩺 [registerDoctor] FormData envoyé au backend");
+
+          // Diplômes multiples
+          if (data.diplomas && data.diplomas.length > 0) {
+            data.diplomas.forEach((dip, idx) => {
+              fd.append(`diplomas[${idx}][title]`, dip.title);
+              fd.append(`diplomas[${idx}][institution]`, dip.institution);
+              fd.append(`diplomas[${idx}][date_obtained]`, dip.date_obtained);
+              if (dip.specialization) fd.append(`diplomas[${idx}][specialization]`, dip.specialization);
+              if (dip.file) fd.append(`diplomas[${idx}][file]`, dip.file);
+            });
+          }
+
+          // ── DIAGNOSTIC LOG ──
+          console.group("🩺 [registerDoctor] FormData");
           for (let [key, value] of fd.entries()) {
-            console.log(key, value instanceof File ? `File(name=${value.name}, size=${value.size}, type=${value.type})` : value);
+            console.log(key, value instanceof File ? `File(${value.name})` : value);
           }
           console.groupEnd();
-          // ─────────────────────────────────────────
+
           await api.registerDoctor(fd);
 
         } else if (backendRole === "pharmacist") {
@@ -205,7 +231,6 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
           fd.append("name",                      data.pharmacyName  || "");
           fd.append("agreement_number",          data.agrement      || "");
           fd.append("cnas_coverage",             data.cnas === "Oui" ? "true" : "false");
-          // agreement_scan : agreementFile (étape 6) | registre_commerce : docFile (étape 5)
           if (data.agreementFile) fd.append("agreement_scan",    data.agreementFile);
           if (data.docFile)       fd.append("registre_commerce", data.docFile);
           await api.registerPharmacist(fd);
@@ -214,8 +239,21 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
           fd.append("availability_area",  data.wilaya       || "");
           fd.append("experience_years",   parseInt(data.experienceYears) || 0);
           fd.append("tarif_de_base",      parseFloat(data.tarifSoin) || 0);
-          // criminal_record_scan : criminalRecordFile (étape 6)
-          if (data.criminalRecordFile) fd.append("criminal_record_scan", data.criminalRecordFile);
+          if (data.criminal_record_scan || data.criminalRecordFile) {
+            fd.append("criminal_record_scan", data.criminal_record_scan || data.criminalRecordFile);
+          }
+
+          // Diplômes multiples
+          if (data.diplomas && data.diplomas.length > 0) {
+            data.diplomas.forEach((dip, idx) => {
+              fd.append(`diplomas[${idx}][title]`, dip.title);
+              fd.append(`diplomas[${idx}][institution]`, dip.institution);
+              fd.append(`diplomas[${idx}][date_obtained]`, dip.date_obtained);
+              if (dip.specialization) fd.append(`diplomas[${idx}][specialization]`, dip.specialization);
+              if (dip.file) fd.append(`diplomas[${idx}][file]`, dip.file);
+            });
+          }
+
           await api.registerCaretaker(fd);
         }
 
@@ -242,10 +280,10 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
   const renderCurrentStep = () => {
     if (step === 2) {
       if (tempUser?.accountType === "patient") {
-        return <PatientForm onComplete={handleCompletedStep2} onBack={handleBackFromStep2} initialData={tempUser} />;
+        return <PatientForm onComplete={handleCompletedStep2} onBack={handleBackFromStep2} savedData={tempUser} />;
       }
       if (tempUser?.accountType === "personnel médical") {
-        return <MedicalForm onComplete={handleCompletedStep2} onBack={handleBackFromStep2} initialData={tempUser} />;
+        return <MedicalForm onComplete={handleCompletedStep2} onBack={handleBackFromStep2} savedData={tempUser} />;
       }
       // Fallback : type inconnu → connexion directe
       onLogin(tempUser?.accountType || "patient");
@@ -254,10 +292,10 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
 
     if (step === 3) {
       if (tempUser?.accountType === "patient") {
-        return <PatientIdentityForm onComplete={handleCompletedStep3} onBack={() => setStep(2)} initialData={tempUser} />;
+        return <PatientIdentityForm onComplete={handleCompletedStep3} onBack={(data) => handleBack(2, data)} savedData={tempUser} />;
       }
       if (tempUser?.accountType === "personnel médical") {
-        return <MedicalIdentityForm onComplete={handleCompletedStep3} onBack={() => setStep(2)} initialData={tempUser} />;
+        return <MedicalIdentityForm onComplete={handleCompletedStep3} onBack={(data) => handleBack(2, data)} savedData={tempUser} />;
       }
     }
 
@@ -272,7 +310,7 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
         );
       }
       if (tempUser?.accountType === "personnel médical") {
-        return <MedicalRoleForm onComplete={handleCompletedStep4} onBack={() => setStep(3)} />;
+        return <MedicalRoleForm onComplete={handleCompletedStep4} onBack={(data) => handleBack(3, data)} savedData={tempUser} />;
       }
     }
 
@@ -281,9 +319,9 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
         return (
           <MedicalInfoForm
             onComplete={handleCompletedStep5}
-            onBack={() => setStep(4)}
+            onBack={(data) => handleBack(4, data)}
             medicalRole={tempUser?.medicalRole || tempUser?.role || "Médecin"}
-            initialData={tempUser}
+            savedData={tempUser}
             serverErrors={fieldErrors}
           />
         );
@@ -295,8 +333,9 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
         return (
           <MedicalDocumentsForm
             onComplete={handleCompletedStep6}
-            onBack={() => setStep(5)}
+            onBack={(data) => handleBack(5, data)}
             medicalRole={tempUser?.medicalRole || tempUser?.role || "Médecin"}
+            savedData={tempUser}
             serverErrors={fieldErrors}
           />
         );

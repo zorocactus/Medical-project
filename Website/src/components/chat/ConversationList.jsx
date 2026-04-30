@@ -1,18 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Plus, Search, MessageSquare } from "lucide-react";
+import { X, Plus, Search, MessageSquare, Loader } from "lucide-react";
 import * as api from "../../services/api";
-
-// ─── Démo uniquement en DEV — aucun mock visible en production ────────────────
-const MOCK_CONVERSATIONS = import.meta.env.DEV ? [
-  { id: 1, name: "Pharmacie Centrale",  role: "pharmacist",
-    lastMessage: "Votre ordonnance est prête", unread: 2,
-    timestamp: "10:30", isNew: true },
-] : [];
-
-const MOCK_INTERLOCUTORS = import.meta.env.DEV ? [
-  { id: 10, name: "Pharmacie El Shifa",  role: "pharmacist" },
-  { id: 20, name: "Karim Benali",        role: "caretaker"  },
-] : [];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function avatarColor(role) {
@@ -24,12 +12,83 @@ function initials(name = "") {
 function roleLabel(role) {
   return role === "pharmacist" ? "Pharmacien" : "Garde-malade";
 }
+function fmtTimestamp(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const now = new Date();
+  const diffMs = now - d;
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffDays === 0) return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+  if (diffDays === 1) return "Hier";
+  if (diffDays < 7) return d.toLocaleDateString("fr-FR", { weekday: "short" });
+  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+}
+
+// Normalise une conversation backend → format attendu par le composant
+function normalizeConversation(conv) {
+  // Déjà au format frontend
+  if (conv.name) return conv;
+  const other = conv.other_participant || {};
+  return {
+    id: conv.id,
+    name: other.full_name || "Inconnu",
+    role: other.role || "pharmacist",
+    lastMessage: conv.last_message?.content || "",
+    unread: conv.unread_count || 0,
+    timestamp: fmtTimestamp(conv.last_message?.created_at || conv.updated_at),
+    isNew: (conv.unread_count || 0) > 0,
+    _raw: conv,
+  };
+}
 
 // ─── Modal "Nouvelle conversation" ────────────────────────────────────────────
 function NewConvModal({ onClose, onSelect, c }) {
-  const [search, setSearch] = useState("");
-  const filtered = MOCK_INTERLOCUTORS.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase())
+  const [search, setSearch]           = useState("");
+  const [interlocutors, setInterlocutors] = useState([]);
+  const [loading, setLoading]         = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const [pharmacies, caretakers] = await Promise.all([
+          api.getPharmacies().catch(() => []),
+          api.getCaretakers().catch(() => []),
+        ]);
+        if (cancelled) return;
+
+        const pharmList = Array.isArray(pharmacies) ? pharmacies
+          .filter(p => p.pharmacist_user_id)
+          .map(p => ({
+            id: p.pharmacist_user_id,
+            name: p.pharmacist_name || p.name,
+            subtitle: p.name + (p.pharm_city ? ` · ${p.pharm_city}` : ""),
+            role: "pharmacist",
+          })) : [];
+
+        const careList = Array.isArray(caretakers) ? caretakers
+          .filter(c => c.user_id)
+          .map(c => ({
+            id: c.user_id,
+            name: c.full_name,
+            subtitle: c.availability_area || c.certification || "Garde-malade",
+            role: "caretaker",
+          })) : [];
+
+        setInterlocutors([...pharmList, ...careList]);
+      } catch {
+        // silencieux
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  const filtered = interlocutors.filter((p) =>
+    p.name.toLowerCase().includes(search.toLowerCase()) ||
+    (p.subtitle || "").toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -70,7 +129,13 @@ function NewConvModal({ onClose, onSelect, c }) {
         </div>
 
         <div className="px-2 pb-3 max-h-64 overflow-y-auto">
-          {filtered.length === 0 ? (
+          {loading ? (
+            <div className="flex items-center justify-center py-6 gap-2"
+              style={{ color: c.txt3 }}>
+              <Loader size={16} className="animate-spin" />
+              <span className="text-xs">Chargement...</span>
+            </div>
+          ) : filtered.length === 0 ? (
             <p className="text-center text-xs py-4" style={{ color: c.txt3 }}>
               Aucun résultat
             </p>
@@ -89,8 +154,8 @@ function NewConvModal({ onClose, onSelect, c }) {
                   <p className="text-sm font-semibold truncate" style={{ color: c.txt }}>
                     {p.name}
                   </p>
-                  <p className="text-xs" style={{ color: c.txt3 }}>
-                    {roleLabel(p.role)}
+                  <p className="text-xs truncate" style={{ color: c.txt3 }}>
+                    {p.subtitle || roleLabel(p.role)}
                   </p>
                 </div>
               </button>
@@ -228,7 +293,7 @@ export default function ConversationList({
   dk,
   inline = false,
 }) {
-  const [conversations, setConversations] = useState(MOCK_CONVERSATIONS);
+  const [conversations, setConversations] = useState([]);
   const [showNewModal, setShowNewModal]   = useState(false);
   const [search, setSearch]               = useState("");
   const intervalRef = useRef(null);
@@ -237,7 +302,9 @@ export default function ConversationList({
   const fetchConversations = async () => {
     try {
       const data = await api.getConversations();
-      if (Array.isArray(data) && data.length > 0) setConversations(data);
+      if (Array.isArray(data)) {
+        setConversations(data.map(normalizeConversation));
+      }
     } catch { /* silencieux */ }
   };
 
@@ -280,7 +347,7 @@ export default function ConversationList({
   const handleNewConv = async (interlocutor) => {
     setShowNewModal(false);
     const fallback = {
-      id: Date.now(),
+      id: `tmp-${Date.now()}`,
       name: interlocutor.name,
       role: interlocutor.role,
       lastMessage: "",
@@ -289,8 +356,8 @@ export default function ConversationList({
       isNew: true,
     };
     try {
-      const conv = await api.createConversation(interlocutor.id);
-      const newConv = conv ?? fallback;
+      const raw = await api.createConversation(interlocutor.id);
+      const newConv = raw ? normalizeConversation({ ...raw, other_participant: { id: interlocutor.id, full_name: interlocutor.name, role: interlocutor.role } }) : fallback;
       setConversations((prev) => {
         if (prev.find((c) => c.id === newConv.id)) return prev;
         return [newConv, ...prev];
@@ -305,7 +372,6 @@ export default function ConversationList({
   // ── Empty state ──
   const EmptyState = () => (
     <div className="flex flex-col items-center justify-center flex-1 gap-4 py-8 px-4">
-      {/* Illustration simple */}
       <div className="relative">
         <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
           style={{ background: c.blueLight }}>
@@ -422,7 +488,7 @@ export default function ConversationList({
     </>
   );
 
-  // ── Mode inline (pharmacien / GM / patient en page dédiée) ──
+  // ── Mode inline (page dédiée) ──
   if (inline) {
     return (
       <div className="flex flex-col h-full">

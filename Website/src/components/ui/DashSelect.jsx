@@ -68,7 +68,7 @@ export default function DashSelect({
           ref={btnRef}
           type="button"
           onClick={handleOpen}
-          className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm outline-none transition-all"
+          className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm outline-none transition-all filter-hover"
           style={{
             background: dk ? "#1A2333" : "#F8FAFC",
             borderColor: open ? c.blue : c.border,

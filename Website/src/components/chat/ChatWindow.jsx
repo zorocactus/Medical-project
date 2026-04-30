@@ -57,8 +57,15 @@ function dateLabel(iso) {
   return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 }
 function normalizeMsg(m) {
-  return { id: m.id, sender: m.is_mine ? "me" : "other",
-    content: m.content, time: m.timestamp ?? m.time ?? nowISO(), read: !!m.is_read };
+  return {
+    id: m.id,
+    sender: m.is_mine ? "me" : "other",
+    content: m.content,
+    time: m.created_at ?? m.timestamp ?? m.time ?? nowISO(),
+    read: !!m.is_read,
+    edited: !!m.edited_at,
+    deleted: m.is_deleted || false,
+  };
 }
 
 // ─── TypingDots ───────────────────────────────────────────────────────────────
