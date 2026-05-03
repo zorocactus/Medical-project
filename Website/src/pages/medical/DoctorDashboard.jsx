@@ -382,26 +382,32 @@ function PatientRequests({ requests, onStartConsultation }) {
         </div>
       ) : (
       <div className="flex flex-col gap-5">
-        {safeRequests.map((req, idx) => (
+        {safeRequests.map((req, idx) => {
+          const patientName = req.patient_name || req.name || "Patient";
+          const initials = patientName.split(" ").filter(Boolean).map(n => n[0]).join("").toUpperCase().slice(0, 2) || "P";
+          const detail = req.motif || req.detail || "Consultation";
+          const displayTime = req.start_time ? req.start_time.slice(0, 5) : (req.time || "");
+          const displayDate = req.date || "";
+          return (
           <div key={req.id || idx} className="flex items-center justify-between group">
             <div className="flex items-center gap-3">
               <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-[13px] font-bold ${req.color || "bg-[#6492C9]"}`}
+                className="w-10 h-10 rounded-full flex items-center justify-center text-white text-[13px] font-bold bg-[#6492C9]"
               >
-                {req.initials}
+                {initials}
               </div>
               <div>
                 <div
                   className="text-[13px] font-bold leading-tight"
                   style={{ color: c.txt }}
                 >
-                  {req.name}
+                  {patientName}
                 </div>
                 <div
                   className="text-[11.5px] font-medium mt-0.5"
                   style={{ color: c.txt3 }}
                 >
-                  {req.detail}
+                  {detail}
                 </div>
               </div>
             </div>
@@ -418,7 +424,7 @@ function PatientRequests({ requests, onStartConsultation }) {
                 >
                   <Clock size={12} strokeWidth={2.5} />
                   <span className="text-[11px] font-bold whitespace-nowrap">
-                    {req.date} · {req.time}
+                    {displayDate} · {displayTime}
                   </span>
                 </div>
 
@@ -460,7 +466,8 @@ function PatientRequests({ requests, onStartConsultation }) {
 
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
       )}
     </div>
@@ -2984,6 +2991,20 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
             </div>
           </div>
         </div>
+        {/* Bouton terminer en haut */}
+        <button
+          onClick={handleTerminate}
+          disabled={isTerminating}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black text-white shadow-lg transition-all hover:opacity-90 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{ background: isTerminating ? "#9AACBE" : `linear-gradient(135deg, #E05555, #B03030)` }}
+        >
+          {isTerminating ? (
+            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <Check size={16} />
+          )}
+          {isTerminating ? "Clôture en cours…" : "Terminer la session"}
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -118,14 +118,6 @@ const PATIENT_PROFILES = {
 };
 
 // ─── AI HISTORIQUE ─────────────────────────────────────────────────────────────
-const HISTORY_SESSIONS = [
-  { id: 1, title: "Soins post-opératoires — Alex", date: "Aujourd'hui · 2h", badge: "med", badgeLabel: "Modérée" },
-  { id: 2, title: "Suivi diabète — Youcef", date: "Hier · 5 échanges", badge: "low", badgeLabel: "Faible" },
-  { id: 3, title: "Urgence hypertension — Nadia", date: "Hier · 4 échanges", badge: "high", badgeLabel: "Élevée" },
-  { id: 4, title: "Consultation gériatrique", date: "18 Mar · 3 échanges", badge: "low", badgeLabel: "Faible" },
-  { id: 5, title: "Douleur thoracique — Patient 2", date: "16 Mar · 4 échanges", badge: "high", badgeLabel: "Élevée" },
-];
-const BADGE_COLORS = { low: "#2D8C6F", med: "#E8A838", high: "#E05555" };
 
 // ─── WILAYAS_LIST ─────────────────────────────────────────────────────────────
 const WILAYAS_LIST = [
@@ -746,12 +738,19 @@ function AIDiagnosisPage({ dk, c }) {
   const [loading, setLoading] = useState(false);
   const [showFullHistory, setShowFullHistory] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [attachedFiles, setAttachedFiles] = useState([]);
+  const [attachedFiles, setAttachedFiles] = useState([]); // [{ name, file }]
+  const [sessions, setSessions] = useState([]);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  useEffect(() => {
+    api.getAISessions()
+      .then(data => { if (data?.sessions) setSessions(data.sessions); })
+      .catch(() => {});
+  }, []);
 
   const quickSymptoms = [
     t('high_glucose_symptom') || "Glycémie élevée",
@@ -762,34 +761,88 @@ function AIDiagnosisPage({ dk, c }) {
     t('fall_symptom') || "Chute",
   ];
 
-  const send = (text) => {
+  const send = async (text) => {
     const msg = text || input.trim();
-    if (!msg && attachedFiles.length === 0) return;
-    const displayText = msg || `📎 ${attachedFiles.length} fichier(s) joint(s)`;
-    setMessages((m) => [...m, { role: "user", text: displayText, files: attachedFiles }]);
+    const hasFiles = attachedFiles.length > 0;
+    if (!msg && !hasFiles) return;
+
+    setMessages((m) => [...m, {
+      role: "user",
+      text: msg || `📎 ${attachedFiles.length} fichier(s) joint(s)`,
+    }]);
     setInput("");
+    const filesToSend = [...attachedFiles];
     setAttachedFiles([]);
     setLoading(true);
-    setTimeout(() => {
+
+    const history = messages
+      .filter(m => m.role !== "ai" || !m.text.includes("Bonjour"))
+      .map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.text }));
+
+    setMessages((m) => [...m, { role: "ai", text: "", isStreaming: true }]);
+
+    try {
+      let aiResponseText = "";
+
+      if (hasFiles && filesToSend.length > 0) {
+        await api.analyzeMedicalFileStream(
+          filesToSend[0].file,
+          msg,
+          "fr",
+          history,
+          (chunk) => {
+            aiResponseText += chunk;
+            setMessages((prev) => {
+              const last = prev[prev.length - 1];
+              return [...prev.slice(0, -1), { ...last, text: aiResponseText }];
+            });
+          },
+        );
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          return [...prev.slice(0, -1), { ...last, isStreaming: false }];
+        });
+      } else {
+        let metaData = null;
+        await api.analyzeSymptomsStream(
+          { symptoms: msg, lang: "fr", history },
+          (chunk) => {
+            aiResponseText += chunk;
+            setMessages((prev) => {
+              const last = prev[prev.length - 1];
+              return [...prev.slice(0, -1), { ...last, text: aiResponseText }];
+            });
+          },
+          (meta) => { metaData = meta; },
+        );
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          const result = metaData ? {
+            urgency: metaData.urgency === "urgent" ? (t('high_urgency') || "Urgence élevée")
+                   : metaData.urgency === "modéré" ? (t('moderate_urgency') || "Urgence modérée")
+                   : (t('low_urgency') || "Faible priorité"),
+            color: metaData.urgency === "urgent" ? "#ef4444"
+                 : metaData.urgency === "modéré" ? "#E8A838" : "#10b981",
+            diagnosis: metaData.diseases?.[0]?.name_fr || "Analyse terminée",
+            tags: metaData.diseases?.[0]?.key_symptoms?.split(",").map(s => s.trim()) || [],
+          } : null;
+          return [...prev.slice(0, -1), { ...last, result, isStreaming: false }];
+        });
+      }
+    } catch (err) {
+      console.error("AI Error:", err);
+      setMessages((m) => [
+        ...m,
+        { role: "ai", text: t('ai_error') || "Désolé, une erreur est survenue. Veuillez réessayer." },
+      ]);
+    } finally {
       setLoading(false);
-      setMessages((m) => [...m, {
-        role: "ai",
-        text: t('analysis_in_progress') || "Analyse en cours…",
-        result: {
-          urgency: t('moderate_urgency') || "Urgence modérée",
-          color: "#E8A838",
-          diagnosis: t('possible_glucose_imbalance') || "Possible déséquilibre glycémique",
-          confidence: 83,
-          body: t('glucose_analysis_desc') || "Les symptômes décrits suggèrent une instabilité glycémique. Vérifiez la glycémie capillaire immédiatement et ajustez la dose de Metformin si nécessaire. Contactez le médecin traitant si la valeur dépasse 11 mmol/L.",
-          tags: [t('check_glucose_tag') || "Vérifier glycémie", t('contact_doctor_tag') || "Contacter médecin", t('increased_hydration_tag') || "Hydratation accrue"],
-        },
-      }]);
-    }, 1500);
+    }
   };
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
-    setAttachedFiles((prev) => [...prev, ...files.map((f) => f.name)]);
+    setAttachedFiles((prev) => [...prev, ...files.map(f => ({ name: f.name, file: f }))]);
     e.target.value = "";
   };
 
@@ -838,25 +891,35 @@ function AIDiagnosisPage({ dk, c }) {
                 style={{ color: c.txt3, background: c.bg }}>✕</button>
             </div>
             <div className="flex-1 overflow-y-auto">
-              {HISTORY_SESSIONS.map((s) => (
-                <button key={s.id}
-                  onClick={() => { setShowFullHistory(false); setMessages([{ role: "ai", text: `Session chargée : "${s.title}"` }]); }}
-                  className="w-full flex items-center gap-3 px-4 py-4 border-b text-left hover:opacity-80"
-                  style={{ borderColor: c.border, background: "transparent" }}>
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: BADGE_COLORS[s.badge] + "18" }}>
-                    <Brain size={16} style={{ color: BADGE_COLORS[s.badge] }} />
-                  </div>
-                  <div className="flex-1 min-w-0 pr-2">
-                    <p className="text-sm font-semibold truncate" style={{ color: c.txt }}>{s.title}</p>
-                    <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>{s.date}</p>
-                  </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
-                    style={{ color: BADGE_COLORS[s.badge], background: BADGE_COLORS[s.badge] + "18" }}>
-                    {s.badgeLabel}
-                  </span>
-                </button>
-              ))}
+              {sessions.length === 0 ? (
+                <p className="text-sm text-center opacity-40 mt-8 px-4" style={{ color: c.txt3 }}>
+                  {t('no_history') || "Aucune session précédente"}
+                </p>
+              ) : (
+                sessions.map((s) => {
+                  const dateStr = new Date(s.updated_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) + " · " + s.message_count + " échanges";
+                  return (
+                    <button key={s.id}
+                      onClick={() => {
+                        if (s.history?.length) {
+                          setMessages(s.history.map(h => ({ role: h.role === "user" ? "user" : "ai", text: h.content })));
+                        }
+                        setShowFullHistory(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-4 border-b text-left hover:opacity-80"
+                      style={{ borderColor: c.border, background: "transparent" }}>
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ background: c.blueLight }}>
+                        <Brain size={16} style={{ color: c.blue }} />
+                      </div>
+                      <div className="flex-1 min-w-0 pr-2">
+                        <p className="text-sm font-semibold truncate" style={{ color: c.txt }}>{s.title || "Session sans titre"}</p>
+                        <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>{dateStr}</p>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
             </div>
           </div>
         </>

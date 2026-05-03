@@ -77,6 +77,7 @@ import PharmacistsView from "./views/users/PharmacistsView";
 import ScheduleView from "./views/ScheduleView";
 import VisitQueueView from "./views/VisitQueueView";
 import ReportsView from "./views/ReportsView";
+import ProfileUpdateRequests from "./views/ProfileUpdateRequests";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SHARED HELPERS
@@ -209,11 +210,12 @@ const PENDING_PROS = [];
 const MOCK_APPOINTMENTS = [];
 
 const APPT_STATUS = {
-  pending: { label: "En attente", color: "#E8A838", bg: "#FFF8EC" },
-  confirmed: { label: "Confirmé", color: "#4A6FA5", bg: "#EEF3FB" },
-  completed: { label: "Terminé", color: "#2D8C6F", bg: "#EEF8F4" },
-  cancelled: { label: "Annulé", color: "#9AACBE", bg: "#F0F4F8" },
-  refused: { label: "Refusé", color: "#E05555", bg: "#FFF0F0" },
+  pending:     { label: "En attente", color: "#E8A838", bg: "#FFF8EC" },
+  confirmed:   { label: "Confirmé",   color: "#4A6FA5", bg: "#EEF3FB" },
+  in_progress: { label: "En cours",   color: "#7B5EA7", bg: "#F3EEFF" },
+  completed:   { label: "Terminé",    color: "#2D8C6F", bg: "#EEF8F4" },
+  cancelled:   { label: "Annulé",     color: "#9AACBE", bg: "#F0F4F8" },
+  refused:     { label: "Refusé",     color: "#E05555", bg: "#FFF0F0" },
 };
 
 // ─── MOCK MEDICATIONS ─────────────────────────────────────────────────────────
@@ -1349,7 +1351,7 @@ function RendezVousPage({ dk }) {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PG));
   const paginated = filtered.slice((page - 1) * PG, page * PG);
   const statusCounts = Object.fromEntries(
-    ["pending", "confirmed", "completed", "cancelled", "refused"].map((s) => [
+    ["pending", "confirmed", "in_progress", "completed", "cancelled", "refused"].map((s) => [
       s,
       appointments.filter((a) => a.status === s).length,
     ]),
@@ -1425,13 +1427,14 @@ function RendezVousPage({ dk }) {
           </p>
         </div>
       )}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-5">
         {[
-          ["pending", t('status_pending'), "#E8A838"],
-          ["confirmed", t('status_confirmed'), "#4A6FA5"],
-          ["completed", t('status_completed'), "#2D8C6F"],
-          ["cancelled", t('status_cancelled'), "#9AACBE"],
-          ["refused", t('status_refused'), "#E05555"],
+          ["pending",     t('status_pending'),     "#E8A838"],
+          ["confirmed",   t('status_confirmed'),   "#4A6FA5"],
+          ["in_progress", "En cours",              "#7B5EA7"],
+          ["completed",   t('status_completed'),   "#2D8C6F"],
+          ["cancelled",   t('status_cancelled'),   "#9AACBE"],
+          ["refused",     t('status_refused'),     "#E05555"],
         ].map(([s, label, color]) => (
           <button
             key={s}
@@ -3073,6 +3076,8 @@ export default function AdminDashboard({ onLogout }) {
         return <PharmacistsView dk={dk} />;
       case "reports":
         return <ReportsView dk={dk} />;
+      case "profile_updates":
+        return <ProfileUpdateRequests dk={dk} />;
 
       // ── Activité (Planning & Queue) ──
       case "rdv":
@@ -3175,6 +3180,7 @@ export default function AdminDashboard({ onLogout }) {
                 rdv: t('rendezvous'),
                 queue: t('queue'),
                 reports: t('reports'),
+                profile_updates: t('profile_updates'),
               }[activePage] ?? activePage}
             </span>
           </div>

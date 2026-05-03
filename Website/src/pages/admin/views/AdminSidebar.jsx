@@ -43,6 +43,7 @@ export default function AdminSidebar({
       title: t('operations_group'),
       items: [
         { id: "validation",   label: t('validation'),       icon: UserCheck, badge: true },
+        { id: "profile_updates", label: t('profile_updates'), icon: User, badge: true },
         { id: "rendezvous",   label: t('rendezvous'),      icon: Calendar },
         { id: "planning",     label: t('planning'),         icon: ListFilter },
         { id: "queue",        label: t('queue'),   icon: Activity, pulse: true },

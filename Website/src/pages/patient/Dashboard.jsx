@@ -392,6 +392,7 @@ function DashboardPage({
   appointments,
   notifications,
   setNotifications,
+  pendingIdentityRequest,
 }) {
   const { t } = useLanguage();
   const [meds, setMeds] = useState([]);
@@ -444,9 +445,20 @@ function DashboardPage({
       {/* Top bar */}
       <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: c.txt }}>
+          <h1 className="text-2xl font-bold flex items-center gap-3" style={{ color: c.txt }}>
             {t('welcome_back_prefix') || "Bonjour"}, <span style={{ color: c.blue }}>{firstName}</span>
+            {pendingIdentityRequest && (
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-lg border animate-pulse" 
+                style={{ background: "#E8A83818", color: "#E8A838", borderColor: "#E8A83844" }}>
+                {t('pending_validation_badge')}
+              </span>
+            )}
           </h1>
+          {pendingIdentityRequest && (
+            <p className="text-xs mt-1 font-medium italic opacity-70" style={{ color: c.txt2 }}>
+              {t('identity_update_pending_msg')} ({pendingIdentityRequest.new_first_name} {pendingIdentityRequest.new_last_name})
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <button
@@ -575,10 +587,22 @@ function DashboardPage({
                               className="text-[10px] font-bold"
                               style={{ color: c.blue }}
                             >
-                              {a.slot_date} ·{" "}
-                              {a.slot_start_time?.substring(0, 5)}
+                              {a.date} ·{" "}
+                              {a.start_time?.substring(0, 5)}
                             </span>
                           </div>
+                          {a.status === "pending" && (
+                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md border"
+                              style={{ background: "#E8A83818", color: "#E8A838", borderColor: "#E8A83844" }}>
+                              {t('appointment_status_pending')}
+                            </span>
+                          )}
+                          {a.status === "confirmed" && (
+                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md border"
+                              style={{ background: "#2D8C6F18", color: "#2D8C6F", borderColor: "#2D8C6F44" }}>
+                              {t('appointment_status_confirmed')}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <ChevronRight size={14} style={{ color: c.txt3 }} />
@@ -876,7 +900,8 @@ function DashboardPage({
 }
 
 // ─── MEDICAL PROFILE PAGE ─────────────────────────────────────────────────────
-function MedicalProfilePage({ dk, profile, userId, userData }) {
+function MedicalProfilePage(props) {
+  const { dk, profile, userId, userData } = props;
   const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
 
@@ -935,7 +960,11 @@ function MedicalProfilePage({ dk, profile, userId, userData }) {
   const [editMode, setEditMode] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [status, setStatus] = useState({ type: "", msg: "" });
+  const [showReasonInput, setShowReasonInput] = useState(false);
+  const [identityReason, setIdentityReason] = useState("");
   const loadedTabs = useRef(new Set());
+
+  const pendingIdentityRequest = props.pendingIdentityRequest;
 
   const FETCH_TABS = {
     antecedents: true,
@@ -1034,25 +1063,88 @@ function MedicalProfilePage({ dk, profile, userId, userData }) {
   const handleSaveProfile = async () => {
     try {
       setLoading(true);
-      // Normalise : "Inconnu" = pas de groupe sanguin côté backend (choices stricts).
       const payload = { ...editForm };
-      if (payload.blood_type === "Inconnu") payload.blood_type = "";
-      // Convertit la DOB si saisie en JJ/MM/AAAA
-      if (payload.dob && String(payload.dob).includes("/")) {
-        const iso = frToIso(payload.dob);
-        if (iso) payload.dob = iso;
+      
+      // Normalisation du groupe sanguin (backend utilise 'blood_group')
+      if (payload.blood_type) {
+        payload.blood_group = payload.blood_type === "Inconnu" ? "" : payload.blood_type;
       }
-      // Allergies : string → array si backend attend une liste
+
+      // Normalisation de la date de naissance (backend utilise 'date_of_birth')
+      if (payload.dob) {
+        let isoDate = payload.dob;
+        if (String(payload.dob).includes("/")) {
+          isoDate = frToIso(payload.dob);
+        }
+        payload.date_of_birth = isoDate;
+      }
+
+      // Allergies : string → array
       if (typeof payload.allergies === "string") {
         payload.allergies = payload.allergies
           .split(",")
           .map((a) => a.trim())
           .filter(Boolean);
       }
-      await api.updateMedicalProfile(payload);
-      setStatus({ type: "success", msg: "Profil mis à jour" });
+
+      // Détection de changement de nom/prénom
+      const nameChanged = 
+        (payload.first_name && payload.first_name !== (userData?.first_name || safeProfile.first_name)) ||
+        (payload.last_name && payload.last_name !== (userData?.last_name || safeProfile.last_name));
+
+      if (nameChanged && !identityReason) {
+        setShowReasonInput(true);
+        setStatus({ type: "info", msg: "Veuillez indiquer le motif du changement de nom." });
+        setLoading(false);
+        return;
+      }
+
+      const updatePromises = [];
+
+      // 1. Mise à jour immédiate (Téléphone, Ville, Email, etc.)
+      updatePromises.push(
+        api.updateMe({
+          email: payload.email,
+          phone: payload.phone,
+          sex: payload.sex,
+          city: payload.city,
+          wilaya: payload.wilaya,
+          address: payload.address,
+          postal_code: payload.postal_code,
+          date_of_birth: payload.date_of_birth
+        })
+      );
+
+      // 2. Mise à jour du profil médical
+      updatePromises.push(api.updateMedicalProfile(payload));
+
+      // 3. Demande de changement de nom
+      if (nameChanged && identityReason) {
+        updatePromises.push(
+          api.requestProfileUpdate({
+            new_first_name: payload.first_name,
+            new_last_name: payload.last_name,
+            reason: identityReason
+          })
+        );
+      }
+
+      await Promise.all(updatePromises);
+      setStatus({ 
+        type: "success", 
+        msg: nameChanged 
+          ? "Profil mis à jour. La demande de changement de nom a été envoyée à l'administrateur." 
+          : "Profil mis à jour avec succès" 
+      });
+      
       setEditMode(false);
-      setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
+      setShowReasonInput(false);
+      setIdentityReason("");
+      
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+      
     } catch (err) {
       setStatus({ type: "error", msg: err?.message || "Erreur lors de la mise à jour" });
       setTimeout(() => setStatus({ type: "", msg: "" }), 5000);
@@ -1063,7 +1155,6 @@ function MedicalProfilePage({ dk, profile, userId, userData }) {
 
   return (
     <>
-      {/* Status Banner */}
       {status.msg && (
         <div
           className="mb-4 p-3 rounded-xl text-sm font-semibold flex items-center gap-2"
@@ -1077,6 +1168,25 @@ function MedicalProfilePage({ dk, profile, userId, userData }) {
           }}
         >
           {status.msg}
+        </div>
+      )}
+
+      {pendingIdentityRequest && (
+        <div
+          className="mb-6 p-4 rounded-2xl border flex items-center gap-4 animate-in slide-in-from-top-2 duration-300"
+          style={{ background: "#E8A83812", borderColor: "#E8A83844" }}
+        >
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "#E8A83822" }}>
+            <AlertTriangle size={20} style={{ color: "#E8A838" }} />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-bold" style={{ color: "#E8A838" }}>
+              {t('identity_update_pending_title')}
+            </p>
+            <p className="text-xs opacity-80" style={{ color: "#E8A838" }}>
+              {t('identity_update_pending_msg')} <strong>({pendingIdentityRequest.new_first_name} {pendingIdentityRequest.new_last_name})</strong>
+            </p>
+          </div>
         </div>
       )}
 
@@ -1115,6 +1225,23 @@ function MedicalProfilePage({ dk, profile, userId, userData }) {
                     style={{ background: c.card, borderColor: c.border, color: c.txt }}
                   />
                 </div>
+
+                {/* Motif du changement (apparaît si changement détecté) */}
+                {((editForm.first_name && editForm.first_name !== (userData?.first_name || safeProfile.first_name)) ||
+                  (editForm.last_name && editForm.last_name !== (userData?.last_name || safeProfile.last_name))) && (
+                  <div className="sm:col-span-2 animate-in fade-in slide-in-from-top-2">
+                    <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "#E8A838" }}>
+                      Motif du changement de nom (Requis pour validation Admin)
+                    </label>
+                    <textarea
+                      value={identityReason}
+                      onChange={(e) => setIdentityReason(e.target.value)}
+                      placeholder="Expliquez pourquoi vous souhaitez modifier votre identité officielle..."
+                      className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all min-h-[60px]"
+                      style={{ background: "#E8A83808", borderColor: "#E8A83844", color: c.txt }}
+                    />
+                  </div>
+                )}
 
                 {/* Date de naissance — JJ/MM/AAAA */}
                 <div>
@@ -1203,9 +1330,17 @@ function MedicalProfilePage({ dk, profile, userId, userData }) {
               </div>
             ) : (
               <>
-                <h2 className="text-xl font-bold" style={{ color: c.txt }}>
+                <h2 className="text-xl font-bold flex items-center gap-3" style={{ color: c.txt }}>
                   {userData?.first_name || userData?.email?.split('@')[0] || safeProfile.first_name || ""}{" "}
                   {userData?.last_name || safeProfile.last_name || safeProfile.name || "Mon Profil Médical"}
+                  {pendingIdentityRequest && (
+                    <span 
+                      className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md animate-pulse"
+                      style={{ background: "#E8A83822", color: "#E8A838", border: "1px solid #E8A83844" }}
+                    >
+                      Modification en attente d'approbation
+                    </span>
+                  )}
                 </h2>
                 <p className="text-sm mt-1 mb-3" style={{ color: c.txt2 }}>
                   ID Patient: #{userId || "---"}
@@ -1589,16 +1724,9 @@ function MedicalProfilePage({ dk, profile, userId, userData }) {
 }
 
 // ─── AI DIAGNOSIS PAGE ────────────────────────────────────────────────────────
-const HISTORY_SESSIONS = [
-  { id: 1, title: "Douleurs thoraciques", date: "Aujourd'hui · 2h" },
-  { id: 2, title: "Maux de tête persistants", date: "Hier · 5 échanges" },
-  { id: 3, title: "Fatigue intense & vertiges", date: "Hier · 4 échanges" },
-  { id: 4, title: "Douleur poitrine + bras", date: "18 Mar · 2 échanges" },
-];
-
 function AIDiagnosisPage({ dk, firstName, setPage }) {
   const { t } = useLanguage();
-  
+
   const theme = useMemo(() => ({
     bg: dk ? "#0d1117" : "#f6f8fa",
     chatBg: dk ? "#161b22" : "#ffffff",
@@ -1624,7 +1752,8 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
   const [loading, setLoading] = useState(false);
   const [showFullHistory, setShowFullHistory] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [attachedFiles, setAttachedFiles] = useState([]);
+  const [attachedFiles, setAttachedFiles] = useState([]); // [{ name, file }]
+  const [sessions, setSessions] = useState([]);
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
 
@@ -1639,108 +1768,130 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
     }
   }, [input]);
 
+  // Charge les sessions IA réelles depuis le backend
+  useEffect(() => {
+    api.getAISessions()
+      .then(data => { if (data?.sessions) setSessions(data.sessions); })
+      .catch(() => {});
+  }, []);
+
   const quickSymptoms = ["Maux de tête", "Fièvre", "Fatigue", "Douleur thoracique", "Nausées", "Toux"];
 
   const send = async (text) => {
     const msg = text || input.trim();
-    if (!msg && attachedFiles.length === 0) return;
-    
-    const userMsg = { 
-      role: "user", 
-      text: msg || `📎 ${attachedFiles.length} fichier(s)`, 
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+    const hasFiles = attachedFiles.length > 0;
+    if (!msg && !hasFiles) return;
+
+    const userMsg = {
+      role: "user",
+      text: msg || `📎 ${attachedFiles.length} fichier(s)`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
-    
+
     setMessages((m) => [...m, userMsg]);
     setInput("");
+    const filesToSend = [...attachedFiles];
     setAttachedFiles([]);
     setLoading(true);
 
+    // Prépare l'historique pour le backend
+    const history = messages
+      .filter(m => m.role !== "ai" || !m.text.includes("Nouvelle session"))
+      .map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.text }));
+
+    // Insère un message IA vide qui sera rempli par le stream
+    setMessages((m) => [
+      ...m,
+      {
+        role: "ai",
+        text: "",
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isStreaming: true,
+      },
+    ]);
+
     try {
-      // Préparation de l'historique pour le backend
-      const history = messages
-        .filter(m => m.role !== "ai" || !m.text.includes("Nouvelle session"))
-        .map(m => ({
-          role: m.role === "user" ? "user" : "assistant",
-          content: m.text
-        }));
-
       let aiResponseText = "";
-      let metaData = null;
 
-      // Ajoute un message IA vide qui sera rempli par le stream
-      setMessages((m) => [
-        ...m,
-        {
-          role: "ai",
-          text: "",
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          isStreaming: true
-        }
-      ]);
+      if (hasFiles && filesToSend.length > 0) {
+        // ── Mode analyse de fichier médical ──────────────────────────────
+        await api.analyzeMedicalFileStream(
+          filesToSend[0].file,
+          msg,
+          "fr",
+          history,
+          (chunk) => {
+            aiResponseText += chunk;
+            setMessages((prev) => {
+              const last = prev[prev.length - 1];
+              return [...prev.slice(0, -1), { ...last, text: aiResponseText }];
+            });
+          },
+        );
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          return [...prev.slice(0, -1), { ...last, isStreaming: false }];
+        });
 
-      await api.analyzeSymptomsStream(
-        { symptoms: msg, lang: "fr", history },
-        (chunk) => {
-          aiResponseText += chunk;
-          setMessages((prev) => {
-            const last = prev[prev.length - 1];
-            const updated = { ...last, text: aiResponseText };
-            return [...prev.slice(0, -1), updated];
-          });
-        },
-        (meta) => {
-          metaData = meta;
-        }
-      );
+      } else {
+        // ── Mode chat symptômes ────────────────────────────────────────────
+        let metaData = null;
 
-      // Une fois le stream terminé, on applique les métadonnées (urgence, diagnostic, etc.)
-      setMessages((prev) => {
-        const last = prev[prev.length - 1];
-        
-        // Conversion des données du backend vers le format attendu par le frontend
-        const result = metaData ? {
-          urgency: metaData.urgency === "urgent" ? "Urgence Élevée" : 
-                   metaData.urgency === "modéré" ? "Urgence modérée" : "Faible priorité",
-          color: metaData.urgency === "urgent" ? "#ef4444" : 
-                 metaData.urgency === "modéré" ? "#2563eb" : "#10b981",
-          diagnosis: metaData.diseases?.[0]?.name_fr || "Analyse terminée",
-          confidence: Math.round((metaData.diseases?.[0]?.confidence || 0.8) * 100),
-          body: aiResponseText,
-          tags: metaData.diseases?.[0]?.key_symptoms?.split(",").map(s => s.trim()) || [],
-          advice: [
-            { 
-              icon: metaData.urgency === "urgent" ? "⚠️" : "🚨", 
-              text: `Urgence : ${metaData.urgency === "urgent" ? "Haute" : metaData.urgency === "modéré" ? "Modérée" : "Faible"}`, 
-              type: "urgency" 
-            },
-            { 
-              icon: "👨‍⚕️", 
-              text: `Spécialiste : ${metaData.specialist?.specialty_fr || "Généraliste"}`, 
-              type: "spec" 
-            },
-            { icon: "📅", text: "Prendre RDV", type: "rdv" }
-          ]
-        } : null;
+        await api.analyzeSymptomsStream(
+          { symptoms: msg, lang: "fr", history },
+          (chunk) => {
+            aiResponseText += chunk;
+            setMessages((prev) => {
+              const last = prev[prev.length - 1];
+              return [...prev.slice(0, -1), { ...last, text: aiResponseText }];
+            });
+          },
+          (meta) => { metaData = meta; },
+        );
 
-        return [...prev.slice(0, -1), { ...last, result, isStreaming: false }];
-      });
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          const result = metaData ? {
+            urgency: metaData.urgency === "urgent" ? "Urgence Élevée"
+                   : metaData.urgency === "modéré" ? "Urgence modérée" : "Faible priorité",
+            color: metaData.urgency === "urgent" ? "#ef4444"
+                 : metaData.urgency === "modéré" ? "#2563eb" : "#10b981",
+            diagnosis: metaData.diseases?.[0]?.name_fr || "Analyse terminée",
+            confidence: Math.round((metaData.diseases?.[0]?.confidence || 0.8) * 100),
+            tags: metaData.diseases?.[0]?.key_symptoms?.split(",").map(s => s.trim()) || [],
+            advice: [
+              {
+                icon: metaData.urgency === "urgent" ? "⚠️" : "🚨",
+                text: `Urgence : ${metaData.urgency === "urgent" ? "Haute" : metaData.urgency === "modéré" ? "Modérée" : "Faible"}`,
+                type: "urgency",
+              },
+              {
+                icon: "👨‍⚕️",
+                text: `Spécialiste : ${metaData.specialist?.specialty_fr || "Généraliste"}`,
+                type: "spec",
+              },
+              { icon: "📅", text: "Prendre RDV", type: "rdv" },
+            ],
+          } : null;
+          return [...prev.slice(0, -1), { ...last, result, isStreaming: false }];
+        });
+      }
 
     } catch (err) {
       console.error("AI Error:", err);
       setMessages((m) => [
         ...m,
-        { role: "ai", text: "Désolé, une erreur est survenue lors de l'analyse. Veuillez réessayer." }
+        { role: "ai", text: "Désolé, une erreur est survenue lors de l'analyse. Veuillez réessayer." },
       ]);
     } finally {
       setLoading(false);
     }
   };
 
-
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
-    setAttachedFiles((prev) => [...prev, ...files.map((f) => f.name)]);
+    setAttachedFiles((prev) => [...prev, ...files.map(f => ({ name: f.name, file: f }))]);
+    e.target.value = "";
   };
 
   const toggleRecording = () => {
@@ -1909,10 +2060,25 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
                   opacity: 1;
                 }
               `}</style>
+              {attachedFiles.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 px-3 pb-2">
+                  {attachedFiles.map((f, i) => (
+                    <span key={i} className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border font-medium"
+                      style={{ borderColor: theme.border, color: theme.text, background: theme.chatBg }}>
+                      📎 {f.name}
+                      <button onClick={() => setAttachedFiles(prev => prev.filter((_, idx) => idx !== i))}
+                        className="ml-1 opacity-50 hover:opacity-100 transition-opacity">✕</button>
+                    </span>
+                  ))}
+                </div>
+              )}
               <div className="flex items-center justify-between px-2 pb-1">
                 <div className="flex items-center gap-1">
                   <button onClick={toggleRecording} className={`p-2 rounded-full transition-colors ${isRecording ? 'text-red-500 bg-red-50' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}><Mic size={20} /></button>
-                  <label className="p-2 rounded-full text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"><input type="file" multiple className="hidden" onChange={handleFileChange} /><Paperclip size={20} /></label>
+                  <label className="p-2 rounded-full text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
+                    <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" multiple className="hidden" onChange={handleFileChange} />
+                    <Paperclip size={20} />
+                  </label>
                 </div>
                 <button onClick={() => send()} disabled={!input.trim() && attachedFiles.length === 0} className={`p-2.5 rounded-full transition-all ${input.trim() || attachedFiles.length > 0 ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-400 dark:bg-gray-800'}`}><Send size={18} /></button>
               </div>
@@ -1928,11 +2094,33 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
         <>
           <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setShowFullHistory(false)} />
           <div className="fixed top-0 left-0 w-[320px] h-full z-50 flex flex-col shadow-2xl border-r" style={{ background: theme.chatBg, borderColor: theme.border, animation: "slideInLeft 0.3s ease forwards" }}>
-            <div className="p-6 flex items-center justify-between border-b" style={{ borderColor: theme.border }}><h2 className="font-bold text-lg">Historique</h2><button onClick={() => setShowFullHistory(false)} className="text-gray-400 hover:text-black dark:hover:text-white"><X size={20} /></button></div>
+            <div className="p-6 flex items-center justify-between border-b" style={{ borderColor: theme.border }}>
+              <h2 className="font-bold text-lg">Historique</h2>
+              <button onClick={() => setShowFullHistory(false)} className="text-gray-400 hover:text-black dark:hover:text-white"><X size={20} /></button>
+            </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
-              {HISTORY_SESSIONS.map(s => (
-                <button key={s.id} onClick={() => setShowFullHistory(false)} className="w-full text-left p-4 rounded-xl border transition-all hover:bg-black/5 dark:hover:bg-white/5" style={{ borderColor: theme.border }}><p className="font-semibold text-sm mb-1">{s.title}</p><p className="text-[11px] opacity-60">{s.date}</p></button>
-              ))}
+              {sessions.length === 0 ? (
+                <p className="text-sm text-center opacity-40 mt-8" style={{ color: theme.text }}>Aucune session précédente</p>
+              ) : (
+                sessions.map(s => {
+                  const d = new Date(s.updated_at);
+                  const dateStr = d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) + " · " + s.message_count + " échanges";
+                  return (
+                    <button key={s.id}
+                      onClick={() => {
+                        if (s.history?.length) {
+                          setMessages(s.history.map(h => ({ role: h.role === "user" ? "user" : "ai", text: h.content })));
+                        }
+                        setShowFullHistory(false);
+                      }}
+                      className="w-full text-left p-4 rounded-xl border transition-all hover:bg-black/5 dark:hover:bg-white/5"
+                      style={{ borderColor: theme.border }}>
+                      <p className="font-semibold text-sm mb-1" style={{ color: theme.text }}>{s.title || "Session sans titre"}</p>
+                      <p className="text-[11px] opacity-60">{dateStr}</p>
+                    </button>
+                  );
+                })
+              )}
             </div>
           </div>
         </>
@@ -1982,6 +2170,9 @@ function AppointmentsPage({
   const [specFilter, setSpecFilter] = useState("All");
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchAppt, setSearchAppt] = useState("");
+  const [searchHistory, setSearchHistory] = useState("");
+  const [historyDateFilter, setHistoryDateFilter] = useState("");
+  const [localHidden, setLocalHidden] = useState([]); // IDs retirés localement
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCity, setSelectedCity] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
@@ -2050,6 +2241,7 @@ function AppointmentsPage({
         if (selectedCity)
           filters.city = selectedCity;
         if (debouncedSearch) filters.search = debouncedSearch;
+        if (selectedDate) filters.date = selectedDate;
 
         const data = await api.getDoctors(filters).catch(() => []);
         const results = Array.isArray(data) ? data : (data?.results || []);
@@ -2072,7 +2264,8 @@ function AppointmentsPage({
           bio: d.bio || "Le docteur n'a pas rédigé de biographie.",
           edu: "Faculté de Médecine.",
           reviews: d.total_reviews || 0,
-          gender: d.gender || "M",
+          gender: d.gender === "female" ? "F" : "M",
+          available_slots_for_date: d.available_slots_for_date || [],
         }));
         if (normalized.length === 0) {
           setDoctors([{
@@ -2101,7 +2294,7 @@ function AppointmentsPage({
       }
     }
     fetchDoctors();
-  }, [specFilter, selectedCity, debouncedSearch]);
+  }, [specFilter, selectedCity, debouncedSearch, selectedDate]);
 
   // Fetch slots when a doctor and day are selected
   useEffect(() => {
@@ -2135,7 +2328,7 @@ function AppointmentsPage({
   }, [selectedDoctor, calDay, calMonth]);
 
   const upcomingAppts =
-    rawAppointments?.filter((a) => a.status === "confirmed") || [];
+    rawAppointments?.filter((a) => a.status === "confirmed" || a.status === "pending") || [];
   const historyAppts =
     rawAppointments?.filter((a) =>
       ["completed", "cancelled", "refused"].includes(a.status),
@@ -2262,8 +2455,10 @@ function AppointmentsPage({
       (selectedGender === "Masculin" && d.gender === "M") ||
       (selectedGender === "Féminin" && d.gender === "F");
     const matchesRating = d.rating >= starFilter;
+    const matchesDate = !selectedDate || (d.available_slots_for_date && d.available_slots_for_date.length > 0);
+    const matchesCity = !selectedCity || d.loc.toLowerCase().includes(selectedCity.toLowerCase());
 
-    return matchesSpec && matchesSearch && matchesGender && matchesRating;
+    return matchesSpec && matchesSearch && matchesGender && matchesRating && matchesDate && matchesCity;
   });
 
   const slotsForDay = (day) => {
@@ -2285,7 +2480,6 @@ function AppointmentsPage({
   );
 
   // ─── Cancel / Reschedule state ─────────────────────────────────────────────
-  const [localHidden, setLocalHidden] = useState([]); // IDs retirés localement
   const [cancellingId, setCancellingId] = useState(null);
   const [rescheduleTarget, setRescheduleTarget] = useState(null); // appointment
   const [rescheduleDate, setRescheduleDate] = useState(""); // YYYY-MM-DD
@@ -2931,7 +3125,7 @@ function AppointmentsPage({
                             className="text-xs font-medium opacity-70"
                             style={{ color: c.txt2 }}
                           >
-                            {a.specialty || "Spécialité"}
+                            {a.doctor_specialty || a.specialty || "Spécialité"}
                           </p>
                           <div
                             className="mt-3 flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-dashed"
@@ -2947,9 +3141,21 @@ function AppointmentsPage({
                             >
                               {a.date_display || a.date} ·{" "}
                               {a.time_display ||
-                                (a.time ? a.time.substring(0, 5) : "")}
+                                (a.start_time ? a.start_time.substring(0, 5) : a.time ? a.time.substring(0, 5) : "")}
                             </p>
                           </div>
+                        </div>
+                        {/* Status Badge */}
+                        <div className="flex flex-col items-end gap-1">
+                          <span
+                            className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md"
+                            style={{
+                              background: a.status === "confirmed" ? "#2D8C6F22" : "#E8A83822",
+                              color: a.status === "confirmed" ? "#2D8C6F" : "#E8A838",
+                            }}
+                          >
+                            {a.status === "confirmed" ? "Confirmé" : "En attente"}
+                          </span>
                         </div>
                       </div>
                       <div
@@ -2991,24 +3197,76 @@ function AppointmentsPage({
               <h2 className="font-bold text-lg" style={{ color: c.txt }}>
                 Historique
               </h2>
-              <span
-                className="text-xs font-bold px-3 py-1 rounded-full"
-                style={{ background: c.blue + "11", color: c.blue }}
-              >
-                {historyAppts.length} {historyAppts.length > 1 ? "entrées" : "entrée"}
-              </span>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="relative">
+                  <Search
+                    size={14}
+                    className="absolute left-3 top-1/2 -translate-y-1/2"
+                    style={{ color: c.txt3 }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Chercher un RDV..."
+                    value={searchHistory}
+                    onChange={(e) => setSearchHistory(e.target.value)}
+                    className="pl-9 pr-4 py-1.5 rounded-full text-xs font-medium border focus:outline-none transition-all"
+                    style={{ background: c.card, borderColor: c.border, color: c.txt, width: "180px" }}
+                  />
+                </div>
+                <input
+                  type="date"
+                  value={historyDateFilter}
+                  onChange={(e) => setHistoryDateFilter(e.target.value)}
+                  className="pl-3 pr-3 py-1.5 rounded-full text-xs font-medium border focus:outline-none transition-all"
+                  style={{ background: c.card, borderColor: c.border, color: historyDateFilter ? c.txt : c.txt3 }}
+                />
+                {(searchHistory || historyDateFilter) && (
+                  <button
+                    onClick={() => { setSearchHistory(""); setHistoryDateFilter(""); }}
+                    className="text-xs font-bold px-3 py-1.5 rounded-full border transition-all hover:opacity-70"
+                    style={{ borderColor: c.border, color: c.txt2 }}
+                  >
+                    ✕
+                  </button>
+                )}
+                <span
+                  className="text-xs font-bold px-3 py-1 rounded-full"
+                  style={{ background: c.blue + "11", color: c.blue }}
+                >
+                  {historyAppts.length} {historyAppts.length > 1 ? "entrées" : "entrée"}
+                </span>
+              </div>
             </div>
             <div className="space-y-3">
-              {historyAppts.length === 0 ? (
-                <EmptyState
-                  dk={dk}
-                  icon={Clock}
-                  compact={true}
-                  title="Aucun historique"
-                  message="Vous n'avez pas encore de rendez-vous passés ou annulés."
-                />
-              ) : (
-                historyAppts.map((h, i) => (
+              {(() => {
+                const q = searchHistory.toLowerCase();
+                const filtered = historyAppts.filter((h) => {
+                  const matchSearch = !q ||
+                    (h.doctor_name || "").toLowerCase().includes(q) ||
+                    (h.doctor_specialty || h.specialty || "").toLowerCase().includes(q) ||
+                    (h.motif || "").toLowerCase().includes(q);
+                  const matchDate = !historyDateFilter || h.date === historyDateFilter;
+                  return matchSearch && matchDate;
+                });
+                if (historyAppts.length === 0) return (
+                  <EmptyState
+                    dk={dk}
+                    icon={Clock}
+                    compact={true}
+                    title="Aucun historique"
+                    message="Vous n'avez pas encore de rendez-vous passés ou annulés."
+                  />
+                );
+                if (filtered.length === 0) return (
+                  <EmptyState
+                    dk={dk}
+                    icon={Search}
+                    compact={true}
+                    title="Aucun résultat"
+                    message="Aucun rendez-vous ne correspond à votre recherche."
+                  />
+                );
+                return filtered.map((h, i) => (
                   <Card key={h.id || i} dk={dk} style={{ padding: "14px 18px" }}>
                     <div className="flex items-center gap-4 flex-wrap">
                       <div
@@ -3029,7 +3287,7 @@ function AppointmentsPage({
                           {h.doctor_name || "Médecin"}
                         </p>
                         <p className="text-xs" style={{ color: c.txt2 }}>
-                          {h.specialty || "Spécialité"} · {h.date_display || h.date}
+                          {h.doctor_specialty || h.specialty || "Spécialité"} · {h.date_display || h.date}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
@@ -3041,13 +3299,13 @@ function AppointmentsPage({
                             color: h.status === "completed" ? "#2D8C6F" : "#E05555",
                           }}
                         >
-                          {h.status}
+                          {h.status === "completed" ? "Terminé" : h.status === "refused" ? "Refusé" : "Annulé"}
                         </span>
                       </div>
                     </div>
                   </Card>
-                ))
-              )}
+                ));
+              })()}
             </div>
           </div>
         </>
@@ -5217,12 +5475,18 @@ function NotificationsPage({ dk, notifications, setNotifications }) {
                 <Bell size={18} style={{ color: typeColor }} />
               </div>
               <div className="flex-1">
-                <p className="font-semibold text-sm" style={{ color: c.txt }}>
-                  {n.title || n.message || "Notification"}
+                <p className="font-black text-sm" style={{ color: c.txt }}>
+                  {n.title || "Notification"}
                 </p>
-                <p className="text-xs mt-0.5" style={{ color: c.txt2 }}>
-                  {n.sub || n.created_at || "Récemment"}
+                <p className="text-[13px] mt-1 leading-relaxed" style={{ color: c.txt2 }}>
+                  {n.message}
                 </p>
+                <div className="flex items-center gap-1.5 mt-2.5 opacity-60">
+                  <Clock size={10} />
+                  <p className="text-[10px] font-bold uppercase tracking-wider">
+                    {new Date(n.created_at).toLocaleString()}
+                  </p>
+                </div>
               </div>
               {isUnread && (
                 <div
@@ -5256,7 +5520,8 @@ function NotificationsPage({ dk, notifications, setNotifications }) {
 }
 
 // ─── SETTINGS PAGE ────────────────────────────────────────────────────────────
-function SettingsPage({ dk, onToggleDark, userData }) {
+function SettingsPage(props) {
+  const { dk, onToggleDark, userData, pendingIdentityRequest } = props;
   const { t, lang, setLang } = useLanguage();
   const c = dk ? T.dark : T.light;
   const [showPwd, setShowPwd] = useState(false);
@@ -5269,6 +5534,9 @@ function SettingsPage({ dk, onToggleDark, userData }) {
   });
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState({ type: "", msg: "" });
+
+  const [identityReason, setIdentityReason] = useState("");
+  const [showReasonInput, setShowReasonInput] = useState(false);
 
   const [pwdForm, setPwdForm] = useState({
     currentPassword: "",
@@ -5310,15 +5578,57 @@ function SettingsPage({ dk, onToggleDark, userData }) {
       const first_name = names[0] || "";
       const last_name = names.slice(1).join(" ") || "";
 
-      await api.updateMe({
-        first_name,
-        last_name,
-        phone: form.phone,
+      // Détection de changement d'identité
+      const nameChanged = 
+        (first_name && first_name !== (userData?.first_name)) ||
+        (last_name && last_name !== (userData?.last_name));
+
+      if (nameChanged && !identityReason) {
+        setShowReasonInput(true);
+        setStatus({ type: "info", msg: "Veuillez indiquer le motif du changement de nom." });
+        setIsSaving(false);
+        return;
+      }
+
+      const updatePromises = [];
+
+      // 1. Mise à jour immédiate (Téléphone seulement ici car email est disabled)
+      updatePromises.push(
+        api.updateMe({
+          phone: form.phone,
+          city: form.city
+        })
+      );
+
+      // 2. Demande de changement de nom
+      if (nameChanged && identityReason) {
+        updatePromises.push(
+          api.requestProfileUpdate({
+            new_first_name: first_name,
+            new_last_name: last_name,
+            reason: identityReason
+          })
+        );
+      }
+
+      await Promise.all(updatePromises);
+      
+      setStatus({ 
+        type: "success", 
+        msg: nameChanged 
+          ? "Profil mis à jour. Demande de changement de nom envoyée." 
+          : "Profil mis à jour avec succès ✅" 
       });
-      setStatus({ type: "success", msg: "Profil mis à jour avec succès ✅" });
-      setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
+
+      setShowReasonInput(false);
+      setIdentityReason("");
+      
+      setTimeout(() => {
+        setStatus({ type: "", msg: "" });
+        if (nameChanged) window.location.reload();
+      }, 4000);
     } catch (err) {
-      setStatus({ type: "error", msg: "Erreur lors de la mise à jour ❌" });
+      setStatus({ type: "error", msg: err?.message || "Erreur lors de la mise à jour ❌" });
       setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
     } finally {
       setIsSaving(false);
@@ -5357,6 +5667,25 @@ function SettingsPage({ dk, onToggleDark, userData }) {
           {t('admin_settings_desc')}
         </p>
       </div>
+
+      {pendingIdentityRequest && (
+        <div
+          className="mb-6 p-4 rounded-2xl border flex items-center gap-4 animate-in slide-in-from-top-2 duration-300"
+          style={{ background: "#E8A83812", borderColor: "#E8A83844" }}
+        >
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "#E8A83822" }}>
+            <AlertTriangle size={20} style={{ color: "#E8A838" }} />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-bold" style={{ color: "#E8A838" }}>
+              {t('identity_update_pending_title')}
+            </p>
+            <p className="text-xs opacity-80" style={{ color: "#E8A838" }}>
+              {t('identity_update_pending_msg')} <strong>({pendingIdentityRequest.new_first_name} {pendingIdentityRequest.new_last_name})</strong>
+            </p>
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
         <div className="space-y-5">
           <Card dk={dk}>
@@ -5380,30 +5709,60 @@ function SettingsPage({ dk, onToggleDark, userData }) {
               { label: "Full Name", key: "name", type: "text" },
               { label: "Email", key: "email", type: "email" },
               { label: "Phone", key: "phone", type: "tel" },
-            ].map((field) => (
-              <div key={field.key} className="mb-4">
-                <label
-                  className="block text-xs font-bold uppercase tracking-wide mb-1.5"
-                  style={{ color: c.txt2 }}
-                >
-                  {field.label}
-                </label>
-                <input
-                  type={field.type}
-                  value={form[field.key]}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, [field.key]: e.target.value }))
-                  }
-                  disabled={field.key === "email"}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
-                  style={{
-                    background: dk ? "#1A2333" : "#F8FAFC",
-                    borderColor: c.border,
-                    color: field.key === "email" ? c.txt3 : c.txt,
-                  }}
-                />
-              </div>
-            ))}
+            ].map((field) => {
+              const isIdentity = field.key === "name";
+              const names = form.name.split(" ");
+              const hasChanged = isIdentity && (
+                (names[0] !== (userData?.first_name || "")) ||
+                (names.slice(1).join(" ") !== (userData?.last_name || ""))
+              );
+
+              return (
+                <div key={field.key} className="mb-4">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold uppercase tracking-wide" style={{ color: c.txt2 }}>
+                      {field.label}
+                    </label>
+                    {hasChanged && (
+                      <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest bg-amber-500/10 px-2 py-0.5 rounded-full">
+                        Validation Admin Requise
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type={field.type}
+                    value={form[field.key]}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, [field.key]: e.target.value }))
+                    }
+                    disabled={field.key === "email"}
+                    className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition-all"
+                    style={{
+                      background: dk ? "#1A2333" : "#F8FAFC",
+                      borderColor: hasChanged ? "#E8A83880" : c.border,
+                      color: field.key === "email" ? c.txt3 : c.txt,
+                      boxShadow: hasChanged ? "0 0 0 2px #E8A83810" : "none"
+                    }}
+                  />
+                  {hasChanged && (
+                    <div className="mt-3 p-3 rounded-xl border animate-in slide-in-from-top-2"
+                      style={{ background: "#E8A83808", borderColor: "#E8A83830" }}>
+                      <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                        <MessageSquare size={12} /> Motif du changement
+                      </p>
+                      <textarea
+                        value={identityReason}
+                        onChange={(e) => setIdentityReason(e.target.value)}
+                        placeholder="Pourquoi changez-vous de nom ?"
+                        className="w-full bg-transparent border-none outline-none text-sm resize-none"
+                        style={{ color: c.txt }}
+                        rows={2}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             <div className="mb-4">
               <DashSelect
                 label="Wilaya"
@@ -5548,6 +5907,7 @@ export default function PatientDashboard({ onLogout }) {
   const [appointments, setAppointments] = useState([]);
   const [medicalProfile, setMedicalProfile] = useState(null);
   const [notifications, setNotifications] = useState([]);
+  const [pendingIdentityRequest, setPendingIdentityRequest] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const c = dk ? T.dark : T.light;
@@ -5558,7 +5918,7 @@ export default function PatientDashboard({ onLogout }) {
         setLoading(true);
         // On récupère les deux, mais si le profil médical n'existe pas encore (404),
         // on ne bloque pas tout le dashboard.
-        const [appts, profile, notifs] = await Promise.all([
+        const [appts, profile, notifs, identityReqs] = await Promise.all([
           api.getMyAppointments().catch((err) => {
             if (import.meta.env.DEV) console.warn("Appointments fetch failed:", err);
             return [];
@@ -5571,10 +5931,14 @@ export default function PatientDashboard({ onLogout }) {
             if (import.meta.env.DEV) console.warn("Notifications fetch failed:", err);
             return [];
           }),
+          api.apiFetch("/auth/request-profile-update/").catch(() => []),
         ]);
-        setAppointments(Array.isArray(appts) ? appts : []);
+        const apptsArray = Array.isArray(appts) ? appts : (appts?.results || []);
+        setAppointments(apptsArray);
         setMedicalProfile(profile);
         setNotifications(Array.isArray(notifs) ? notifs : []);
+        const pending = Array.isArray(identityReqs) ? identityReqs.find(r => r.status === 'pending') : null;
+        setPendingIdentityRequest(pending);
       } catch (err) {
         if (import.meta.env.DEV) console.error("Critical error in PatientDashboard fetchData:", err);
       } finally {
@@ -5584,6 +5948,18 @@ export default function PatientDashboard({ onLogout }) {
     fetchData();
   }, []);
 
+  // Polling toutes les 30s pour voir les changements de statut (accepté/refusé)
+  useEffect(() => {
+    const poll = setInterval(async () => {
+      try {
+        const fresh = await api.getMyAppointments();
+        const apptsArray = Array.isArray(fresh) ? fresh : (fresh?.results || []);
+        setAppointments(apptsArray);
+      } catch {}
+    }, 30_000);
+    return () => clearInterval(poll);
+  }, []);
+
   // Ensure scroll is at the top when navigating between dashboard tabs
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -5591,9 +5967,12 @@ export default function PatientDashboard({ onLogout }) {
 
   const refreshAppointments = async () => {
     try {
-      const fresh = await api.getMyAppointments().catch(() => []);
-      setAppointments(Array.isArray(fresh) ? fresh : []);
-    } catch (err) {}
+      const fresh = await api.getMyAppointments();
+      const apptsArray = Array.isArray(fresh) ? fresh : (fresh?.results || []);
+      setAppointments(apptsArray);
+    } catch (err) {
+      // keep existing appointments if fetch fails
+    }
   };
 
   const userInitials =
@@ -5626,6 +6005,8 @@ export default function PatientDashboard({ onLogout }) {
       refreshAppointments,
       notifications,
       setNotifications,
+      pendingIdentityRequest,
+      setPendingIdentityRequest,
     };
     switch (page) {
       case "dashboard":
@@ -5633,10 +6014,9 @@ export default function PatientDashboard({ onLogout }) {
       case "medical-profile":
         return (
           <MedicalProfilePage
-            dk={dk}
+            {...props}
             profile={medicalProfile}
             userId={userData?.id}
-            userData={userData}
           />
         );
       case "ai-diagnosis":
@@ -5713,9 +6093,8 @@ export default function PatientDashboard({ onLogout }) {
       case "settings":
         return (
           <SettingsPage
-            dk={dk}
+            {...props}
             onToggleDark={toggleTheme}
-            userData={userData}
           />
         );
       default:

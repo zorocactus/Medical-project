@@ -54,14 +54,16 @@ export function DataProvider({ children }) {
   const refreshDoctorAppointments = async () => {
     try {
       const data = await api.getDoctorAppointments();
-      if (Array.isArray(data)) setAppointments(data);
+      const list = Array.isArray(data) ? data : (data?.results || []);
+      setAppointments(list);
     } catch {}
   };
 
   const refreshPatientRequests = async () => {
     try {
       const data = await api.getPendingAppointments();
-      if (Array.isArray(data)) setPatientRequests(data);
+      const list = Array.isArray(data) ? data : (data?.results || []);
+      setPatientRequests(list);
     } catch {}
   };
 
@@ -99,6 +101,12 @@ export function DataProvider({ children }) {
       refreshDoctorAppointments();
       refreshPatientRequests();
       refreshDoctorPatients();
+      // Polling toutes les 30s pour les nouvelles demandes
+      const poll = setInterval(() => {
+        refreshPatientRequests();
+        refreshDoctorAppointments();
+      }, 30_000);
+      return () => clearInterval(poll);
     } else if (userData?.role === "caretaker") {
       refreshGmPatients();
       refreshGmTreatments();

@@ -249,6 +249,17 @@ export async function updateMe(data) {
   });
 }
 
+/**
+ * (Patient) Demande de changement de nom/prénom (soumis à validation Admin)
+ * @param {object} data — { new_first_name, new_last_name, reason }
+ */
+export async function requestProfileUpdate(data) {
+  return apiFetch("/auth/request-profile-update/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 2. MÉDECINS  →  /api/doctors/
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1337,20 +1348,49 @@ export async function analyzeSymptomsStream(data, onChunk, onMeta) {
 }
 
 /**
- * Analyse un document médical (Ordonnance, Radio, Labo)
+ * Analyse un document médical en streaming (SSE)
  * @param {File} file
- * @param {string} message — question ou contexte de l'utilisateur
+ * @param {string} message — question du patient
+ * @param {string} lang
+ * @param {Array} history — historique de la conversation
+ * @param {function} onChunk — callback pour chaque morceau de texte
+ * @param {function} onMeta — callback pour les métadonnées (file_type, clarification)
  */
-export async function analyzeMedicalFile(file, message = "", lang = "fr") {
+export async function analyzeMedicalFileStream(file, message = "", lang = "fr", history = [], onChunk, onMeta) {
+  const token = getToken();
   const formData = new FormData();
   formData.append("file", file);
   formData.append("message", message);
   formData.append("lang", lang);
+  formData.append("history", JSON.stringify(history));
 
-  return apiFetch("/diagnostic/chat/analyze-file/", {
+  const response = await fetch(`${BASE_URL}/diagnostic/chat/analyze-file/`, {
     method: "POST",
+    headers: { "Authorization": `Bearer ${token}` },
     body: formData,
   });
+
+  if (!response.ok) throw new Error(`Erreur analyse fichier: ${response.status}`);
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    const lines = decoder.decode(value).split("\n");
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      const dataStr = line.slice(6).trim();
+      if (dataStr === "[DONE]") return;
+      try {
+        const payload = JSON.parse(dataStr);
+        if (payload.type === "chunk") onChunk?.(payload.text);
+        else if (payload.type === "file_type" || payload.type === "clarification") onMeta?.(payload);
+      } catch { /* chunk mal formé — ignorer */ }
+    }
+  }
 }
 
 /** Récupère les sessions de conversation IA passées */
@@ -1361,4 +1401,27 @@ export async function getAISessions() {
 /** Récupère l'historique complet des interactions IA */
 export async function getAIHistory() {
   return apiFetch("/diagnostic/chat/history/");
-}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN PANEL API
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * (Admin) Récupère la liste des demandes de changement de profil
+ */
+export async function getAdminProfileUpdates() {
+  return apiFetch("/admin/profile-updates/");
+}
+
+/**
+ * (Admin) Approuve ou rejette une demande de changement de profil
+ * @param {number} requestId
+ * @param {string} action — "approve" | "reject"
+ */
+export async function actionProfileUpdate(requestId, action) {
+  return apiFetch(`/admin/profile-updates/${requestId}/action/`, {
+    method: "POST",
+    body: JSON.stringify({ action }),
+  });
+}
