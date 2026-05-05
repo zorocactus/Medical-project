@@ -379,7 +379,7 @@ export default function ConversationList({
         </div>
         <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center"
           style={{ background: c.card, border: `2px solid ${c.border}` }}>
-          <span style={{ fontSize: 12 }}>💬</span>
+          <MessageSquare size={12} style={{ color: c.blue }} />
         </div>
       </div>
       <div className="text-center">

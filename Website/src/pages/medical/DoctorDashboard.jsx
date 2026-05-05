@@ -2688,7 +2688,38 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
   const [sessionResult, setSessionResult] = useState(null);
   const [pdfDownloading, setPdfDownloading] = useState(null);
   const [pdfError, setPdfError] = useState(null);
+  const [qrBlobUrl, setQrBlobUrl] = useState(null);
+  const [qrBlobMap, setQrBlobMap] = useState({});
   const diagnosisRef = useRef(null);
+
+  const fetchQrBlob = (rawUrl) => {
+    const path = rawUrl.replace(/^https?:\/\/[^/]+/, "").replace(/^\/api/, "");
+    return api.apiFetchBlob(path).then(blob => URL.createObjectURL(blob)).catch(() => null);
+  };
+
+  useEffect(() => {
+    if (!sessionResult?.prescription_qr_url) return;
+    let active = true;
+    fetchQrBlob(sessionResult.prescription_qr_url).then(url => {
+      if (active && url) setQrBlobUrl(url);
+    });
+    return () => { active = false; };
+  }, [sessionResult?.prescription_qr_url]);
+
+  useEffect(() => {
+    const withQr = prescriptions.filter(p => p.prescription_qr_url && !p._local);
+    if (!withQr.length) return;
+    let active = true;
+    Promise.all(withQr.map(p =>
+      fetchQrBlob(p.prescription_qr_url).then(url => ({ key: p.id || p.prescription_qr_url, url }))
+    )).then(results => {
+      if (!active) return;
+      const map = {};
+      results.forEach(({ key, url }) => { if (url) map[key] = url; });
+      setQrBlobMap(map);
+    });
+    return () => { active = false; };
+  }, [prescriptions]);
 
   const handleDownloadRxPdf = async (rxId) => {
     if (!rxId) return;
@@ -2918,9 +2949,12 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
             )}
 
             {/* QR Code */}
-            {qrUrl && (
+            {sessionResult?.prescription_qr_url && (
               <div style={{ padding: "14px 18px", borderRadius: 14, border: `2px solid ${c.border}`, marginBottom: 20, display: "flex", alignItems: "center", gap: 16 }}>
-                <img src={qrUrl} alt="QR ordonnance" style={{ width: 80, height: 80, borderRadius: 10, background: "#fff", padding: 4, flexShrink: 0 }} />
+                {qrBlobUrl
+                  ? <img src={qrBlobUrl} alt="QR ordonnance" style={{ width: 80, height: 80, borderRadius: 10, background: "#fff", padding: 4, flexShrink: 0 }} />
+                  : <div style={{ width: 80, height: 80, borderRadius: 10, background: c.blueLight, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><span style={{ fontSize: 10, color: c.txt3 }}>Chargement…</span></div>
+                }
                 <div>
                   <p style={{ fontSize: 13, fontWeight: 700, color: c.txt, margin: 0 }}>{t('dashboard.doctor.consultation.qrCode')}</p>
                   <p style={{ fontSize: 11, color: c.txt3, margin: 0, marginTop: 3 }}>
@@ -3279,12 +3313,17 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                       </div>
                       <div className="flex items-center gap-3 pt-2 border-t" style={{ borderColor: c.border }}>
                         {p.prescription_qr_url ? (
-                          <img
-                            src={p.prescription_qr_url}
-                            alt="QR ordonnance"
-                            className="w-14 h-14 rounded-lg object-contain shrink-0"
-                            style={{ background: "#fff", padding: 2 }}
-                          />
+                          qrBlobMap[p.id || p.prescription_qr_url]
+                            ? <img
+                                src={qrBlobMap[p.id || p.prescription_qr_url]}
+                                alt="QR ordonnance"
+                                className="w-14 h-14 rounded-lg object-contain shrink-0"
+                                style={{ background: "#fff", padding: 2 }}
+                              />
+                            : <div className="w-14 h-14 rounded-lg shrink-0 flex items-center justify-center border-2 border-dashed"
+                                style={{ borderColor: c.border, color: c.txt3 }}>
+                                <span className="text-[9px] font-bold text-center leading-tight">QR…</span>
+                              </div>
                         ) : (
                           <div className="w-14 h-14 rounded-lg shrink-0 flex items-center justify-center border-2 border-dashed"
                             style={{ borderColor: c.border, color: c.txt3 }}>

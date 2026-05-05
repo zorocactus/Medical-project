@@ -1308,7 +1308,7 @@ export async function analyzeSymptoms(data) {
  * @param {function} onChunk — callback appelé pour chaque morceau de texte
  * @param {function} onMeta — callback appelé pour les données (urgence, spécialiste...)
  */
-export async function analyzeSymptomsStream(data, onChunk, onMeta) {
+export async function analyzeSymptomsStream(data, onChunk, onMeta, onAlert = () => {}) {
   const token = getToken();
   const response = await fetch(`${BASE_URL}/diagnostic/chat/stream/`, {
     method: "POST",
@@ -1334,11 +1334,12 @@ export async function analyzeSymptomsStream(data, onChunk, onMeta) {
     for (const line of lines) {
       if (line.startsWith("data: ")) {
         const dataStr = line.slice(6).trim();
-        if (dataStr === "[DONE]") break;
+        if (dataStr === "[DONE]") continue;
         try {
           const payload = JSON.parse(dataStr);
           if (payload.type === "chunk") onChunk(payload.text);
-          if (payload.type === "meta") onMeta(payload);
+          if (payload.type === "alert") onAlert(payload);
+          if (payload.type === "meta" || payload.type === "session_saved") onMeta(payload);
         } catch (e) {
           console.warn("Erreur parsing stream chunk:", e);
         }
@@ -1396,6 +1397,11 @@ export async function analyzeMedicalFileStream(file, message = "", lang = "fr", 
 /** Récupère les sessions de conversation IA passées */
 export async function getAISessions() {
   return apiFetch("/diagnostic/chat/sessions/");
+}
+
+/** Supprime une session IA par son identifiant */
+export async function deleteAISession(sessionId) {
+  return apiFetch(`/diagnostic/chat/sessions/${sessionId}/`, { method: "DELETE" });
 }
 
 /** Récupère l'historique complet des interactions IA */

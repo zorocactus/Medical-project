@@ -58,6 +58,11 @@ import {
   ExternalLink,
   Mic,
   Paperclip,
+  History,
+  GitFork,
+  Stethoscope,
+  Leaf,
+  Trash2,
 } from "lucide-react";
 
 
@@ -477,7 +482,7 @@ function DashboardPage({
 
       {/* AI Checker */}
       <div
-        className="rounded-2xl p-6 mb-6 relative overflow-hidden shadow-sm"
+        className="rounded-2xl p-6 mb-6 relative overflow-hidden shadow-sm card-hover"
         style={{
           background: "linear-gradient(135deg, #304B71 0%, #6492C9 100%)",
         }}
@@ -933,17 +938,21 @@ function MedicalProfilePage(props) {
     }
   };
 
-  const handleViewQR = async (rxId) => {
-    if (!rxId) return;
-    const idStr = String(rxId);
+  const [qrModal, setQrModal] = useState(null); // { rx, imageUrl }
+
+  const handleViewQR = async (rx) => {
+    if (!rx?.id) return;
+    const idStr = String(rx.id);
+    setQrModal({ rx, imageUrl: null });
     try {
       const blob = await api.apiFetchBlob(`/prescriptions/${idStr}/qr-image/`);
       const url = window.URL.createObjectURL(blob);
-      window.open(url, "_blank");
+      setQrModal({ rx, imageUrl: url });
     } catch (err) {
       console.error("Erreur QR:", err);
       setStatus({ type: "error", msg: "Impossible d'afficher le QR Code." });
       setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
+      setQrModal(null);
     }
   };
 
@@ -954,7 +963,6 @@ function MedicalProfilePage(props) {
     diagnostics: [],
     prescriptions: [],
     analyses: [],
-    "symptom-history": [],
   });
   const [loading, setLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -972,7 +980,6 @@ function MedicalProfilePage(props) {
     analyses: true,
     diagnostics: true,
     prescriptions: true,
-    "symptom-history": true,
   };
 
   const TAB_LABELS = {
@@ -981,7 +988,6 @@ function MedicalProfilePage(props) {
     prescriptions: "Prescriptions",
     analyses: "Analyses",
     treatments: "Traitements",
-    "symptom-history": "Symptômes IA",
   };
 
   useEffect(() => {
@@ -1011,10 +1017,6 @@ function MedicalProfilePage(props) {
           const res = await api.getMyPrescriptions().catch(() => []);
           const list = Array.isArray(res) ? res : (res?.results || []);
           setData((d) => ({ ...d, prescriptions: list }));
-        } else if (tab === "symptom-history") {
-          const res = await api.getSymptomHistory().catch(() => []);
-          const list = Array.isArray(res) ? res : (res?.results || []);
-          setData((d) => ({ ...d, "symptom-history": list }));
         }
       } catch (_) {}
       loadedTabs.current.add(tab);
@@ -1029,7 +1031,6 @@ function MedicalProfilePage(props) {
     "prescriptions",
     "analyses",
     "treatments",
-    "symptom-history",
   ];
   const safeProfile = profile || {};
 
@@ -1122,8 +1123,8 @@ function MedicalProfilePage(props) {
       if (nameChanged && identityReason) {
         updatePromises.push(
           api.requestProfileUpdate({
-            new_first_name: payload.first_name,
-            new_last_name: payload.last_name,
+            new_first_name: payload.first_name || userData?.first_name || safeProfile.first_name || "",
+            new_last_name: payload.last_name || userData?.last_name || safeProfile.last_name || "",
             reason: identityReason
           })
         );
@@ -1660,7 +1661,7 @@ function MedicalProfilePage(props) {
                       <div className="flex items-center gap-2 flex-wrap">
                         {qrUrl && rx.qr_token && (
                           <button
-                            onClick={() => handleViewQR(rx.id)}
+                            onClick={() => handleViewQR(rx)}
                             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-opacity hover:opacity-75"
                             style={{ color: c.blue, borderColor: c.border, background: "transparent" }}
                           >
@@ -1686,79 +1687,336 @@ function MedicalProfilePage(props) {
             </div>
           )}
 
-          {tab === "symptom-history" && (
-            <div className="space-y-4">
-              {data["symptom-history"].length === 0 ? (
-                <EmptyState
-                  dk={dk}
-                  icon={Activity}
-                  title="Aucun historique de symptômes"
-                  message="Vos analyses de symptômes IA apparaîtront ici après utilisation du module de diagnostic."
-                />
+        </>
+      )}
+
+      {/* QR Modal */}
+      {qrModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-60 backdrop-blur-sm">
+          <div className="bg-white p-8 rounded-3xl max-w-sm w-full shadow-2xl relative flex flex-col items-center">
+            <button
+              onClick={() => {
+                if (qrModal.imageUrl) window.URL.revokeObjectURL(qrModal.imageUrl);
+                setQrModal(null);
+              }}
+              className="absolute top-5 right-5 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+            >
+              <X size={20} className="text-gray-600" />
+            </button>
+            <h3 className="font-black text-xl mb-1 text-gray-900">Ordonnance</h3>
+            <p className="text-xs font-bold text-gray-500 mb-6 uppercase tracking-widest">
+              {qrModal.rx.doctor_name || "—"} • {qrModal.rx.created_at?.split("T")[0] || "—"}
+            </p>
+            <div className="p-4 rounded-[24px] mb-6 bg-white border border-gray-100 shadow-xl flex items-center justify-center w-52 h-52">
+              {qrModal.imageUrl ? (
+                <img src={qrModal.imageUrl} alt="QR Code ordonnance" className="w-44 h-44 object-contain" />
               ) : (
-                data["symptom-history"].map((item, i) => (
-                  <Card key={item.id || i} dk={dk}>
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="font-bold" style={{ color: c.txt }}>
-                          {item.title || item.symptoms || "Analyse de symptômes"}
-                        </p>
-                        <p className="text-xs mt-1" style={{ color: c.txt2 }}>
-                          {item.date || item.created_at || "—"}
-                        </p>
-                        {item.result && (
-                          <p className="text-xs mt-2" style={{ color: c.txt3 }}>{item.result}</p>
-                        )}
-                      </div>
-                      <Badge color={c.purple} bg={c.purple + "18"}>IA</Badge>
-                    </div>
-                  </Card>
-                ))
+                <div className="flex flex-col items-center gap-2">
+                  <span className="w-8 h-8 border-2 border-[#395886] border-t-transparent rounded-full animate-spin" />
+                  <span className="text-xs text-gray-400">Chargement…</span>
+                </div>
               )}
             </div>
-          )}
-        </>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-7 h-7 rounded-[6px] bg-[#F5F7FB] border border-[#E4EAF5] flex items-center justify-center">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#395886" strokeWidth="2">
+                  <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                  <rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M17 14h4M14 17v4"/>
+                </svg>
+              </div>
+              <p className="text-[13px] font-bold text-gray-600">Présentez ce QR Code à votre pharmacien</p>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
 }
 
 // ─── AI DIAGNOSIS PAGE ────────────────────────────────────────────────────────
+
+function highlightTerms(text) {
+  if (!text) return "";
+
+  // Escape HTML first to prevent XSS
+  let t = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
+  // 1. Numbered hypothesis titles → bold
+  t = t.replace(
+    /^(\d+[\.\)]\s*)([^\n—\-:]+)/gm,
+    (match, num, title) =>
+      `${num}<strong style="color:#0D1B2E;font-weight:500;">${title.trim()}</strong>`
+  );
+
+  // 2. Urgency badges — only on lines that start with "Urgence :"
+  t = t.replace(
+    /^Urgence\s*:\s*([^\n]+)/gim,
+    (match, level) => {
+      const l = level.toLowerCase();
+      let bg, color, label;
+      if (l.includes("non urgent") || l.includes("généralement non")) {
+        bg="#EEEDFE"; color="#534AB7"; label="Non urgent";
+      } else if (l.includes("relativ") || l.includes("évaluer") || l.includes("médecin traitant")) {
+        bg="#E6F1FB"; color="#185FA5"; label="À évaluer";
+      } else if (l.includes("variable")) {
+        bg="#E1F5EE"; color="#0F6E56"; label="Variable";
+      } else if (l.includes("urgent") || l.includes("immédiat") || l.includes("sévère")) {
+        bg="#FCEBEB"; color="#A32D2D"; label="Urgence possible";
+      } else if (l.includes("bilan") || l.includes("diagnostic")) {
+        bg="#FAEEDA"; color="#854F0B"; label="Bilan recommandé";
+      } else {
+        bg="#F0F4F8"; color="#5A6E8A"; label="À confirmer";
+      }
+      return `<span style="background:${bg};color:${color};padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;margin-left:6px;white-space:nowrap;">${label}</span>`;
+    }
+  );
+
+  // 3. Diseases — subtle yellow highlight
+  const maladies = [
+    "pneumonie","pleurésie","embolie pulmonaire","infarctus","angine de poitrine",
+    "péricardite","costochondrite","hypertension","diabète","anémie","asthme",
+    "migraine","bronchite","gastrite","ulcère","hépatite","thrombose","arythmie",
+    "tachycardie","fibrillation","insuffisance cardiaque","insuffisance rénale",
+    "hypothyroïdie","hyperthyroïdie","épilepsie","méningite","sepsis","grippe",
+    "covid","tuberculose","sinusite","angine","otite","conjonctivite","appendicite",
+    "pancréatite","cholécystite","pyélonéphrite","cystite","infection","inflammation",
+    "ischémie","nécrose","fibrose","cancer","tumeur","leucémie","lymphome","sclérose",
+    "arthrite","arthrose","ostéoporose","goutte","lupus","polyarthrite",
+    "spondylarthrite","myopathie","neuropathie","dépression","anxiété",
+    "schizophrénie","alzheimer","parkinson","AVC","accident vasculaire","embolie",
+    "phlébite","varices","anévrisme","reflux","RGO","gastro-œsophagien","hernie",
+    "prolapsus","endométriose","SOPK","ménopause","ostéite","ostéomyélite",
+    "psoriasis","eczéma","dermatite","urticaire","allergie","choc anaphylactique",
+    "hypoglycémie","hyperglycémie","acidose","déshydratation","malnutrition","carence",
+  ];
+  const maladiesPattern = new RegExp(
+    `\\b(${maladies.map(m => m.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`, "gi"
+  );
+  t = t.replace(maladiesPattern, match =>
+    `<span style="background:#FFF8E1;color:#795548;padding:0px 3px;border-radius:3px;font-weight:500;">${match}</span>`
+  );
+
+  // 4. Medications — light blue highlight
+  const medicaments = [
+    "Lisinopril","Paracétamol","Ibuprofène","Metformine","Aspirine","Amoxicilline",
+    "Doliprane","Voltarène","Cortisone","Ventoline","Metoprolol","Ramipril",
+    "Amlodipine","Atorvastatine","Oméprazole","Pantoprazole","Lorazépam","Diazépam",
+    "Sertraline","Fluoxétine","Insuline","Levothyrox","Warfarine","Héparine",
+    "Morphine","Tramadol","Codéine","Azithromycine","Ciprofloxacine","Doxycycline",
+    "Prednisolone","Prednisone","Budesonide","Salbutamol","Tiotropium","Fluticasone",
+    "Methotrexate","Hydroxychloroquine","Adalimumab","Infliximab","Rituximab",
+    "Bisoprolol","Carvedilol","Furosémide","Spironolactone","Digoxine","Amiodarone",
+    "Clopidogrel","Rivaroxaban","Apixaban","Dabigatran","Simvastatine","Rosuvastatine",
+    "Metoclopramide","Dompéridone","Ranitidine","Esoméprazole","Lansoprazole","Baclofen",
+    "Gabapentine","Prégabaline","Carbamazépine","Valproate","Lamotrigine","Lévétiracétam",
+  ];
+  const medPattern = new RegExp(
+    `\\b(${medicaments.map(m => m.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`, "gi"
+  );
+  t = t.replace(medPattern, match =>
+    `<span style="background:#E6F1FB;color:#185FA5;padding:1px 5px;border-radius:4px;font-size:12px;font-weight:500;">${match}</span>`
+  );
+
+  return t;
+}
+
+function renderAIMessage(text, isStreaming, c) {
+  if (!text) return null;
+
+  const clean = text
+    .replace(/={3,}/g, "")
+    .replace(/\\n/g, "\n")
+    .replace(/\*\*\*(.*?)\*\*\*/g, "$1")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/^\*\s*/gm, "")
+    .replace(/\*+$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  const highlighted = isStreaming ? null : highlightTerms(clean);
+
+  return (
+    <div style={{
+      background: c.card,
+      border: `0.5px solid ${c.border}`,
+      borderRadius: 12,
+      padding: "20px 22px",
+    }}>
+      <div
+        style={{ fontSize:14, color:c.txt, lineHeight:1.9, whiteSpace:"pre-wrap" }}
+        dangerouslySetInnerHTML={{ __html: isStreaming ? clean : highlighted }}
+      />
+      {isStreaming && (
+        <span style={{
+          display:"inline-block", width:2, height:15,
+          background:c.txt2, marginLeft:2, verticalAlign:"middle",
+          animation:"blink 1s infinite",
+        }}/>
+      )}
+      {!isStreaming && (
+        <div style={{
+          borderTop:`0.5px solid ${c.border}`, marginTop:16, paddingTop:12,
+          display:"flex", gap:8, alignItems:"flex-start",
+        }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ flexShrink:0, marginTop:2 }}>
+            <circle cx="12" cy="12" r="10" stroke="#888780" strokeWidth="1.5"/>
+            <path d="M12 8v4M12 16v.5" stroke="#888780" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+          <p style={{ fontSize:12, color:c.txt2, margin:0, lineHeight:1.6 }}>
+            Ces informations sont indicatives et ne remplacent pas un avis médical. Consultez un professionnel de santé pour un diagnostic adapté à votre situation personnelle.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const URGENCY_CONF = {
+  low:  { label:"Conseil médical",  color:"#4ade80", bg:"rgba(74,222,128,.10)",  border:"rgba(74,222,128,.22)"  },
+  med:  { label:"Urgence modérée", color:"#fbbf24", bg:"rgba(251,191,36,.10)",  border:"rgba(251,191,36,.22)"  },
+  high: { label:"Urgence élevée",  color:"#f87171", bg:"rgba(248,113,113,.10)", border:"rgba(248,113,113,.22)" },
+};
+
+function useAITypewriter(text, speed = 12) {
+  const [out, setOut] = useState("");
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    if (!text) { setOut(""); setDone(false); return; }
+    setOut(""); setDone(false);
+    let i = 0;
+    const iv = setInterval(() => {
+      i++;
+      setOut(text.slice(0, i));
+      if (i >= text.length) { clearInterval(iv); setDone(true); }
+    }, speed);
+    return () => clearInterval(iv);
+  }, [text]);
+  return [out, done];
+}
+
+function ConfRing({ val, color }) {
+  const R = 30, CV = 2 * Math.PI * R;
+  const offset = CV - (val / 100) * CV;
+  return (
+    <svg width="80" height="80" viewBox="0 0 80 80">
+      <circle cx="40" cy="40" r={R} fill="none" stroke="rgba(99,142,203,0.2)" strokeWidth="6"/>
+      <circle cx="40" cy="40" r={R} fill="none" stroke={color} strokeWidth="6"
+        strokeDasharray={CV} strokeDashoffset={offset} strokeLinecap="round"
+        transform="rotate(-90 40 40)"
+        style={{ transition:"stroke-dashoffset 1.2s cubic-bezier(.2,0,0,1)" }}/>
+      <text x="40" y="44" textAnchor="middle" fontSize="15" fontWeight="700" fill={color}
+        fontFamily="DM Sans,sans-serif">{val}%</text>
+    </svg>
+  );
+}
+
+function DiagResultPanel({ result, c, setPage }) {
+  if (!result) return null;
+  const urg = URGENCY_CONF[result.urgency] || URGENCY_CONF.med;
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+      {/* Urgency + Confidence Card */}
+      <div style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:18, overflow:"hidden",
+        boxShadow:"0 4px 20px rgba(57,88,134,.08)", animation:"diagSlideUp .4s ease" }}>
+        <div style={{ background:"linear-gradient(135deg,#304B71,#4A6FA5)", padding:"18px 20px" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+            <div>
+              <span style={{ fontSize:9, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.12em",
+                color:"rgba(255,255,255,.45)", display:"block", marginBottom:6 }}>Niveau d'urgence</span>
+              <span style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"4px 14px", borderRadius:999,
+                fontSize:11, fontWeight:700, background:urg.bg, color:urg.color, border:`1px solid ${urg.border}` }}>
+                <span style={{ width:6, height:6, borderRadius:"50%", background:urg.color, display:"inline-block" }}/>
+                {urg.label}
+              </span>
+              {result.diagnosis && (
+                <p style={{ fontSize:13, fontWeight:700, color:"#fff", lineHeight:1.3, marginTop:10 }}>{result.diagnosis}</p>
+              )}
+            </div>
+            {result.confidence != null && <ConfRing val={result.confidence} color={urg.color}/>}
+          </div>
+        </div>
+      </div>
+
+      {/* Recommended Doctor */}
+      {result.recommendations?.length > 0 && (
+        <div style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:18, padding:"18px 20px",
+          boxShadow:"0 2px 8px rgba(57,88,134,.05)" }}>
+          <h3 style={{ fontSize:12, fontWeight:700, color:c.txt3, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12 }}>
+            Médecin recommandé
+          </h3>
+          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            {result.recommendations.map((r, i) => (
+              <div key={i}
+                style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 16px",
+                  borderRadius:14, background:c.bg, border:`1px solid ${c.border}`,
+                  cursor:"pointer", transition:"all 200ms",
+                  animation:`diagBubbleIn .35s ease ${i * 80}ms both` }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = c.blue + "88";
+                  e.currentTarget.style.background = c.blueLight;
+                  e.currentTarget.style.boxShadow = `0 4px 16px ${c.blue}22`;
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = c.border;
+                  e.currentTarget.style.background = c.bg;
+                  e.currentTarget.style.boxShadow = "none";
+                }}
+                onClick={() => setPage("appointments")}>
+                <div style={{ width:44, height:44, borderRadius:12, background:`linear-gradient(135deg,${r.color}22,${r.color}11)`,
+                  border:`1px solid ${r.color}44`, display:"flex", alignItems:"center",
+                  justifyContent:"center", flexShrink:0 }}>
+                  <Stethoscope size={20} color={r.color}/>
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <p style={{ fontSize:13, fontWeight:700, color:c.txt, marginBottom:3 }}>{r.title}</p>
+                  <p style={{ fontSize:11, color:c.txt2, lineHeight:1.4 }}>{r.desc}</p>
+                </div>
+                <ChevronRight size={16} color={c.txt3}/>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Legal Warning */}
+      <div style={{ display:"flex", alignItems:"flex-start", gap:12, padding:"12px 16px",
+        background:"rgba(99,142,203,.05)", border:"1px solid rgba(99,142,203,.14)", borderRadius:14 }}>
+        <Shield size={16} color="#638ECB"/>
+        <p style={{ fontSize:11, color:c.txt3, lineHeight:1.6 }}>
+          <strong style={{ color:c.txt2 }}>Avertissement :</strong> Ce diagnostic est fourni à titre indicatif
+          uniquement. Il ne remplace en aucun cas la consultation d'un professionnel de santé qualifié.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function AIDiagnosisPage({ dk, firstName, setPage }) {
-  const { t } = useLanguage();
+  const c = dk ? T.dark : T.light;
 
-  const theme = useMemo(() => ({
-    bg: dk ? "#0d1117" : "#f6f8fa",
-    chatBg: dk ? "#161b22" : "#ffffff",
-    accent: dk ? "#3b82f6" : "#2563eb",
-    text: dk ? "#e6edf3" : "#0d1117",
-    aiMsgBg: dk ? "#161b22" : "#f8fafc",
-    border: dk ? "#30363d" : "#d0d7de",
-    cardUrgency: dk ? "rgba(239, 68, 68, 0.15)" : "#FEF2F2",
-    textUrgency: dk ? "#F87171" : "#B91C1C",
-    cardSpec: dk ? "rgba(59, 130, 246, 0.15)" : "#EFF6FF",
-    textSpec: dk ? "#60A5FA" : "#1D4ED8",
-    cardRDV: dk ? "rgba(16, 185, 129, 0.15)" : "#ECFDF5",
-    textRDV: dk ? "#34D399" : "#059669",
-  }), [dk]);
-
-  const [input, setInput] = useState("");
-  const [messages, setMessages] = useState([
-    {
-      role: "ai",
-      text: "Nouvelle session. Décrivez vos symptômes en détail — localisation, intensité, durée — et je vous fournirai une analyse immédiate.",
-    },
+  const [input, setInput]               = useState("");
+  const [messages, setMessages]         = useState([
+    { role:"ai", text:"Nouvelle session. Décrivez vos symptômes en détail — localisation, intensité, durée — et je vous fournirai une analyse immédiate." },
   ]);
-  const [loading, setLoading] = useState(false);
-  const [showFullHistory, setShowFullHistory] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [attachedFiles, setAttachedFiles] = useState([]); // [{ name, file }]
-  const [sessions, setSessions] = useState([]);
+  const [loading, setLoading]           = useState(false);
+  const [isRecording, setIsRecording]   = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState([]);
+  const [sessions, setSessions]         = useState([]);
+  const [activeSession, setActiveSession] = useState(null);
+  const [showSidebar, setShowSidebar]   = useState(true);
+  const [diagResult, setDiagResult]     = useState(null);
+  const [medTerms, setMedTerms]         = useState([]);
+  const [currentAlert, setCurrentAlert] = useState(null);
   const messagesEndRef = useRef(null);
-  const textareaRef = useRef(null);
+  const textareaRef    = useRef(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior:"smooth" });
   }, [messages, loading]);
 
   useEffect(() => {
@@ -1768,134 +2026,185 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
     }
   }, [input]);
 
-  // Charge les sessions IA réelles depuis le backend
   useEffect(() => {
     api.getAISessions()
       .then(data => { if (data?.sessions) setSessions(data.sessions); })
       .catch(() => {});
   }, []);
 
-  const quickSymptoms = ["Maux de tête", "Fièvre", "Fatigue", "Douleur thoracique", "Nausées", "Toux"];
+  useEffect(() => {
+    api.getMedications()
+      .then(data => {
+        // Handle both paginated { results: [...] } and plain array responses
+        const items = Array.isArray(data) ? data : (data?.results ?? []);
+        const names = items.flatMap(m => [m.name, m.molecule].filter(Boolean));
+        if (names.length > 0) setMedTerms(names);
+      })
+      .catch(() => {}); // silently fall back to static list
+  }, []);
+
+  const quickSymptoms = ["Maux de tête", "Fièvre", "Fatigue", "Douleur thoracique", "Nausées", "Toux", "Essoufflement"];
+
+  function newSession() {
+    setMessages([{ role:"ai", text:"Nouvelle session. Décrivez vos symptômes en détail — localisation, intensité, durée — et je vous fournirai une analyse immédiate." }]);
+    setDiagResult(null);
+    setInput("");
+    setAttachedFiles([]);
+    setActiveSession(null);
+    setTimeout(() => textareaRef.current?.focus(), 100);
+  }
+
+  async function deleteSession(e, sessionId) {
+    e.stopPropagation();
+    setSessions(prev => prev.filter(s => s.id !== sessionId));
+    if (activeSession === sessionId) newSession();
+    api.deleteAISession(sessionId).catch(() => {});
+  }
+
+  function pickSession(s) {
+    setActiveSession(s.id);
+    setDiagResult(null);
+    const history = s.history || s.messages || [];
+    if (history.length) {
+      setMessages(history.map(h => ({
+        role: h.role === "user" ? "user" : "ai",
+        text: h.content || h.text || "",
+        timestamp: h.timestamp,
+      })));
+    } else {
+      setMessages([{ role:"ai", text:"Session chargée. Vous pouvez continuer la conversation." }]);
+    }
+  }
 
   const send = async (text) => {
     const msg = text || input.trim();
     const hasFiles = attachedFiles.length > 0;
     if (!msg && !hasFiles) return;
 
-    const userMsg = {
-      role: "user",
+    const ts = new Date().toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" });
+    setMessages(m => [...m, {
+      role:"user",
       text: msg || `📎 ${attachedFiles.length} fichier(s)`,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-
-    setMessages((m) => [...m, userMsg]);
+      timestamp: ts,
+    }]);
     setInput("");
     const filesToSend = [...attachedFiles];
     setAttachedFiles([]);
     setLoading(true);
+    setDiagResult(null);
+    setCurrentAlert(null);
 
-    // Prépare l'historique pour le backend
     const history = messages
       .filter(m => m.role !== "ai" || !m.text.includes("Nouvelle session"))
       .map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.text }));
 
-    // Insère un message IA vide qui sera rempli par le stream
-    setMessages((m) => [
-      ...m,
-      {
-        role: "ai",
-        text: "",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        isStreaming: true,
-      },
-    ]);
+    setMessages(m => [...m, { role:"ai", text:"", isStreaming:true, timestamp: ts }]);
 
     try {
-      let aiResponseText = "";
+      let aiText = "";
 
       if (hasFiles && filesToSend.length > 0) {
-        // ── Mode analyse de fichier médical ──────────────────────────────
-        await api.analyzeMedicalFileStream(
-          filesToSend[0].file,
-          msg,
-          "fr",
-          history,
-          (chunk) => {
-            aiResponseText += chunk;
-            setMessages((prev) => {
-              const last = prev[prev.length - 1];
-              return [...prev.slice(0, -1), { ...last, text: aiResponseText }];
-            });
-          },
-        );
-        setMessages((prev) => {
+        await api.analyzeMedicalFileStream(filesToSend[0].file, msg, "fr", history, (chunk) => {
+          aiText += chunk;
+          setMessages(prev => {
+            const last = prev[prev.length - 1];
+            return [...prev.slice(0, -1), { ...last, text: aiText }];
+          });
+        });
+        setMessages(prev => {
           const last = prev[prev.length - 1];
-          return [...prev.slice(0, -1), { ...last, isStreaming: false }];
+          return [...prev.slice(0, -1), { ...last, isStreaming:false }];
         });
 
       } else {
-        // ── Mode chat symptômes ────────────────────────────────────────────
         let metaData = null;
-
         await api.analyzeSymptomsStream(
-          { symptoms: msg, lang: "fr", history },
+          { symptoms: msg, lang:"fr", history, session_id: activeSession },
           (chunk) => {
-            aiResponseText += chunk;
-            setMessages((prev) => {
+            aiText += chunk;
+            setMessages(prev => {
               const last = prev[prev.length - 1];
-              return [...prev.slice(0, -1), { ...last, text: aiResponseText }];
+              return [...prev.slice(0, -1), { ...last, text: aiText }];
             });
           },
-          (meta) => { metaData = meta; },
+          (meta) => {
+            if (meta.type === "session_saved") {
+              setActiveSession(meta.session_id);
+            } else {
+              metaData = meta;
+            }
+          },
+          (alert) => setCurrentAlert(alert),
         );
 
-        setMessages((prev) => {
+        setMessages(prev => {
           const last = prev[prev.length - 1];
-          const result = metaData ? {
-            urgency: metaData.urgency === "urgent" ? "Urgence Élevée"
-                   : metaData.urgency === "modéré" ? "Urgence modérée" : "Faible priorité",
-            color: metaData.urgency === "urgent" ? "#ef4444"
-                 : metaData.urgency === "modéré" ? "#2563eb" : "#10b981",
-            diagnosis: metaData.diseases?.[0]?.name_fr || "Analyse terminée",
-            confidence: Math.round((metaData.diseases?.[0]?.confidence || 0.8) * 100),
-            tags: metaData.diseases?.[0]?.key_symptoms?.split(",").map(s => s.trim()) || [],
-            advice: [
-              {
-                icon: metaData.urgency === "urgent" ? "⚠️" : "🚨",
-                text: `Urgence : ${metaData.urgency === "urgent" ? "Haute" : metaData.urgency === "modéré" ? "Modérée" : "Faible"}`,
-                type: "urgency",
-              },
-              {
-                icon: "👨‍⚕️",
-                text: `Spécialiste : ${metaData.specialist?.specialty_fr || "Généraliste"}`,
-                type: "spec",
-              },
-              { icon: "📅", text: "Prendre RDV", type: "rdv" },
-            ],
-          } : null;
-          return [...prev.slice(0, -1), { ...last, result, isStreaming: false }];
+          return [...prev.slice(0, -1), { ...last, isStreaming:false }];
+        });
+
+        // Always show result panel — enrich with meta when available
+        const rawUrgency = metaData?.urgency || "";
+        const urgencyKey = /urgent|high|élevé/i.test(rawUrgency) ? "high"
+          : /modéré|moderate|med|moyen/i.test(rawUrgency) ? "med" : "low";
+        const specialtyName = metaData?.specialist?.specialty_fr
+          || metaData?.specialist?.specialty
+          || metaData?.recommended_specialist
+          || null;
+
+        // Pick the disease with the highest probability for the confidence ring
+        const topDisease = metaData?.diseases?.length
+          ? [...metaData.diseases].sort((a, b) => (b.probability ?? 0) - (a.probability ?? 0))[0]
+          : null;
+        const confidenceVal = topDisease
+          ? Math.round(topDisease.probability ?? (topDisease.confidence ?? 0) * 100)
+          : null;
+
+        setDiagResult({
+          urgency: urgencyKey,
+          confidence: confidenceVal,
+          diagnosis: topDisease?.name_fr || metaData?.diagnosis || null,
+          summary: aiText,
+          tags: topDisease?.key_symptoms?.split(",").map(s => s.trim()).filter(Boolean) || [],
+          recommendations: specialtyName ? [
+            {
+              color:c.blue,
+              title: specialtyName,
+              desc: urgencyKey === "high"
+                ? "Consultation urgente recommandée — sous 24h"
+                : urgencyKey === "med"
+                ? "Consultation recommandée cette semaine"
+                : "Consultation de suivi conseillée",
+              action:"rdv",
+            },
+          ] : [],
         });
       }
 
     } catch (err) {
       console.error("AI Error:", err);
-      setMessages((m) => [
-        ...m,
-        { role: "ai", text: "Désolé, une erreur est survenue lors de l'analyse. Veuillez réessayer." },
-      ]);
+      // Clean up any stuck streaming message
+      setMessages(m => {
+        const last = m[m.length - 1];
+        const base = last?.isStreaming ? m.slice(0, -1) : m;
+        return [...base, { role:"ai", text:"Désolé, une erreur est survenue lors de l'analyse. Vérifiez votre connexion et réessayez." }];
+      });
     } finally {
       setLoading(false);
+      // Refresh sidebar sessions after each exchange
+      api.getAISessions()
+        .then(data => { if (data?.sessions) setSessions(data.sessions); })
+        .catch(() => {});
     }
   };
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
-    setAttachedFiles((prev) => [...prev, ...files.map(f => ({ name: f.name, file: f }))]);
+    setAttachedFiles(prev => [...prev, ...files.map(f => ({ name:f.name, file:f }))]);
     e.target.value = "";
   };
 
   const toggleRecording = () => {
-    setIsRecording(!isRecording);
+    setIsRecording(r => !r);
     if (!isRecording) {
       setTimeout(() => {
         setIsRecording(false);
@@ -1904,227 +2213,320 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
     }
   };
 
-  const TypewriterText = useMemo(() => ({ text, isLast }) => {
-    const [displayedText, setDisplayedText] = useState(isLast ? "" : text);
-    useEffect(() => {
-      if (isLast) {
-        let i = 0;
-        const interval = setInterval(() => {
-          setDisplayedText(text.substring(0, i));
-          i++;
-          if (i > text.length) clearInterval(interval);
-        }, 10);
-        return () => clearInterval(interval);
-      } else {
-        setDisplayedText(text);
-      }
-    }, [text, isLast]);
-    return <span>{displayedText}</span>;
-  }, []);
-
   return (
-    <div className="relative flex flex-col h-[calc(100vh-60px)]" style={{ color: theme.text, fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ display:"flex", height:"calc(100vh - 60px)", background:c.bg, overflow:"hidden", fontFamily:"'DM Sans', sans-serif" }}>
       <style>{`
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .ai-border-left { border-left: 3px solid #2563eb; }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-slide-up { animation: slideUp 0.4s ease-out forwards; }
-        .animate-slide-up { animation: slideUp 0.4s ease-out forwards; }
+        @keyframes diagBubbleIn  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes diagSlideUp   { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes diagWaveFlow  { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+        @keyframes diagSpin      { to{transform:rotate(360deg)} }
+        @keyframes diagPulse     { 0%,100%{opacity:1} 50%{opacity:.35} }
+        @keyframes blink         { 0%,100%{opacity:1} 50%{opacity:0} }
+        .diag-wave-text {
+          background: linear-gradient(90deg,#304B71,#638ECB,#8AAEE0,#638ECB,#304B71);
+          background-size: 300% 100%;
+          animation: diagWaveFlow 2.5s ease infinite;
+          -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .diag-scroll::-webkit-scrollbar { width:4px; }
+        .diag-scroll::-webkit-scrollbar-track { background:transparent; }
+        .diag-scroll::-webkit-scrollbar-thumb { background:rgba(99,142,203,.22); border-radius:99px; }
+        .diag-chip:hover { background: ${dk ? "rgba(99,142,203,.18)" : "#dbe9ff"} !important; }
+        .diag-textarea::placeholder { color: ${dk ? "rgba(240,243,250,0.38)" : "rgba(13,27,46,0.38)"} !important; }
       `}</style>
 
-      {/* TOP RIGHT FIXED BUTTONS */}
-      <div className="absolute top-2 right-4 z-20 flex items-center gap-2">
-        <button 
-          onClick={() => setShowFullHistory(true)}
-          className="card-hover px-3 py-1.5 text-[11px] font-bold rounded-lg border bg-transparent backdrop-blur-md shadow-sm"
-          style={{ borderColor: theme.border, color: theme.text }}>
-          Historique
-        </button>
-        <button 
-          onClick={() => setMessages([{ role: "ai", text: "Nouvelle session. Décrivez vos symptômes en détail — localisation, intensité, durée — et je vous fournirai une analyse immédiate." }])}
-          className="card-hover px-3 py-1.5 text-[11px] font-bold rounded-lg border bg-transparent backdrop-blur-md shadow-sm"
-          style={{ borderColor: theme.border, color: theme.text }}>
-          New Chat
-        </button>
+      {/* ── LEFT SIDEBAR ── */}
+      <div style={{ width: showSidebar ? 240 : 0, background:c.card, borderRight:`1px solid ${c.border}`,
+        display:"flex", flexDirection:"column", overflow:"hidden", transition:"width 250ms ease", flexShrink:0 }}>
+        {showSidebar && (
+          <>
+            <div style={{ padding:"12px 14px 10px", borderBottom:`1px solid ${c.border}` }}>
+              <button onClick={newSession}
+                style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                  padding:"9px 14px", borderRadius:10, border:`1px solid ${c.border}`,
+                  background:c.blueLight, color:c.blue, fontSize:12, fontWeight:600, cursor:"pointer" }}>
+                <Plus size={13} color={c.blue}/> Nouvelle session
+              </button>
+            </div>
+
+            <div className="diag-scroll" style={{ flex:1, overflowY:"auto", padding:"8px" }}>
+              <p style={{ fontSize:9, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em",
+                color:c.txt3, padding:"6px 8px 4px" }}>Historique</p>
+              {sessions.length === 0 && (
+                <p style={{ fontSize:11, color:c.txt3, textAlign:"center", padding:"20px 8px", opacity:.6 }}>
+                  Aucune session précédente
+                </p>
+              )}
+              {sessions.map(s => {
+                const isActive = activeSession === s.id;
+                const d = new Date(s.updated_at);
+                const dateStr = isNaN(d) ? "" : d.toLocaleDateString("fr-FR", { day:"numeric", month:"short" });
+                return (
+                  <div key={s.id} onClick={() => pickSession(s)}
+                    style={{ padding:"10px", borderRadius:10, marginBottom:2, cursor:"pointer", transition:"all 150ms",
+                      background: isActive ? c.blueLight : "transparent",
+                      border:`1px solid ${isActive ? c.blue + "22" : "transparent"}` }}>
+                    <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:6 }}>
+                      <p style={{ fontSize:11, fontWeight:600, color: isActive ? c.blue : c.txt,
+                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
+                        {s.title || "Session sans titre"}
+                      </p>
+                      <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
+                        <span style={{ fontSize:9, color:c.txt3, whiteSpace:"nowrap" }}>{dateStr}</span>
+                        <button onClick={(e) => deleteSession(e, s.id)}
+                          title="Supprimer"
+                          style={{ width:18, height:18, borderRadius:4, border:"none", background:"transparent",
+                            cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
+                            color:c.txt3, opacity:.6, padding:0 }}
+                          onMouseEnter={e => { e.currentTarget.style.opacity="1"; e.currentTarget.style.color=c.red||"#E05555"; }}
+                          onMouseLeave={e => { e.currentTarget.style.opacity=".6"; e.currentTarget.style.color=c.txt3; }}>
+                          <Trash2 size={11}/>
+                        </button>
+                      </div>
+                    </div>
+                    <p style={{ fontSize:10, color:c.txt3, overflow:"hidden", textOverflow:"ellipsis",
+                      whiteSpace:"nowrap", marginTop:2 }}>
+                      {s.message_count} échange{s.message_count !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ padding:"10px 14px", borderTop:`1px solid ${c.border}` }}>
+              <p style={{ fontSize:9, color:c.txt3, lineHeight:1.5 }}>
+                Non substitutif à un médecin. Usage informatif uniquement.
+              </p>
+            </div>
+          </>
+        )}
       </div>
 
+      {/* ── CENTER CHAT ── */}
+      <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", background:c.bg, borderRight:`1px solid ${c.border}` }}>
 
+        {/* Topbar */}
+        <div style={{ height:52, background:c.card, borderBottom:`1px solid ${c.border}`,
+          display:"flex", alignItems:"center", padding:"0 16px", gap:10, flexShrink:0 }}>
+          <button onClick={() => setShowSidebar(v => !v)}
+            style={{ width:30, height:30, borderRadius:8, background:"transparent", border:`1px solid ${c.border}`,
+              cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <History size={14} color={c.txt3}/>
+          </button>
+          <div style={{ flex:1 }}>
+            <p style={{ fontSize:13, fontWeight:700, color:c.txt, lineHeight:1.2 }}>Diagnostic IA</p>
+            <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+              <span style={{ width:5, height:5, borderRadius:"50%", background:"#4ade80",
+                animation:"diagPulse 2s infinite", display:"inline-block" }}/>
+              <span style={{ fontSize:10, color:c.txt3 }}>Gemini + ChromaDB · En ligne</span>
+            </div>
+          </div>
+          
+        </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pt-10 pb-4">
-        <div className="max-w-[800px] mx-auto space-y-12">
-          {messages.map((m, i) => {
-            const isLast = i === messages.length - 1 && m.role === "ai" && !loading;
-            return (
-              <div key={i} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
-                <div className={`flex gap-4 w-full ${m.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
-                  {m.role === "ai" && (
-                    <div className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center mt-1" 
-                         style={{ background: "linear-gradient(135deg, #2563eb, #10b981)" }}>
-                      <Brain size={14} className="text-white" />
-                    </div>
-                  )}
-                  
-                  <div className={`flex flex-col gap-1 ${m.role === "user" ? "max-w-[85%]" : "flex-1"}`}>
-                    <div className={`${m.role === "user" 
-                      ? "bg-[#2563eb] text-white rounded-[18px] px-5 py-3 shadow-sm" 
-                      : `bg-transparent px-4 py-3 w-full ${m.isStreaming ? "" : "ai-border-left"}`}`}
-                      style={m.role === "ai" ? { background: theme.aiMsgBg } : {}}>
-                      
-                      {m.role === "ai" ? (
-                        <div className="text-[15px] leading-relaxed relative">
-                          {m.result && <h3 className="text-lg font-bold mb-2">{m.result.diagnosis}</h3>}
-                          {m.result && (
-                            <div className="mb-3">
-                              <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider" 
-                                    style={{ background: `${m.result.color}20`, color: m.result.color }}>
-                                {m.result.urgency}
-                              </span>
-                            </div>
-                          )}
-                          <TypewriterText text={m.text} isLast={isLast} />
-                          {m.result && (
-                            <div className="mt-4 flex flex-wrap gap-2">
-                              {m.result.tags.map(tag => (
-                                <span key={tag} className="text-[11px] px-2.5 py-1 rounded-md" 
-                                      style={{ background: `${theme.accent}15`, color: theme.accent }}>
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <p className="text-[15px] leading-relaxed">{m.text}</p>
-                      )}
-                    </div>
-                    {m.timestamp && <span className="text-[10px] opacity-40 mt-1 px-1">{m.timestamp}</span>}
-                  </div>
-                </div>
-
-                {m.result && (
-                  <div className="mt-4 w-full animate-slide-up flex flex-wrap gap-3 ml-11">
-                    {m.result.advice.map((ad, idx) => {
-                      const colors = ad.type === "urgency" ? { bg: theme.cardUrgency, text: theme.textUrgency } 
-                                   : ad.type === "spec" ? { bg: theme.cardSpec, text: theme.textSpec }
-                                   : { bg: theme.cardRDV, text: theme.textRDV };
-                      return (
-                        <div key={idx} 
-                             className="border rounded-xl px-4 py-2.5 flex items-center gap-3 shadow-sm transition-all hover:shadow-md hover:scale-105 active:scale-95 cursor-pointer"
-                             style={{ background: colors.bg, borderColor: colors.text + "40", color: colors.text }}
-                             onClick={() => (ad.type === "rdv" || ad.type === "spec") && setPage("appointments")}>
-                          <span className="text-base">{ad.icon}</span>
-                          <span className="text-[13px] font-bold">{ad.text}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+        {/* Messages */}
+        <div className="diag-scroll" style={{ flex:1, overflowY:"auto", padding:"16px 14px",
+          display:"flex", flexDirection:"column", gap:10 }}>
+          {messages.length === 0 && (
+            <div style={{ textAlign:"center", padding:"60px 20px" }}>
+              <div style={{ width:56, height:56, borderRadius:16, background:c.blueLight,
+                border:`1px solid ${c.border}`, display:"flex", alignItems:"center",
+                justifyContent:"center", margin:"0 auto 16px", boxShadow:"0 4px 16px rgba(57,88,134,.08)" }}>
+                <Brain size={26} color={c.blue}/>
               </div>
-            );
-          })}
-          {loading && (
-            <div className="flex items-center gap-1 ml-11">
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+              <p style={{ fontSize:15, fontWeight:700, color:c.txt, marginBottom:6 }}>Assistant Diagnostic IA</p>
+              <p style={{ fontSize:12, color:c.txt3, lineHeight:1.65, maxWidth:280, margin:"0 auto" }}>
+                Décrivez vos symptômes en langage naturel pour obtenir une analyse médicale immédiate.
+              </p>
             </div>
           )}
-          <div ref={messagesEndRef} className="h-8" />
-        </div>
-      </div>
 
-      {/* INPUT ZONE - BOTTOM STICKY */}
-      <div className="w-full px-4 pb-1 pt-1">
-        <div className="max-w-[800px] mx-auto flex flex-col gap-2">
-          <div className="flex gap-2 overflow-x-auto hide-scrollbar px-1 py-1">
-            {quickSymptoms.map(s => (
-              <button key={s} onClick={() => send(s)} className="whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-medium border transition-all hover:bg-blue-500 hover:text-white" style={{ background: theme.chatBg, borderColor: theme.border, color: theme.text }}>{s}</button>
-            ))}
-          </div>
-          <div className="relative group rounded-[24px] border shadow-md transition-all focus-within:shadow-lg" style={{ background: theme.chatBg, borderColor: theme.border }}>
-            <div className="flex flex-col p-2">
-              <textarea 
-                ref={textareaRef} 
-                rows={1} 
-                value={input} 
-                onChange={(e) => setInput(e.target.value)} 
-                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), send())} 
-                placeholder="Décrivez vos symptômes..." 
-                className="w-full px-4 py-3 bg-transparent outline-none resize-none text-[15px] leading-relaxed diagnosis-textarea" 
-                style={{ color: theme.text, maxHeight: '180px' }} 
-              />
-              <style>{`
-                .diagnosis-textarea::placeholder {
-                  color: ${dk ? 'rgba(230, 237, 243, 0.4)' : 'rgba(13, 17, 23, 0.4)'} !important;
-                  opacity: 1;
-                }
-              `}</style>
-              {attachedFiles.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 px-3 pb-2">
-                  {attachedFiles.map((f, i) => (
-                    <span key={i} className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border font-medium"
-                      style={{ borderColor: theme.border, color: theme.text, background: theme.chatBg }}>
-                      📎 {f.name}
-                      <button onClick={() => setAttachedFiles(prev => prev.filter((_, idx) => idx !== i))}
-                        className="ml-1 opacity-50 hover:opacity-100 transition-opacity">✕</button>
-                    </span>
-                  ))}
+          {messages.map((msg, i) => (
+            <div key={i} style={{ animation:"diagBubbleIn .3s ease both", display:"flex",
+              flexDirection:"column", alignItems: msg.role === "user" ? "flex-end" : "flex-start" }}>
+              {msg.role === "user" ? (
+                <div style={{ maxWidth:"85%", padding:"10px 14px", borderRadius:"16px 16px 4px 16px",
+                  background:"linear-gradient(135deg,#395886,#4A6FA5)", color:"#fff",
+                  fontSize:13, lineHeight:1.65, boxShadow:"0 2px 10px rgba(57,88,134,.2)" }}>
+                  {msg.text}
                 </div>
-              )}
-              <div className="flex items-center justify-between px-2 pb-1">
-                <div className="flex items-center gap-1">
-                  <button onClick={toggleRecording} className={`p-2 rounded-full transition-colors ${isRecording ? 'text-red-500 bg-red-50' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}><Mic size={20} /></button>
-                  <label className="p-2 rounded-full text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
-                    <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" multiple className="hidden" onChange={handleFileChange} />
-                    <Paperclip size={20} />
-                  </label>
-                </div>
-                <button onClick={() => send()} disabled={!input.trim() && attachedFiles.length === 0} className={`p-2.5 rounded-full transition-all ${input.trim() || attachedFiles.length > 0 ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-400 dark:bg-gray-800'}`}><Send size={18} /></button>
-              </div>
-            </div>
-          </div>
-          <p className="text-[11px] text-center opacity-50" style={{ color: theme.text }}>
-            MedSmart AI est une intelligence artificielle et peut faire des erreurs. Veuillez vérifier les réponses importantes avec un professionnel de santé.
-          </p>
-        </div>
-      </div>
-
-      {showFullHistory && (
-        <>
-          <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setShowFullHistory(false)} />
-          <div className="fixed top-0 left-0 w-[320px] h-full z-50 flex flex-col shadow-2xl border-r" style={{ background: theme.chatBg, borderColor: theme.border, animation: "slideInLeft 0.3s ease forwards" }}>
-            <div className="p-6 flex items-center justify-between border-b" style={{ borderColor: theme.border }}>
-              <h2 className="font-bold text-lg">Historique</h2>
-              <button onClick={() => setShowFullHistory(false)} className="text-gray-400 hover:text-black dark:hover:text-white"><X size={20} /></button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-2">
-              {sessions.length === 0 ? (
-                <p className="text-sm text-center opacity-40 mt-8" style={{ color: theme.text }}>Aucune session précédente</p>
               ) : (
-                sessions.map(s => {
-                  const d = new Date(s.updated_at);
-                  const dateStr = d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) + " · " + s.message_count + " échanges";
-                  return (
-                    <button key={s.id}
-                      onClick={() => {
-                        if (s.history?.length) {
-                          setMessages(s.history.map(h => ({ role: h.role === "user" ? "user" : "ai", text: h.content })));
-                        }
-                        setShowFullHistory(false);
-                      }}
-                      className="w-full text-left p-4 rounded-xl border transition-all hover:bg-black/5 dark:hover:bg-white/5"
-                      style={{ borderColor: theme.border }}>
-                      <p className="font-semibold text-sm mb-1" style={{ color: theme.text }}>{s.title || "Session sans titre"}</p>
-                      <p className="text-[11px] opacity-60">{dateStr}</p>
-                    </button>
-                  );
-                })
+                <div style={{ maxWidth:"90%", display:"flex", gap:10, alignItems:"flex-start" }}>
+                  <div style={{ width:28, height:28, borderRadius:8, background:c.blueLight,
+                    border:`1px solid ${c.border}`, display:"flex", alignItems:"center",
+                    justifyContent:"center", flexShrink:0, marginTop:2 }}>
+                    <Brain size={14} color={c.blue}/>
+                  </div>
+                  <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                    {i === messages.length - 1 && currentAlert && (
+                      <div style={{ background: currentAlert.level === "critical" ? "#FCEBEB" : "#FAEEDA",
+                        border: `1.5px solid ${currentAlert.level === "critical" ? "#E24B4A" : "#EF9F27"}`,
+                        borderRadius:12, padding:"14px 16px",
+                        display:"flex", alignItems:"flex-start", gap:12 }}>
+                        <div style={{ width:36, height:36, borderRadius:"50%",
+                          background: currentAlert.level === "critical" ? "#E24B4A" : "#EF9F27",
+                          display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                          <span style={{ fontSize:18 }}>{currentAlert.level === "critical" ? "🚨" : "⚠️"}</span>
+                        </div>
+                        <div>
+                          <p style={{ fontSize:14, fontWeight:500, margin:"0 0 4px",
+                            color: currentAlert.level === "critical" ? "#7A0D0D" : "#854F0B" }}>
+                            {currentAlert.level === "critical" ? "Urgence médicale détectée" : "Attention médicale requise"}
+                          </p>
+                          <p style={{ fontSize:13, margin:0, lineHeight:1.6,
+                            color: currentAlert.level === "critical" ? "#A32D2D" : "#9e6400" }}>
+                            {currentAlert.message}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    {renderAIMessage(msg.text, msg.isStreaming, c)}
+                  </div>
+                </div>
+              )}
+              {msg.timestamp && (
+                <span style={{ fontSize:10, opacity:.4, marginTop:3, color:c.txt3,
+                  paddingLeft: msg.role === "ai" ? 38 : 0 }}>{msg.timestamp}</span>
               )}
             </div>
+          ))}
+
+          {loading && !messages[messages.length - 1]?.isStreaming && (
+            <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 16px", alignSelf:"flex-start",
+              background:"linear-gradient(135deg,rgba(48,75,113,.08),rgba(99,142,203,.08))",
+              border:"1px solid rgba(99,142,203,.15)", borderRadius:14, animation:"diagBubbleIn .3s ease" }}>
+              <div style={{ width:8, height:8, borderRadius:"50%", background:"#638ECB", boxSizing:"border-box",
+                animation:"diagSpin 1s linear infinite", borderTop:"2px solid transparent",
+                boxShadow:"0 0 0 2px rgba(99,142,203,.3)" }}/>
+              <span className="diag-wave-text" style={{ fontSize:12, fontWeight:600 }}>
+                MedSmart IA analyse vos symptômes…
+              </span>
+            </div>
+          )}
+
+          <div ref={messagesEndRef}/>
+        </div>
+
+        {/* Quick chips */}
+        <div className="diag-scroll" style={{ padding:"8px 14px 4px", display:"flex", gap:6,
+          overflowX:"auto", flexShrink:0, borderTop:`1px solid ${c.border}` }}>
+          {quickSymptoms.map(chip => (
+            <button key={chip} onClick={() => send(chip)} className="diag-chip"
+              style={{ padding:"5px 12px", borderRadius:999, background:c.blueLight,
+                border:`1px solid ${c.border}`, color:c.blue, fontSize:11, fontWeight:600,
+                cursor:"pointer", whiteSpace:"nowrap", transition:"all 150ms", flexShrink:0 }}>
+              {chip}
+            </button>
+          ))}
+        </div>
+
+        {/* Input */}
+        <div style={{ padding:"10px 14px 14px", flexShrink:0, background:c.card, borderTop:`1px solid ${c.border}` }}>
+          <div style={{ display:"flex", alignItems:"flex-end", gap:8, background:c.bg,
+            border:`2px solid ${c.border}`, borderRadius:16, padding:"10px 14px", transition:"border-color 200ms" }}
+            onFocusCapture={e => e.currentTarget.style.borderColor = c.blue}
+            onBlurCapture={e => e.currentTarget.style.borderColor = c.border}>
+            <label style={{ width:28, height:28, borderRadius:8, border:`1px solid ${c.border}`,
+              background:"transparent", cursor:"pointer", display:"flex", alignItems:"center",
+              justifyContent:"center", flexShrink:0 }}>
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+                multiple style={{ display:"none" }} onChange={handleFileChange}/>
+              <Paperclip size={13} color={c.txt3}/>
+            </label>
+
+            <textarea ref={textareaRef} value={input} className="diag-textarea"
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), send())}
+              placeholder="Décrivez vos symptômes en détail…" rows={1}
+              style={{ flex:1, border:"none", outline:"none", background:"transparent", resize:"none",
+                fontSize:13, color:c.txt, lineHeight:1.5, fontFamily:"'DM Sans', sans-serif",
+                maxHeight:100, overflowY:"auto" }}/>
+
+            <button onClick={toggleRecording}
+              style={{ width:28, height:28, borderRadius:8, flexShrink:0,
+                border:`1px solid ${isRecording ? "#ef4444" : c.border}`,
+                background: isRecording ? "rgba(239,68,68,.1)" : "transparent",
+                cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <Mic size={13} color={isRecording ? "#ef4444" : c.txt3}/>
+            </button>
+
+            <button onClick={() => send()} disabled={!input.trim() && attachedFiles.length === 0}
+              style={{ width:36, height:36, borderRadius:10, border:"none", flexShrink:0,
+                cursor: (input.trim() || attachedFiles.length > 0) ? "pointer" : "default",
+                display:"flex", alignItems:"center", justifyContent:"center", transition:"all 200ms",
+                background: (input.trim() || attachedFiles.length > 0) ? "#395886" : c.border,
+                boxShadow: (input.trim() || attachedFiles.length > 0) ? "0 2px 8px rgba(57,88,134,.3)" : "none" }}>
+              <Send size={14} color="#fff"/>
+            </button>
           </div>
-        </>
-      )}
+
+          {attachedFiles.length > 0 && (
+            <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:8 }}>
+              {attachedFiles.map((f, i) => (
+                <span key={i} style={{ display:"flex", alignItems:"center", gap:4, fontSize:11,
+                  padding:"3px 10px", borderRadius:999, border:`1px solid ${c.border}`,
+                  color:c.txt, background:c.bg }}>
+                  📎 {f.name}
+                  <button onClick={() => setAttachedFiles(prev => prev.filter((_, idx) => idx !== i))}
+                    style={{ marginLeft:4, opacity:.5, background:"none", border:"none",
+                      cursor:"pointer", color:c.txt, lineHeight:1 }}>✕</button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── RIGHT: RESULTS PANEL ── */}
+      <div className="diag-scroll" style={{ flex:"0 0 300px", overflowY:"auto", padding:"14px 16px",
+        display:"flex", flexDirection:"column", gap:14 }}>
+
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:2, flexShrink:0 }}>
+          <div>
+            <h2 style={{ fontSize:16, fontWeight:700, color:c.txt, marginBottom:2 }}>Résultats & Recommandations</h2>
+            <p style={{ fontSize:11, color:c.txt3 }}>Basé sur votre dernière interaction</p>
+          </div>
+          {diagResult && (
+            <span style={{ padding:"4px 12px", borderRadius:999, fontSize:10, fontWeight:600,
+              background:c.blueLight, color:c.blue, border:`1px solid ${c.blue}22` }}>
+              Score : {diagResult.confidence}% de confiance
+            </span>
+          )}
+        </div>
+
+        {!diagResult && !loading && (
+          <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
+            justifyContent:"center", textAlign:"center", padding:"60px 20px" }}>
+            <div style={{ width:64, height:64, borderRadius:18, background:c.blueLight,
+              border:`1px solid ${c.border}`, display:"flex", alignItems:"center",
+              justifyContent:"center", marginBottom:18, boxShadow:"0 4px 20px rgba(57,88,134,.08)" }}>
+              <Activity size={28} color={c.blue}/>
+            </div>
+            <p style={{ fontSize:15, fontWeight:700, color:c.txt, marginBottom:8 }}>Aucun résultat pour l'instant</p>
+            <p style={{ fontSize:12, color:c.txt3, lineHeight:1.7, maxWidth:280 }}>
+              Décrivez vos symptômes dans le chat pour obtenir un diagnostic provisoire et des recommandations personnalisées.
+            </p>
+          </div>
+        )}
+
+        {loading && !diagResult && (
+          <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
+            justifyContent:"center", textAlign:"center", padding:40 }}>
+            <div style={{ width:48, height:48, borderRadius:14, display:"flex", alignItems:"center",
+              justifyContent:"center", marginBottom:16,
+              background:"linear-gradient(135deg,#304B71,#638ECB)", boxShadow:"0 4px 20px rgba(57,88,134,.25)" }}>
+              <div style={{ width:20, height:20, border:"2.5px solid rgba(255,255,255,.3)",
+                borderTop:"2.5px solid white", borderRadius:"50%", animation:"diagSpin 0.9s linear infinite" }}/>
+            </div>
+            <span className="diag-wave-text" style={{ fontSize:14, fontWeight:700, marginBottom:6 }}>
+              Analyse en cours…
+            </span>
+            <p style={{ fontSize:11, color:c.txt3 }}>Gemini RAG traite vos données médicales</p>
+          </div>
+        )}
+
+        <DiagResultPanel result={diagResult} c={c} setPage={setPage}/>
+      </div>
     </div>
   );
 }
@@ -3076,7 +3478,7 @@ function AppointmentsPage({
               </div>
             </div>
 
-            <div className="max-h-[400px] overflow-y-auto custom-scrollbar pr-2 pb-2">
+            <div className="max-h-[400px] overflow-y-auto custom-scrollbar px-1 pt-2 pb-2">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredUpcoming.length === 0 ? (
                   <div className="col-span-full">
@@ -3127,22 +3529,36 @@ function AppointmentsPage({
                           >
                             {a.doctor_specialty || a.specialty || "Spécialité"}
                           </p>
-                          <div
-                            className="mt-3 flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-dashed"
-                            style={{
-                              borderColor: c.blue + "33",
-                              background: c.blue + "08",
-                            }}
-                          >
-                            <Clock size={12} style={{ color: c.blue }} />
-                            <p
-                              className="text-[11px] font-bold"
-                              style={{ color: c.blue }}
+                          <div className="mt-2 flex items-center justify-between gap-2">
+                            <div
+                              className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-dashed min-w-0"
+                              style={{
+                                borderColor: c.blue + "33",
+                                background: c.blue + "08",
+                              }}
                             >
-                              {a.date_display || a.date} ·{" "}
-                              {a.time_display ||
-                                (a.start_time ? a.start_time.substring(0, 5) : a.time ? a.time.substring(0, 5) : "")}
-                            </p>
+                              <Clock size={12} style={{ color: c.blue }} />
+                              <p
+                                className="text-[11px] font-bold truncate"
+                                style={{ color: c.blue }}
+                              >
+                                {a.date_display || a.date} ·{" "}
+                                {a.time_display ||
+                                  (a.start_time ? a.start_time.substring(0, 5) : a.time ? a.time.substring(0, 5) : "")}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleCancelAppointment(a)}
+                              disabled={cancellingId === a.id}
+                              className="shrink-0 text-[11px] font-bold transition-all hover:opacity-70 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
+                              style={{ color: "#E05555" }}
+                            >
+                              {cancellingId === a.id && (
+                                <span className="w-3 h-3 border-2 rounded-full animate-spin" style={{ borderColor: "#E0555540", borderTopColor: "#E05555" }} />
+                              )}
+                              {cancellingId === a.id ? "…" : t('cancel_appointment')}
+                            </button>
                           </div>
                         </div>
                         {/* Status Badge */}
@@ -3157,32 +3573,6 @@ function AppointmentsPage({
                             {a.status === "confirmed" ? "Confirmé" : "En attente"}
                           </span>
                         </div>
-                      </div>
-                      <div
-                        className="flex gap-2 mt-4 pt-4 border-t"
-                        style={{ borderColor: c.border }}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => openReschedule(a)}
-                          disabled={cancellingId === a.id}
-                          className="flex-1 py-1.5 rounded-lg text-[11px] font-bold transition-all hover:bg-opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
-                          style={{ background: c.blueLight, color: c.blue }}
-                        >
-                          {t('modify')}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleCancelAppointment(a)}
-                          disabled={cancellingId === a.id}
-                          className="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
-                          style={{ color: "#E05555" }}
-                        >
-                          {cancellingId === a.id && (
-                            <span className="w-3 h-3 border-2 rounded-full animate-spin" style={{ borderColor: "#E0555540", borderTopColor: "#E05555" }} />
-                          )}
-                          {cancellingId === a.id ? "…" : t('cancel_appointment')}
-                        </button>
                       </div>
                     </Card>
                   ))
@@ -3229,12 +3619,6 @@ function AppointmentsPage({
                     ✕
                   </button>
                 )}
-                <span
-                  className="text-xs font-bold px-3 py-1 rounded-full"
-                  style={{ background: c.blue + "11", color: c.blue }}
-                >
-                  {historyAppts.length} {historyAppts.length > 1 ? "entrées" : "entrée"}
-                </span>
               </div>
             </div>
             <div className="space-y-3">
@@ -4070,6 +4454,7 @@ function PrescriptionsPage({ dk }) {
   const c = dk ? T.dark : T.light;
   const [filter, setFilter] = useState("All");
   const [selectedQr, setSelectedQr] = useState(null);
+  const [qrImageUrl, setQrImageUrl] = useState(null);
   const [downloading, setDownloading] = useState(null);
   // Click & Collect state
   const [rxList, setRxList] = useState([]);
@@ -4120,6 +4505,7 @@ function PrescriptionsPage({ dk }) {
         status: rx.status || "ACTIVE",
         statusColor: (rx.status || "ACTIVE").toUpperCase() === "ACTIVE" ? "#2D8C6F" : "#E05555",
         meds: (rx.items || []).map(item => item.drug_name) || rx.medication_list || [],
+        qr_token: rx.qr_token || null,
       })));
     }).catch(err => {
       console.error("Erreur chargement prescriptions:", err);
@@ -4160,31 +4546,30 @@ function PrescriptionsPage({ dk }) {
     }
   };
 
+  const handleShowQr = async (rx) => {
+    setSelectedQr(rx);
+    if (qrImageUrl) {
+      window.URL.revokeObjectURL(qrImageUrl);
+      setQrImageUrl(null);
+    }
+    try {
+      const blob = await api.apiFetchBlob(`/prescriptions/${String(rx.id)}/qr-image/`);
+      const url = window.URL.createObjectURL(blob);
+      setQrImageUrl(url);
+    } catch (err) {
+      console.error("Erreur QR:", err);
+    }
+  };
+
   return (
     <>
-      <div className="flex gap-2 mb-5 flex-wrap">
-        {["All", "Active", "Expired", "Pending"].map((label, i) => (
-          <button
-            key={label}
-            onClick={() => setFilter(label)}
-            className="px-4 py-2 rounded-full text-sm font-semibold border transition-all"
-            style={{
-              background: filter === label ? c.blue : "transparent",
-              color: filter === label ? "#fff" : c.txt2,
-              borderColor: filter === label ? c.blue : c.border,
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredRxList.length === 0 ? (
           <EmptyState
             dk={dk}
             icon={FileText}
             title="Aucune prescription"
-            message={`Aucune ordonnance trouvée pour le filtre "${filter}".`}
+            message="Vous n'avez pas encore d'ordonnances."
           />
         ) : (
           filteredRxList.map((rx) => {
@@ -4194,7 +4579,7 @@ function PrescriptionsPage({ dk }) {
                 <div className="flex gap-4 flex-wrap">
                   {/* QR button */}
                   <button
-                    onClick={() => setSelectedQr(rx)}
+                    onClick={() => handleShowQr(rx)}
                     className="w-16 h-16 rounded-xl flex items-center justify-center shrink-0 transition-transform hover:scale-105 shadow-md active:scale-95"
                     style={{ background: "#000" }}
                   >
@@ -4243,11 +4628,11 @@ function PrescriptionsPage({ dk }) {
                       )}
                     </button>
                     <button
-                      onClick={() => setSelectedQr(rx)}
+                      onClick={() => handleShowQr(rx)}
                       className="flex items-center gap-2 justify-center text-xs font-semibold px-3 py-2 rounded-lg text-white transition-colors hover:opacity-80 active:scale-95"
                       style={{ background: c.blue }}
                     >
-                      <QrCode size={14} /> Show QR
+                      <QrCode size={14} /> QR Code
                     </button>
 
                     {/* Bouton envoi — visible si ACTIVE et pas encore envoyé */}
@@ -4301,32 +4686,53 @@ function PrescriptionsPage({ dk }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white p-8 rounded-3xl max-w-sm w-full shadow-2xl relative flex flex-col items-center animate-in zoom-in-95 duration-200">
             <button
-              onClick={() => setSelectedQr(null)}
+              onClick={() => {
+                if (qrImageUrl) window.URL.revokeObjectURL(qrImageUrl);
+                setQrImageUrl(null);
+                setSelectedQr(null);
+              }}
               className="absolute top-5 right-5 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
             >
               <X size={20} className="text-gray-600" />
             </button>
             <h3 className="font-black text-xl mb-1 text-gray-900">
-              Prescription {selectedQr.id}
+              Ordonnance
             </h3>
-            <p className="text-xs font-bold text-gray-500 mb-8 uppercase tracking-widest">
+            <p className="text-xs font-bold text-gray-500 mb-6 uppercase tracking-widest">
               {selectedQr.doctor} • {selectedQr.date}
             </p>
-            <div className="p-4 rounded-[32px] mb-8 bg-white border border-gray-100 shadow-xl">
-              <img
-                src={`${import.meta.env.VITE_API_URL || "http://localhost:8000/api"}/prescriptions/${selectedQr.id}/qr-image/`}
-                alt="Prescription QR Code"
-                className="w-48 h-48 object-contain"
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" + selectedQr.id;
-                }}
-              />
+            <div className="p-4 rounded-[24px] mb-6 bg-white border border-gray-100 shadow-xl flex items-center justify-center w-52 h-52">
+              {qrImageUrl ? (
+                <img
+                  src={qrImageUrl}
+                  alt="QR Code ordonnance"
+                  className="w-44 h-44 object-contain"
+                />
+              ) : (
+                <div className="flex flex-col items-center gap-2">
+                  <span className="w-8 h-8 border-2 border-[#395886] border-t-transparent rounded-full animate-spin" />
+                  <span className="text-xs text-gray-400">Chargement…</span>
+                </div>
+              )}
             </div>
-            <p className="text-[13px] text-center font-bold text-gray-600 mb-2 px-4 leading-relaxed">
-              Présentez ce QR Code à votre pharmacien pour récupérer vos
-              médicaments.
-            </p>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-7 h-7 rounded-[6px] bg-[#F5F7FB] border border-[#E4EAF5] flex items-center justify-center">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#395886" strokeWidth="2">
+                  <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                  <rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M17 14h4M14 17v4"/>
+                </svg>
+              </div>
+              <p className="text-[13px] font-bold text-gray-600">
+                Présentez ce QR Code à votre pharmacien
+              </p>
+            </div>
+            {selectedQr.meds && selectedQr.meds.length > 0 && (
+              <div className="w-full flex flex-wrap gap-1.5 justify-center">
+                {selectedQr.meds.map((m) => (
+                  <span key={m} className="px-2.5 py-1 rounded-[5px] bg-[#EEF3FB] border border-[#B1C9EF]/30 text-[.68rem] text-[#395886] font-medium">{m}</span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -4351,7 +4757,9 @@ function PrescriptionsPage({ dk }) {
 function PharmacyPage({ dk }) {
   const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
-  const [cart, setCart] = useState({});
+  const [cart, setCart] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("medsmart_pharmacy_cart") || "{}"); } catch { return {}; }
+  });
   const [pharmacyItems, setPharmacyItems] = useState([]);
   const [activeTags, setActiveTags] = useState([]);
   const { globalSearch, setGlobalSearch } = useData();
@@ -4388,6 +4796,10 @@ function PharmacyPage({ dk }) {
       setPharmacyItems([]);
     }).finally(() => setLoading(false));
   }, [debouncedSearch, activeTags]);
+
+  useEffect(() => {
+    localStorage.setItem("medsmart_pharmacy_cart", JSON.stringify(cart));
+  }, [cart]);
 
   const toggleTag = (tag) => {
     setActiveTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
@@ -4644,11 +5056,7 @@ function CareTakerPage({ dk }) {
 
   useEffect(() => {
     setCtLoading(true);
-    const filters = {};
-    if (debouncedSearch) filters.search = debouncedSearch;
-    if (wilayaFilter !== "Toutes") filters.availability_area = wilayaFilter;
-
-    api.getCaretakers(filters)
+    api.getCaretakers()
       .then(data => {
         const results = Array.isArray(data) ? data : (data?.results || []);
         const normalized = results.map(ct => ({
@@ -4673,7 +5081,7 @@ function CareTakerPage({ dk }) {
       })
       .catch(() => setCtError("Impossible de charger les gardes-malades."))
       .finally(() => setCtLoading(false));
-  }, [debouncedSearch, wilayaFilter]);
+  }, []);
 
   useEffect(() => {
     // 2. Fetch existing request
@@ -4994,7 +5402,7 @@ function CareTakerPage({ dk }) {
                     <h2 className="text-lg font-bold" style={{ color: c.txt }}>{pendingRequest.name}</h2>
                     <span className="text-xs font-bold px-3 py-1 rounded-full border animate-pulse"
                       style={{ background: c.amber + "18", borderColor: c.amber + "40", color: c.amber }}>
-                      ⏳ En attente de réponse du garde-malade
+                      En attente de réponse du garde-malade
                     </span>
                   </div>
                   <p className="text-sm" style={{ color: c.txt2 }}>{pendingRequest.role} · {pendingRequest.exp} · ⭐ {pendingRequest.rating}</p>
@@ -5061,7 +5469,7 @@ function CareTakerPage({ dk }) {
                   </div>
                   <div>
                     <h3 className="text-lg font-bold mb-1" style={{ color: c.txt }}>
-                      🎉 Offre acceptée ! Dernière étape…
+                      Offre acceptée ! Dernière étape…
                     </h3>
                     <p className="text-sm" style={{ color: c.txt2 }}>
                       Renseignez votre <strong style={{ color: c.txt }}>adresse domicile</strong> et un <strong style={{ color: c.txt }}>numéro d'urgence</strong> pour finaliser l'assignation.
@@ -5242,15 +5650,18 @@ function CareTakerPage({ dk }) {
         <div className="space-y-6">
 
           {/* ── Grande barre de recherche ── */}
-          <div className="relative search-hover rounded-2xl overflow-hidden">
+          <div
+            className="relative search-hover rounded-2xl overflow-hidden border transition-all"
+            style={{ borderColor: searchTerm ? c.blue : c.border, background: c.card }}
+          >
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: c.txt3 }} />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Rechercher par nom, spécialité ou zone..."
-              className="w-full pl-12 pr-5 py-3.5 text-sm outline-none border transition-all bg-transparent"
-              style={{ borderColor: searchTerm ? c.blue : c.border, color: c.txt }}
+              className="w-full pl-12 pr-5 py-3.5 text-sm outline-none bg-transparent"
+              style={{ color: c.txt }}
             />
           </div>
 
@@ -5260,9 +5671,9 @@ function CareTakerPage({ dk }) {
             <div>
               <label className="block text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt2 }}>Wilaya</label>
               <DashSelect
-                value={wilayaFilter === "Toutes" ? "" : wilayaFilter}
+                value={wilayaFilter}
                 options={WILAYAS_CT}
-                onSelect={(v) => setWilayaFilter(v)}
+                onSelect={(v) => setWilayaFilter(v || "Toutes")}
                 dk={dk} c={c}
                 placeholder="Toutes les wilayas"
               />
@@ -5394,57 +5805,26 @@ function NotificationsPage({ dk, notifications, setNotifications }) {
     return combined.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
   }, [notifications, globalNotifications]);
 
-  const dismiss = async (id) => {
-    try {
-      await api.markNotificationRead(id).catch(() => {});
-    } catch (e) {}
-    setNotifications((n) => n.filter((x) => x.id !== id));
-  };
-
-  const markAllRead = async () => {
-    try {
-      // Loop or bulk API if available, locally we just mark them read
-      setNotifications((n) =>
-        n.map((x) => ({ ...x, is_read: true, unread: false })),
-      );
-    } catch (e) {}
-  };
+  useEffect(() => {
+    const unread = (notifications || []).filter(n => !n.is_read);
+    if (unread.length === 0) return;
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true, unread: false })));
+    unread.forEach(n => {
+      if (typeof n.id === "number") {
+        api.markNotificationRead(n.id).catch(() => {});
+      }
+    });
+  }, []);
 
   return (
     <>
-      <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: c.txt }}>
-            {t('notifications')}
-          </h1>
-          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
-            {t('stay_updated')}
-          </p>
-        </div>
-        <button
-          onClick={markAllRead}
-          className="text-sm font-semibold px-4 py-2 rounded-xl border"
-          style={{ color: c.blue, borderColor: c.border }}
-        >
-          {t('mark_all_read')}
-        </button>
-      </div>
-      <div className="flex gap-2 mb-5 flex-wrap">
-        {["All", "Medications", "Appointments", "Emergencies"].map(
-          (label, i) => (
-            <button
-              key={label}
-              className="px-4 py-2 rounded-full text-sm font-semibold border transition-all"
-              style={{
-                background: i === 0 ? c.blue : "transparent",
-                color: i === 0 ? "#fff" : c.txt2,
-                borderColor: i === 0 ? c.blue : c.border,
-              }}
-            >
-              {label}
-            </button>
-          ),
-        )}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold" style={{ color: c.txt }}>
+          {t('notifications')}
+        </h1>
+        <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
+          {t('stay_updated')}
+        </p>
       </div>
       <div className="space-y-3">
         {mergedNotifications.map((n) => {
@@ -5494,13 +5874,6 @@ function NotificationsPage({ dk, notifications, setNotifications }) {
                   style={{ background: typeColor }}
                 />
               )}
-              <button
-                onClick={() => dismiss(n.id)}
-                className="shrink-0 text-xs hover:opacity-70 transition-opacity"
-                style={{ color: c.txt3 }}
-              >
-                ✕
-              </button>
             </div>
           );
         })}
@@ -5604,8 +5977,8 @@ function SettingsPage(props) {
       if (nameChanged && identityReason) {
         updatePromises.push(
           api.requestProfileUpdate({
-            new_first_name: first_name,
-            new_last_name: last_name,
+            new_first_name: first_name || userData?.first_name || "",
+            new_last_name: last_name || userData?.last_name || "",
             reason: identityReason
           })
         );
@@ -5735,12 +6108,11 @@ function SettingsPage(props) {
                     onChange={(e) =>
                       setForm((f) => ({ ...f, [field.key]: e.target.value }))
                     }
-                    disabled={field.key === "email"}
                     className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition-all"
                     style={{
                       background: dk ? "#1A2333" : "#F8FAFC",
                       borderColor: hasChanged ? "#E8A83880" : c.border,
-                      color: field.key === "email" ? c.txt3 : c.txt,
+                      color: c.txt,
                       boxShadow: hasChanged ? "0 0 0 2px #E8A83810" : "none"
                     }}
                   />
