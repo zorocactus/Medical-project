@@ -156,6 +156,28 @@ function TodaysSchedule({ appointments = [], onStartConsultation }) {
   const { t } = useLanguage();
   const [startingId, setStartingId] = useState(null);
   const [startErrors, setStartErrors] = useState({});
+  const [cancelTarget, setCancelTarget] = useState(null); // { id, name }
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancellingId, setCancellingId] = useState(null);
+  const [cancelError, setCancelError] = useState("");
+  const { refreshDoctorAppointments, refreshDashboardData } = useData();
+
+  const handleCancelConfirm = async () => {
+    if (!cancelTarget) return;
+    setCancellingId(cancelTarget.id);
+    setCancelError("");
+    try {
+      await api.doctorCancelAppointment(cancelTarget.id, cancelReason);
+      setCancelTarget(null);
+      setCancelReason("");
+      refreshDoctorAppointments();
+      if (typeof refreshDashboardData === "function") refreshDashboardData();
+    } catch (err) {
+      setCancelError(err.message || "Erreur lors de l'annulation");
+    } finally {
+      setCancellingId(null);
+    }
+  };
 
   const defaultData = [];
 
@@ -248,33 +270,45 @@ function TodaysSchedule({ appointments = [], onStartConsultation }) {
                       {displayName}{" "}
                       <span className="mx-1 opacity-40">·</span> {displayType}
                     </p>
-                    {onStartConsultation && (itemStatus === "confirmed" || itemStatus === "scheduled") && (
-                      <div className="flex flex-col items-end gap-1 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
+                      {onStartConsultation && (itemStatus === "confirmed" || itemStatus === "scheduled") && (
+                        <div className="flex flex-col items-end gap-1">
+                          <button
+                            disabled={startingId === item.id}
+                            onClick={async () => {
+                              setStartingId(item.id);
+                              setStartErrors((p) => ({ ...p, [item.id]: null }));
+                              try {
+                                const updated = await api.startConsultation(item.id);
+                                onStartConsultation(updated || { ...item, status: "in_progress" });
+                              } catch (err) {
+                                setStartErrors((p) => ({ ...p, [item.id]: err.message || "Erreur" }));
+                                setStartingId(null);
+                              }
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 disabled:opacity-60"
+                            style={{ background: c.blue }}
+                          >
+                            {startingId === item.id ? (
+                              <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />
+                            ) : "▶"} {t('dashboard.doctor.consultation.start')}
+                          </button>
+                          {startErrors[item.id] && (
+                            <p className="text-xs font-semibold mt-1 px-2 py-1 rounded-lg" style={{ color: c.red, background: c.red + "15" }}>{startErrors[item.id]}</p>
+                          )}
+                        </div>
+                      )}
+                      {(itemStatus === "confirmed" || itemStatus === "pending" || itemStatus === "scheduled") && (
                         <button
-                          disabled={startingId === item.id}
-                          onClick={async () => {
-                            setStartingId(item.id);
-                            setStartErrors((p) => ({ ...p, [item.id]: null }));
-                            try {
-                              const updated = await api.startConsultation(item.id);
-                              onStartConsultation(updated || { ...item, status: "in_progress" });
-                            } catch (err) {
-                              setStartErrors((p) => ({ ...p, [item.id]: err.message || "Erreur" }));
-                              setStartingId(null);
-                            }
-                          }}
-                          className="flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 disabled:opacity-60"
-                          style={{ background: c.blue }}
+                          onClick={() => { setCancelTarget({ id: item.id, name: displayName }); setCancelReason(""); setCancelError(""); }}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold border transition-all hover:opacity-80"
+                          style={{ color: c.red, borderColor: c.red + "44", background: c.red + "10" }}
+                          title="Annuler ce rendez-vous"
                         >
-                          {startingId === item.id ? (
-                            <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />
-                          ) : "▶"} {t('dashboard.doctor.consultation.start')}
+                          <X size={12} /> Annuler
                         </button>
-                        {startErrors[item.id] && (
-                          <p className="text-xs font-semibold mt-1 px-2 py-1 rounded-lg" style={{ color: c.red, background: c.red + "15" }}>{startErrors[item.id]}</p>
-                        )}
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -283,6 +317,61 @@ function TodaysSchedule({ appointments = [], onStartConsultation }) {
           );
         })}
       </div>
+
+      {/* ── Modal confirmation annulation ── */}
+      {cancelTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setCancelTarget(null); }}>
+          <div className="w-full max-w-md rounded-2xl shadow-2xl border overflow-hidden" style={{ background: dk ? "#141B27" : "#fff", borderColor: c.border }}>
+            <div className="flex items-center justify-between px-6 py-5 border-b" style={{ borderColor: c.border }}>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: c.red + "18" }}>
+                  <X size={18} style={{ color: c.red }} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base" style={{ color: c.txt }}>Annuler le rendez-vous</h3>
+                  <p className="text-xs" style={{ color: c.txt3 }}>Le patient recevra une notification</p>
+                </div>
+              </div>
+              <button onClick={() => setCancelTarget(null)} className="w-8 h-8 rounded-full flex items-center justify-center hover:opacity-70" style={{ background: c.bg }}>
+                <X size={16} style={{ color: c.txt3 }} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm" style={{ color: c.txt2 }}>
+                Annuler le RDV de <strong style={{ color: c.txt }}>{cancelTarget.name}</strong> ?
+              </p>
+              <div className="relative">
+                <span className="absolute -top-2.5 left-3 px-1 text-[11px] font-medium" style={{ color: c.txt3, background: dk ? "#141B27" : "#fff" }}>Motif (optionnel)</span>
+                <input
+                  type="text"
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="ex : Indisponibilité imprévue"
+                  className="w-full px-3 py-3 rounded-xl border text-sm outline-none"
+                  style={{ borderColor: c.border, background: dk ? "#0D1117" : "#F8FAFC", color: c.txt }}
+                />
+              </div>
+              {cancelError && <p className="text-xs font-semibold px-3 py-2 rounded-lg" style={{ color: c.red, background: c.red + "15" }}>{cancelError}</p>}
+            </div>
+            <div className="px-6 pb-6 flex gap-3">
+              <button
+                onClick={handleCancelConfirm}
+                disabled={cancellingId === cancelTarget.id}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-60"
+                style={{ background: c.red }}
+              >
+                {cancellingId === cancelTarget.id
+                  ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  : <><X size={15} /> Confirmer l'annulation</>}
+              </button>
+              <button onClick={() => setCancelTarget(null)} className="px-5 py-2.5 rounded-xl text-sm font-semibold border hover:opacity-80" style={{ borderColor: c.border, color: c.txt2 }}>
+                Garder
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -484,52 +573,63 @@ function DashboardHome({
   appointments,
   patientRequests,
   onStartConsultation,
+  dashboardData,
 }) {
   const { theme } = useTheme();
   const dk = theme === "dark";
   const c = dk ? T.dark : T.light;
   const { t } = useLanguage();
 
+  const apiKpis = dashboardData?.kpis;
+  const avgRating = apiKpis?.avg_rating != null
+    ? Number(apiKpis.avg_rating).toFixed(1)
+    : "—";
+
   const kpis = [
     {
       label: t('dashboard.doctor.kpis.todaysConsultations'),
-      value: Array.isArray(appointments) ? appointments.length : 0,
+      value: apiKpis?.today_consultations ?? (Array.isArray(appointments) ? appointments.length : 0),
       icon: Users,
       color: c.green,
     },
     {
       label: t('dashboard.doctor.kpis.totalPatients'),
-      value: Array.isArray(patients) ? patients.length : 0,
+      value: apiKpis?.total_patients ?? (Array.isArray(patients) ? patients.length : 0),
       icon: User,
       color: c.blue,
     },
     {
       label: t('dashboard.doctor.kpis.pendingRequests'),
-      value: Array.isArray(patientRequests) ? patientRequests.length : 0,
+      value: apiKpis?.pending_requests ?? (Array.isArray(patientRequests) ? patientRequests.length : 0),
       icon: Clock,
       color: c.amber,
     },
-    { label: t('dashboard.doctor.kpis.avgRating'), value: "4.8", icon: Star, color: c.purple },
+    {
+      label: t('dashboard.doctor.kpis.avgRating'),
+      value: avgRating,
+      sub: apiKpis?.total_reviews != null ? `${apiKpis.total_reviews} avis` : undefined,
+      icon: Star,
+      color: c.purple,
+    },
   ];
 
-  const currentTime = new Date();
-  const currentHour = currentTime.getHours();
-  const currentMin = currentTime.getMinutes();
-
-  const isPast = (timeStr) => {
-    if (!timeStr) return false;
-    const [h, m] = timeStr.split(":").map(Number);
-    if (h < currentHour) return true;
-    if (h === currentHour && m < currentMin) return true;
-    return false;
-  };
-
-  const DEV_SCHEDULE_FALLBACK = [];
+  const todaySchedule = Array.isArray(dashboardData?.todays_schedule)
+    ? dashboardData.todays_schedule
+    : [];
 
   const scheduleItems =
-    Array.isArray(appointments) && appointments.length > 0
-      ? appointments
-      : DEV_SCHEDULE_FALLBACK;
+    todaySchedule.length > 0
+      ? todaySchedule
+      : Array.isArray(appointments)
+        ? appointments.filter(item => {
+            if (!item.date) return false;
+            const d = new Date(item.date);
+            const now = new Date();
+            return d.getFullYear() === now.getFullYear() &&
+              d.getMonth() === now.getMonth() &&
+              d.getDate() === now.getDate();
+          })
+        : [];
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -705,416 +805,334 @@ function PatientsView({ onSelectPatient }) {
   const c = dk ? T.dark : T.light;
   const { t } = useLanguage();
 
-  const { patients = [] } = useData();
-  const [search, setSearch] = useState("");
+  const { patients = [], refreshDoctorPatients } = useData();
+  const [localSearch, setLocalSearch] = useState("");
   const [page, setPage] = useState(1);
   const [searchFocused, setSearchFocused] = useState(false);
 
-  // ── Add Patient Modal state ──
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newPatient, setNewPatient] = useState({
-    firstName: "", lastName: "", age: "", condition: "", status: "",
-  });
-  const [addedPatients, setAddedPatients] = useState([]);
+  // ── Global search (API) ──
+  const [globalQuery, setGlobalQuery] = useState("");
+  const [globalResults, setGlobalResults] = useState([]);
+  const [globalLoading, setGlobalLoading] = useState(false);
+  const [globalError, setGlobalError] = useState("");
+  const [sendingLinkId, setSendingLinkId] = useState(null);
+  const [linkMessages, setLinkMessages] = useState({});
 
-  const CONDITION_OPTIONS = ["Diabetes", "Hypertension", "Stable", "Recovering", "Critical", "Checkup"];
-  const STATUS_OPTIONS = ["Active", "Pending", "Critical"];
+  // ── External patient modal ──
+  const [showExtModal, setShowExtModal] = useState(false);
+  const [extPatient, setExtPatient] = useState({ firstName: "", lastName: "", age: "", phone: "", condition: "", notes: "" });
+  const [extSaving, setExtSaving] = useState(false);
+  const [extError, setExtError] = useState("");
+  const [externalPatients, setExternalPatients] = useState([]);
 
+  // Load external patients on mount
+  useEffect(() => {
+    api.getExternalPatients().then(d => setExternalPatients(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
 
-  const handleSavePatient = () => {
-    if (!newPatient.firstName.trim() || !newPatient.lastName.trim()) return;
-    const p = {
-      ...newPatient,
-      age: parseInt(newPatient.age) || 0,
-      lastVisit: new Date().toISOString().slice(0, 10),
-      nextAppt: "—",
-      status: newPatient.status || "Active",
-    };
-    setAddedPatients((prev) => [p, ...prev]);
-    setNewPatient({ firstName: "", lastName: "", age: "", condition: "", status: "" });
-    setShowAddModal(false);
-    setPage(1);
+  // Debounce global search
+  useEffect(() => {
+    if (globalQuery.length < 2) { setGlobalResults([]); setGlobalError(""); return; }
+    const timer = setTimeout(async () => {
+      setGlobalLoading(true);
+      setGlobalError("");
+      try {
+        const data = await api.searchPatients(globalQuery);
+        setGlobalResults(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("[PatientsSearch] erreur API:", err);
+        setGlobalResults([]);
+        setGlobalError(err?.message || "Erreur de recherche");
+      }
+      finally { setGlobalLoading(false); }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [globalQuery]);
+
+  const handleSendLinkRequest = async (patientId) => {
+    setSendingLinkId(patientId);
+    try {
+      await api.sendLinkRequest(patientId);
+      setGlobalResults(prev => prev.map(r => r.id === patientId ? { ...r, link_status: "pending" } : r));
+      setLinkMessages(prev => ({ ...prev, [patientId]: { ok: true, msg: "Demande envoyée — le patient recevra une notification." } }));
+    } catch (err) {
+      setLinkMessages(prev => ({ ...prev, [patientId]: { ok: false, msg: err.message || "Erreur" } }));
+    } finally { setSendingLinkId(null); }
   };
 
-  // Liste réelle issue de /api/patients/my-patients/. Plus de fallback fictif en prod.
-  // En dev uniquement : un échantillon est conservé pour itérer sur l'UI sans backend.
-  const DEV_PATIENTS_FALLBACK = [];
+  const handleSaveExternal = async () => {
+    if (!extPatient.firstName.trim() || !extPatient.lastName.trim()) return;
+    setExtSaving(true); setExtError("");
+    try {
+      const saved = await api.createExternalPatient({
+        first_name: extPatient.firstName, last_name: extPatient.lastName,
+        age: extPatient.age ? parseInt(extPatient.age) : null,
+        phone: extPatient.phone, condition: extPatient.condition, notes: extPatient.notes,
+      });
+      setExternalPatients(prev => [saved, ...prev]);
+      setExtPatient({ firstName: "", lastName: "", age: "", phone: "", condition: "", notes: "" });
+      setShowExtModal(false);
+    } catch (err) { setExtError(err.message || "Erreur"); }
+    finally { setExtSaving(false); }
+  };
 
-  // Mappe les enregistrements DRF (user.first_name, user.last_name, age via @property)
-  const apiPatients = (Array.isArray(patients) ? patients : []).map((p) => {
+  const apiPatients = (Array.isArray(patients) ? patients : []).map(p => {
     const u = p.user || {};
-    return {
-      id: p.id,
-      firstName: p.firstName || u.first_name || "",
-      lastName:  p.lastName  || u.last_name  || "",
-      age:       p.age || "",
-      condition: p.condition || "—",
-      lastVisit: p.lastVisit || "—",
-      nextAppt:  p.nextAppt  || "—",
-      status:    p.status    || "Active",
-    };
+    return { id: p.id, firstName: p.firstName || u.first_name || "", lastName: p.lastName || u.last_name || "", age: p.age || "—", condition: "—", status: "Active", _type: "linked" };
   });
-
-  const base = apiPatients.length > 0 ? apiPatients : DEV_PATIENTS_FALLBACK;
-  const safe = [...addedPatients, ...base];
-  const filtered = safe.filter((p) =>
-    `${p.firstName || ""} ${p.lastName || ""} ${p.condition || ""}`
-      .toLowerCase()
-      .includes(search.toLowerCase()),
+  const extMapped = externalPatients.map(p => ({
+    id: `ext-${p.id}`, firstName: p.first_name, lastName: p.last_name, age: p.age || "—", condition: p.condition || "—", status: "Externe", _type: "external",
+  }));
+  const allPatients = [...apiPatients, ...extMapped];
+  const filtered = allPatients.filter(p =>
+    `${p.firstName} ${p.lastName} ${p.condition}`.toLowerCase().includes(localSearch.toLowerCase())
   );
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const getBadgeProps = (label) => {
-    const l = label.toLowerCase();
-    if (l.includes("diabetes") || l.includes("hypertension"))
-      return { color: c.red, bg: c.red + "15" };
-    if (l.includes("active") || l.includes("stable"))
-      return { color: c.green, bg: c.green + "15" };
-    if (l.includes("critical")) return { color: c.red, bg: c.red + "25" };
-    if (l.includes("pending")) return { color: c.amber, bg: c.amber + "15" };
+    const l = (label || "").toLowerCase();
+    if (l.includes("diabetes") || l.includes("hypertension")) return { color: c.red, bg: c.red + "15" };
+    if (l.includes("active") || l.includes("stable"))         return { color: c.green, bg: c.green + "15" };
+    if (l.includes("critical"))  return { color: c.red, bg: c.red + "25" };
+    if (l.includes("externe"))   return { color: c.amber, bg: c.amber + "15" };
+    if (l.includes("pending"))   return { color: c.amber, bg: c.amber + "15" };
     return { color: c.blue, bg: c.blue + "15" };
+  };
+
+  const linkStatusLabel = (st) => {
+    if (st === "linked" || st === "accepted") return { label: "Lié", color: c.green };
+    if (st === "pending")  return { label: "En attente", color: c.amber };
+    if (st === "refused")  return { label: "Refusé", color: c.red };
+    return null;
   };
 
   return (
     <div className="animate-in fade-in duration-500">
 
-      {/* ── Add Patient Modal ── */}
-      {showAddModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,0.50)", backdropFilter: "blur(4px)" }}
-          onClick={(e) => { if (e.target === e.currentTarget) setShowAddModal(false); }}
-        >
-          <div
-            className="w-full max-w-lg rounded-2xl shadow-2xl border overflow-hidden"
-            style={{ background: dk ? "#141B27" : "#fff", borderColor: c.border }}
-          >
-            {/* Modal Header */}
+      {/* ── Modal : nouveau patient sans compte ── */}
+      {showExtModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
+          onClick={e => { if (e.target === e.currentTarget) setShowExtModal(false); }}>
+          <div className="w-full max-w-lg rounded-2xl shadow-2xl border overflow-hidden" style={{ background: dk ? "#141B27" : "#fff", borderColor: c.border }}>
             <div className="flex items-center justify-between px-6 py-5 border-b" style={{ borderColor: c.border }}>
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: c.blue + "18" }}>
-                  <Plus size={18} style={{ color: c.blue }} />
-                </div>
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: c.blue + "18" }}><Plus size={18} style={{ color: c.blue }} /></div>
                 <div>
-                  <h3 className="font-bold text-base" style={{ color: c.txt }}>{t('dashboard.doctor.consultation.newPatient')}</h3>
-                  <p className="text-xs" style={{ color: c.txt3 }}>{t('dashboard.doctor.consultation.fillPatientInfo')}</p>
+                  <h3 className="font-bold text-base" style={{ color: c.txt }}>Nouveau patient (sans compte)</h3>
+                  <p className="text-xs" style={{ color: c.txt3 }}>Ajouté localement à votre liste</p>
                 </div>
               </div>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:opacity-70"
-                style={{ background: c.bg }}
-              >
+              <button onClick={() => setShowExtModal(false)} className="w-8 h-8 rounded-full flex items-center justify-center hover:opacity-70" style={{ background: c.bg }}>
                 <X size={16} style={{ color: c.txt3 }} />
               </button>
             </div>
-
-            {/* Modal Body */}
-            <div className="p-6 space-y-5">
+            <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                {/* Prénom */}
-                <div className="relative">
-                  <span className="absolute -top-2.5 left-3 px-1 text-[11px] font-medium" style={{ color: c.txt3, background: dk ? "#141B27" : "#fff" }}>{t('dashboard.doctor.patients.firstName')}</span>
-                  <input
-                    type="text"
-                    value={newPatient.firstName}
-                    onChange={(e) => setNewPatient((p) => ({ ...p, firstName: e.target.value }))}
-                    placeholder="Ahmed"
-                    className="w-full px-3 py-3 rounded-xl border text-sm outline-none transition-all"
-                    style={{ borderColor: c.border, background: dk ? "#0D1117" : "#fff", color: c.txt }}
-                  />
-                </div>
-                {/* Nom */}
-                <div className="relative">
-                  <span className="absolute -top-2.5 left-3 px-1 text-[11px] font-medium" style={{ color: c.txt3, background: dk ? "#141B27" : "#fff" }}>{t('dashboard.doctor.patients.lastName')}</span>
-                  <input
-                    type="text"
-                    value={newPatient.lastName}
-                    onChange={(e) => setNewPatient((p) => ({ ...p, lastName: e.target.value }))}
-                    placeholder="Meziane"
-                    className="w-full px-3 py-3 rounded-xl border text-sm outline-none transition-all"
-                    style={{ borderColor: c.border, background: dk ? "#0D1117" : "#fff", color: c.txt }}
-                  />
-                </div>
+                {[["Prénom", "firstName", "Ahmed"], ["Nom", "lastName", "Meziane"]].map(([label, key, ph]) => (
+                  <div key={key} className="relative">
+                    <span className="absolute -top-2.5 left-3 px-1 text-[11px] font-medium" style={{ color: c.txt3, background: dk ? "#141B27" : "#fff" }}>{label}</span>
+                    <input type="text" value={extPatient[key]} onChange={e => setExtPatient(p => ({ ...p, [key]: e.target.value }))}
+                      placeholder={ph} className="w-full px-3 py-3 rounded-xl border text-sm outline-none"
+                      style={{ borderColor: c.border, background: dk ? "#0D1117" : "#fff", color: c.txt }} />
+                  </div>
+                ))}
               </div>
-
-              {/* Age field */}
+              <div className="grid grid-cols-2 gap-4">
+                {[["Âge", "age", "35"], ["Téléphone", "phone", "0555 00 00 00"]].map(([label, key, ph]) => (
+                  <div key={key} className="relative">
+                    <span className="absolute -top-2.5 left-3 px-1 text-[11px] font-medium" style={{ color: c.txt3, background: dk ? "#141B27" : "#fff" }}>{label}</span>
+                    <input type="text" value={extPatient[key]} onChange={e => setExtPatient(p => ({ ...p, [key]: e.target.value }))}
+                      placeholder={ph} className="w-full px-3 py-3 rounded-xl border text-sm outline-none"
+                      style={{ borderColor: c.border, background: dk ? "#0D1117" : "#fff", color: c.txt }} />
+                  </div>
+                ))}
+              </div>
               <div className="relative">
-                <span className="absolute -top-2.5 left-3 px-1 text-[11px] font-medium" style={{ color: c.txt3, background: dk ? "#141B27" : "#fff" }}>{t('dashboard.doctor.patients.colAge')}</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={newPatient.age}
-                  onKeyDown={(e) => {
-                    const allowed = ["Backspace","Delete","Tab","ArrowLeft","ArrowRight","Home","End"];
-                    if (!allowed.includes(e.key) && !/^\d$/.test(e.key)) e.preventDefault();
-                  }}
-                  onChange={(e) => {
-                    const onlyNumbers = e.target.value.replace(/\D/g, "");
-                    if (onlyNumbers.length <= 3) {
-                      setNewPatient((p) => ({ ...p, age: onlyNumbers }));
-                    }
-                  }}
-                  onPaste={(e) => {
-                    e.preventDefault();
-                    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 3);
-                    setNewPatient((p) => ({ ...p, age: pasted }));
-                  }}
-                  placeholder="35"
-                  className="w-full px-3 py-3 rounded-xl border text-sm outline-none transition-all"
-                  style={{ borderColor: c.border, background: dk ? "#0D1117" : "#fff", color: c.txt }}
-                />
+                <span className="absolute -top-2.5 left-3 px-1 text-[11px] font-medium" style={{ color: c.txt3, background: dk ? "#141B27" : "#fff" }}>Condition / Motif</span>
+                <input type="text" value={extPatient.condition} onChange={e => setExtPatient(p => ({ ...p, condition: e.target.value }))}
+                  placeholder="ex: Hypertension" className="w-full px-3 py-3 rounded-xl border text-sm outline-none"
+                  style={{ borderColor: c.border, background: dk ? "#0D1117" : "#fff", color: c.txt }} />
               </div>
-
-
-
-              <DashSelect
-                label={t('dashboard.doctor.patients.colCondition')}
-                value={newPatient.condition}
-                options={CONDITION_OPTIONS}
-                onSelect={v => setNewPatient(p => ({ ...p, condition: v }))}
-                dk={dk}
-                c={c}
-              />
-
-              <DashSelect
-                label={t('dashboard.doctor.patients.colStatus')}
-                value={newPatient.status}
-                options={STATUS_OPTIONS}
-                onSelect={v => setNewPatient(p => ({ ...p, status: v }))}
-                dk={dk}
-                c={c}
-              />
+              <div className="relative">
+                <span className="absolute -top-2.5 left-3 px-1 text-[11px] font-medium" style={{ color: c.txt3, background: dk ? "#141B27" : "#fff" }}>Notes</span>
+                <textarea value={extPatient.notes} onChange={e => setExtPatient(p => ({ ...p, notes: e.target.value }))}
+                  rows={2} placeholder="Observations initiales…"
+                  className="w-full px-3 py-3 rounded-xl border text-sm outline-none resize-none"
+                  style={{ borderColor: c.border, background: dk ? "#0D1117" : "#fff", color: c.txt }} />
+              </div>
+              {extError && <p className="text-xs font-semibold px-3 py-2 rounded-lg" style={{ color: c.red, background: c.red + "15" }}>{extError}</p>}
             </div>
-
-            {/* Modal Footer */}
             <div className="px-6 pb-6 flex gap-3">
-              <button
-                onClick={handleSavePatient}
-                disabled={!newPatient.firstName.trim() || !newPatient.lastName.trim()}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                style={{ background: `linear-gradient(135deg, ${c.blue}, #304B71)` }}
-              >
-                <Check size={16} /> {t('dashboard.doctor.patients.save')}
+              <button onClick={handleSaveExternal} disabled={extSaving || !extPatient.firstName.trim() || !extPatient.lastName.trim()}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-40"
+                style={{ background: `linear-gradient(135deg, ${c.blue}, #304B71)` }}>
+                {extSaving ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><Check size={15} /> Enregistrer</>}
               </button>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="px-5 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:opacity-80"
-                style={{ borderColor: c.border, color: c.txt2 }}
-              >
-                {t('dashboard.doctor.patients.cancel')}
-              </button>
+              <button onClick={() => setShowExtModal(false)} className="px-5 py-2.5 rounded-xl text-sm font-semibold border hover:opacity-80" style={{ borderColor: c.border, color: c.txt2 }}>Annuler</button>
             </div>
           </div>
         </div>
       )}
 
-      <div className="flex items-center gap-4 mb-10">
-        <div
-          className="relative flex-1 flex items-center px-5 py-2 rounded-2xl border transition-all duration-300"
-          style={{
-            borderColor: searchFocused ? "#6492C9" : c.border,
-            background: c.card,
-            boxShadow: searchFocused
-              ? "0 0 0 4px rgba(100,146,201,0.15)"
-              : "none",
-            minHeight: 56,
-          }}
-        >
-          <Search
-            size={20}
-            className="mr-3 transition-colors"
-            style={{ color: searchFocused ? "#6492C9" : c.txt3 }}
-          />
-          <input
-            type="text"
-            placeholder={t('dashboard.doctor.patients.searchPh')}
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
+      {/* ── Barre de recherche globale ── */}
+      <div className="flex items-center gap-4 mb-6">
+        <div className="relative flex-1 flex items-center px-5 py-2 rounded-2xl border transition-all duration-300"
+          style={{ borderColor: searchFocused ? "#6492C9" : c.border, background: c.card, boxShadow: searchFocused ? "0 0 0 4px rgba(100,146,201,0.15)" : "none", minHeight: 56 }}>
+          <Search size={20} className="mr-3 transition-colors" style={{ color: searchFocused ? "#6492C9" : c.txt3 }} />
+          <input type="text" placeholder="Rechercher un patient dans le système (nom, email)…"
+            value={globalQuery}
+            onChange={e => { setGlobalQuery(e.target.value); setLocalSearch(""); setPage(1); }}
             onFocus={() => setSearchFocused(true)}
-            onBlur={() => setSearchFocused(false)}
+            onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
             className="w-full h-full bg-transparent border-none outline-none text-[.9rem] font-medium placeholder:text-[#9AACBE]"
-            style={{ color: c.txt }}
-          />
+            style={{ color: c.txt }} />
+          {globalLoading && <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin ml-2" style={{ color: c.blue }} />}
+          {globalQuery && <button onClick={() => { setGlobalQuery(""); setGlobalResults([]); }} className="ml-2 opacity-40 hover:opacity-70"><X size={15} style={{ color: c.txt3 }} /></button>}
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
+        <button onClick={() => setShowExtModal(true)}
           className="px-6 py-2.5 rounded-2xl text-white text-[15px] font-bold flex items-center gap-2 transition-transform hover:scale-105 shrink-0"
-          style={{ background: c.blue, boxShadow: `0 4px 12px ${c.blue}44`, minHeight: 56 }}
-        >
-          <Plus size={18} /> {t('dashboard.doctor.patients.addPatient')}
+          style={{ background: c.blue, boxShadow: `0 4px 12px ${c.blue}44`, minHeight: 56 }}>
+          <Plus size={18} /> Nouveau patient
         </button>
       </div>
 
-      <Card dk={dk} empty={true} className="p-0 overflow-hidden">
-        {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div
-              className="w-16 h-16 rounded-full flex items-center justify-center mb-4"
-              style={{ background: c.bg }}
-            >
-              <Search size={24} style={{ color: c.txt3 }} />
-            </div>
-            <p className="font-bold mb-1" style={{ color: c.txt }}>
-              {search ? t('dashboard.doctor.patients.noResults', { search }) : t('dashboard.doctor.patients.noPatientsYet')}
-            </p>
-            <p className="text-sm" style={{ color: c.txt3 }}>
-              {t('dashboard.doctor.patients.refineSearch')}
-            </p>
+      {/* ── Résultats de la recherche API ── */}
+      {globalQuery.length >= 2 && (
+        <Card dk={dk} empty className="p-0 overflow-hidden mb-6">
+          <div className="px-5 py-3 border-b flex items-center gap-2" style={{ borderColor: c.border, background: c.bg + "88" }}>
+            <Search size={14} style={{ color: c.txt3 }} />
+            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: c.txt3 }}>
+              Résultats dans le système ({globalResults.length})
+            </span>
           </div>
-        ) : (
-          <>
-            <div
-              className="grid grid-cols-[2.5fr_0.8fr_1.5fr_1fr_1.3fr_1.2fr_1fr] px-6 py-4 border-b font-bold text-[11px] uppercase tracking-wider"
-              style={{
-                background: c.bg + "66",
-                borderColor: c.border,
-                color: c.txt3,
-              }}
-            >
-              {[
-                t('dashboard.doctor.patients.colPatient'),
-                t('dashboard.doctor.patients.colAge'),
-                t('dashboard.doctor.patients.colCondition'),
-                t('dashboard.doctor.patients.colLastVisit'),
-                t('dashboard.doctor.patients.colNextAppt'),
-                t('dashboard.doctor.patients.colStatus'),
-                t('dashboard.doctor.patients.colAction'),
-              ].map((col) => (
-                <span key={col}>{col}</span>
-              ))}
+          {globalError ? (
+            <div className="py-8 flex flex-col items-center gap-2 px-5">
+              <p className="text-sm font-bold" style={{ color: c.red }}>Erreur : {globalError}</p>
+              <p className="text-xs" style={{ color: c.txt3 }}>Vérifiez la console pour plus de détails.</p>
             </div>
+          ) : globalResults.length === 0 && !globalLoading ? (
+            <div className="py-10 flex flex-col items-center gap-3">
+              <p className="text-sm font-semibold" style={{ color: c.txt2 }}>Aucun patient trouvé avec un compte</p>
+              <button
+                onClick={() => { setShowExtModal(true); setExtPatient(p => ({ ...p, firstName: globalQuery.split(" ")[0] || "", lastName: globalQuery.split(" ").slice(1).join(" ") || "" })); }}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border transition-all hover:opacity-80"
+                style={{ color: c.blue, borderColor: c.blue + "44", background: c.blue + "10" }}>
+                <Plus size={15} /> Ajouter "{globalQuery}" comme patient sans compte
+              </button>
+            </div>
+          ) : (
             <div className="divide-y" style={{ borderColor: c.border }}>
-              {paginated.map((p, idx) => {
-                const fi = (page - 1) * PAGE_SIZE + idx;
-                const age =
-                  p.age ||
-                  (p.birthDate
-                    ? new Date().getFullYear() -
-                      new Date(p.birthDate).getFullYear()
-                    : "—");
-                const condB = getBadgeProps(p.condition || "Stable");
-                const statB = getBadgeProps(p.status || "Active");
+              {globalResults.map((r, i) => {
+                const ls = linkStatusLabel(r.link_status);
+                const msg = linkMessages[r.id];
                 return (
-                  <div
-                    key={idx}
-                    className="grid grid-cols-[2.5fr_0.8fr_1.5fr_1fr_1.3fr_1.2fr_1fr] px-6 py-4 items-center cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
-                    style={{ background: "transparent" }}
-                  >
+                  <div key={r.id} className="flex items-center justify-between gap-4 px-5 py-3">
                     <div className="flex items-center gap-3">
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm"
-                        style={{
-                          backgroundColor:
-                            AVATAR_COLORS[fi % AVATAR_COLORS.length],
-                        }}
-                      >
-                        {getInitials(p.firstName, p.lastName)}
+                      <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
+                        style={{ background: AVATAR_COLORS[i % AVATAR_COLORS.length] }}>
+                        {getInitials(r.first_name, r.last_name)}
                       </div>
                       <div>
-                        <p
-                          className="font-bold text-[14px]"
-                          style={{ color: c.txt }}
-                        >
-                          {`${p.firstName || ""} ${p.lastName || ""}`.trim() ||
-                            "Patient"}
-                        </p>
-                        <p
-                          className="text-[11px] font-medium"
-                          style={{ color: c.txt3 }}
-                        >
-                          {p.id || `#${String(fi + 1000)}`}
-                        </p>
+                        <p className="font-bold text-sm" style={{ color: c.txt }}>{r.first_name} {r.last_name}</p>
+                        {r.age && <p className="text-xs" style={{ color: c.txt3 }}>{r.age} ans</p>}
                       </div>
                     </div>
-                    <span
-                      className="text-[14px] font-medium"
-                      style={{ color: c.txt2 }}
-                    >
-                      {age}
-                    </span>
-                    <div>
-                      <Badge color={condB.color} bg={condB.bg}>
-                        {p.condition || "—"}
-                      </Badge>
+                    <div className="flex items-center gap-3">
+                      {ls && <span className="text-xs font-bold px-2.5 py-1 rounded-full border" style={{ color: ls.color, background: ls.color + "15", borderColor: ls.color + "44" }}>{ls.label}</span>}
+                      {msg && <span className="text-xs font-semibold" style={{ color: msg.ok ? c.green : c.red }}>{msg.msg}</span>}
+                      {(!r.link_status || r.link_status === "refused") && !msg?.ok && (
+                        <button onClick={() => handleSendLinkRequest(r.id)} disabled={sendingLinkId === r.id}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 disabled:opacity-60"
+                          style={{ background: c.blue }}>
+                          {sendingLinkId === r.id
+                            ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            : <><Plus size={12} /> Demander l'accès</>}
+                        </button>
+                      )}
                     </div>
-                    <span
-                      className="text-[14px] font-medium"
-                      style={{ color: c.txt2 }}
-                    >
-                      {p.lastVisit || "—"}
-                    </span>
-                    <span
-                      className="text-[14px] font-bold"
-                      style={{
-                        color: (p.nextAppt || "")
-                          .toLowerCase()
-                          .startsWith("today")
-                          ? c.blue
-                          : c.txt2,
-                      }}
-                    >
-                      {p.nextAppt || "—"}
-                    </span>
-                    <div>
-                      <Badge color={statB.color} bg={statB.bg}>
-                        {p.status || "Active"}
-                      </Badge>
-                    </div>
-                    <button
-                      onClick={() => onSelectPatient?.(p)}
-                      className="px-4 py-1.5 rounded-xl border text-[13px] font-bold transition-all hover:bg-opacity-10"
-                      style={{ color: c.blue, borderColor: c.blue }}
-                    >
-                      {t('dashboard.doctor.patients.consult')}
-                    </button>
                   </div>
                 );
               })}
             </div>
-            {totalPages > 1 && (
-              <div
-                className="flex items-center justify-between px-6 py-4 border-t"
-                style={{ borderColor: c.border }}
-              >
-                <p className="text-xs font-medium" style={{ color: c.txt3 }}>
-                  {t('dashboard.doctor.patients.page', { page, total: totalPages })}
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className="px-4 py-2 rounded-lg text-xs font-bold border transition-all disabled:opacity-30 hover:bg-opacity-5"
-                    style={{
-                      color: c.txt2,
-                      borderColor: c.border,
-                      background: c.card,
-                    }}
-                  >
-                    {t('dashboard.doctor.patients.previous')}
-                  </button>
-                  <button
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
-                    className="px-4 py-2 rounded-lg text-xs font-bold border transition-all disabled:opacity-30 hover:bg-opacity-5"
-                    style={{
-                      color: c.txt2,
-                      borderColor: c.border,
-                      background: c.card,
-                    }}
-                  >
-                    {t('dashboard.doctor.patients.next')}
-                  </button>
+          )}
+        </Card>
+      )}
+
+      {/* ── Liste mes patients (quand pas de recherche active) ── */}
+      {!globalQuery && (
+        <>
+          <div className="mb-4">
+            <input type="text" placeholder="Filtrer mes patients…"
+              value={localSearch} onChange={e => { setLocalSearch(e.target.value); setPage(1); }}
+              className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
+              style={{ borderColor: c.border, background: c.card, color: c.txt }} />
+          </div>
+          <Card dk={dk} empty className="p-0 overflow-hidden">
+            {filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ background: c.bg }}>
+                  <Search size={24} style={{ color: c.txt3 }} />
                 </div>
+                <p className="font-bold mb-1" style={{ color: c.txt }}>
+                  {localSearch ? `Aucun résultat pour "${localSearch}"` : "Aucun patient pour l'instant"}
+                </p>
+                <p className="text-sm" style={{ color: c.txt3 }}>Utilisez la barre de recherche pour trouver un patient dans le système</p>
               </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-[2.5fr_0.8fr_1.5fr_1.5fr_1fr] px-6 py-4 border-b font-bold text-[11px] uppercase tracking-wider"
+                  style={{ background: c.bg + "66", borderColor: c.border, color: c.txt3 }}>
+                  {["Patient", "Âge", "Condition", "Statut", "Action"].map(col => <span key={col}>{col}</span>)}
+                </div>
+                <div className="divide-y" style={{ borderColor: c.border }}>
+                  {paginated.map((p, idx) => {
+                    const fi = (page - 1) * PAGE_SIZE + idx;
+                    const condB = getBadgeProps(p.condition);
+                    const statB = getBadgeProps(p.status);
+                    return (
+                      <div key={p.id || idx} className="grid grid-cols-[2.5fr_0.8fr_1.5fr_1.5fr_1fr] px-6 py-4 items-center hover:scale-[1.01] transition-transform"
+                        style={{ background: "transparent" }}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
+                            style={{ backgroundColor: AVATAR_COLORS[fi % AVATAR_COLORS.length] }}>
+                            {getInitials(p.firstName, p.lastName)}
+                          </div>
+                          <div>
+                            <p className="font-bold text-[14px]" style={{ color: c.txt }}>{p.firstName} {p.lastName}</p>
+                            {p._type === "external" && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ color: c.amber, background: c.amber + "18" }}>Sans compte</span>}
+                          </div>
+                        </div>
+                        <span className="text-[14px] font-medium" style={{ color: c.txt2 }}>{p.age}</span>
+                        <Badge color={condB.color} bg={condB.bg}>{p.condition}</Badge>
+                        <Badge color={statB.color} bg={statB.bg}>{p.status}</Badge>
+                        <button onClick={() => p._type !== "external" && onSelectPatient?.(p)}
+                          className="px-4 py-1.5 rounded-xl border text-[13px] font-bold transition-all hover:opacity-80"
+                          style={{ color: p._type === "external" ? c.txt3 : c.blue, borderColor: p._type === "external" ? c.border : c.blue, opacity: p._type === "external" ? 0.5 : 1 }}>
+                          {p._type === "external" ? "Externe" : t('dashboard.doctor.patients.consult')}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between px-6 py-4 border-t" style={{ borderColor: c.border }}>
+                    <p className="text-xs font-medium" style={{ color: c.txt3 }}>Page {page} / {totalPages}</p>
+                    <div className="flex gap-2">
+                      {[["‹ Préc.", () => setPage(p => Math.max(1, p - 1)), page === 1],
+                        ["Suiv. ›", () => setPage(p => Math.min(totalPages, p + 1)), page === totalPages]].map(([label, fn, dis]) => (
+                        <button key={label} onClick={fn} disabled={dis}
+                          className="px-4 py-2 rounded-lg text-xs font-bold border transition-all disabled:opacity-30"
+                          style={{ color: c.txt2, borderColor: c.border, background: c.card }}>{label}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
-          </>
-        )}
-      </Card>
+          </Card>
+        </>
+      )}
     </div>
   );
 }
@@ -2580,19 +2598,9 @@ function SettingsView() {
 // ============================================================================
 
 const FALLBACK_PATIENT = {
-  history: [
-    { date: "Oct 12, 2023", title: "Type 2 Diabetes Checkup", doc: "Dr. Benali", note: "Patient reports stable glucose levels. Reduced Metformin dosage.", type: "Chronic" },
-    { date: "Aug 05, 2023", title: "Annual Physical Exam", doc: "Dr. Kaci", note: "All vitals normal. Recommended increased physical activity.", type: "Normal" },
-  ],
-  labs: [
-    { test: "Blood Glucose (HbA1c)", result: "6.4%", ref: "4.0 - 5.6%", status: "High" },
-    { test: "Total Cholesterol", result: "185 mg/dL", ref: "< 200 mg/dL", status: "Normal" },
-    { test: "LDL Cholesterol", result: "110 mg/dL", ref: "< 100 mg/dL", status: "Borderline" },
-  ],
-  prescriptions: [
-    { med: "Metformin 500mg", freq: "Twice daily", dur: "3 months", date: "Sep 2023" },
-    { med: "Lisinopril 10mg", freq: "Once daily", dur: "6 months", date: "Jun 2023" },
-  ],
+  history: [],
+  labs: [],
+  prescriptions: [],
 };
 
 function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPage, doctorName }) {
@@ -3742,7 +3750,7 @@ export default function DoctorDashboard({ onLogout }) {
   const { t } = useLanguage();
 
   const { userData: user } = useAuth();
-  const { patients = [], appointments = [], patientRequests = [], globalNotifications = [], markAllNotificationsRead } = useData();
+  const { patients = [], appointments = [], patientRequests = [], globalNotifications = [], markAllNotificationsRead, dashboardData } = useData();
 
   const [currentPage, setCurrentPage] = useState("dashboard");
   const [profileOpen, setProfileOpen] = useState(false);
@@ -3850,6 +3858,7 @@ export default function DoctorDashboard({ onLogout }) {
             patients={safePatients}
             appointments={safeAppointments}
             patientRequests={safeRequests}
+            dashboardData={dashboardData}
             onStartConsultation={(appointment) => {
               setActiveConsultation(appointment);
               setCurrentPage("consultation-session");

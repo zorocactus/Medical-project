@@ -441,6 +441,21 @@ function DashboardPage({
       (a) => a.status === "confirmed" || a.status === "pending",
     ) || [];
 
+  // ── Demandes de liaison médecin ──
+  const [linkRequests, setLinkRequests] = useState([]);
+  const [respondingId, setRespondingId] = useState(null);
+  useEffect(() => {
+    api.getMyLinkRequests().then(d => setLinkRequests(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
+  const handleRespondLink = async (id, action) => {
+    setRespondingId(`${id}-${action}`);
+    try {
+      await api.respondLinkRequest(id, action);
+      setLinkRequests(prev => prev.filter(r => r.id !== id));
+    } catch { /* silent */ }
+    finally { setRespondingId(null); }
+  };
+
   return (
     <>
       {emergency && (
@@ -479,6 +494,48 @@ function DashboardPage({
           </button>
         </div>
       </div>
+
+      {/* ── Demandes d'accès médecin ── */}
+      {linkRequests.length > 0 && (
+        <div className="rounded-2xl border p-5 mb-6 space-y-3" style={{ background: c.card, borderColor: c.amber + "55" }}>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: c.amber + "18" }}>
+              <Bell size={14} style={{ color: c.amber }} />
+            </div>
+            <p className="font-bold text-sm" style={{ color: c.txt }}>
+              Demandes d'accès médecin ({linkRequests.length})
+            </p>
+          </div>
+          {linkRequests.map(req => (
+            <div key={req.id} className="flex items-center justify-between gap-4 p-3 rounded-xl border" style={{ borderColor: c.border, background: c.bg }}>
+              <div>
+                <p className="font-bold text-sm" style={{ color: c.txt }}>{req.doctor_name}</p>
+                <p className="text-xs" style={{ color: c.txt3 }}>{req.doctor_specialty} · souhaite accéder à votre profil</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => handleRespondLink(req.id, "accept")}
+                  disabled={!!respondingId}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 disabled:opacity-60"
+                  style={{ background: c.green }}>
+                  {respondingId === `${req.id}-accept`
+                    ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    : <><Check size={12} /> Accepter</>}
+                </button>
+                <button
+                  onClick={() => handleRespondLink(req.id, "refuse")}
+                  disabled={!!respondingId}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all hover:opacity-80 disabled:opacity-60"
+                  style={{ color: c.red, borderColor: c.red + "44", background: c.red + "10" }}>
+                  {respondingId === `${req.id}-refuse`
+                    ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    : <><X size={12} /> Refuser</>}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* AI Checker */}
       <div
@@ -1197,12 +1254,20 @@ function MedicalProfilePage(props) {
         style={{ background: c.blueLight, borderColor: c.border }}
       >
         <div className="flex items-start gap-5 flex-wrap">
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-bold text-xl shrink-0"
-            style={{ background: "linear-gradient(135deg, #4A6FA5, #304B71)" }}
-          >
-            {profile?.user_initials || "PJ"}
-          </div>
+          {userData?.photo ? (
+            <img
+              src={userData.photo}
+              alt={`${userData.first_name || ""} ${userData.last_name || ""}`.trim() || "Profil"}
+              className="w-16 h-16 rounded-2xl object-cover shrink-0"
+            />
+          ) : (
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-bold text-xl shrink-0"
+              style={{ background: "linear-gradient(135deg, #4A6FA5, #304B71)" }}
+            >
+              {profile?.user_initials || `${userData?.first_name?.[0] || ""}${userData?.last_name?.[0] || ""}`.toUpperCase() || "PJ"}
+            </div>
+          )}
           <div className="flex-1 min-w-[250px]">
             {editMode ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
@@ -6613,14 +6678,20 @@ export default function PatientDashboard({ onLogout }) {
                   background: "transparent",
                 }}
               >
-                <div
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"
-                  style={{
-                    background: "linear-gradient(135deg, #304B71, #6492C9)",
-                  }}
-                >
-                  {userInitials}
-                </div>
+                {userData?.photo ? (
+                  <img
+                    src={userData.photo}
+                    alt={fullName}
+                    className="w-7 h-7 rounded-lg object-cover shrink-0"
+                  />
+                ) : (
+                  <div
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"
+                    style={{ background: "linear-gradient(135deg, #304B71, #6492C9)" }}
+                  >
+                    {userInitials}
+                  </div>
+                )}
                 <div className="hidden sm:block text-left">
                   <p
                     className="text-sm font-semibold leading-tight"
@@ -6663,15 +6734,20 @@ export default function PatientDashboard({ onLogout }) {
                     style={{ borderColor: dk ? c.border : "#F1F5F9" }}
                   >
                     <div className="flex items-center gap-3">
-                      <div
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold shrink-0"
-                        style={{
-                          background:
-                            "linear-gradient(135deg, #304B71, #6492C9)",
-                        }}
-                      >
-                        {userInitials}
-                      </div>
+                      {userData?.photo ? (
+                        <img
+                          src={userData.photo}
+                          alt={fullName}
+                          className="w-10 h-10 rounded-xl object-cover shrink-0"
+                        />
+                      ) : (
+                        <div
+                          className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold shrink-0"
+                          style={{ background: "linear-gradient(135deg, #304B71, #6492C9)" }}
+                        >
+                          {userInitials}
+                        </div>
+                      )}
                       <div>
                         <p
                           className="text-sm font-bold"

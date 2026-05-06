@@ -595,6 +595,18 @@ export async function completeAppointment(appointmentId) {
   });
 }
 
+/**
+ * (Médecin) Annuler un RDV — notifie le patient
+ * @param {number} appointmentId
+ * @param {string} [reason]
+ */
+export async function doctorCancelAppointment(appointmentId, reason = "") {
+  return apiFetch(`/doctor/appointments/${appointmentId}/cancel/`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 5. NOTIFICATIONS  →  /api/notifications/
 // ─────────────────────────────────────────────────────────────────────────────
@@ -728,6 +740,45 @@ export async function scanPrescriptionQr(token) {
  */
 export async function getDoctorPatients() {
   return apiFetch("/patients/my-patients/");
+}
+
+/** (Médecin) Rechercher un patient par nom/email dans tout le système */
+export async function searchPatients(q) {
+  return apiFetch(`/patients/search/?q=${encodeURIComponent(q)}`);
+}
+
+/** (Médecin) Envoyer une demande de liaison à un patient */
+export async function sendLinkRequest(patientId) {
+  return apiFetch("/patients/link-requests/", {
+    method: "POST",
+    body: JSON.stringify({ patient_id: patientId }),
+  });
+}
+
+/** (Patient) Lister les demandes d'accès en attente */
+export async function getMyLinkRequests() {
+  return apiFetch("/patients/my-link-requests/");
+}
+
+/** (Patient) Répondre à une demande d'accès */
+export async function respondLinkRequest(id, action) {
+  return apiFetch(`/patients/link-requests/${id}/respond/`, {
+    method: "POST",
+    body: JSON.stringify({ action }),
+  });
+}
+
+/** (Médecin) Créer un patient sans compte */
+export async function createExternalPatient(data) {
+  return apiFetch("/patients/external/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/** (Médecin) Lister ses patients sans compte */
+export async function getExternalPatients() {
+  return apiFetch("/patients/external/");
 }
 
 // ─── Garde-malade : patients assignés + dashboard ─────────────────────────────

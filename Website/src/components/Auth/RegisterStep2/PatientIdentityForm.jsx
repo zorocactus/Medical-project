@@ -155,8 +155,7 @@ export default function PatientIdentityForm({ onComplete, onBack, savedData }) {
     const newErrors = {};
     if (!files.cinRecto) newErrors.cinRecto = t("auth.register.fieldRequired");
     if (!files.cinVerso) newErrors.cinVerso = t("auth.register.fieldRequired");
-    if (!files.profilePhoto)
-      newErrors.profilePhoto = t("auth.register.fieldRequired");
+    if (!files.profilePhoto) newErrors.profilePhoto = t("auth.register.fieldRequired");
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;

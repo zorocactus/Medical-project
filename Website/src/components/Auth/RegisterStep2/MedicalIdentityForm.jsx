@@ -155,8 +155,7 @@ export default function MedicalIdentityForm({ onComplete, onBack, savedData }) {
     const newErrors = {};
     if (!files.cinRecto) newErrors.cinRecto = "Ce champ est obligatoire";
     if (!files.cinVerso) newErrors.cinVerso = "Ce champ est obligatoire";
-    if (!files.profilePhoto)
-      newErrors.profilePhoto = "Ce champ est obligatoire";
+    if (!files.profilePhoto) newErrors.profilePhoto = "Ce champ est obligatoire";
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;

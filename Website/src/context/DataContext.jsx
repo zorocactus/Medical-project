@@ -15,6 +15,7 @@ export function DataProvider({ children }) {
   const [globalNotifications, setGlobalNotifications] = useState([]);
   const [unreadChatCount, setUnreadChatCount]         = useState(0);
   const [globalSearch, setGlobalSearch]               = useState("");
+  const [dashboardData, setDashboardData]             = useState(null);
   const chatPollRef = useRef(null);
 
   function addNotification(title, message, type = "info") {
@@ -56,6 +57,13 @@ export function DataProvider({ children }) {
       const data = await api.getDoctorAppointments();
       const list = Array.isArray(data) ? data : (data?.results || []);
       setAppointments(list);
+    } catch {}
+  };
+
+  const refreshDashboardData = async () => {
+    try {
+      const data = await api.getDoctorDashboard();
+      if (data) setDashboardData(data);
     } catch {}
   };
 
@@ -101,10 +109,12 @@ export function DataProvider({ children }) {
       refreshDoctorAppointments();
       refreshPatientRequests();
       refreshDoctorPatients();
+      refreshDashboardData();
       // Polling toutes les 30s pour les nouvelles demandes
       const poll = setInterval(() => {
         refreshPatientRequests();
         refreshDoctorAppointments();
+        refreshDashboardData();
       }, 30_000);
       return () => clearInterval(poll);
     } else if (userData?.role === "caretaker") {
@@ -114,6 +124,7 @@ export function DataProvider({ children }) {
       setAppointments([]);
       setPatientRequests([]);
       setPatients([]);
+      setDashboardData(null);
       setGmPatients([]);
       setGmTreatments([]);
     }
@@ -176,6 +187,7 @@ export function DataProvider({ children }) {
       setAppointments, setPatientRequests,
       refreshDoctorAppointments, refreshPatientRequests,
       refreshDoctorPatients, refreshGmPatients, refreshGmTreatments,
+      dashboardData, refreshDashboardData,
       gmPatients, gmTreatments, loadGMDemoData,
       addMedicationToTreatment, removeMedicationFromTreatment,
       addPatientToTreatments, removePatientFromTreatments,
