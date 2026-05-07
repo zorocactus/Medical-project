@@ -7,8 +7,8 @@ export const PATIENT_STEPS = [
 ];
 
 const DEV_DATA = {
-  birthDate: "1990-05-15", sex: "Masculin", phone: "0555000000",
-  idCardNumber: "10344567890", address: "12 Rue Didouche Mourad",
+  birthDate: "15/05/1990", sex: "Masculin", phone: "0555000000",
+  idCardNumber: "10344567891", address: "12 Rue Didouche Mourad",
   postalCode: "16000", city: "Alger-Centre", wilaya: "Alger",
 };
 

@@ -12,7 +12,7 @@ import {
   X, Plus, Minus, QrCode, TrendingUp, TrendingDown, AlertCircle,
   Clock, CheckCircle, Eye, Download, Filter, RefreshCw, Truck,
   BarChart2, Users, DollarSign, Archive, User, ChevronRight,
-  Zap, Shield, Activity, Send, Phone, MapPin, Link2, MessageSquare
+  Zap, Shield, Activity, Send, Phone, MapPin, Link2, MessageSquare, Languages
 } from "lucide-react";
 import ChatButton from "../../components/chat/ChatButton";
 import ConversationList from "../../components/chat/ConversationList";
@@ -1299,6 +1299,24 @@ function StatistiquesPage({ dk }) {
 function ParametresPage({ dk, onToggleDark }) {
   const c = dk ? T.dark : T.light;
   const { lang, setLang, t } = useLanguage();
+  const { userData: user } = useAuth();
+
+  const [form, setForm] = useState({ first_name: "", last_name: "", email: "", phone: "" });
+  const [isSaving, setIsSaving] = useState(false);
+  const [status, setStatus] = useState({ type: "", msg: "" });
+  const [identityReason, setIdentityReason] = useState("");
+  const [emailReason, setEmailReason] = useState("");
+
+  useEffect(() => {
+    if (user) {
+      setForm({
+        first_name: user.first_name || "",
+        last_name: user.last_name || "",
+        email: user.email || "",
+        phone: user.phone || "",
+      });
+    }
+  }, [user]);
 
   const [locForm, setLocForm] = useState({
     address: "12 Rue Didouche Mourad",
@@ -1307,6 +1325,58 @@ function ParametresPage({ dk, onToggleDark }) {
     mapsUrl: "",
   });
   const [locSaved, setLocSaved] = useState(false);
+
+  const handleSaveProfile = async () => {
+    try {
+      setIsSaving(true);
+      setStatus({ type: "", msg: "" });
+      const nameChanged = form.first_name !== (user?.first_name || "") || form.last_name !== (user?.last_name || "");
+      const emailChanged = form.email !== (user?.email || "");
+
+      if (nameChanged && !identityReason) {
+        setStatus({ type: "info", msg: "Veuillez indiquer le motif du changement de nom." });
+        setIsSaving(false);
+        return;
+      }
+      if (emailChanged && !emailReason) {
+        setStatus({ type: "info", msg: "Veuillez indiquer le motif du changement d'email." });
+        setIsSaving(false);
+        return;
+      }
+
+      const updatePromises = [
+        api.updateMe({ email: emailChanged ? form.email : undefined, phone: form.phone }),
+      ];
+      if (nameChanged && identityReason) {
+        updatePromises.push(
+          api.requestProfileUpdate({ new_first_name: form.first_name, new_last_name: form.last_name, reason: identityReason })
+        );
+      } else if (!nameChanged) {
+        updatePromises[0] = api.updateMe({
+          first_name: form.first_name,
+          last_name: form.last_name,
+          email: emailChanged ? form.email : undefined,
+          phone: form.phone,
+        });
+      }
+
+      await Promise.all(updatePromises);
+      setStatus({
+        type: "success",
+        msg: nameChanged
+          ? "Profil mis à jour. La demande de changement de nom a été envoyée à l'administrateur."
+          : "Profil mis à jour avec succès",
+      });
+      setIdentityReason("");
+      setEmailReason("");
+      setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
+    } catch {
+      setStatus({ type: "error", msg: "Erreur lors de la mise à jour" });
+      setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const inputCls   = "w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition-all focus:ring-2";
   const inputStyle = { background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border, color: c.txt };
@@ -1324,62 +1394,135 @@ function ParametresPage({ dk, onToggleDark }) {
         <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>{t('pharmacist_settings_desc')}</p>
       </div>
 
-      {/* ── Language & Theme ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+      {/* ── Top 2-col grid: Profil + Langue ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5 items-start">
         <Card dk={dk}>
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: c.blue + "18" }}>
-              <Languages size={18} style={{ color: c.blue }} />
+          <p className="font-semibold mb-5" style={{ color: c.txt }}>Profil</p>
+          {status.msg && (
+            <div className="mb-4 p-3 rounded-xl text-xs font-semibold" style={{
+              background: status.type === "success" ? "#2D8C6F12" : status.type === "info" ? "#E8A83812" : "#E0555512",
+              color: status.type === "success" ? "#2D8C6F" : status.type === "info" ? "#E8A838" : "#E05555",
+              border: `1px solid ${status.type === "success" ? "#2D8C6F44" : status.type === "info" ? "#E8A83844" : "#E0555544"}`,
+            }}>{status.msg}</div>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Prénom</label>
+              <input type="text"
+                value={form.first_name}
+                onChange={(e) => setForm((f) => ({ ...f, first_name: e.target.value }))}
+                className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                style={{ background: c.card, borderColor: c.border, color: c.txt }}
+              />
             </div>
             <div>
-              <p className="font-bold text-base" style={{ color: c.txt }}>{t('language')}</p>
-              <p className="text-xs" style={{ color: c.txt3 }}>{t('choose_pref_lang') || "Choisissez votre langue de préférence"}</p>
+              <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Nom</label>
+              <input type="text"
+                value={form.last_name}
+                onChange={(e) => setForm((f) => ({ ...f, last_name: e.target.value }))}
+                className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                style={{ background: c.card, borderColor: c.border, color: c.txt }}
+              />
             </div>
-          </div>
-          <div className="flex gap-3">
-            {[
-              { id: 'fr', label: 'Français' },
-              { id: 'en', label: 'English' }
-            ].map(l => (
-              <button
-                key={l.id}
-                onClick={() => setLang(l.id)}
-                className="flex-1 py-3 rounded-xl border font-semibold text-sm transition-all"
-                style={{
-                  background: lang === l.id ? c.blue : 'transparent',
-                  color: lang === l.id ? '#fff' : c.txt,
-                  borderColor: lang === l.id ? c.blue : c.border
-                }}
-              >
-                {l.label}
-              </button>
-            ))}
-          </div>
-        </Card>
-
-        <Card dk={dk}>
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: c.amber + "18" }}>
-              {dk ? <Moon size={18} style={{ color: c.amber }} /> : <Sun size={18} style={{ color: c.amber }} />}
+            {(form.first_name !== (user?.first_name || "") || form.last_name !== (user?.last_name || "")) && (
+              <div className="sm:col-span-2 animate-in fade-in slide-in-from-top-2">
+                <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "#E8A838" }}>
+                  Motif du changement de nom (Requis pour validation Admin)
+                </label>
+                <textarea
+                  value={identityReason}
+                  onChange={(e) => setIdentityReason(e.target.value)}
+                  placeholder="Expliquez pourquoi vous souhaitez modifier votre identité officielle..."
+                  className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all min-h-[60px]"
+                  style={{ background: "#E8A83808", borderColor: "#E8A83844", color: c.txt }}
+                />
+              </div>
+            )}
+            <div className="sm:col-span-2">
+              <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Email</label>
+              <input type="email"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                style={{ background: c.card, borderColor: c.border, color: c.txt }}
+              />
             </div>
+            {form.email !== (user?.email || "") && (
+              <div className="sm:col-span-2 animate-in fade-in slide-in-from-top-2">
+                <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "#E8A838" }}>
+                  Motif du changement d'email (Requis)
+                </label>
+                <textarea
+                  value={emailReason}
+                  onChange={(e) => setEmailReason(e.target.value)}
+                  placeholder="Expliquez pourquoi vous souhaitez changer votre adresse email..."
+                  className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all min-h-[60px]"
+                  style={{ background: "#E8A83808", borderColor: "#E8A83844", color: c.txt }}
+                />
+              </div>
+            )}
             <div>
-              <p className="font-bold text-base" style={{ color: c.txt }}>{t('dark_mode')}</p>
-              <p className="text-xs" style={{ color: c.txt3 }}>{t('dark_mode_desc') || "Basculer entre le thème clair et sombre"}</p>
+              <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Téléphone</label>
+              <input type="text"
+                value={form.phone}
+                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                style={{ background: c.card, borderColor: c.border, color: c.txt }}
+              />
             </div>
           </div>
           <button
-            onClick={onToggleDark}
-            className="w-full py-3 rounded-xl border font-semibold text-sm transition-all flex items-center justify-center gap-2"
-            style={{
-              background: dk ? c.blue : 'transparent',
-              color: dk ? '#fff' : c.txt,
-              borderColor: dk ? c.blue : c.border
-            }}
+            onClick={handleSaveProfile}
+            disabled={isSaving}
+            className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
+            style={{ background: c.blue, opacity: isSaving ? 0.7 : 1 }}
           >
-            {dk ? <CheckCircle size={16} /> : <div className="w-4 h-4 rounded-full border border-current" />}
-            {dk ? (t('deactivate_dark_mode') || "Désactiver le mode sombre") : (t('activate_dark_mode') || "Activer le mode sombre")}
+            {isSaving ? "Enregistrement..." : "Sauvegarder"}
           </button>
         </Card>
+
+        <div className="flex flex-col gap-5">
+          <Card dk={dk}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: c.blue + "18" }}>
+                <Languages size={18} style={{ color: c.blue }} />
+              </div>
+              <div>
+                <p className="font-bold text-base" style={{ color: c.txt }}>{t('language')}</p>
+                <p className="text-xs" style={{ color: c.txt3 }}>{t('choose_pref_lang') || "Choisissez votre langue de préférence"}</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              {[
+                { id: 'fr', label: 'Français' },
+                { id: 'en', label: 'English' }
+              ].map(l => (
+                <button
+                  key={l.id}
+                  onClick={() => setLang(l.id)}
+                  className="flex-1 py-3 rounded-xl border font-semibold text-sm transition-all"
+                  style={{
+                    background: lang === l.id ? c.blue : 'transparent',
+                    color: lang === l.id ? '#fff' : c.txt,
+                    borderColor: lang === l.id ? c.blue : c.border
+                  }}
+                >
+                  {l.label}
+                </button>
+              ))}
+            </div>
+          </Card>
+
+          <Card dk={dk}>
+            <p className="font-semibold mb-3" style={{ color: c.txt }}>{t('cnas_conn_label') || "Connexion CNAS"}</p>
+            <div className="flex items-center gap-3 p-3 rounded-xl mb-3"
+              style={{ background: "#2D8C6F12", border: "1px solid #2D8C6F30" }}>
+              <CheckCircle size={18} style={{ color: c.green }} />
+              <p className="text-sm font-semibold" style={{ color: c.green }}>{t('connected_status') || "Connecté"} — {t('cnas_connected_desc') || "Conventionné"}</p>
+            </div>
+            <p className="text-xs" style={{ color: c.txt3 }}>{t('last_sync_prefix') || "Dernière sync :"} Aujourd'hui 08:32</p>
+          </Card>
+        </div>
       </div>
 
       {/* ── Clinic Location & Maps ── */}
@@ -1518,46 +1661,12 @@ function ParametresPage({ dk, onToggleDark }) {
         </div>
       </Card>
 
-      {/* ── Préférences + CNAS + À propos ── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <Card dk={dk}>
-          <p className="font-semibold mb-5" style={{ color: c.txt }}>{t('preferences_label') || "Préférences"}</p>
-          <div className="space-y-4">
-            {[
-              { label: t('stock_alerts_label') || "Alertes stock critique", on: true  },
-              { label: t('cnas_notif_label') || "Notifications CNAS",      on: true  },
-              { label: t('expiry_reminders_label') || "Rappels expiration",       on: true  },
-              { label: t('dark_mode') || "Mode sombre",              on: dk, toggle: true },
-            ].map(item => (
-              <div key={item.label} className="flex items-center justify-between">
-                <span className="text-sm" style={{ color: c.txt }}>{item.label}</span>
-                <button onClick={item.toggle ? onToggleDark : undefined}
-                  className="relative w-10 h-5 rounded-full transition-colors"
-                  style={{ background: item.on ? c.blue : c.border }}>
-                  <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all"
-                    style={{ left: item.on ? "22px" : "2px" }} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card dk={dk}>
-          <p className="font-semibold mb-3" style={{ color: c.txt }}>{t('cnas_conn_label') || "Connexion CNAS"}</p>
-          <div className="flex items-center gap-3 p-3 rounded-xl mb-3"
-            style={{ background: "#2D8C6F12", border: "1px solid #2D8C6F30" }}>
-            <CheckCircle size={18} style={{ color: c.green }} />
-            <p className="text-sm font-semibold" style={{ color: c.green }}>{t('connected_status') || "Connecté"} — {t('cnas_connected_desc') || "Conventionné"}</p>
-          </div>
-          <p className="text-xs" style={{ color: c.txt3 }}>{t('last_sync_prefix') || "Dernière sync :"} Aujourd'hui 08:32</p>
-        </Card>
-
-        <Card dk={dk}>
-          <p className="font-semibold mb-2" style={{ color: c.txt }}>{t('about_label') || "À propos"}</p>
-          <p className="text-sm" style={{ color: c.txt2 }}>MedSmart {t('pharmacy_view_label', {context: 'dash'}) || "Pharmacie"} v2.1.0</p>
-          <p className="text-xs mt-1" style={{ color: c.txt3 }}>{t('hosted_in_algeria') || "CNAS Certifié · Hébergé en Algérie"}</p>
-        </Card>
-      </div>
+      {/* ── À propos ── */}
+      <Card dk={dk}>
+        <p className="font-semibold mb-2" style={{ color: c.txt }}>{t('about_label') || "À propos"}</p>
+        <p className="text-sm" style={{ color: c.txt2 }}>MedSmart {t('pharmacy_view_label', {context: 'dash'}) || "Pharmacie"} v2.1.0</p>
+        <p className="text-xs mt-1" style={{ color: c.txt3 }}>{t('hosted_in_algeria') || "CNAS Certifié · Hébergé en Algérie"}</p>
+      </Card>
     </>
   );
 }

@@ -327,7 +327,7 @@ export default function PatientsView({ dk }) {
   const fetchPatients = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await api.getAdminUsers({ role: "patient" });
+      const data = await api.getAdminUsers({ role: "patient", verification_status: "verified" });
       const raw = Array.isArray(data) ? data : data?.results || [];
       setPatients(raw.map(u => ({
          ...u,
@@ -362,8 +362,7 @@ export default function PatientsView({ dk }) {
     const q = search.toLowerCase();
     const matchQ = !q || p.full_name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q);
     let matchS = true;
-    if (statusFilter === "active")    matchS = p.is_active && p.status !== "pending";
-    if (statusFilter === "pending")   matchS = p.status === "pending";
+    if (statusFilter === "active")    matchS = p.is_active;
     if (statusFilter === "suspended") matchS = !p.is_active;
     return matchQ && matchS;
   });
@@ -371,7 +370,6 @@ export default function PatientsView({ dk }) {
   const FILTERS = [
     { id: "all",       label: t('all_tab') },
     { id: "active",    label: t('active_tab') },
-    { id: "pending",   label: t('pending_tab') },
     { id: "suspended", label: t('suspended_tab') },
   ];
 

@@ -280,28 +280,28 @@ function ValidationPage({ dk, onCountChange }) {
     api
       .getPendingDoctors()
       .then((data) => {
-        if (Array.isArray(data)) {
-          // Filtre : uniquement les professionnels de santé (exclut les patients)
-          const pros = data.filter((d) => PRO_ROLES.has(d.role));
-          const normalized = pros.map((d) => ({
-            id: d.id,
-            name: `${d.first_name || ""} ${d.last_name || ""}`.trim() || "—",
-            role: d.role || "médecin",
-            specialty: d.specialty || "—",
-            wilaya: d.wilaya || d.city || "—",
-            email: d.email || "—",
-            phone: d.phone || "—",
-            submittedAt: d.date_joined?.slice(0, 10) || "—",
-            initials:
-              (
-                (d.first_name?.[0] || "") + (d.last_name?.[0] || "")
-              ).toUpperCase() || "??",
-            color: "#4A6FA5",
-            docs: d.submitted_documents || [],
-          }));
-          setPending(normalized);
-          if (onCountChange) onCountChange(normalized.length);
-        }
+        const rows = Array.isArray(data) ? data : (data?.results ?? []);
+        const normalized = rows.map((d) => ({
+          id: d.id,
+          name: `${d.first_name || ""} ${d.last_name || ""}`.trim() || "—",
+          role: d.role || "médecin",
+          specialty: d.role === "patient" ? (d.address || d.city || "—") : (d.specialty || "—"),
+          wilaya: d.wilaya || d.city || "—",
+          email: d.email || "—",
+          phone: d.phone || "—",
+          sex: d.sex || "—",
+          date_of_birth: d.date_of_birth || "—",
+          id_card_number: d.id_card_number || "—",
+          submittedAt: d.date_joined?.slice(0, 10) || "—",
+          initials:
+            (
+              (d.first_name?.[0] || "") + (d.last_name?.[0] || "")
+            ).toUpperCase() || "??",
+          color: d.role === "patient" ? "#4A6FA5" : "#4A6FA5",
+          docs: d.submitted_documents || [],
+        }));
+        setPending(normalized);
+        if (onCountChange) onCountChange(normalized.length);
       })
       .catch((err) => {
         console.error("ValidationPage — erreur chargement:", err);
@@ -359,16 +359,13 @@ function ValidationPage({ dk, onCountChange }) {
   };
 
   const roleMeta = {
-    médecin: { color: "#2D8C6F", bg: "#2D8C6F18", label: "Médecin" },
-    pharmacien: { color: "#E8A838", bg: "#E8A83818", label: "Pharmacien" },
-    "garde-malade": {
-      color: "#7B5EA7",
-      bg: "#7B5EA718",
-      label: "Garde-malade",
-    },
-    doctor: { color: "#2D8C6F", bg: "#2D8C6F18", label: "Médecin" },
-    pharmacist: { color: "#E8A838", bg: "#E8A83818", label: "Pharmacien" },
-    caretaker: { color: "#7B5EA7", bg: "#7B5EA718", label: "Garde-malade" },
+    patient:       { color: "#4A6FA5", bg: "#4A6FA518", label: "Patient" },
+    médecin:       { color: "#2D8C6F", bg: "#2D8C6F18", label: "Médecin" },
+    pharmacien:    { color: "#E8A838", bg: "#E8A83818", label: "Pharmacien" },
+    "garde-malade":{ color: "#7B5EA7", bg: "#7B5EA718", label: "Garde-malade" },
+    doctor:        { color: "#2D8C6F", bg: "#2D8C6F18", label: "Médecin" },
+    pharmacist:    { color: "#E8A838", bg: "#E8A83818", label: "Pharmacien" },
+    caretaker:     { color: "#7B5EA7", bg: "#7B5EA718", label: "Garde-malade" },
   };
 
   return (
@@ -597,11 +594,18 @@ function ValidationPage({ dk, onCountChange }) {
                         </span>
                       </div>
                       <p className="text-sm mt-0.5" style={{ color: c.txt3 }}>
-                        {pro.specialty} · {pro.wilaya}
+                        {pro.role === "patient"
+                          ? `${pro.sex !== "—" ? pro.sex + " · " : ""}${pro.date_of_birth !== "—" ? pro.date_of_birth + " · " : ""}${pro.wilaya}`
+                          : `${pro.specialty} · ${pro.wilaya}`}
                       </p>
                       <p className="text-xs mt-1" style={{ color: c.txt3 }}>
                         {pro.email} · {pro.phone}
                       </p>
+                      {pro.role === "patient" && pro.id_card_number !== "—" && (
+                        <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>
+                          CIN : {pro.id_card_number}
+                        </p>
+                      )}
                       <p
                         className="text-[10px] mt-1 font-semibold uppercase tracking-wide"
                         style={{ color: c.txt3 }}

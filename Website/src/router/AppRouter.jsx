@@ -317,6 +317,12 @@ function RoleRouter() {
   const role = userData?.role?.toLowerCase();
 
   if (type === "patient") {
+    if (userData?.verification_status === "rejected") {
+      return <RejectedPage logout={logout} />;
+    }
+    if (userData?.verification_status === "pending") {
+      return <PendingApprovalPage logout={logout} />;
+    }
     return <PatientDashboard onLogout={logout} />;
   }
 

@@ -78,7 +78,7 @@ export function DataProvider({ children }) {
   const refreshDoctorPatients = async () => {
     try {
       const data = await api.getDoctorPatients();
-      setPatients(Array.isArray(data) ? data : []);
+      setPatients(Array.isArray(data) ? data : (data?.results ?? []));
     } catch {
       setPatients([]);
     }

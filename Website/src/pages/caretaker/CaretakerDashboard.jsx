@@ -17,7 +17,8 @@ import {
   Plus, ShoppingCart, AlertTriangle, Search, Filter, Minus, RefreshCw,
   QrCode, Download, Eye, EyeOff, Clock, ExternalLink, Stethoscope, Shield, Settings,
   ClipboardList, ChevronDown, LogOut, Menu, Sun, Moon, Check,
-  Link as LinkIcon, Brain, Send, MessageSquare
+  Link as LinkIcon, Brain, Send, MessageSquare,
+  Mic, Paperclip, History
 } from "lucide-react";
 import { T } from "../_shared/theme";
 
@@ -726,25 +727,157 @@ function JobRequestsView({ dk, c }) {
 }
 
 // ─── AI DIAGNOSIS PAGE (Garde-Malade) ────────────────────────────────────────
-function AIDiagnosisPage({ dk, c }) {
-  const { t } = useLanguage();
+
+function highlightTerms(text) {
+  if (!text) return "";
+  let t = text
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  t = t.replace(/^(\d+[\.\)]\s*)([^\n—\-:]+)/gm, (match, num, title) =>
+    `${num}<strong style="color:#0D1B2E;font-weight:500;">${title.trim()}</strong>`);
+  t = t.replace(/^Urgence\s*:\s*([^\n]+)/gim, (match, level) => {
+    const l = level.toLowerCase();
+    let bg, color, label;
+    if (l.includes("non urgent") || l.includes("généralement non")) { bg="#EEEDFE"; color="#534AB7"; label="Non urgent"; }
+    else if (l.includes("relativ") || l.includes("évaluer") || l.includes("médecin traitant")) { bg="#E6F1FB"; color="#185FA5"; label="À évaluer"; }
+    else if (l.includes("variable")) { bg="#E1F5EE"; color="#0F6E56"; label="Variable"; }
+    else if (l.includes("urgent") || l.includes("immédiat") || l.includes("sévère")) { bg="#FCEBEB"; color="#A32D2D"; label="Urgence possible"; }
+    else if (l.includes("bilan") || l.includes("diagnostic")) { bg="#FAEEDA"; color="#854F0B"; label="Bilan recommandé"; }
+    else { bg="#F0F4F8"; color="#5A6E8A"; label="À confirmer"; }
+    return `<span style="background:${bg};color:${color};padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;margin-left:6px;white-space:nowrap;">${label}</span>`;
+  });
+  const maladies = ["pneumonie","pleurésie","embolie pulmonaire","infarctus","angine de poitrine","péricardite","costochondrite","hypertension","diabète","anémie","asthme","migraine","bronchite","gastrite","ulcère","hépatite","thrombose","arythmie","tachycardie","fibrillation","insuffisance cardiaque","insuffisance rénale","hypothyroïdie","hyperthyroïdie","épilepsie","méningite","sepsis","grippe","covid","tuberculose","sinusite","angine","otite","conjonctivite","appendicite","pancréatite","cholécystite","pyélonéphrite","cystite","infection","inflammation","ischémie","nécrose","fibrose","cancer","tumeur","leucémie","lymphome","sclérose","arthrite","arthrose","ostéoporose","goutte","lupus","polyarthrite","spondylarthrite","myopathie","neuropathie","dépression","anxiété","schizophrénie","alzheimer","parkinson","AVC","accident vasculaire","embolie","phlébite","varices","anévrisme","reflux","RGO","gastro-œsophagien","hernie","prolapsus","endométriose","SOPK","ménopause","ostéite","ostéomyélite","psoriasis","eczéma","dermatite","urticaire","allergie","choc anaphylactique","hypoglycémie","hyperglycémie","acidose","déshydratation","malnutrition","carence"];
+  const maladiesPattern = new RegExp(`\\b(${maladies.map(m => m.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`, "gi");
+  t = t.replace(maladiesPattern, match => `<span style="background:#FFF8E1;color:#795548;padding:0px 3px;border-radius:3px;font-weight:500;">${match}</span>`);
+  const medicaments = ["Lisinopril","Paracétamol","Ibuprofène","Metformine","Aspirine","Amoxicilline","Doliprane","Voltarène","Cortisone","Ventoline","Metoprolol","Ramipril","Amlodipine","Atorvastatine","Oméprazole","Pantoprazole","Lorazépam","Diazépam","Sertraline","Fluoxétine","Insuline","Levothyrox","Warfarine","Héparine","Morphine","Tramadol","Codéine","Azithromycine","Ciprofloxacine","Doxycycline","Prednisolone","Prednisone","Budesonide","Salbutamol","Tiotropium","Fluticasone","Methotrexate","Hydroxychloroquine","Adalimumab","Infliximab","Rituximab","Bisoprolol","Carvedilol","Furosémide","Spironolactone","Digoxine","Amiodarone","Clopidogrel","Rivaroxaban","Apixaban","Dabigatran","Simvastatine","Rosuvastatine","Metoclopramide","Dompéridone","Ranitidine","Esoméprazole","Lansoprazole","Baclofen","Gabapentine","Prégabaline","Carbamazépine","Valproate","Lamotrigine","Lévétiracétam"];
+  const medPattern = new RegExp(`\\b(${medicaments.map(m => m.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`, "gi");
+  t = t.replace(medPattern, match => `<span style="background:#E6F1FB;color:#185FA5;padding:1px 5px;border-radius:4px;font-size:12px;font-weight:500;">${match}</span>`);
+  return t;
+}
+
+function renderAIMessage(text, isStreaming, c) {
+  if (!text) return null;
+  const clean = text.replace(/={3,}/g, "").replace(/\\n/g, "\n").replace(/\*\*\*(.*?)\*\*\*/g, "$1").replace(/\*\*(.*?)\*\*/g, "$1").replace(/^\*\s*/gm, "").replace(/\*+$/gm, "").replace(/\n{3,}/g, "\n\n").trim();
+  const highlighted = isStreaming ? null : highlightTerms(clean);
+  return (
+    <div style={{ background: c.card, border: `0.5px solid ${c.border}`, borderRadius: 12, padding: "20px 22px" }}>
+      <div style={{ fontSize: 14, color: c.txt, lineHeight: 1.9, whiteSpace: "pre-wrap" }}
+        dangerouslySetInnerHTML={{ __html: isStreaming ? clean : highlighted }} />
+      {isStreaming && (
+        <span style={{ display: "inline-block", width: 2, height: 15, background: c.txt2, marginLeft: 2, verticalAlign: "middle", animation: "blink 1s infinite" }} />
+      )}
+      {!isStreaming && (
+        <div style={{ borderTop: `0.5px solid ${c.border}`, marginTop: 16, paddingTop: 12, display: "flex", gap: 8, alignItems: "flex-start" }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 2 }}>
+            <circle cx="12" cy="12" r="10" stroke="#888780" strokeWidth="1.5"/>
+            <path d="M12 8v4M12 16v.5" stroke="#888780" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+          <p style={{ fontSize: 12, color: c.txt2, margin: 0, lineHeight: 1.6 }}>
+            Ces informations sont indicatives et ne remplacent pas un avis médical. Consultez un professionnel de santé pour un diagnostic adapté.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const URGENCY_CONF = {
+  low:  { label: "Conseil médical",  color: "#4ade80", bg: "rgba(74,222,128,.10)",  border: "rgba(74,222,128,.22)"  },
+  med:  { label: "Urgence modérée", color: "#fbbf24", bg: "rgba(251,191,36,.10)",  border: "rgba(251,191,36,.22)"  },
+  high: { label: "Urgence élevée",  color: "#f87171", bg: "rgba(248,113,113,.10)", border: "rgba(248,113,113,.22)" },
+};
+
+function ConfRing({ val, color }) {
+  const R = 30, CV = 2 * Math.PI * R, offset = CV - (val / 100) * CV;
+  return (
+    <svg width="80" height="80" viewBox="0 0 80 80">
+      <circle cx="40" cy="40" r={R} fill="none" stroke="rgba(99,142,203,0.2)" strokeWidth="6"/>
+      <circle cx="40" cy="40" r={R} fill="none" stroke={color} strokeWidth="6"
+        strokeDasharray={CV} strokeDashoffset={offset} strokeLinecap="round"
+        transform="rotate(-90 40 40)" style={{ transition: "stroke-dashoffset 1.2s cubic-bezier(.2,0,0,1)" }}/>
+      <text x="40" y="44" textAnchor="middle" fontSize="15" fontWeight="700" fill={color} fontFamily="DM Sans,sans-serif">{val}%</text>
+    </svg>
+  );
+}
+
+function DiagResultPanel({ result, c, setPage }) {
+  if (!result) return null;
+  const urg = URGENCY_CONF[result.urgency] || URGENCY_CONF.med;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ background: c.card, border: `1px solid ${c.border}`, borderRadius: 18, overflow: "hidden", boxShadow: "0 4px 20px rgba(57,88,134,.08)", animation: "diagSlideUp .4s ease" }}>
+        <div style={{ background: "linear-gradient(135deg,#304B71,#4A6FA5)", padding: "18px 20px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(255,255,255,.45)", display: "block", marginBottom: 6 }}>Niveau d'urgence</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 14px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: urg.bg, color: urg.color, border: `1px solid ${urg.border}` }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: urg.color, display: "inline-block" }}/>
+                {urg.label}
+              </span>
+              {result.diagnosis && (
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", lineHeight: 1.3, marginTop: 10 }}>{result.diagnosis}</p>
+              )}
+            </div>
+            {result.confidence != null && <ConfRing val={result.confidence} color={urg.color}/>}
+          </div>
+        </div>
+      </div>
+      {result.recommendations?.length > 0 && (
+        <div style={{ background: c.card, border: `1px solid ${c.border}`, borderRadius: 18, padding: "18px 20px", boxShadow: "0 2px 8px rgba(57,88,134,.05)" }}>
+          <h3 style={{ fontSize: 12, fontWeight: 700, color: c.txt3, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Médecin recommandé</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {result.recommendations.map((r, i) => (
+              <div key={i}
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, background: c.bg, border: `1px solid ${c.border}`, cursor: "pointer", transition: "all 200ms", animation: `diagBubbleIn .35s ease ${i * 80}ms both` }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = c.blue + "88"; e.currentTarget.style.background = c.blueLight; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = c.border; e.currentTarget.style.background = c.bg; }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: `linear-gradient(135deg,${r.color}22,${r.color}11)`, border: `1px solid ${r.color}44`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Stethoscope size={20} color={r.color}/>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: c.txt, marginBottom: 3 }}>{r.title}</p>
+                  <p style={{ fontSize: 11, color: c.txt2, lineHeight: 1.4 }}>{r.desc}</p>
+                </div>
+                <ChevronRight size={16} color={c.txt3}/>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 16px", background: "rgba(99,142,203,.05)", border: "1px solid rgba(99,142,203,.14)", borderRadius: 14 }}>
+        <Shield size={16} color="#638ECB"/>
+        <p style={{ fontSize: 11, color: c.txt3, lineHeight: 1.6 }}>
+          <strong style={{ color: c.txt2 }}>Avertissement :</strong> Ce diagnostic est fourni à titre indicatif uniquement. Il ne remplace en aucun cas la consultation d'un professionnel de santé qualifié.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function AIDiagnosisPage({ dk, setPage }) {
+  const c = dk ? T.dark : T.light;
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([
-    {
-      role: "ai",
-      text: t('ai_intro_msg_caretaker') || "Bonjour 👋 Décrivez les symptômes de votre patient en détail — localisation, intensité, durée — et je vous fournirai une analyse clinique immédiate avec des recommandations de soins adaptées.",
-    },
+    { role: "ai", text: "Nouvelle session. Décrivez les symptômes du patient en détail — localisation, intensité, durée — et je vous fournirai une analyse immédiate." },
   ]);
   const [loading, setLoading] = useState(false);
-  const [showFullHistory, setShowFullHistory] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [attachedFiles, setAttachedFiles] = useState([]); // [{ name, file }]
+  const [attachedFiles, setAttachedFiles] = useState([]);
   const [sessions, setSessions] = useState([]);
+  const [activeSession, setActiveSession] = useState(null);
+  const [showSidebar, setShowSidebar] = useState(true);
+  const [diagResult, setDiagResult] = useState(null);
+  const [currentAlert, setCurrentAlert] = useState(null);
   const messagesEndRef = useRef(null);
+  const textareaRef = useRef(null);
+
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
+    }
+  }, [input]);
 
   useEffect(() => {
     api.getAISessions()
@@ -752,356 +885,322 @@ function AIDiagnosisPage({ dk, c }) {
       .catch(() => {});
   }, []);
 
-  const quickSymptoms = [
-    t('high_glucose_symptom') || "Glycémie élevée",
-    t('chest_pain_symptom') || "Douleur thoracique",
-    t('hypertension_symptom') || "Hypertension",
-    t('fever_symptom') || "Fièvre",
-    t('medication_intake_symptom') || "Prise de médicaments",
-    t('fall_symptom') || "Chute",
-  ];
+  const quickSymptoms = ["Glycémie élevée", "Douleur thoracique", "Hypertension", "Fièvre", "Chute", "Essoufflement", "Prise de médicaments"];
+
+  function newSession() {
+    setMessages([{ role: "ai", text: "Nouvelle session. Décrivez les symptômes du patient en détail — localisation, intensité, durée — et je vous fournirai une analyse immédiate." }]);
+    setDiagResult(null);
+    setInput("");
+    setAttachedFiles([]);
+    setActiveSession(null);
+    setTimeout(() => textareaRef.current?.focus(), 100);
+  }
+
+  async function deleteSession(e, sessionId) {
+    e.stopPropagation();
+    setSessions(prev => prev.filter(s => s.id !== sessionId));
+    if (activeSession === sessionId) newSession();
+    api.deleteAISession(sessionId).catch(() => {});
+  }
+
+  function pickSession(s) {
+    setActiveSession(s.id);
+    setDiagResult(null);
+    const history = s.history || s.messages || [];
+    if (history.length) {
+      setMessages(history.map(h => ({ role: h.role === "user" ? "user" : "ai", text: h.content || h.text || "", timestamp: h.timestamp })));
+    } else {
+      setMessages([{ role: "ai", text: "Session chargée. Vous pouvez continuer la conversation." }]);
+    }
+  }
 
   const send = async (text) => {
     const msg = text || input.trim();
     const hasFiles = attachedFiles.length > 0;
     if (!msg && !hasFiles) return;
 
-    setMessages((m) => [...m, {
-      role: "user",
-      text: msg || `📎 ${attachedFiles.length} fichier(s) joint(s)`,
-    }]);
+    const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    setMessages(m => [...m, { role: "user", text: msg || `📎 ${attachedFiles.length} fichier(s)`, timestamp: ts }]);
     setInput("");
     const filesToSend = [...attachedFiles];
     setAttachedFiles([]);
     setLoading(true);
+    setDiagResult(null);
+    setCurrentAlert(null);
 
     const history = messages
-      .filter(m => m.role !== "ai" || !m.text.includes("Bonjour"))
+      .filter(m => m.role !== "ai" || !m.text.includes("Nouvelle session"))
       .map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.text }));
 
-    setMessages((m) => [...m, { role: "ai", text: "", isStreaming: true }]);
+    setMessages(m => [...m, { role: "ai", text: "", isStreaming: true, timestamp: ts }]);
 
     try {
-      let aiResponseText = "";
-
+      let aiText = "";
       if (hasFiles && filesToSend.length > 0) {
-        await api.analyzeMedicalFileStream(
-          filesToSend[0].file,
-          msg,
-          "fr",
-          history,
-          (chunk) => {
-            aiResponseText += chunk;
-            setMessages((prev) => {
-              const last = prev[prev.length - 1];
-              return [...prev.slice(0, -1), { ...last, text: aiResponseText }];
-            });
-          },
-        );
-        setMessages((prev) => {
-          const last = prev[prev.length - 1];
-          return [...prev.slice(0, -1), { ...last, isStreaming: false }];
+        await api.analyzeMedicalFileStream(filesToSend[0].file, msg, "fr", history, (chunk) => {
+          aiText += chunk;
+          setMessages(prev => { const last = prev[prev.length - 1]; return [...prev.slice(0, -1), { ...last, text: aiText }]; });
         });
+        setMessages(prev => { const last = prev[prev.length - 1]; return [...prev.slice(0, -1), { ...last, isStreaming: false }]; });
       } else {
         let metaData = null;
         await api.analyzeSymptomsStream(
-          { symptoms: msg, lang: "fr", history },
+          { symptoms: msg, lang: "fr", history, session_id: activeSession },
           (chunk) => {
-            aiResponseText += chunk;
-            setMessages((prev) => {
-              const last = prev[prev.length - 1];
-              return [...prev.slice(0, -1), { ...last, text: aiResponseText }];
-            });
+            aiText += chunk;
+            setMessages(prev => { const last = prev[prev.length - 1]; return [...prev.slice(0, -1), { ...last, text: aiText }]; });
           },
-          (meta) => { metaData = meta; },
+          (meta) => { if (meta.type === "session_saved") { setActiveSession(meta.session_id); } else { metaData = meta; } },
+          (alert) => setCurrentAlert(alert),
         );
-        setMessages((prev) => {
-          const last = prev[prev.length - 1];
-          const result = metaData ? {
-            urgency: metaData.urgency === "urgent" ? (t('high_urgency') || "Urgence élevée")
-                   : metaData.urgency === "modéré" ? (t('moderate_urgency') || "Urgence modérée")
-                   : (t('low_urgency') || "Faible priorité"),
-            color: metaData.urgency === "urgent" ? "#ef4444"
-                 : metaData.urgency === "modéré" ? "#E8A838" : "#10b981",
-            diagnosis: metaData.diseases?.[0]?.name_fr || "Analyse terminée",
-            tags: metaData.diseases?.[0]?.key_symptoms?.split(",").map(s => s.trim()) || [],
-          } : null;
-          return [...prev.slice(0, -1), { ...last, result, isStreaming: false }];
+        setMessages(prev => { const last = prev[prev.length - 1]; return [...prev.slice(0, -1), { ...last, isStreaming: false }]; });
+
+        const rawUrgency = metaData?.urgency || "";
+        const urgencyKey = /urgent|high|élevé/i.test(rawUrgency) ? "high" : /modéré|moderate|med|moyen/i.test(rawUrgency) ? "med" : "low";
+        const specialtyName = metaData?.specialist?.specialty_fr || metaData?.specialist?.specialty || metaData?.recommended_specialist || null;
+        const topDisease = metaData?.diseases?.length ? [...metaData.diseases].sort((a, b) => (b.probability ?? 0) - (a.probability ?? 0))[0] : null;
+        const confidenceVal = topDisease ? Math.round(topDisease.probability ?? (topDisease.confidence ?? 0) * 100) : null;
+        setDiagResult({
+          urgency: urgencyKey,
+          confidence: confidenceVal,
+          diagnosis: topDisease?.name_fr || metaData?.diagnosis || null,
+          tags: topDisease?.key_symptoms?.split(",").map(s => s.trim()).filter(Boolean) || [],
+          recommendations: specialtyName ? [{ color: c.blue, title: specialtyName, desc: urgencyKey === "high" ? "Consultation urgente recommandée — sous 24h" : urgencyKey === "med" ? "Consultation recommandée cette semaine" : "Consultation de suivi conseillée" }] : [],
         });
       }
     } catch (err) {
       console.error("AI Error:", err);
-      setMessages((m) => [
-        ...m,
-        { role: "ai", text: t('ai_error') || "Désolé, une erreur est survenue. Veuillez réessayer." },
-      ]);
+      setMessages(m => { const last = m[m.length - 1]; const base = last?.isStreaming ? m.slice(0, -1) : m; return [...base, { role: "ai", text: "Désolé, une erreur est survenue lors de l'analyse. Vérifiez votre connexion et réessayez." }]; });
     } finally {
       setLoading(false);
+      api.getAISessions().then(data => { if (data?.sessions) setSessions(data.sessions); }).catch(() => {});
     }
   };
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
-    setAttachedFiles((prev) => [...prev, ...files.map(f => ({ name: f.name, file: f }))]);
+    setAttachedFiles(prev => [...prev, ...files.map(f => ({ name: f.name, file: f }))]);
     e.target.value = "";
   };
 
   const toggleRecording = () => {
-    setIsRecording((r) => !r);
+    setIsRecording(r => !r);
     if (!isRecording) {
-      setTimeout(() => {
-        setIsRecording(false);
-        setInput("Le patient présente une glycémie à 9.8 et des tremblements depuis ce matin");
-      }, 2000);
+      setTimeout(() => { setIsRecording(false); setInput("Le patient présente une glycémie à 9.8 et des tremblements depuis ce matin"); }, 2000);
     }
   };
 
   return (
-    <>
-      <div className="mb-6 flex items-end justify-end w-full gap-2">
-        <button
-          onClick={() => setShowFullHistory(true)}
-          className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl border transition-all hover:opacity-80"
-          style={{ color: showFullHistory ? "#fff" : c.blue, borderColor: c.blue, background: showFullHistory ? c.blue : c.card }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-          </svg>
-          {t('view_history_btn') || "Voir tout l'historique"}
-        </button>
-        <button
-          onClick={() => setMessages([{ role: "ai", text: t('new_session_welcome') || "Nouvelle session. Décrivez les symptômes du patient." }])}
-          className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl border transition-all hover:opacity-80"
-          style={{ color: c.blue, borderColor: c.border, background: c.card }}>
-          <Plus size={14} /> {t('new_session_btn') || "Nouvelle session"}
-        </button>
+    <div style={{ display: "flex", height: "calc(100vh - 60px)", background: c.bg, overflow: "hidden", fontFamily: "'DM Sans', sans-serif" }}>
+      <style>{`
+        @keyframes diagBubbleIn  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes diagSlideUp   { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes diagWaveFlow  { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+        @keyframes diagSpin      { to{transform:rotate(360deg)} }
+        @keyframes diagPulse     { 0%,100%{opacity:1} 50%{opacity:.35} }
+        @keyframes blink         { 0%,100%{opacity:1} 50%{opacity:0} }
+        .diag-wave-text { background: linear-gradient(90deg,#304B71,#638ECB,#8AAEE0,#638ECB,#304B71); background-size: 300% 100%; animation: diagWaveFlow 2.5s ease infinite; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .diag-scroll::-webkit-scrollbar { width:4px; }
+        .diag-scroll::-webkit-scrollbar-track { background:transparent; }
+        .diag-scroll::-webkit-scrollbar-thumb { background:rgba(99,142,203,.22); border-radius:99px; }
+        .diag-chip:hover { opacity: 0.8; }
+        .diag-textarea::placeholder { color: ${dk ? "rgba(240,243,250,0.38)" : "rgba(13,27,46,0.38)"} !important; }
+      `}</style>
+
+      {/* LEFT SIDEBAR */}
+      <div style={{ width: showSidebar ? 240 : 0, background: c.card, borderRight: `1px solid ${c.border}`, display: "flex", flexDirection: "column", overflow: "hidden", transition: "width 250ms ease", flexShrink: 0 }}>
+        {showSidebar && (
+          <>
+            <div style={{ padding: "12px 14px 10px", borderBottom: `1px solid ${c.border}` }}>
+              <button onClick={newSession}
+                style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 14px", borderRadius: 10, border: `1px solid ${c.border}`, background: c.blueLight, color: c.blue, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                <Plus size={13} color={c.blue}/> Nouvelle session
+              </button>
+            </div>
+            <div className="diag-scroll" style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
+              <p style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: c.txt3, padding: "6px 8px 4px" }}>Historique</p>
+              {sessions.length === 0 && (
+                <p style={{ fontSize: 11, color: c.txt3, textAlign: "center", padding: "20px 8px", opacity: .6 }}>Aucune session précédente</p>
+              )}
+              {sessions.map(s => {
+                const isActive = activeSession === s.id;
+                const d = new Date(s.updated_at);
+                const dateStr = isNaN(d) ? "" : d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+                return (
+                  <div key={s.id} onClick={() => pickSession(s)}
+                    style={{ padding: "10px", borderRadius: 10, marginBottom: 2, cursor: "pointer", transition: "all 150ms", background: isActive ? c.blueLight : "transparent", border: `1px solid ${isActive ? c.blue + "22" : "transparent"}` }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 6 }}>
+                      <p style={{ fontSize: 11, fontWeight: 600, color: isActive ? c.blue : c.txt, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{s.title || "Session sans titre"}</p>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                        <span style={{ fontSize: 9, color: c.txt3, whiteSpace: "nowrap" }}>{dateStr}</span>
+                        <button onClick={(e) => deleteSession(e, s.id)} title="Supprimer"
+                          style={{ width: 18, height: 18, borderRadius: 4, border: "none", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: c.txt3, opacity: .6, padding: 0 }}
+                          onMouseEnter={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.color = "#E05555"; }}
+                          onMouseLeave={e => { e.currentTarget.style.opacity = ".6"; e.currentTarget.style.color = c.txt3; }}>
+                          <Trash2 size={11}/>
+                        </button>
+                      </div>
+                    </div>
+                    <p style={{ fontSize: 10, color: c.txt3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>
+                      {s.message_count} échange{s.message_count !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ padding: "10px 14px", borderTop: `1px solid ${c.border}` }}>
+              <p style={{ fontSize: 9, color: c.txt3, lineHeight: 1.5 }}>Non substitutif à un médecin. Usage informatif uniquement.</p>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Historique Sidebar */}
-      {showFullHistory && (
-        <>
-          <div className="fixed inset-0 z-40" style={{ background: "rgba(0,0,0,0.5)" }}
-            onClick={() => setShowFullHistory(false)} />
-          <div className="fixed top-0 left-0 w-[280px] h-full z-50 flex flex-col shadow-2xl"
-            style={{ background: c.card, borderRight: `1px solid ${c.border}`, animation: "slideInLeft 0.3s ease forwards" }}>
-            <style>{`@keyframes slideInLeft { from { transform: translateX(-100%); } to { transform: translateX(0); } }`}</style>
-            <div className="px-4 py-4 flex items-center justify-between border-b" style={{ borderColor: c.border }}>
-              <p className="font-bold" style={{ color: c.txt }}>{t('history_label') || "Historique"}</p>
-              <button onClick={() => setShowFullHistory(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-full hover:opacity-70"
-                style={{ color: c.txt3, background: c.bg }}>✕</button>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              {sessions.length === 0 ? (
-                <p className="text-sm text-center opacity-40 mt-8 px-4" style={{ color: c.txt3 }}>
-                  {t('no_history') || "Aucune session précédente"}
-                </p>
-              ) : (
-                sessions.map((s) => {
-                  const dateStr = new Date(s.updated_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) + " · " + s.message_count + " échanges";
-                  return (
-                    <button key={s.id}
-                      onClick={() => {
-                        if (s.history?.length) {
-                          setMessages(s.history.map(h => ({ role: h.role === "user" ? "user" : "ai", text: h.content })));
-                        }
-                        setShowFullHistory(false);
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-4 border-b text-left hover:opacity-80"
-                      style={{ borderColor: c.border, background: "transparent" }}>
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ background: c.blueLight }}>
-                        <Brain size={16} style={{ color: c.blue }} />
-                      </div>
-                      <div className="flex-1 min-w-0 pr-2">
-                        <p className="text-sm font-semibold truncate" style={{ color: c.txt }}>{s.title || "Session sans titre"}</p>
-                        <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>{dateStr}</p>
-                      </div>
-                    </button>
-                  );
-                })
-              )}
+      {/* CENTER CHAT */}
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: c.bg, borderRight: `1px solid ${c.border}` }}>
+        <div style={{ height: 52, background: c.card, borderBottom: `1px solid ${c.border}`, display: "flex", alignItems: "center", padding: "0 16px", gap: 10, flexShrink: 0 }}>
+          <button onClick={() => setShowSidebar(v => !v)}
+            style={{ width: 30, height: 30, borderRadius: 8, background: "transparent", border: `1px solid ${c.border}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <History size={14} color={c.txt3}/>
+          </button>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: c.txt, lineHeight: 1.2 }}>Diagnostic IA</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#4ade80", animation: "diagPulse 2s infinite", display: "inline-block" }}/>
+              <span style={{ fontSize: 10, color: c.txt3 }}>Gemini + ChromaDB · En ligne</span>
             </div>
           </div>
-        </>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Chat */}
-        <div className="lg:col-span-2 flex flex-col gap-4" style={{ marginTop: "-60px" }}>
-          <Card dk={dk} empty={true} style={{ padding: 0, overflow: "hidden" }}>
-            {/* Messages */}
-            <div className="p-4 space-y-4 overflow-y-auto" style={{ minHeight: 450, maxHeight: 600 }}>
-              {messages.map((m, i) => (
-                <div key={i} className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-                    style={{ background: m.role === "ai" ? "linear-gradient(135deg, #4A6FA5, #304B71)" : "linear-gradient(135deg, #2D8C6F, #3aaa88)" }}>
-                    {m.role === "ai" ? "AI" : "GM"}
-                  </div>
-                  <div className="max-w-[80%]">
-                    <div className="rounded-2xl p-3.5 text-sm"
-                      style={{
-                        background: m.role === "ai" ? c.card : c.blue,
-                        color: m.role === "ai" ? c.txt : "#fff",
-                        border: m.role === "ai" ? `1px solid ${c.border}` : "none",
-                        borderRadius: m.role === "ai" ? "4px 16px 16px 16px" : "16px 4px 16px 16px",
-                      }}>
-                      {m.text}
-                      {m.result && (
-                        <div className="mt-3 rounded-xl p-3 border"
-                          style={{ background: dk ? "rgba(255,255,255,0.05)" : "#F8FAFC", borderColor: c.border }}>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-bold uppercase tracking-wide" style={{ color: c.txt3 }}>{t('ai_analysis_label') || "Analyse IA"}</span>
-                            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full"
-                              style={{ background: m.result.color + "18", color: m.result.color }}>{m.result.urgency}</span>
-                          </div>
-                          <p className="font-bold text-sm mb-1" style={{ color: c.txt }}>{m.result.diagnosis}</p>
-                          <p className="text-xs mb-2" style={{ color: c.txt2 }}>{m.result.body}</p>
-                          <div className="flex flex-wrap gap-1">
-                            {m.result.tags.map((t) => (
-                              <span key={t} className="text-xs px-2 py-0.5 rounded-full"
-                                style={{ background: c.blueLight, color: c.blue }}>{t}</span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {loading && (
-                <div className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                    style={{ background: "linear-gradient(135deg, #4A6FA5, #304B71)" }}>AI</div>
-                  <div className="rounded-2xl p-3.5 flex items-center gap-1.5"
-                    style={{ background: c.card, border: `1px solid ${c.border}` }}>
-                    {[0, 1, 2].map((i) => (
-                      <div key={i} className="w-1.5 h-1.5 rounded-full animate-bounce"
-                        style={{ background: c.txt3, animationDelay: `${i * 0.15}s` }} />
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Zone de saisie */}
-            <div className="p-4 border-t" style={{ borderColor: c.border }}>
-              <div className="flex gap-2 flex-wrap mb-3">
-                {quickSymptoms.map((s) => (
-                  <button key={s} onClick={() => send(s)}
-                    className="text-xs px-3 py-1.5 rounded-full border transition-colors hover:opacity-80"
-                    style={{ background: c.blueLight, color: c.blue, borderColor: c.blue + "40" }}>
-                    {s}
-                  </button>
-                ))}
-              </div>
-              {attachedFiles.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {attachedFiles.map((f, i) => (
-                    <div key={i} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border"
-                      style={{ background: c.blueLight, borderColor: c.border, color: c.txt }}>
-                      <FileText size={11} style={{ color: c.blue }} />
-                      {f.length > 20 ? f.slice(0, 18) + "…" : f}
-                      <button onClick={() => setAttachedFiles((fs) => fs.filter((_, j) => j !== i))}
-                        className="ml-1 hover:opacity-70" style={{ color: c.txt3 }}>
-                        <X size={11} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {isRecording && (
-                <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl border"
-                  style={{ background: "rgba(224,85,85,0.08)", borderColor: "rgba(224,85,85,0.3)" }}>
-                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                  <span className="text-xs font-semibold" style={{ color: "#E05555" }}>{t('recording_in_progress') || "Enregistrement en cours…"}</span>
-                </div>
-              )}
-              <div className="flex items-center gap-2 rounded-xl border px-3 py-2"
-                style={{ background: c.blueLight, borderColor: c.border }}>
-                <label className="w-9 h-9 rounded-lg flex items-center justify-center border transition-colors hover:opacity-70 shrink-0"
-                  style={{ borderColor: c.border, background: c.card, cursor: "pointer" }}>
-                  <input type="file" multiple accept="image/*,.pdf,.doc,.docx" className="hidden" onChange={handleFileChange} />
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: c.txt2 }}>
-                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                  </svg>
-                </label>
-                <input value={input} onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && send()}
-                  placeholder={isRecording ? (t('recording_label') || "Enregistrement…") : (t('describe_symptoms_placeholder') || "Décrivez les symptômes du patient…")}
-                  disabled={isRecording}
-                  className="flex-1 text-sm outline-none bg-transparent" style={{ color: c.txt }} />
-                <button onClick={toggleRecording}
-                  className="w-9 h-9 rounded-lg flex items-center justify-center border transition-all hover:opacity-80 shrink-0"
-                  style={{ borderColor: isRecording ? "rgba(224,85,85,0.5)" : c.border, background: isRecording ? "rgba(224,85,85,0.12)" : c.card }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                    style={{ color: isRecording ? "#E05555" : c.txt2 }}>
-                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                    <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
-                  </svg>
-                </button>
-                <button onClick={() => send()}
-                  className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:opacity-80 shrink-0"
-                  style={{ background: c.blue }}>
-                  <Send size={14} className="text-white" />
-                </button>
-              </div>
-              <p className="text-xs mt-2 text-center" style={{ color: c.txt3 }}>
-                {t('ai_input_tips') || "⏎ Entrée pour envoyer · 🎤 Vocal disponible · 📎 Fichiers acceptés"}
-              </p>
-            </div>
-          </Card>
         </div>
 
-        {/* Panneau latéral */}
-        <div className="space-y-4">
-          <Card dk={dk}>
-            <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: c.txt3 }}>{t('urgency_level_label') || "Niveau d'urgence"}</p>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-bold" style={{ color: "#E8A838" }}>{t('moderate_urgency') || "Modérée"}</span>
-              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full" style={{ background: "#E8A83818", color: "#E8A838" }}>65 / 100</span>
-            </div>
-            <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: c.blueLight }}>
-              <div className="h-full rounded-full" style={{ width: "65%", background: "#E8A838" }} />
-            </div>
-          </Card>
-          <Card dk={dk}>
-            <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: c.txt3 }}>{t('primary_physician') || "Médecin traitant"}</p>
-            <div className="flex items-center gap-3 p-3 rounded-xl mb-3" style={{ background: c.blueLight }}>
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: c.blueLight, border: `1px solid ${c.border}` }}>
-                <User size={16} style={{ color: c.blue }} />
+        <div className="diag-scroll" style={{ flex: 1, overflowY: "auto", padding: "16px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {messages.length === 0 && (
+            <div style={{ textAlign: "center", padding: "60px 20px" }}>
+              <div style={{ width: 56, height: 56, borderRadius: 16, background: c.blueLight, border: `1px solid ${c.border}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+                <Brain size={26} color={c.blue}/>
               </div>
-              <div>
-                <p className="text-sm font-bold" style={{ color: c.txt }}>Dr. Benali Karim</p>
-                <p className="text-xs" style={{ color: c.txt2 }}>{t('contact_within_2h') || "À contacter sous 2h"}</p>
-              </div>
+              <p style={{ fontSize: 15, fontWeight: 700, color: c.txt, marginBottom: 6 }}>Assistant Diagnostic IA</p>
+              <p style={{ fontSize: 12, color: c.txt3, lineHeight: 1.65, maxWidth: 280, margin: "0 auto" }}>Décrivez les symptômes du patient en langage naturel pour obtenir une analyse médicale immédiate.</p>
             </div>
-            <a href="tel:+21300000000"
-              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-colors hover:opacity-90"
-              style={{ background: c.blue }}>
-              <Phone size={14} /> {t('call_doctor_btn') || "Appeler le médecin"}
-            </a>
-          </Card>
-          <Card dk={dk}>
-            <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: c.txt3 }}>{t('immediate_advice_label') || "Conseils immédiats"}</p>
-            <div className="space-y-2.5">
-              {[
-                ["💊", t('check_glucose_capillary') || "Vérifier la glycémie capillaire"],
-                ["🛌", t('keep_patient_calm') || "Maintenir le patient au calme"],
-                ["💧", t('ensure_hydration') || "Assurer une bonne hydratation"],
-                ["📋", t('document_symptoms') || "Documenter les symptômes observés"],
-              ].map(([e, t]) => (
-                <div key={t} className="flex items-start gap-2 text-sm" style={{ color: c.txt2 }}>
-                  <span>{e}</span>
-                  <span>{t}</span>
+          )}
+          {messages.map((msg, i) => (
+            <div key={i} style={{ animation: "diagBubbleIn .3s ease both", display: "flex", flexDirection: "column", alignItems: msg.role === "user" ? "flex-end" : "flex-start" }}>
+              {msg.role === "user" ? (
+                <div style={{ maxWidth: "85%", padding: "10px 14px", borderRadius: "16px 16px 4px 16px", background: "linear-gradient(135deg,#395886,#4A6FA5)", color: "#fff", fontSize: 13, lineHeight: 1.65, boxShadow: "0 2px 10px rgba(57,88,134,.2)" }}>{msg.text}</div>
+              ) : (
+                <div style={{ maxWidth: "90%", display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: c.blueLight, border: `1px solid ${c.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
+                    <Brain size={14} color={c.blue}/>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {i === messages.length - 1 && currentAlert && (
+                      <div style={{ background: currentAlert.level === "critical" ? "#FCEBEB" : "#FAEEDA", border: `1.5px solid ${currentAlert.level === "critical" ? "#E24B4A" : "#EF9F27"}`, borderRadius: 12, padding: "14px 16px", display: "flex", alignItems: "flex-start", gap: 12 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: currentAlert.level === "critical" ? "#E24B4A" : "#EF9F27", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          <span style={{ fontSize: 18 }}>{currentAlert.level === "critical" ? "🚨" : "⚠️"}</span>
+                        </div>
+                        <div>
+                          <p style={{ fontSize: 14, fontWeight: 500, margin: "0 0 4px", color: currentAlert.level === "critical" ? "#7A0D0D" : "#854F0B" }}>
+                            {currentAlert.level === "critical" ? "Urgence médicale détectée" : "Attention médicale requise"}
+                          </p>
+                          <p style={{ fontSize: 13, margin: 0, lineHeight: 1.6, color: currentAlert.level === "critical" ? "#A32D2D" : "#9e6400" }}>{currentAlert.message}</p>
+                        </div>
+                      </div>
+                    )}
+                    {renderAIMessage(msg.text, msg.isStreaming, c)}
+                  </div>
                 </div>
+              )}
+              {msg.timestamp && (
+                <span style={{ fontSize: 10, opacity: .4, marginTop: 3, color: c.txt3, paddingLeft: msg.role === "ai" ? 38 : 0 }}>{msg.timestamp}</span>
+              )}
+            </div>
+          ))}
+          {loading && !messages[messages.length - 1]?.isStreaming && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", alignSelf: "flex-start", background: "linear-gradient(135deg,rgba(48,75,113,.08),rgba(99,142,203,.08))", border: "1px solid rgba(99,142,203,.15)", borderRadius: 14, animation: "diagBubbleIn .3s ease" }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#638ECB", animation: "diagSpin 1s linear infinite", borderTop: "2px solid transparent", boxShadow: "0 0 0 2px rgba(99,142,203,.3)" }}/>
+              <span className="diag-wave-text" style={{ fontSize: 12, fontWeight: 600 }}>MedSmart IA analyse les symptômes…</span>
+            </div>
+          )}
+          <div ref={messagesEndRef}/>
+        </div>
+
+        <div className="diag-scroll" style={{ padding: "8px 14px 4px", display: "flex", gap: 6, overflowX: "auto", flexShrink: 0, borderTop: `1px solid ${c.border}` }}>
+          {quickSymptoms.map(chip => (
+            <button key={chip} onClick={() => send(chip)} className="diag-chip"
+              style={{ padding: "5px 12px", borderRadius: 999, background: c.blueLight, border: `1px solid ${c.border}`, color: c.blue, fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", transition: "all 150ms", flexShrink: 0 }}>
+              {chip}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ padding: "10px 14px 14px", flexShrink: 0, background: c.card, borderTop: `1px solid ${c.border}` }}>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 8, background: c.bg, border: `2px solid ${c.border}`, borderRadius: 16, padding: "10px 14px", transition: "border-color 200ms" }}
+            onFocusCapture={e => e.currentTarget.style.borderColor = c.blue}
+            onBlurCapture={e => e.currentTarget.style.borderColor = c.border}>
+            <label style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${c.border}`, background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" multiple style={{ display: "none" }} onChange={handleFileChange}/>
+              <Paperclip size={13} color={c.txt3}/>
+            </label>
+            <textarea ref={textareaRef} value={input} className="diag-textarea"
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), send())}
+              placeholder="Décrivez les symptômes du patient en détail…" rows={1}
+              style={{ flex: 1, border: "none", outline: "none", background: "transparent", resize: "none", fontSize: 13, color: c.txt, lineHeight: 1.5, fontFamily: "'DM Sans', sans-serif", maxHeight: 100, overflowY: "auto" }}/>
+            <button onClick={toggleRecording}
+              style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0, border: `1px solid ${isRecording ? "#ef4444" : c.border}`, background: isRecording ? "rgba(239,68,68,.1)" : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Mic size={13} color={isRecording ? "#ef4444" : c.txt3}/>
+            </button>
+            <button onClick={() => send()} disabled={!input.trim() && attachedFiles.length === 0}
+              style={{ width: 36, height: 36, borderRadius: 10, border: "none", flexShrink: 0, cursor: (input.trim() || attachedFiles.length > 0) ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 200ms", background: (input.trim() || attachedFiles.length > 0) ? "#395886" : c.border, boxShadow: (input.trim() || attachedFiles.length > 0) ? "0 2px 8px rgba(57,88,134,.3)" : "none" }}>
+              <Send size={14} color="#fff"/>
+            </button>
+          </div>
+          {attachedFiles.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+              {attachedFiles.map((f, i) => (
+                <span key={i} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, padding: "3px 10px", borderRadius: 999, border: `1px solid ${c.border}`, color: c.txt, background: c.bg }}>
+                  📎 {f.name}
+                  <button onClick={() => setAttachedFiles(prev => prev.filter((_, idx) => idx !== i))}
+                    style={{ marginLeft: 4, opacity: .5, background: "none", border: "none", cursor: "pointer", color: c.txt, lineHeight: 1 }}>✕</button>
+                </span>
               ))}
             </div>
-          </Card>
+          )}
         </div>
       </div>
-    </>
+
+      {/* RIGHT: RESULTS PANEL */}
+      <div className="diag-scroll" style={{ flex: "0 0 300px", overflowY: "auto", padding: "14px 16px", display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2, flexShrink: 0 }}>
+          <div>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: c.txt, marginBottom: 2 }}>Résultats & Recommandations</h2>
+            <p style={{ fontSize: 11, color: c.txt3 }}>Basé sur votre dernière interaction</p>
+          </div>
+          {diagResult && (
+            <span style={{ padding: "4px 12px", borderRadius: 999, fontSize: 10, fontWeight: 600, background: c.blueLight, color: c.blue, border: `1px solid ${c.blue}22` }}>
+              Score : {diagResult.confidence}% de confiance
+            </span>
+          )}
+        </div>
+        {!diagResult && !loading && (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "60px 20px" }}>
+            <div style={{ width: 64, height: 64, borderRadius: 18, background: c.blueLight, border: `1px solid ${c.border}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18 }}>
+              <Activity size={28} color={c.blue}/>
+            </div>
+            <p style={{ fontSize: 15, fontWeight: 700, color: c.txt, marginBottom: 8 }}>Aucun résultat pour l'instant</p>
+            <p style={{ fontSize: 12, color: c.txt3, lineHeight: 1.7, maxWidth: 280 }}>Décrivez les symptômes dans le chat pour obtenir un diagnostic provisoire et des recommandations.</p>
+          </div>
+        )}
+        {loading && !diagResult && (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 40 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16, background: "linear-gradient(135deg,#304B71,#638ECB)", boxShadow: "0 4px 20px rgba(57,88,134,.25)" }}>
+              <div style={{ width: 20, height: 20, border: "2.5px solid rgba(255,255,255,.3)", borderTop: "2.5px solid white", borderRadius: "50%", animation: "diagSpin 0.9s linear infinite" }}/>
+            </div>
+            <span className="diag-wave-text" style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>Analyse en cours…</span>
+            <p style={{ fontSize: 11, color: c.txt3 }}>Gemini RAG traite les données médicales</p>
+          </div>
+        )}
+        <DiagResultPanel result={diagResult} c={c} setPage={() => {}} />
+      </div>
+    </div>
   );
 }
 
@@ -1536,7 +1635,7 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
   const [locSaved, setLocSaved] = useState(false);
   const [tarifSaved, setTarifSaved] = useState(false);
 
-  const [form, setForm] = useState({ name: "", email: "", phone: "" });
+  const [form, setForm] = useState({ first_name: "", last_name: "", email: "", phone: "" });
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState({ type: "", msg: "" });
 
@@ -1546,11 +1645,14 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
 
   const [locForm, setLocForm] = useState({ address: "", commune: "", wilaya: "Alger", mapsUrl: "" });
   const [tarifForm, setTarifForm] = useState({ tarifSoin: "", tarifNuit: "", tarifMensuel: "" });
+  const [identityReason, setIdentityReason] = useState("");
+  const [emailReason, setEmailReason] = useState("");
 
   useEffect(() => {
     if (user) {
       setForm({
-        name: `${user.first_name || ""} ${user.last_name || ""}`.trim(),
+        first_name: user.first_name || "",
+        last_name: user.last_name || "",
         email: user.email || "",
         phone: user.phone || "",
       });
@@ -1561,11 +1663,45 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
     try {
       setIsSaving(true);
       setStatus({ type: "", msg: "" });
-      const names = form.name.split(" ");
-      const first_name = names[0] || "";
-      const last_name = names.slice(1).join(" ") || "";
-      await api.updateMe({ first_name, last_name, phone: form.phone });
-      setStatus({ type: "success", msg: t('profile_updated_success') || "Profil mis à jour avec succès ✅" });
+      const nameChanged = form.first_name !== (user?.first_name || "") || form.last_name !== (user?.last_name || "");
+      const emailChanged = form.email !== (user?.email || "");
+
+      if (nameChanged && !identityReason) {
+        setStatus({ type: "info", msg: "Veuillez indiquer le motif du changement de nom." });
+        setIsSaving(false);
+        return;
+      }
+      if (emailChanged && !emailReason) {
+        setStatus({ type: "info", msg: "Veuillez indiquer le motif du changement d'email." });
+        setIsSaving(false);
+        return;
+      }
+
+      const updatePromises = [
+        api.updateMe({ email: emailChanged ? form.email : undefined, phone: form.phone }),
+      ];
+      if (nameChanged && identityReason) {
+        updatePromises.push(
+          api.requestProfileUpdate({ new_first_name: form.first_name, new_last_name: form.last_name, reason: identityReason })
+        );
+      } else if (!nameChanged) {
+        updatePromises[0] = api.updateMe({
+          first_name: form.first_name,
+          last_name: form.last_name,
+          email: emailChanged ? form.email : undefined,
+          phone: form.phone,
+        });
+      }
+
+      await Promise.all(updatePromises);
+      setStatus({
+        type: "success",
+        msg: nameChanged
+          ? "Profil mis à jour. La demande de changement de nom a été envoyée à l'administrateur."
+          : "Profil mis à jour avec succès ✅",
+      });
+      setIdentityReason("");
+      setEmailReason("");
       setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
     } catch {
       setStatus({ type: "error", msg: t('update_error') || "Erreur lors de la mise à jour ❌" });
@@ -1616,28 +1752,77 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
           <p className="font-semibold mb-5" style={{ color: c.txt }}>{t('profile_title') || "Profil"}</p>
           {status.msg && (
             <div className="mb-4 p-3 rounded-xl text-xs font-semibold" style={{
-              background: status.type === "success" ? "#2D8C6F12" : "#E0555512",
-              color: status.type === "success" ? "#2D8C6F" : "#E05555",
-              border: `1px solid ${status.type === "success" ? "#2D8C6F44" : "#E0555544"}`,
+              background: status.type === "success" ? "#2D8C6F12" : status.type === "info" ? "#E8A83812" : "#E0555512",
+              color: status.type === "success" ? "#2D8C6F" : status.type === "info" ? "#E8A838" : "#E05555",
+              border: `1px solid ${status.type === "success" ? "#2D8C6F44" : status.type === "info" ? "#E8A83844" : "#E0555544"}`,
             }}>{status.msg}</div>
           )}
-          {[
-            { label: t('full_name_label') || "Nom Complet", key: "name" },
-            { label: t('email_label') || "Email", key: "email" },
-            { label: t('phone_label') || "Téléphone", key: "phone" },
-          ].map((field) => (
-            <div key={field.key} className="mb-4">
-              <label className={labelCls} style={{ color: c.txt2 }}>{field.label}</label>
-              <input
-                type="text"
-                value={form[field.key]}
-                onChange={(e) => setForm((f) => ({ ...f, [field.key]: e.target.value }))}
-                readOnly={field.key === "email"}
-                className={inputCls}
-                style={{ ...inputStyle, color: field.key === "email" ? c.txt3 : c.txt }}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Prénom</label>
+              <input type="text"
+                value={form.first_name}
+                onChange={(e) => setForm((f) => ({ ...f, first_name: e.target.value }))}
+                className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                style={{ background: c.card, borderColor: c.border, color: c.txt }}
               />
             </div>
-          ))}
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Nom</label>
+              <input type="text"
+                value={form.last_name}
+                onChange={(e) => setForm((f) => ({ ...f, last_name: e.target.value }))}
+                className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                style={{ background: c.card, borderColor: c.border, color: c.txt }}
+              />
+            </div>
+            {(form.first_name !== (user?.first_name || "") || form.last_name !== (user?.last_name || "")) && (
+              <div className="sm:col-span-2 animate-in fade-in slide-in-from-top-2">
+                <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "#E8A838" }}>
+                  Motif du changement de nom (Requis pour validation Admin)
+                </label>
+                <textarea
+                  value={identityReason}
+                  onChange={(e) => setIdentityReason(e.target.value)}
+                  placeholder="Expliquez pourquoi vous souhaitez modifier votre identité officielle..."
+                  className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all min-h-[60px]"
+                  style={{ background: "#E8A83808", borderColor: "#E8A83844", color: c.txt }}
+                />
+              </div>
+            )}
+            <div className="sm:col-span-2">
+              <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Email</label>
+              <input type="email"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                style={{ background: c.card, borderColor: c.border, color: c.txt }}
+              />
+            </div>
+            {form.email !== (user?.email || "") && (
+              <div className="sm:col-span-2 animate-in fade-in slide-in-from-top-2">
+                <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "#E8A838" }}>
+                  Motif du changement d'email (Requis)
+                </label>
+                <textarea
+                  value={emailReason}
+                  onChange={(e) => setEmailReason(e.target.value)}
+                  placeholder="Expliquez pourquoi vous souhaitez changer votre adresse email..."
+                  className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all min-h-[60px]"
+                  style={{ background: "#E8A83808", borderColor: "#E8A83844", color: c.txt }}
+                />
+              </div>
+            )}
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Téléphone</label>
+              <input type="text"
+                value={form.phone}
+                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                style={{ background: c.card, borderColor: c.border, color: c.txt }}
+              />
+            </div>
+          </div>
           <button
             onClick={handleSaveProfile}
             disabled={isSaving}
@@ -1983,7 +2168,7 @@ export default function GardeMaladeDashboard({ onLogout }) {
       case "jobRequests": return <JobRequestsView dk={dk} c={c} />;
       case "myPatients": return <MyPatientsView onChangePage={setPage} dk={dk} c={c} />;
       case "treatments": return <TreatmentsView dk={dk} c={c} />;
-      case "ai-diagnosis": return <AIDiagnosisPage dk={dk} c={c} />;
+      case "ai-diagnosis": return <AIDiagnosisPage dk={dk} setPage={setPage} />;
       case "settings": return <SettingsView onTarifSaved={setTarifMensuel} dk={dk} c={c} user={user} />;
       case "messages":
         return (
@@ -2301,7 +2486,7 @@ export default function GardeMaladeDashboard({ onLogout }) {
       </nav>
 
       {/* Contenu */}
-      <main className="w-full px-6 py-6"><ErrorBoundary>{renderPage()}</ErrorBoundary></main>
+      <main className={`w-full ${page === "ai-diagnosis" ? "px-0 py-0" : "px-6 py-6"}`}><ErrorBoundary>{renderPage()}</ErrorBoundary></main>
 
       {profileOpen && (
         <div className="fixed inset-0 z-20" onClick={() => setProfileOpen(false)} />

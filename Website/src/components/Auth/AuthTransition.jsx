@@ -24,7 +24,6 @@ const AUTH_IMAGES = [
   }
 ];
 import * as api from "../../services/api";
-import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import { useLanguage } from "../../context/LanguageContext";
 import LoginForm from "./Login";
@@ -40,7 +39,6 @@ import MedicalDocumentsForm from "./RegisterStep2/MedicalDocumentsForm";
 import MedicalSuccess from "./RegisterStep2/MedicalSuccess";
 
 export default function AuthTransition({ onLogin, initialActive = false, onBack }) {
-  const { login } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { t } = useLanguage();
   const isDark = theme === "dark";
@@ -97,6 +95,7 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
     setTempUser(data);
 
     if (data.accountType === "patient") {
+      setFieldErrors({});
       try {
         setIsSubmitting(true);
         const formData = new FormData();
@@ -138,7 +137,17 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
         await api.registerPatient(formData);
         setStep(4);
       } catch (err) {
-        setRegError("Erreur lors de l'inscription : " + err.message);
+        let parsed = null;
+        try { parsed = JSON.parse(err.message); } catch {}
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          setFieldErrors(parsed);
+          const messages = Object.entries(parsed)
+            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v[0] : v}`)
+            .join(" | ");
+          setRegError("Erreur lors de l'inscription : " + messages);
+        } else {
+          setRegError("Erreur lors de l'inscription : " + err.message);
+        }
       } finally {
         setIsSubmitting(false);
       }
@@ -292,7 +301,7 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
 
     if (step === 3) {
       if (tempUser?.accountType === "patient") {
-        return <PatientIdentityForm onComplete={handleCompletedStep3} onBack={(data) => handleBack(2, data)} savedData={tempUser} />;
+        return <PatientIdentityForm onComplete={handleCompletedStep3} onBack={(data) => handleBack(2, data)} savedData={tempUser} serverErrors={fieldErrors} />;
       }
       if (tempUser?.accountType === "personnel médical") {
         return <MedicalIdentityForm onComplete={handleCompletedStep3} onBack={(data) => handleBack(2, data)} savedData={tempUser} />;
@@ -302,11 +311,7 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
     if (step === 4) {
       if (tempUser?.accountType === "patient") {
         return (
-          <PatientSuccess onComplete={() => {
-            login(tempUser.email, tempUser.password)
-              .then((me) => onLogin(me?.role || "patient"))
-              .catch(() => onLogin("patient"));
-          }} />
+          <PatientSuccess onComplete={() => onBack()} />
         );
       }
       if (tempUser?.accountType === "personnel médical") {
@@ -344,13 +349,7 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
 
     if (step === 7) {
       if (tempUser?.accountType === "personnel médical") {
-        return (
-          <MedicalSuccess onComplete={() => {
-            login(tempUser.email, tempUser.password)
-              .then((me) => onLogin(me?.role || "doctor", { ...me, is_approved: false }))
-              .catch(() => onLogin("doctor", { is_approved: false }));
-          }} />
-        );
+        return <MedicalSuccess onComplete={() => onBack()} />;
       }
     }
 

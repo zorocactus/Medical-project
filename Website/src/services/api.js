@@ -768,6 +768,11 @@ export async function respondLinkRequest(id, action) {
   });
 }
 
+/** (Médecin) Résilier la liaison avec un patient */
+export async function unlinkPatient(patientId) {
+  return apiFetch(`/patients/${patientId}/unlink/`, { method: "POST" });
+}
+
 /** (Médecin) Créer un patient sans compte */
 export async function createExternalPatient(data) {
   return apiFetch("/patients/external/", {
@@ -779,6 +784,24 @@ export async function createExternalPatient(data) {
 /** (Médecin) Lister ses patients sans compte */
 export async function getExternalPatients() {
   return apiFetch("/patients/external/");
+}
+
+/** (Médecin) Ordonnances d'un patient sans compte */
+export async function getExternalPatientPrescriptions(externalPatientId) {
+  return apiFetch(`/patients/external/${externalPatientId}/prescriptions/`);
+}
+
+/** (Médecin) Comptes rendus d'un patient sans compte */
+export async function getExternalPatientConsultations(externalPatientId) {
+  return apiFetch(`/patients/external/${externalPatientId}/consultations/`);
+}
+
+/** (Médecin) Créer un compte rendu pour un patient sans compte */
+export async function createExternalPatientConsultation(externalPatientId, data) {
+  return apiFetch(`/patients/external/${externalPatientId}/consultations/`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 }
 
 // ─── Garde-malade : patients assignés + dashboard ─────────────────────────────
@@ -863,7 +886,11 @@ export function isAuthenticated() {
 export async function changePassword(data) {
   return apiFetch("/auth/password/change/", {
     method: "POST",
-    body: JSON.stringify(data),
+    body: JSON.stringify({
+      old_password: data.currentPassword || data.old_password,
+      new_password: data.newPassword || data.new_password,
+      new_password_confirm: data.newPasswordConfirm || data.newPassword || data.new_password,
+    }),
   });
 }
 

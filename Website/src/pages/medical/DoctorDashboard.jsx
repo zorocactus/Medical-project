@@ -825,9 +825,13 @@ function PatientsView({ onSelectPatient }) {
   const [extError, setExtError] = useState("");
   const [externalPatients, setExternalPatients] = useState([]);
 
+  // ── Résiliation de liaison ──
+  const [unlinkingId, setUnlinkingId] = useState(null);
+  const [unlinkConfirmId, setUnlinkConfirmId] = useState(null); // id en attente de confirmation
+
   // Load external patients on mount
   useEffect(() => {
-    api.getExternalPatients().then(d => setExternalPatients(Array.isArray(d) ? d : [])).catch(() => {});
+    api.getExternalPatients().then(d => setExternalPatients(Array.isArray(d) ? d : (d?.results ?? []))).catch(() => {});
   }, []);
 
   // Debounce global search
@@ -838,7 +842,8 @@ function PatientsView({ onSelectPatient }) {
       setGlobalError("");
       try {
         const data = await api.searchPatients(globalQuery);
-        setGlobalResults(Array.isArray(data) ? data : []);
+        const list = Array.isArray(data) ? data : (data?.results ?? []);
+        setGlobalResults(list);
       } catch (err) {
         console.error("[PatientsSearch] erreur API:", err);
         setGlobalResults([]);
@@ -876,10 +881,28 @@ function PatientsView({ onSelectPatient }) {
     finally { setExtSaving(false); }
   };
 
-  const apiPatients = (Array.isArray(patients) ? patients : []).map(p => {
-    const u = p.user || {};
-    return { id: p.id, firstName: p.firstName || u.first_name || "", lastName: p.lastName || u.last_name || "", age: p.age || "—", condition: "—", status: "Active", _type: "linked" };
-  });
+  const handleUnlink = async (patientId) => {
+    setUnlinkingId(patientId);
+    try {
+      await api.unlinkPatient(patientId);
+      setUnlinkConfirmId(null);
+      await refreshDoctorPatients(); // recharge la liste sans le patient révoqué
+    } catch (err) {
+      console.error("Erreur résiliation:", err);
+    } finally {
+      setUnlinkingId(null);
+    }
+  };
+
+  const apiPatients = (Array.isArray(patients) ? patients : []).map(p => ({
+    id: p.id,
+    firstName: p.first_name || p.firstName || "",
+    lastName: p.last_name || p.lastName || "",
+    age: p.age || "—",
+    condition: "—",
+    status: "Active",
+    _type: "linked",
+  }));
   const extMapped = externalPatients.map(p => ({
     id: `ext-${p.id}`, firstName: p.first_name, lastName: p.last_name, age: p.age || "—", condition: p.condition || "—", status: "Externe", _type: "external",
   }));
@@ -908,7 +931,7 @@ function PatientsView({ onSelectPatient }) {
   };
 
   return (
-    <div className="animate-in fade-in duration-500">
+    <div className="animate-in fade-in duration-500 space-y-5">
 
       {/* ── Modal : nouveau patient sans compte ── */}
       {showExtModal && (
@@ -975,164 +998,288 @@ function PatientsView({ onSelectPatient }) {
         </div>
       )}
 
-      {/* ── Barre de recherche globale ── */}
-      <div className="flex items-center gap-4 mb-6">
-        <div className="relative flex-1 flex items-center px-5 py-2 rounded-2xl border transition-all duration-300"
-          style={{ borderColor: searchFocused ? "#6492C9" : c.border, background: c.card, boxShadow: searchFocused ? "0 0 0 4px rgba(100,146,201,0.15)" : "none", minHeight: 56 }}>
-          <Search size={20} className="mr-3 transition-colors" style={{ color: searchFocused ? "#6492C9" : c.txt3 }} />
-          <input type="text" placeholder="Rechercher un patient dans le système (nom, email)…"
-            value={globalQuery}
-            onChange={e => { setGlobalQuery(e.target.value); setLocalSearch(""); setPage(1); }}
-            onFocus={() => setSearchFocused(true)}
-            onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
-            className="w-full h-full bg-transparent border-none outline-none text-[.9rem] font-medium placeholder:text-[#9AACBE]"
-            style={{ color: c.txt }} />
-          {globalLoading && <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin ml-2" style={{ color: c.blue }} />}
-          {globalQuery && <button onClick={() => { setGlobalQuery(""); setGlobalResults([]); }} className="ml-2 opacity-40 hover:opacity-70"><X size={15} style={{ color: c.txt3 }} /></button>}
+      {/* ── Ligne 1 : barre de recherche système + bouton nouveau patient ── */}
+      <div className="flex items-center gap-3">
+        {/* Barre de recherche avec dropdown de résultats */}
+        <div className="relative flex-1">
+          <div className="flex items-center px-5 py-2 rounded-2xl border transition-all duration-300"
+            style={{ borderColor: searchFocused ? "#6492C9" : c.border, background: c.card, boxShadow: searchFocused ? "0 0 0 4px rgba(100,146,201,0.15)" : "none", minHeight: 52 }}>
+            <Search size={18} className="mr-3 shrink-0 transition-colors" style={{ color: searchFocused ? "#6492C9" : c.txt3 }} />
+            <input
+              type="text"
+              placeholder="Rechercher un patient dans le système…"
+              value={globalQuery}
+              onChange={e => { setGlobalQuery(e.target.value); setPage(1); }}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
+              className="w-full bg-transparent border-none outline-none text-sm font-medium placeholder:font-normal placeholder:text-[#9AACBE]"
+              style={{ color: c.txt }}
+            />
+            {globalLoading && (
+              <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin ml-2 shrink-0" style={{ color: c.blue }} />
+            )}
+            {globalQuery && (
+              <button onClick={() => { setGlobalQuery(""); setGlobalResults([]); }} className="ml-2 shrink-0 opacity-40 hover:opacity-70">
+                <X size={15} style={{ color: c.txt3 }} />
+              </button>
+            )}
+          </div>
+
+          {/* Dropdown résultats système — apparaît par-dessus la liste en dessous */}
+          {globalQuery.length >= 2 && (
+            <div className="absolute left-0 right-0 mt-2 z-40 rounded-2xl border shadow-2xl overflow-hidden"
+              style={{ background: c.card, borderColor: c.border, boxShadow: `0 8px 32px rgba(0,0,0,${dk ? "0.5" : "0.15"})` }}>
+              {/* En-tête */}
+              <div className="px-5 py-2.5 border-b flex items-center justify-between" style={{ borderColor: c.border, background: c.bg }}>
+                <div className="flex items-center gap-2">
+                  <Search size={13} style={{ color: c.txt3 }} />
+                  <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: c.txt3 }}>
+                    Résultats système
+                  </span>
+                </div>
+                {!globalLoading && (
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: c.blue + "18", color: c.blue }}>
+                    {globalResults.length} patient{globalResults.length !== 1 ? "s" : ""}
+                  </span>
+                )}
+              </div>
+
+              {/* Corps */}
+              <div className="overflow-y-auto" style={{ maxHeight: 320 }}>
+                {globalError ? (
+                  <div className="py-6 text-center">
+                    <p className="text-sm font-bold" style={{ color: c.red }}>Erreur : {globalError}</p>
+                  </div>
+                ) : globalResults.length === 0 && !globalLoading ? (
+                  <div className="py-8 flex flex-col items-center gap-3">
+                    <p className="text-sm font-semibold" style={{ color: c.txt2 }}>Aucun patient trouvé</p>
+                    <button
+                      onClick={() => { setShowExtModal(true); setExtPatient(p => ({ ...p, firstName: globalQuery.split(" ")[0] || "", lastName: globalQuery.split(" ").slice(1).join(" ") || "" })); }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border transition-all hover:opacity-80"
+                      style={{ color: c.blue, borderColor: c.blue + "44", background: c.blue + "10" }}>
+                      <Plus size={15} /> Ajouter "{globalQuery}" sans compte
+                    </button>
+                  </div>
+                ) : (
+                  <div className="divide-y" style={{ borderColor: c.border }}>
+                    {globalResults.map((r, i) => {
+                      const ls = linkStatusLabel(r.link_status);
+                      const msg = linkMessages[r.id];
+                      return (
+                        <div key={r.id} className="flex items-center justify-between gap-3 px-5 py-3 hover:opacity-90 transition-opacity">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                              style={{ background: AVATAR_COLORS[i % AVATAR_COLORS.length] }}>
+                              {getInitials(r.first_name, r.last_name)}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-bold text-sm truncate" style={{ color: c.txt }}>{r.first_name} {r.last_name}</p>
+                              {r.age && <p className="text-xs" style={{ color: c.txt3 }}>{r.age} ans</p>}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {ls && (
+                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full border"
+                                style={{ color: ls.color, background: ls.color + "15", borderColor: ls.color + "33" }}>
+                                {ls.label}
+                              </span>
+                            )}
+                            {msg && (
+                              <span className="text-xs font-semibold" style={{ color: msg.ok ? c.green : c.red }}>{msg.msg}</span>
+                            )}
+                            {(r.link_status === "linked" || r.link_status === "accepted") && (
+                              <button
+                                onClick={() => { onSelectPatient?.({ id: r.id, firstName: r.first_name, lastName: r.last_name, age: r.age, _type: "linked" }); setGlobalQuery(""); setGlobalResults([]); }}
+                                className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all hover:opacity-80"
+                                style={{ color: c.blue, borderColor: c.blue, background: c.blue + "12" }}>
+                                Voir profil
+                              </button>
+                            )}
+                            {(!r.link_status || r.link_status === "refused") && !msg?.ok && (
+                              <button onClick={() => handleSendLinkRequest(r.id)} disabled={sendingLinkId === r.id}
+                                className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 disabled:opacity-60"
+                                style={{ background: c.blue }}>
+                                {sendingLinkId === r.id
+                                  ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                  : <><Plus size={11} /> Demander</>}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Bouton nouveau patient */}
         <button onClick={() => setShowExtModal(true)}
-          className="px-6 py-2.5 rounded-2xl text-white text-[15px] font-bold flex items-center gap-2 transition-transform hover:scale-105 shrink-0"
-          style={{ background: c.blue, boxShadow: `0 4px 12px ${c.blue}44`, minHeight: 56 }}>
-          <Plus size={18} /> Nouveau patient
+          className="px-5 py-2.5 rounded-2xl text-white text-sm font-bold flex items-center gap-2 transition-transform hover:scale-105 shrink-0"
+          style={{ background: c.blue, boxShadow: `0 4px 12px ${c.blue}44`, minHeight: 52 }}>
+          <Plus size={17} /> Nouveau patient
         </button>
       </div>
 
-      {/* ── Résultats de la recherche API ── */}
-      {globalQuery.length >= 2 && (
-        <Card dk={dk} empty className="p-0 overflow-hidden mb-6">
-          <div className="px-5 py-3 border-b flex items-center gap-2" style={{ borderColor: c.border, background: c.bg + "88" }}>
-            <Search size={14} style={{ color: c.txt3 }} />
-            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: c.txt3 }}>
-              Résultats dans le système ({globalResults.length})
+      {/* ── Section : Mes patients (toujours visible) ── */}
+      <div>
+        {/* En-tête avec compteur + filtre local */}
+        <div className="flex items-center gap-3 mb-3">
+          <h3 className="text-sm font-bold shrink-0" style={{ color: c.txt }}>
+            Mes patients
+            <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: c.blue + "18", color: c.blue }}>
+              {filtered.length}
             </span>
-          </div>
-          {globalError ? (
-            <div className="py-8 flex flex-col items-center gap-2 px-5">
-              <p className="text-sm font-bold" style={{ color: c.red }}>Erreur : {globalError}</p>
-              <p className="text-xs" style={{ color: c.txt3 }}>Vérifiez la console pour plus de détails.</p>
-            </div>
-          ) : globalResults.length === 0 && !globalLoading ? (
-            <div className="py-10 flex flex-col items-center gap-3">
-              <p className="text-sm font-semibold" style={{ color: c.txt2 }}>Aucun patient trouvé avec un compte</p>
-              <button
-                onClick={() => { setShowExtModal(true); setExtPatient(p => ({ ...p, firstName: globalQuery.split(" ")[0] || "", lastName: globalQuery.split(" ").slice(1).join(" ") || "" })); }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border transition-all hover:opacity-80"
-                style={{ color: c.blue, borderColor: c.blue + "44", background: c.blue + "10" }}>
-                <Plus size={15} /> Ajouter "{globalQuery}" comme patient sans compte
+          </h3>
+          <div className="flex-1 flex items-center px-4 py-2 rounded-xl border"
+            style={{ borderColor: c.border, background: c.card, color: c.txt }}>
+            <Search size={14} className="mr-2 shrink-0" style={{ color: c.txt3 }} />
+            <input
+              type="text"
+              placeholder="Filtrer mes patients…"
+              value={localSearch}
+              onChange={e => { setLocalSearch(e.target.value); setPage(1); }}
+              className="flex-1 bg-transparent border-none outline-none text-sm placeholder:text-[#9AACBE]"
+              style={{ color: c.txt }}
+            />
+            {localSearch && (
+              <button onClick={() => { setLocalSearch(""); setPage(1); }} className="ml-2 opacity-40 hover:opacity-70">
+                <X size={13} style={{ color: c.txt3 }} />
               </button>
+            )}
+          </div>
+        </div>
+
+        {/* Table des patients */}
+        <Card dk={dk} empty className="p-0 overflow-hidden">
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-14 h-14 rounded-full flex items-center justify-center mb-4" style={{ background: c.bg }}>
+                <Search size={22} style={{ color: c.txt3 }} />
+              </div>
+              <p className="font-bold mb-1" style={{ color: c.txt }}>
+                {localSearch ? `Aucun résultat pour "${localSearch}"` : "Aucun patient lié pour l'instant"}
+              </p>
+              <p className="text-sm" style={{ color: c.txt3 }}>
+                {localSearch ? "Essayez un autre terme" : "Recherchez un patient dans le système pour envoyer une demande de liaison"}
+              </p>
             </div>
           ) : (
-            <div className="divide-y" style={{ borderColor: c.border }}>
-              {globalResults.map((r, i) => {
-                const ls = linkStatusLabel(r.link_status);
-                const msg = linkMessages[r.id];
-                return (
-                  <div key={r.id} className="flex items-center justify-between gap-4 px-5 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
-                        style={{ background: AVATAR_COLORS[i % AVATAR_COLORS.length] }}>
-                        {getInitials(r.first_name, r.last_name)}
+            <>
+              {/* En-têtes colonnes */}
+              <div className="grid grid-cols-[2fr_0.6fr_auto] px-6 py-3 border-b font-bold text-[11px] uppercase tracking-wider"
+                style={{ background: c.bg + "66", borderColor: c.border, color: c.txt3 }}>
+                {["Patient", "Âge", "Actions"].map(col => <span key={col}>{col}</span>)}
+              </div>
+
+              {/* Lignes */}
+              <div className="divide-y" style={{ borderColor: c.border }}>
+                {paginated.map((p, idx) => {
+                  const fi = (page - 1) * PAGE_SIZE + idx;
+                  const isConfirming = unlinkConfirmId === p.id;
+                  const isUnlinking  = unlinkingId === p.id;
+                  return (
+                    <div key={p.id || idx}
+                      className="grid grid-cols-[2fr_0.6fr_auto] px-6 py-3.5 items-center"
+                      style={{ background: "transparent" }}>
+
+                      {/* Identité */}
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
+                          style={{ backgroundColor: AVATAR_COLORS[fi % AVATAR_COLORS.length] }}>
+                          {getInitials(p.firstName, p.lastName)}
+                        </div>
+                        <div>
+                          <p className="font-bold text-[13.5px]" style={{ color: c.txt }}>{p.firstName} {p.lastName}</p>
+                          {p._type === "external" && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ color: c.amber, background: c.amber + "18" }}>Sans compte</span>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-bold text-sm" style={{ color: c.txt }}>{r.first_name} {r.last_name}</p>
-                        {r.age && <p className="text-xs" style={{ color: c.txt3 }}>{r.age} ans</p>}
+
+                      {/* Âge */}
+                      <span className="text-sm font-medium" style={{ color: c.txt2 }}>{p.age}</span>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-2">
+                        {/* Voir profil */}
+                        {p._type !== "external" && (
+                          <button
+                            onClick={() => onSelectPatient?.(p)}
+                            className="px-3 py-1.5 rounded-xl border text-xs font-bold transition-all hover:opacity-80"
+                            style={{ color: c.blue, borderColor: c.blue, background: c.blue + "0D" }}>
+                            Voir profil
+                          </button>
+                        )}
+                        {p._type === "external" && (
+                          <span className="px-3 py-1.5 rounded-xl border text-xs font-bold"
+                            style={{ color: c.txt3, borderColor: c.border, opacity: 0.5 }}>
+                            Externe
+                          </span>
+                        )}
+
+                        {/* Résilier la liaison (uniquement patients avec compte) */}
+                        {p._type !== "external" && (
+                          isConfirming ? (
+                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border animate-in fade-in"
+                              style={{ borderColor: c.red + "44", background: c.red + "0A" }}>
+                              <span className="text-[11px] font-bold" style={{ color: c.red }}>Confirmer ?</span>
+                              <button
+                                onClick={() => handleUnlink(p.id)}
+                                disabled={isUnlinking}
+                                className="text-[11px] font-black px-2 py-0.5 rounded-lg text-white transition-all disabled:opacity-60"
+                                style={{ background: c.red }}>
+                                {isUnlinking
+                                  ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />
+                                  : "Oui"}
+                              </button>
+                              <button
+                                onClick={() => setUnlinkConfirmId(null)}
+                                className="text-[11px] font-bold px-2 py-0.5 rounded-lg border transition-all hover:opacity-70"
+                                style={{ color: c.txt3, borderColor: c.border }}>
+                                Non
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setUnlinkConfirmId(p.id)}
+                              className="px-3 py-1.5 rounded-xl border text-xs font-bold transition-all hover:opacity-80"
+                              style={{ color: c.red, borderColor: c.red + "55", background: c.red + "08" }}>
+                              Résilier
+                            </button>
+                          )
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      {ls && <span className="text-xs font-bold px-2.5 py-1 rounded-full border" style={{ color: ls.color, background: ls.color + "15", borderColor: ls.color + "44" }}>{ls.label}</span>}
-                      {msg && <span className="text-xs font-semibold" style={{ color: msg.ok ? c.green : c.red }}>{msg.msg}</span>}
-                      {(!r.link_status || r.link_status === "refused") && !msg?.ok && (
-                        <button onClick={() => handleSendLinkRequest(r.id)} disabled={sendingLinkId === r.id}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 disabled:opacity-60"
-                          style={{ background: c.blue }}>
-                          {sendingLinkId === r.id
-                            ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            : <><Plus size={12} /> Demander l'accès</>}
-                        </button>
-                      )}
-                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-6 py-3.5 border-t" style={{ borderColor: c.border }}>
+                  <p className="text-xs font-medium" style={{ color: c.txt3 }}>
+                    Page {page} / {totalPages} · {filtered.length} patients
+                  </p>
+                  <div className="flex gap-2">
+                    {[["‹ Préc.", () => setPage(p => Math.max(1, p - 1)), page === 1],
+                      ["Suiv. ›", () => setPage(p => Math.min(totalPages, p + 1)), page === totalPages]
+                    ].map(([label, fn, dis]) => (
+                      <button key={label} onClick={fn} disabled={dis}
+                        className="px-4 py-1.5 rounded-lg text-xs font-bold border transition-all disabled:opacity-30"
+                        style={{ color: c.txt2, borderColor: c.border, background: c.card }}>
+                        {label}
+                      </button>
+                    ))}
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              )}
+            </>
           )}
         </Card>
-      )}
-
-      {/* ── Liste mes patients (quand pas de recherche active) ── */}
-      {!globalQuery && (
-        <>
-          <div className="mb-4">
-            <input type="text" placeholder="Filtrer mes patients…"
-              value={localSearch} onChange={e => { setLocalSearch(e.target.value); setPage(1); }}
-              className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
-              style={{ borderColor: c.border, background: c.card, color: c.txt }} />
-          </div>
-          <Card dk={dk} empty className="p-0 overflow-hidden">
-            {filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ background: c.bg }}>
-                  <Search size={24} style={{ color: c.txt3 }} />
-                </div>
-                <p className="font-bold mb-1" style={{ color: c.txt }}>
-                  {localSearch ? `Aucun résultat pour "${localSearch}"` : "Aucun patient pour l'instant"}
-                </p>
-                <p className="text-sm" style={{ color: c.txt3 }}>Utilisez la barre de recherche pour trouver un patient dans le système</p>
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-[2.5fr_0.8fr_1.5fr_1.5fr_1fr] px-6 py-4 border-b font-bold text-[11px] uppercase tracking-wider"
-                  style={{ background: c.bg + "66", borderColor: c.border, color: c.txt3 }}>
-                  {["Patient", "Âge", "Condition", "Statut", "Action"].map(col => <span key={col}>{col}</span>)}
-                </div>
-                <div className="divide-y" style={{ borderColor: c.border }}>
-                  {paginated.map((p, idx) => {
-                    const fi = (page - 1) * PAGE_SIZE + idx;
-                    const condB = getBadgeProps(p.condition);
-                    const statB = getBadgeProps(p.status);
-                    return (
-                      <div key={p.id || idx} className="grid grid-cols-[2.5fr_0.8fr_1.5fr_1.5fr_1fr] px-6 py-4 items-center hover:scale-[1.01] transition-transform"
-                        style={{ background: "transparent" }}>
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
-                            style={{ backgroundColor: AVATAR_COLORS[fi % AVATAR_COLORS.length] }}>
-                            {getInitials(p.firstName, p.lastName)}
-                          </div>
-                          <div>
-                            <p className="font-bold text-[14px]" style={{ color: c.txt }}>{p.firstName} {p.lastName}</p>
-                            {p._type === "external" && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ color: c.amber, background: c.amber + "18" }}>Sans compte</span>}
-                          </div>
-                        </div>
-                        <span className="text-[14px] font-medium" style={{ color: c.txt2 }}>{p.age}</span>
-                        <Badge color={condB.color} bg={condB.bg}>{p.condition}</Badge>
-                        <Badge color={statB.color} bg={statB.bg}>{p.status}</Badge>
-                        <button onClick={() => p._type !== "external" && onSelectPatient?.(p)}
-                          className="px-4 py-1.5 rounded-xl border text-[13px] font-bold transition-all hover:opacity-80"
-                          style={{ color: p._type === "external" ? c.txt3 : c.blue, borderColor: p._type === "external" ? c.border : c.blue, opacity: p._type === "external" ? 0.5 : 1 }}>
-                          {p._type === "external" ? "Externe" : t('dashboard.doctor.patients.consult')}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-between px-6 py-4 border-t" style={{ borderColor: c.border }}>
-                    <p className="text-xs font-medium" style={{ color: c.txt3 }}>Page {page} / {totalPages}</p>
-                    <div className="flex gap-2">
-                      {[["‹ Préc.", () => setPage(p => Math.max(1, p - 1)), page === 1],
-                        ["Suiv. ›", () => setPage(p => Math.min(totalPages, p + 1)), page === totalPages]].map(([label, fn, dis]) => (
-                        <button key={label} onClick={fn} disabled={dis}
-                          className="px-4 py-2 rounded-lg text-xs font-bold border transition-all disabled:opacity-30"
-                          style={{ color: c.txt2, borderColor: c.border, background: c.card }}>{label}</button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </Card>
-        </>
-      )}
+      </div>
     </div>
   );
 }
@@ -1148,91 +1295,148 @@ function PrescriptionsView() {
   const { t } = useLanguage();
 
   const { patients = [], prescriptions = [], addPrescription } = useData();
-  const [form, setForm] = useState({
-    patientId: "",
+
+  // Patients externes (sans compte)
+  const [externalPatients, setExternalPatients] = useState([]);
+  useEffect(() => {
+    api.getExternalPatients()
+      .then(d => setExternalPatients(Array.isArray(d) ? d : (d?.results ?? [])))
+      .catch(() => {});
+  }, []);
+
+  const EMPTY_FORM = {
+    patientId: "",       // id numérique (avec compte) ou "" si externe
+    externalPatientId: "", // id numérique (sans compte) ou ""
     patientName: "",
+    patientType: "",     // "linked" | "external" | ""
     medication: "",
     strength: "",
     dosage: "",
     frequency: "Once daily",
     duration: "",
     notes: "",
-  });
-  const [errors, setErrors] = useState({});
-  const [success, setSuccess] = useState("");
-  const [errorBanner, setErrorBanner] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [focusedField, setFocusedField] = useState(null);
-  const [showPatientSuggestions, setShowPatientSuggestions] = useState(false);
+  };
+
+  const [form, setForm]                       = useState(EMPTY_FORM);
+  const [errors, setErrors]                   = useState({});
+  const [success, setSuccess]                 = useState("");
+  const [errorBanner, setErrorBanner]         = useState("");
+  const [submitting, setSubmitting]           = useState(false);
+  const [focusedField, setFocusedField]       = useState(null);
+  const [showOverlay, setShowOverlay]         = useState(false);
+  const overlayRef                            = useRef(null);
+
+  // ── Fermer l'overlay au clic extérieur ──────────────────────────────────────
+  useEffect(() => {
+    const handler = (e) => {
+      if (overlayRef.current && !overlayRef.current.contains(e.target)) {
+        setShowOverlay(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((p) => ({ ...p, [name]: value }));
     if (errors[name]) setErrors((p) => ({ ...p, [name]: "" }));
     if (name === "patientName") {
-      setShowPatientSuggestions(true);
-      // Si le nom ne correspond plus à l'ID stocké, on l'invalide.
-      setForm((p) => ({ ...p, patientId: "" }));
+      // Réinitialise la sélection si l'utilisateur retape
+      setForm((p) => ({ ...p, patientName: value, patientId: "", externalPatientId: "", patientType: "" }));
+      setShowOverlay(true);
+    } else {
+      setForm((p) => ({ ...p, [name]: value }));
     }
+  };
+
+  // ── Construction de la liste fusionnée ──────────────────────────────────────
+  // PatientSerializer expose first_name / last_name à la racine (pas imbriqués sous user)
+  const linkedList = (Array.isArray(patients) ? patients : []).map((p) => {
+    const name = `${p.first_name || p.user?.first_name || ""} ${p.last_name || p.user?.last_name || ""}`.trim()
+               || p.email || `Patient #${p.id}`;
+    return { id: p.id, name, _type: "linked" };
+  });
+  const extList = (Array.isArray(externalPatients) ? externalPatients : []).map((p) => ({
+    id:    p.id,
+    name:  `${p.first_name} ${p.last_name}`.trim(),
+    _type: "external",
+  }));
+  const allPatients = [...linkedList, ...extList];
+
+  const query = form.patientName.toLowerCase().trim();
+  const filtered = query
+    ? allPatients.filter((p) => p.name.toLowerCase().includes(query))
+    : allPatients;
+
+  const handleSelectPatient = (p) => {
+    setForm((prev) => ({
+      ...prev,
+      patientName:       p.name,
+      patientId:         p._type === "linked"   ? p.id : "",
+      externalPatientId: p._type === "external" ? p.id : "",
+      patientType:       p._type,
+    }));
+    setShowOverlay(false);
+    if (errors.patientName) setErrors((e) => ({ ...e, patientName: "" }));
   };
 
   // Map UI frequency → backend choices
   const frequencyMap = {
-    "Once daily":         "1x_day",
-    "Twice daily":        "2x_day",
-    "Three times daily":  "3x_day",
-    "As needed":          "as_needed",
+    "Once daily":        "1x_day",
+    "Twice daily":       "2x_day",
+    "Three times daily": "3x_day",
+    "As needed":         "as_needed",
   };
 
   const handleSubmit = async (e) => {
     e?.preventDefault();
     setErrorBanner("");
     const err = {};
-    if (!form.patientName?.trim()) err.patientName = t('dashboard.doctor.prescription.required');
-    if (!form.medication.trim()) err.medication = t('dashboard.doctor.prescription.required');
-    if (!form.dosage.trim()) err.dosage = t('dashboard.doctor.prescription.required');
-    if (!form.duration.trim()) err.duration = t('dashboard.doctor.prescription.required');
-    if (!form.patientId) err.patientName = "Sélectionnez un patient depuis la liste suggérée.";
+    if (!form.patientName?.trim())                         err.patientName = "Sélectionnez un patient.";
+    if (!form.patientId && !form.externalPatientId)       err.patientName = "Sélectionnez un patient depuis la liste.";
+    if (!form.medication.trim())                          err.medication  = t('dashboard.doctor.prescription.required');
+    if (!form.dosage.trim())                              err.dosage      = t('dashboard.doctor.prescription.required');
+    if (!form.duration.trim())                            err.duration    = t('dashboard.doctor.prescription.required');
     if (Object.keys(err).length > 0) return setErrors(err);
 
     setSubmitting(true);
     try {
-      const created = await api.createQuickPrescription({
-        patient_id: form.patientId,
+      const payload = {
         chief_complaint: "Ordonnance rapide",
         notes: form.notes || "",
         items: [{
           drug_name: form.medication + (form.strength ? ` ${form.strength}` : ""),
-          dosage: form.dosage,
+          dosage:    form.dosage,
           frequency: frequencyMap[form.frequency] || "1x_day",
-          duration: form.duration,
+          duration:  form.duration,
         }],
-      });
+      };
+      if (form.patientType === "external") {
+        payload.external_patient_id = form.externalPatientId;
+      } else {
+        payload.patient_id = form.patientId;
+      }
+
+      const created = await api.createQuickPrescription(payload);
+
       if (typeof addPrescription === "function") {
         addPrescription({
-          id: created?.id || `#RX${String((Array.isArray(prescriptions) ? prescriptions.length : 0) + 1001).padStart(4, "0")}`,
+          id:          created?.id || `#RX${String((Array.isArray(prescriptions) ? prescriptions.length : 0) + 1001).padStart(4, "0")}`,
           patientName: form.patientName,
-          medication: form.medication,
-          strength: form.strength,
-          dosage: form.dosage,
-          frequency: form.frequency,
-          duration: form.duration,
-          notes: form.notes,
-          date: new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "short" }),
-          status: "Active",
-          qr_token: created?.qr_token,
+          medication:  form.medication,
+          strength:    form.strength,
+          dosage:      form.dosage,
+          frequency:   form.frequency,
+          duration:    form.duration,
+          notes:       form.notes,
+          date:        new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "short" }),
+          status:      "Active",
+          qr_token:    created?.qr_token,
+          is_external: form.patientType === "external",
         });
       }
-      setForm({
-        patientId: "",
-        patientName: "",
-        medication: "",
-        strength: "",
-        dosage: "",
-        frequency: "Once daily",
-        duration: "",
-        notes: "",
-      });
+
+      setForm(EMPTY_FORM);
       setSuccess(t('dashboard.doctor.prescription.created'));
       setTimeout(() => setSuccess(""), 3000);
     } catch (apiErr) {
@@ -1245,54 +1449,25 @@ function PrescriptionsView() {
 
   const rxList = Array.isArray(prescriptions) ? prescriptions : [];
 
-  // Source patients : /api/patients/my-patients/ (DataContext.patients).
-  // En dev uniquement on conserve un échantillon pour pouvoir tester sans backend.
-  const DEV_SUGGEST = [];
-  const apiSuggest = (Array.isArray(patients) ? patients : []).map((p) => {
-    const u = p.user || {};
-    const name = `${u.first_name || p.firstName || ""} ${u.last_name || p.lastName || ""}`.trim() || u.email || `Patient #${p.id}`;
-    return { id: p.id, name };
-  });
-  const safePatients = apiSuggest.length > 0 ? apiSuggest : DEV_SUGGEST;
-  const filteredPatients = form.patientName
-    ? safePatients.filter((p) =>
-        (p.name || "").toLowerCase().includes(form.patientName.toLowerCase())
-      )
-    : safePatients;
-
-  const inputStyle = {
-    background: "transparent",
-    border: "none",
-    outline: "none",
-    color: c.txt,
-  };
-
   const FieldWrapper = ({ name, label, children, error }) => {
     const isFocused = focusedField === name;
     return (
       <div className="space-y-2">
-        <label
-          className="text-[13px] font-bold uppercase tracking-wider ml-1"
-          style={{ color: c.txt3 }}
-        >
+        <label className="text-[13px] font-bold uppercase tracking-wider ml-1" style={{ color: c.txt3 }}>
           {label || name.charAt(0).toUpperCase() + name.slice(1)}
         </label>
         <label
           className="relative flex items-stretch rounded-2xl border transition-all duration-300 cursor-text overflow-hidden"
           style={{
             borderColor: error ? c.red : isFocused ? "#6492C9" : c.border,
-            background: dk ? c.bg + "22" : "#F8FAFC",
-            boxShadow: isFocused ? "0 0 0 4px rgba(100,146,201,0.1)" : "none",
-            minHeight: 56,
+            background:  dk ? c.bg + "22" : "#F8FAFC",
+            boxShadow:   isFocused ? "0 0 0 4px rgba(100,146,201,0.1)" : "none",
+            minHeight:   56,
           }}
         >
           {children}
         </label>
-        {error && (
-          <p className="text-xs font-bold ml-1" style={{ color: c.red }}>
-            {error}
-          </p>
-        )}
+        {error && <p className="text-xs font-bold ml-1" style={{ color: c.red }}>{error}</p>}
       </div>
     );
   };
@@ -1300,26 +1475,17 @@ function PrescriptionsView() {
   return (
     <div className="animate-in fade-in duration-500">
       {success && (
-        <div
-          className="mb-5 px-4 py-3 rounded-xl border flex items-center gap-2"
-          style={{ background: c.green + "15", borderColor: c.green + "44" }}
-        >
+        <div className="mb-5 px-4 py-3 rounded-xl border flex items-center gap-2"
+          style={{ background: c.green + "15", borderColor: c.green + "44" }}>
           <Check size={16} style={{ color: c.green }} />
-          <p className="text-sm font-bold" style={{ color: c.green }}>
-            {success}
-          </p>
+          <p className="text-sm font-bold" style={{ color: c.green }}>{success}</p>
         </div>
       )}
-
       {errorBanner && (
-        <div
-          className="mb-5 px-4 py-3 rounded-xl border flex items-center gap-2"
-          style={{ background: c.red + "15", borderColor: c.red + "44" }}
-        >
+        <div className="mb-5 px-4 py-3 rounded-xl border flex items-center gap-2"
+          style={{ background: c.red + "15", borderColor: c.red + "44" }}>
           <X size={16} style={{ color: c.red }} />
-          <p className="text-sm font-bold" style={{ color: c.red }}>
-            {errorBanner}
-          </p>
+          <p className="text-sm font-bold" style={{ color: c.red }}>{errorBanner}</p>
         </div>
       )}
 
@@ -1329,61 +1495,114 @@ function PrescriptionsView() {
             {t('dashboard.doctor.prescription.writeNew')}
           </h2>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <FieldWrapper
-              name="patientName"
-              label={t('dashboard.doctor.prescription.patientNameLabel')}
-              error={errors.patientName}
-            >
-              <div className="relative w-full">
-                <input
-                  type="text"
-                  name="patientName"
-                  value={form.patientName}
-                  onChange={handleChange}
-                  onFocus={() => {
-                    setFocusedField("patientName");
-                    setShowPatientSuggestions(true);
+
+            {/* ── Champ patient avec overlay flottant ── */}
+            <div className="space-y-2" ref={overlayRef}>
+              <label className="text-[13px] font-bold uppercase tracking-wider ml-1" style={{ color: c.txt3 }}>
+                {t('dashboard.doctor.prescription.patientNameLabel')}
+              </label>
+              <div className="relative">
+                <label
+                  className="relative flex items-stretch rounded-2xl border transition-all duration-300 cursor-text overflow-hidden"
+                  style={{
+                    borderColor: errors.patientName ? c.red : focusedField === "patientName" ? "#6492C9" : c.border,
+                    background:  dk ? c.bg + "22" : "#F8FAFC",
+                    boxShadow:   focusedField === "patientName" ? "0 0 0 4px rgba(100,146,201,0.1)" : "none",
+                    minHeight:   56,
                   }}
-                  onBlur={() => {
-                    setFocusedField(null);
-                    setTimeout(() => setShowPatientSuggestions(false), 200);
-                  }}
-                  placeholder={t('dashboard.doctor.prescription.patientNamePh')}
-                  className="w-full px-5 py-4 bg-transparent border-none outline-none text-sm font-semibold"
-                  style={{ color: c.txt }}
-                  autoComplete="off"
-                />
-                
-                {showPatientSuggestions && form.patientName.length > 0 && filteredPatients.length > 0 && (
+                >
+                  <Search size={16} className="self-center ml-4 shrink-0" style={{ color: c.txt3 }} />
+                  <input
+                    type="text"
+                    name="patientName"
+                    value={form.patientName}
+                    onChange={handleChange}
+                    onFocus={() => { setFocusedField("patientName"); setShowOverlay(true); }}
+                    onBlur={() => setFocusedField(null)}
+                    placeholder={t('dashboard.doctor.prescription.patientNamePh')}
+                    className="flex-1 px-3 py-4 bg-transparent border-none outline-none text-sm font-semibold"
+                    style={{ color: c.txt }}
+                    autoComplete="off"
+                  />
+                  {form.patientType && (
+                    <span
+                      className="self-center mr-4 text-[11px] font-black px-2 py-1 rounded-lg"
+                      style={{
+                        background: form.patientType === "external" ? c.amber + "20" : c.green + "20",
+                        color:      form.patientType === "external" ? c.amber : c.green,
+                      }}
+                    >
+                      {form.patientType === "external" ? "Sans compte" : "Avec compte"}
+                    </span>
+                  )}
+                </label>
+
+                {/* Overlay flottant */}
+                {showOverlay && (
                   <div
-                    className="absolute top-1/2 translate-y-6 left-0 right-0 mt-3 rounded-2xl border shadow-xl z-50 py-2 animate-in fade-in slide-in-from-top-2 overflow-hidden max-h-60 overflow-y-auto"
+                    className="absolute left-0 right-0 top-full mt-2 rounded-2xl border shadow-2xl z-[100] overflow-hidden"
                     style={{ background: c.card, borderColor: c.border }}
                   >
-                    {filteredPatients.map((p, idx) => (
-                      <button
-                        key={p.id || idx}
-                        type="button"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          setForm((prev) => ({
-                            ...prev,
-                            patientName: p.name || p.patient || "",
-                            patientId:   p.id || "",
-                          }));
-                          setShowPatientSuggestions(false);
-                        }}
-                        className="w-full flex items-center px-5 py-3 text-sm font-bold transition-all text-left hover:bg-opacity-5"
-                        style={{ color: c.txt }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = c.blue + "15")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                      >
-                        {p.name || p.patient}
-                      </button>
-                    ))}
+                    {/* Légende */}
+                    <div className="flex items-center gap-3 px-4 py-2 border-b" style={{ borderColor: c.border, background: dk ? c.bg : "#F8FAFC" }}>
+                      <span className="flex items-center gap-1 text-[11px] font-bold" style={{ color: c.green }}>
+                        <span className="w-2 h-2 rounded-full inline-block" style={{ background: c.green }} />
+                        Avec compte
+                      </span>
+                      <span className="flex items-center gap-1 text-[11px] font-bold" style={{ color: c.amber }}>
+                        <span className="w-2 h-2 rounded-full inline-block" style={{ background: c.amber }} />
+                        Sans compte
+                      </span>
+                      <span className="ml-auto text-[11px]" style={{ color: c.txt3 }}>{filtered.length} résultat{filtered.length !== 1 ? "s" : ""}</span>
+                    </div>
+
+                    {/* Liste */}
+                    <div className="max-h-56 overflow-y-auto">
+                      {filtered.length === 0 ? (
+                        <div className="py-6 text-center text-sm font-bold" style={{ color: c.txt3 }}>
+                          Aucun patient trouvé
+                        </div>
+                      ) : (
+                        filtered.map((p, idx) => (
+                          <button
+                            key={`${p._type}-${p.id}-${idx}`}
+                            type="button"
+                            onMouseDown={(e) => { e.preventDefault(); handleSelectPatient(p); }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-left transition-colors"
+                            style={{ color: c.txt }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = c.blue + "12")}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                          >
+                            <span
+                              className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0"
+                              style={{
+                                background: p._type === "external" ? c.amber + "25" : c.green + "25",
+                                color:      p._type === "external" ? c.amber : c.green,
+                              }}
+                            >
+                              {p.name.charAt(0).toUpperCase()}
+                            </span>
+                            <span className="flex-1 font-semibold">{p.name}</span>
+                            <span
+                              className="text-[10px] font-black px-2 py-0.5 rounded-lg"
+                              style={{
+                                background: p._type === "external" ? c.amber + "20" : c.green + "20",
+                                color:      p._type === "external" ? c.amber : c.green,
+                              }}
+                            >
+                              {p._type === "external" ? "Sans compte" : "Avec compte"}
+                            </span>
+                          </button>
+                        ))
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
-            </FieldWrapper>
+              {errors.patientName && (
+                <p className="text-xs font-bold ml-1" style={{ color: c.red }}>{errors.patientName}</p>
+              )}
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FieldWrapper name="medication" error={errors.medication}>
@@ -1399,7 +1618,6 @@ function PrescriptionsView() {
                   style={{ color: c.txt }}
                 />
               </FieldWrapper>
-
               <FieldWrapper name="strength" error={errors.strength}>
                 <input
                   type="text"
@@ -1429,7 +1647,6 @@ function PrescriptionsView() {
                   style={{ color: c.txt }}
                 />
               </FieldWrapper>
-
               <div className="space-y-2">
                 <DashSelect
                   label="Frequency"
@@ -1457,10 +1674,7 @@ function PrescriptionsView() {
             </FieldWrapper>
 
             <div className="space-y-2">
-              <label
-                className="text-[13px] font-bold uppercase tracking-wider ml-1"
-                style={{ color: c.txt3 }}
-              >
+              <label className="text-[13px] font-bold uppercase tracking-wider ml-1" style={{ color: c.txt3 }}>
                 {t('dashboard.doctor.prescription.notes')}
               </label>
               <textarea
@@ -1472,13 +1686,10 @@ function PrescriptionsView() {
                 onBlur={() => setFocusedField(null)}
                 className="w-full px-4 py-3 rounded-2xl border outline-none transition-all duration-300 resize-none font-medium text-sm"
                 style={{
-                  background: dk ? c.bg + "22" : "#F8FAFC",
+                  background:  dk ? c.bg + "22" : "#F8FAFC",
                   borderColor: focusedField === "notes" ? "#6492C9" : c.border,
-                  boxShadow:
-                    focusedField === "notes"
-                      ? "0 0 0 4px rgba(100,146,201,0.1)"
-                      : "none",
-                  color: c.txt,
+                  boxShadow:   focusedField === "notes" ? "0 0 0 4px rgba(100,146,201,0.1)" : "none",
+                  color:       c.txt,
                 }}
               />
             </div>
@@ -1487,56 +1698,45 @@ function PrescriptionsView() {
               type="submit"
               disabled={submitting}
               className="w-full text-white font-black py-4 rounded-xl transition-all shadow-md hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              style={{
-                background: c.blue,
-                boxShadow: `0 4px 15px ${c.blue}44`,
-              }}
+              style={{ background: c.blue, boxShadow: `0 4px 15px ${c.blue}44` }}
             >
-              {submitting && (
-                <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-              )}
+              {submitting && <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
               {submitting ? "Génération…" : t('dashboard.doctor.prescription.generate')}
             </button>
           </form>
         </Card>
 
+        {/* ── Ordonnances récentes ── */}
         <Card dk={dk} empty={true} className="p-6 h-fit">
           <h2 className="text-[17px] font-bold mb-5" style={{ color: c.txt }}>
             {t('dashboard.doctor.prescription.recent')}
           </h2>
           {rxList.length === 0 ? (
             <div className="text-center py-10 opacity-50">
-              <FileText
-                size={40}
-                className="mx-auto mb-3"
-                style={{ color: c.txt3 }}
-              />
-              <p className="text-sm font-bold" style={{ color: c.txt3 }}>
-                {t('dashboard.doctor.prescription.none')}
-              </p>
+              <FileText size={40} className="mx-auto mb-3" style={{ color: c.txt3 }} />
+              <p className="text-sm font-bold" style={{ color: c.txt3 }}>{t('dashboard.doctor.prescription.none')}</p>
             </div>
           ) : (
             <div className="space-y-4">
               {rxList.slice(0, 6).map((rx, i) => (
-                <div
-                  key={i}
+                <div key={i}
                   className="flex items-center justify-between p-3 rounded-xl border cursor-pointer card-hover"
                   style={{ background: c.bg + "22", borderColor: c.border }}
                 >
                   <div>
-                    <p className="text-sm font-bold" style={{ color: c.txt }}>
-                      {rx.medication || "—"}
-                    </p>
-                    <p
-                      className="text-[11px] font-medium"
-                      style={{ color: c.txt3 }}
-                    >
-                      {rx.patientName || "—"} · {rx.date || ""}
+                    <p className="text-sm font-bold" style={{ color: c.txt }}>{rx.medication || rx.items?.[0]?.drug_name || "—"}</p>
+                    <p className="text-[11px] font-medium" style={{ color: c.txt3 }}>
+                      {rx.patientName || rx.patient_name || "—"} · {rx.date || rx.created_at?.slice(0, 10) || ""}
                     </p>
                   </div>
-                  <Badge color={c.green} bg={c.green + "15"}>
-                    {rx.status || "Active"}
-                  </Badge>
+                  <div className="flex flex-col items-end gap-1">
+                    <Badge color={c.green} bg={c.green + "15"}>{rx.status || "Active"}</Badge>
+                    {rx.is_external && (
+                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background: c.amber + "20", color: c.amber }}>
+                        Sans compte
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -2212,7 +2412,8 @@ function SettingsView() {
   const [locSaved, setLocSaved] = useState(false);
 
   const [form, setForm] = useState({
-    name: "",
+    first_name: "",
+    last_name: "",
     email: "",
     phone: "",
   });
@@ -2233,11 +2434,14 @@ function SettingsView() {
     wilaya: "Alger",
     mapsUrl: "",
   });
+  const [identityReason, setIdentityReason] = useState("");
+  const [emailReason, setEmailReason] = useState("");
 
   useEffect(() => {
     if (user) {
       setForm({
-        name: `${user.first_name || ""} ${user.last_name || ""}`.trim(),
+        first_name: user.first_name || "",
+        last_name: user.last_name || "",
         email: user.email || "",
         phone: user.phone || "",
       });
@@ -2248,11 +2452,45 @@ function SettingsView() {
     try {
       setIsSaving(true);
       setStatus({ type: "", msg: "" });
-      const names = form.name.split(" ");
-      const first_name = names[0] || "";
-      const last_name = names.slice(1).join(" ") || "";
-      await api.updateMe({ first_name, last_name, phone: form.phone });
-      setStatus({ type: "success", msg: t('dashboard.doctor.settings.profileUpdated') });
+      const nameChanged = form.first_name !== (user?.first_name || "") || form.last_name !== (user?.last_name || "");
+      const emailChanged = form.email !== (user?.email || "");
+
+      if (nameChanged && !identityReason) {
+        setStatus({ type: "info", msg: "Veuillez indiquer le motif du changement de nom." });
+        setIsSaving(false);
+        return;
+      }
+      if (emailChanged && !emailReason) {
+        setStatus({ type: "info", msg: "Veuillez indiquer le motif du changement d'email." });
+        setIsSaving(false);
+        return;
+      }
+
+      const updatePromises = [
+        api.updateMe({ email: emailChanged ? form.email : undefined, phone: form.phone }),
+      ];
+      if (nameChanged && identityReason) {
+        updatePromises.push(
+          api.requestProfileUpdate({ new_first_name: form.first_name, new_last_name: form.last_name, reason: identityReason })
+        );
+      } else if (!nameChanged) {
+        updatePromises[0] = api.updateMe({
+          first_name: form.first_name,
+          last_name: form.last_name,
+          email: emailChanged ? form.email : undefined,
+          phone: form.phone,
+        });
+      }
+
+      await Promise.all(updatePromises);
+      setStatus({
+        type: "success",
+        msg: nameChanged
+          ? "Profil mis à jour. La demande de changement de nom a été envoyée à l'administrateur."
+          : t('dashboard.doctor.settings.profileUpdated'),
+      });
+      setIdentityReason("");
+      setEmailReason("");
       setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
     } catch (err) {
       setStatus({ type: "error", msg: t('dashboard.doctor.settings.profileError') });
@@ -2298,28 +2536,77 @@ function SettingsView() {
           <p className="font-semibold mb-5" style={{ color: c.txt }}>{t('dashboard.doctor.settings.profile')}</p>
           {status.msg && (
             <div className="mb-4 p-3 rounded-xl text-xs font-semibold" style={{
-              background: status.type === "success" ? "#2D8C6F12" : "#E0555512",
-              color: status.type === "success" ? "#2D8C6F" : "#E05555",
-              border: `1px solid ${status.type === "success" ? "#2D8C6F44" : "#E0555544"}`,
+              background: status.type === "success" ? "#2D8C6F12" : status.type === "info" ? "#E8A83812" : "#E0555512",
+              color: status.type === "success" ? "#2D8C6F" : status.type === "info" ? "#E8A838" : "#E05555",
+              border: `1px solid ${status.type === "success" ? "#2D8C6F44" : status.type === "info" ? "#E8A83844" : "#E0555544"}`,
             }}>{status.msg}</div>
           )}
-          {[
-            { label: t('dashboard.doctor.settings.fullName'), key: "name" },
-            { label: t('dashboard.doctor.settings.email'),    key: "email" },
-            { label: t('dashboard.doctor.settings.phone'),    key: "phone" },
-          ].map((field) => (
-            <div key={field.key} className="mb-4">
-              <label className={labelCls} style={{ color: c.txt2 }}>{field.label}</label>
-              <input
-                type="text"
-                value={form[field.key]}
-                onChange={(e) => setForm((f) => ({ ...f, [field.key]: e.target.value }))}
-                readOnly={field.key === "email"}
-                className={inputCls}
-                style={{ ...inputStyle, color: field.key === "email" ? c.txt3 : c.txt }}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Prénom</label>
+              <input type="text"
+                value={form.first_name}
+                onChange={(e) => setForm((f) => ({ ...f, first_name: e.target.value }))}
+                className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                style={{ background: c.card, borderColor: c.border, color: c.txt }}
               />
             </div>
-          ))}
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Nom</label>
+              <input type="text"
+                value={form.last_name}
+                onChange={(e) => setForm((f) => ({ ...f, last_name: e.target.value }))}
+                className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                style={{ background: c.card, borderColor: c.border, color: c.txt }}
+              />
+            </div>
+            {(form.first_name !== (user?.first_name || "") || form.last_name !== (user?.last_name || "")) && (
+              <div className="sm:col-span-2 animate-in fade-in slide-in-from-top-2">
+                <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "#E8A838" }}>
+                  Motif du changement de nom (Requis pour validation Admin)
+                </label>
+                <textarea
+                  value={identityReason}
+                  onChange={(e) => setIdentityReason(e.target.value)}
+                  placeholder="Expliquez pourquoi vous souhaitez modifier votre identité officielle..."
+                  className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all min-h-[60px]"
+                  style={{ background: "#E8A83808", borderColor: "#E8A83844", color: c.txt }}
+                />
+              </div>
+            )}
+            <div className="sm:col-span-2">
+              <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Email</label>
+              <input type="email"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                style={{ background: c.card, borderColor: c.border, color: c.txt }}
+              />
+            </div>
+            {form.email !== (user?.email || "") && (
+              <div className="sm:col-span-2 animate-in fade-in slide-in-from-top-2">
+                <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "#E8A838" }}>
+                  Motif du changement d'email (Requis)
+                </label>
+                <textarea
+                  value={emailReason}
+                  onChange={(e) => setEmailReason(e.target.value)}
+                  placeholder="Expliquez pourquoi vous souhaitez changer votre adresse email..."
+                  className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all min-h-[60px]"
+                  style={{ background: "#E8A83808", borderColor: "#E8A83844", color: c.txt }}
+                />
+              </div>
+            )}
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Téléphone</label>
+              <input type="text"
+                value={form.phone}
+                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                style={{ background: c.card, borderColor: c.border, color: c.txt }}
+              />
+            </div>
+          </div>
           <button
             onClick={handleSaveProfile}
             disabled={isSaving}
@@ -3873,6 +4160,7 @@ export default function DoctorDashboard({ onLogout }) {
       className={`min-h-screen relative transition-all duration-500 ${dk ? "dark" : ""}`}
       style={{
         background: c.bg,
+        color: c.txt,
         fontFamily: "'Plus Jakarta Sans', sans-serif",
       }}
     >

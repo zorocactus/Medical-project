@@ -445,7 +445,7 @@ function DashboardPage({
   const [linkRequests, setLinkRequests] = useState([]);
   const [respondingId, setRespondingId] = useState(null);
   useEffect(() => {
-    api.getMyLinkRequests().then(d => setLinkRequests(Array.isArray(d) ? d : [])).catch(() => {});
+    api.getMyLinkRequests().then(d => setLinkRequests(Array.isArray(d) ? d : (d?.results ?? []))).catch(() => {});
   }, []);
   const handleRespondLink = async (id, action) => {
     setRespondingId(`${id}-${action}`);
@@ -5965,7 +5965,8 @@ function SettingsPage(props) {
   const [showPwd, setShowPwd] = useState(false);
 
   const [form, setForm] = useState({
-    name: "",
+    first_name: "",
+    last_name: "",
     email: "",
     phone: "",
     city: "Alger",
@@ -5974,7 +5975,7 @@ function SettingsPage(props) {
   const [status, setStatus] = useState({ type: "", msg: "" });
 
   const [identityReason, setIdentityReason] = useState("");
-  const [showReasonInput, setShowReasonInput] = useState(false);
+  const [emailReason, setEmailReason] = useState("");
 
   const [pwdForm, setPwdForm] = useState({
     currentPassword: "",
@@ -5999,10 +6000,11 @@ function SettingsPage(props) {
   useEffect(() => {
     if (userData) {
       setForm({
-        name: `${userData.first_name || ""} ${userData.last_name || ""}`.trim(),
+        first_name: userData.first_name || "",
+        last_name: userData.last_name || "",
         email: userData.email || "",
         phone: userData.phone || "",
-        city: "Alger", // Or userData.city if backend had it
+        city: userData.city || "Alger",
       });
     }
   }, [userData]);
@@ -6012,58 +6014,55 @@ function SettingsPage(props) {
       setIsSaving(true);
       setStatus({ type: "", msg: "" });
 
-      const names = form.name.split(" ");
-      const first_name = names[0] || "";
-      const last_name = names.slice(1).join(" ") || "";
-
-      // Détection de changement d'identité
-      const nameChanged = 
-        (first_name && first_name !== (userData?.first_name)) ||
-        (last_name && last_name !== (userData?.last_name));
+      const nameChanged = form.first_name !== (userData?.first_name || "") || form.last_name !== (userData?.last_name || "");
+      const emailChanged = form.email !== (userData?.email || "");
 
       if (nameChanged && !identityReason) {
-        setShowReasonInput(true);
         setStatus({ type: "info", msg: "Veuillez indiquer le motif du changement de nom." });
+        setIsSaving(false);
+        return;
+      }
+      if (emailChanged && !emailReason) {
+        setStatus({ type: "info", msg: "Veuillez indiquer le motif du changement d'email." });
         setIsSaving(false);
         return;
       }
 
       const updatePromises = [];
 
-      // 1. Mise à jour immédiate (Téléphone seulement ici car email est disabled)
       updatePromises.push(
         api.updateMe({
+          email: emailChanged ? form.email : undefined,
           phone: form.phone,
-          city: form.city
+          city: form.city,
         })
       );
 
-      // 2. Demande de changement de nom
       if (nameChanged && identityReason) {
         updatePromises.push(
           api.requestProfileUpdate({
-            new_first_name: first_name || userData?.first_name || "",
-            new_last_name: last_name || userData?.last_name || "",
-            reason: identityReason
+            new_first_name: form.first_name || userData?.first_name || "",
+            new_last_name: form.last_name || userData?.last_name || "",
+            reason: identityReason,
           })
         );
       }
 
       await Promise.all(updatePromises);
-      
-      setStatus({ 
-        type: "success", 
-        msg: nameChanged 
-          ? "Profil mis à jour. Demande de changement de nom envoyée." 
-          : "Profil mis à jour avec succès ✅" 
+
+      setStatus({
+        type: "success",
+        msg: nameChanged
+          ? "Profil mis à jour. Demande de changement de nom envoyée à l'administrateur."
+          : "Profil mis à jour avec succès ✅",
       });
 
-      setShowReasonInput(false);
       setIdentityReason("");
-      
+      setEmailReason("");
+
       setTimeout(() => {
         setStatus({ type: "", msg: "" });
-        if (nameChanged) window.location.reload();
+        if (nameChanged || emailChanged) window.location.reload();
       }, 4000);
     } catch (err) {
       setStatus({ type: "error", msg: err?.message || "Erreur lors de la mise à jour ❌" });
@@ -6134,72 +6133,80 @@ function SettingsPage(props) {
               <div
                 className="mb-4 p-3 rounded-xl text-xs font-semibold"
                 style={{
-                  background:
-                    status.type === "success" ? "#2D8C6F12" : "#E0555512",
-                  color: status.type === "success" ? "#2D8C6F" : "#E05555",
-                  border: `1px solid ${status.type === "success" ? "#2D8C6F44" : "#E0555544"}`,
+                  background: status.type === "success" ? "#2D8C6F12" : status.type === "info" ? "#E8A83812" : "#E0555512",
+                  color: status.type === "success" ? "#2D8C6F" : status.type === "info" ? "#E8A838" : "#E05555",
+                  border: `1px solid ${status.type === "success" ? "#2D8C6F44" : status.type === "info" ? "#E8A83844" : "#E0555544"}`,
                 }}
               >
                 {status.msg}
               </div>
             )}
-            {[
-              { label: "Full Name", key: "name", type: "text" },
-              { label: "Email", key: "email", type: "email" },
-              { label: "Phone", key: "phone", type: "tel" },
-            ].map((field) => {
-              const isIdentity = field.key === "name";
-              const names = form.name.split(" ");
-              const hasChanged = isIdentity && (
-                (names[0] !== (userData?.first_name || "")) ||
-                (names.slice(1).join(" ") !== (userData?.last_name || ""))
-              );
-
-              return (
-                <div key={field.key} className="mb-4">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-bold uppercase tracking-wide" style={{ color: c.txt2 }}>
-                      {field.label}
-                    </label>
-                    {hasChanged && (
-                      <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest bg-amber-500/10 px-2 py-0.5 rounded-full">
-                        Validation Admin Requise
-                      </span>
-                    )}
-                  </div>
-                  <input
-                    type={field.type}
-                    value={form[field.key]}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, [field.key]: e.target.value }))
-                    }
-                    className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition-all"
-                    style={{
-                      background: dk ? "#1A2333" : "#F8FAFC",
-                      borderColor: hasChanged ? "#E8A83880" : c.border,
-                      color: c.txt,
-                      boxShadow: hasChanged ? "0 0 0 2px #E8A83810" : "none"
-                    }}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Prénom</label>
+                <input type="text"
+                  value={form.first_name}
+                  onChange={(e) => setForm((f) => ({ ...f, first_name: e.target.value }))}
+                  className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                  style={{ background: c.card, borderColor: c.border, color: c.txt }}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Nom</label>
+                <input type="text"
+                  value={form.last_name}
+                  onChange={(e) => setForm((f) => ({ ...f, last_name: e.target.value }))}
+                  className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                  style={{ background: c.card, borderColor: c.border, color: c.txt }}
+                />
+              </div>
+              {(form.first_name !== (userData?.first_name || "") || form.last_name !== (userData?.last_name || "")) && (
+                <div className="sm:col-span-2 animate-in fade-in slide-in-from-top-2">
+                  <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "#E8A838" }}>
+                    Motif du changement de nom (Requis pour validation Admin)
+                  </label>
+                  <textarea
+                    value={identityReason}
+                    onChange={(e) => setIdentityReason(e.target.value)}
+                    placeholder="Expliquez pourquoi vous souhaitez modifier votre identité officielle..."
+                    className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all min-h-[60px]"
+                    style={{ background: "#E8A83808", borderColor: "#E8A83844", color: c.txt }}
                   />
-                  {hasChanged && (
-                    <div className="mt-3 p-3 rounded-xl border animate-in slide-in-from-top-2"
-                      style={{ background: "#E8A83808", borderColor: "#E8A83830" }}>
-                      <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                        <MessageSquare size={12} /> Motif du changement
-                      </p>
-                      <textarea
-                        value={identityReason}
-                        onChange={(e) => setIdentityReason(e.target.value)}
-                        placeholder="Pourquoi changez-vous de nom ?"
-                        className="w-full bg-transparent border-none outline-none text-sm resize-none"
-                        style={{ color: c.txt }}
-                        rows={2}
-                      />
-                    </div>
-                  )}
                 </div>
-              );
-            })}
+              )}
+              <div className="sm:col-span-2">
+                <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Email</label>
+                <input type="email"
+                  value={form.email}
+                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                  className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                  style={{ background: c.card, borderColor: c.border, color: c.txt }}
+                />
+              </div>
+              {form.email !== (userData?.email || "") && (
+                <div className="sm:col-span-2 animate-in fade-in slide-in-from-top-2">
+                  <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "#E8A838" }}>
+                    Motif du changement d'email (Requis)
+                  </label>
+                  <textarea
+                    value={emailReason}
+                    onChange={(e) => setEmailReason(e.target.value)}
+                    placeholder="Expliquez pourquoi vous souhaitez changer votre adresse email..."
+                    className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all min-h-[60px]"
+                    style={{ background: "#E8A83808", borderColor: "#E8A83844", color: c.txt }}
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Téléphone</label>
+                <input type="tel"
+                  value={form.phone}
+                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                  className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                  style={{ background: c.card, borderColor: c.border, color: c.txt }}
+                />
+              </div>
+            </div>
             <div className="mb-4">
               <DashSelect
                 label="Wilaya"

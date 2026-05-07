@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CreditCard, User, X, Check } from "lucide-react";
 import StepBar from "./StepBar";
 import { PATIENT_STEPS } from "./PatientForm";
 import { useTheme } from "../../../context/ThemeContext";
 import { useLanguage } from "../../../context/LanguageContext";
 
-function UploadZone({ id, label, hint, file, error, onChange, onRemove, c }) {
+function UploadZone({ id, label, hint, file, error, onChange, onRemove, c, inputKey }) {
   const { t } = useLanguage();
   const fileName =
     file instanceof File ? file.name : typeof file === "string" ? file : null;
@@ -20,9 +20,10 @@ function UploadZone({ id, label, hint, file, error, onChange, onRemove, c }) {
       </label>
       <div className="relative">
         <input
+          key={inputKey}
           type="file"
           id={id}
-          accept=".jpg,.jpeg,.png,.pdf"
+          accept=".jpg,.jpeg,.png"
           onChange={onChange}
           className="hidden"
         />
@@ -74,7 +75,7 @@ function UploadZone({ id, label, hint, file, error, onChange, onRemove, c }) {
                 {hint}
               </span>
               <span className="text-[11px]" style={{ color: c.txt3 }}>
-                {t("auth.register.identity.fileHint")}
+                JPG, JPEG, PNG
               </span>
             </label>
           ) : (
@@ -100,7 +101,7 @@ function UploadZone({ id, label, hint, file, error, onChange, onRemove, c }) {
   );
 }
 
-export default function PatientIdentityForm({ onComplete, onBack, savedData }) {
+export default function PatientIdentityForm({ onComplete, onBack, savedData, serverErrors = {} }) {
   const { theme } = useTheme();
   const { t } = useLanguage();
   const isDark = theme === "dark";
@@ -139,6 +140,18 @@ export default function PatientIdentityForm({ onComplete, onBack, savedData }) {
     profilePhoto: savedData?.profilePhoto || null,
   });
   const [errors, setErrors] = useState({});
+  const [inputKeys, setInputKeys] = useState({ cinRecto: 0, cinVerso: 0, profilePhoto: 0 });
+
+  // Map backend field names to local field names and merge into errors state
+  useEffect(() => {
+    const fieldMap = { id_card_recto: "cinRecto", id_card_verso: "cinVerso", photo: "profilePhoto" };
+    const mapped = {};
+    Object.entries(serverErrors).forEach(([k, v]) => {
+      const localKey = fieldMap[k];
+      if (localKey) mapped[localKey] = Array.isArray(v) ? v[0] : v;
+    });
+    if (Object.keys(mapped).length > 0) setErrors((prev) => ({ ...prev, ...mapped }));
+  }, [serverErrors]);
 
   const handleFile = (e, key) => {
     if (e.target.files && e.target.files[0]) {
@@ -149,6 +162,8 @@ export default function PatientIdentityForm({ onComplete, onBack, savedData }) {
 
   const handleRemove = (key) => {
     setFiles((prev) => ({ ...prev, [key]: null }));
+    // Increment key to force input re-mount so a new file can be selected
+    setInputKeys((prev) => ({ ...prev, [key]: prev[key] + 1 }));
   };
 
   const handleSubmit = () => {
@@ -195,6 +210,7 @@ export default function PatientIdentityForm({ onComplete, onBack, savedData }) {
             error={errors.cinRecto}
             onChange={(e) => handleFile(e, "cinRecto")}
             onRemove={() => handleRemove("cinRecto")}
+            inputKey={inputKeys.cinRecto}
             c={c}
           />
           <UploadZone
@@ -205,6 +221,7 @@ export default function PatientIdentityForm({ onComplete, onBack, savedData }) {
             error={errors.cinVerso}
             onChange={(e) => handleFile(e, "cinVerso")}
             onRemove={() => handleRemove("cinVerso")}
+            inputKey={inputKeys.cinVerso}
             c={c}
           />
           <UploadZone
@@ -215,6 +232,7 @@ export default function PatientIdentityForm({ onComplete, onBack, savedData }) {
             error={errors.profilePhoto}
             onChange={(e) => handleFile(e, "profilePhoto")}
             onRemove={() => handleRemove("profilePhoto")}
+            inputKey={inputKeys.profilePhoto}
             c={c}
           />
         </div>
