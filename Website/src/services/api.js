@@ -917,6 +917,36 @@ export async function getCaretakerPatientsPrescriptions() {
   return apiFetch("/prescriptions/caregiver-patients/");
 }
 
+// ─── Plans médicamenteux (garde-malade) ──────────────────────────────────────
+
+/** Liste tous les plans médicamenteux du garde-malade connecté */
+export async function getMedicationSchedules() {
+  return apiFetch("/caretaker/medication-schedules/");
+}
+
+/** Crée un nouveau plan pour un patient (via care_request_id) */
+export async function createMedicationSchedule(data) {
+  return apiFetch("/caretaker/medication-schedules/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/** Met à jour les médicaments d'un plan existant */
+export async function updateMedicationSchedule(scheduleId, data) {
+  return apiFetch(`/caretaker/medication-schedules/${scheduleId}/`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+/** Supprime un plan médicamenteux */
+export async function deleteMedicationSchedule(scheduleId) {
+  return apiFetch(`/caretaker/medication-schedules/${scheduleId}/`, {
+    method: "DELETE",
+  });
+}
+
 /**
  * (Patient/Médecin) Dashboard endpoint dédié
  * GET /api/patients/dashboard/  ou  GET /api/doctors/dashboard/

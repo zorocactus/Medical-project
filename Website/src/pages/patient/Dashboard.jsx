@@ -2756,7 +2756,8 @@ function AppointmentsPage({
           id: d.id,
           name: d.full_name ? `Dr. ${d.full_name}` : "Dr. Inconnu",
           spec: d.specialty_display || d.specialty || "Généraliste",
-          loc: d.clinic_name || d.est_city || "Alger",
+          loc: d.est_city || "Alger",
+          clinic_address: d.est_address || d.clinic_name || "",
           rating: parseFloat(d.rating) || 4.5,
           exp: d.experience_years || 5,
           initials: (d.full_name || "DR").split(" ").map(n => n[0]).join("").toUpperCase().substring(0, 2),
@@ -2764,8 +2765,8 @@ function AppointmentsPage({
             ? "#4A6FA5"
             : "#2D8C6F",
           phone: d.pro_phone || "+213 -- -- --",
-          lang: d.languages 
-            ? (Array.isArray(d.languages) ? d.languages : String(d.languages).split(",")) 
+          lang: d.languages
+            ? (Array.isArray(d.languages) ? d.languages : String(d.languages).split(","))
             : ["Français", "Arabe"],
           bio: d.bio || "Le docteur n'a pas rédigé de biographie.",
           edu: "Faculté de Médecine.",
@@ -2896,7 +2897,7 @@ function AppointmentsPage({
   };
 
   const openGoogleMaps = (doc) => {
-    const query = encodeURIComponent(`${doc.name} ${doc.clinic_address || doc.loc}`);
+    const query = encodeURIComponent(doc.clinic_address || `${doc.name} ${doc.loc}, Algerie`);
     window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, "_blank", "noopener,noreferrer");
   };
 
@@ -3269,11 +3270,11 @@ function AppointmentsPage({
                   style={{ color: c.green }}>
                   <Phone size={13} /> {profileDoctor.phone}
                 </a>
-                <a href={"https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(profileDoctor.name + " " + (profileDoctor.loc || ""))}
+                <a href={"https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(profileDoctor.clinic_address || (profileDoctor.name + " " + (profileDoctor.loc || "") + ", Algerie"))}
                   target="_blank" rel="noopener noreferrer"
                   className="text-xs mt-1 flex items-center gap-2 transition-all hover:opacity-75 transition-opacity w-fit"
                   style={{ color: c.blue }}>
-                  <MapPin size={12} /> {profileDoctor.loc}
+                  <MapPin size={12} /> {profileDoctor.clinic_address || profileDoctor.loc}
                 </a>
               </div>
 
@@ -4494,7 +4495,7 @@ function AppointmentsPage({
                     )}
                   </div>
                   <iframe
-                    src={`https://maps.google.com/maps?q=${encodeURIComponent((activeMapDoc.clinic_address || activeMapDoc.loc || "") + ", Algérie")}&z=15&output=embed`}
+                    src={`https://maps.google.com/maps?q=${encodeURIComponent(activeMapDoc.clinic_address || (activeMapDoc.name + ", " + activeMapDoc.loc + ", Algerie"))}&hl=fr&z=15&output=embed`}
                     width="100%"
                     height="100%"
                     className="grayscale-[0.2] contrast-[1.1]"
@@ -4504,7 +4505,7 @@ function AppointmentsPage({
                   />
                   <div className="absolute bottom-4 right-4 z-10">
                     <a
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeMapDoc.name + ' ' + (activeMapDoc.clinic_address || activeMapDoc.loc))}`}
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeMapDoc.clinic_address || (activeMapDoc.loc + ", Algerie"))}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="px-4 py-2 rounded-xl text-xs font-bold text-white shadow-lg flex items-center gap-2 hover:scale-105 transition-transform"

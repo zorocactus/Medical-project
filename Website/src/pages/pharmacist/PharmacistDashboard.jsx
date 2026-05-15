@@ -29,6 +29,14 @@ const ORDERS = [];
 const ALERTS = [];
 const NOTIFICATIONS = [];
 
+const AVATAR_COLORS = [
+  ["#304B71", "#6492C9"],
+  ["#0F6E56", "#4CAF82"],
+  ["#7B3F00", "#C97B3F"],
+  ["#6B2D8B", "#A46DB5"],
+  ["#A32D2D", "#E24B4A"],
+];
+
 const STATUS_META = {
   new:        { label: "new_status",   color: "#4A6FA5", bg: "#4A6FA518" },
   processing: { label: "processing_status",  color: "#E8A838", bg: "#E8A83818" },
@@ -94,6 +102,17 @@ function StatCard({ label, value, sub, icon: Icon, color, trend, dk }) {
       <p className="text-2xl font-bold" style={{ color: c.txt }}>{value}</p>
       <p className="text-sm font-semibold mt-0.5" style={{ color: c.txt2 }}>{label}</p>
       {sub && <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>{sub}</p>}
+    </Card>
+  );
+}
+
+function KpiCard({ label, value, sub, subColor, dk }) {
+  const c = dk ? T.dark : T.light;
+  return (
+    <Card dk={dk} style={{ padding: 18 }}>
+      <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#A0B5CD" }}>{label}</p>
+      <p className="text-2xl font-bold" style={{ color: c.txt }}>{value}</p>
+      {sub && <p className="text-xs font-semibold mt-1" style={{ color: subColor || c.txt2 }}>{sub}</p>}
     </Card>
   );
 }
@@ -294,30 +313,125 @@ function OrderDetailModal({ order, onClose, dk }) {
   );
 }
 
+// ─── MODAL: REFUS D'ORDONNANCE ───────────────────────────────────────────────
+function RefuseOrderModal({ order, onClose, onConfirm, loading, dk }) {
+  const c = dk ? T.dark : T.light;
+  const [reason, setReason] = useState("");
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}>
+      <div className="rounded-2xl p-6 w-full max-w-md shadow-2xl border"
+        style={{ background: c.card, borderColor: c.border }}>
+
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: "#E0555518" }}>
+            <X size={18} style={{ color: "#E05555" }} />
+          </div>
+          <div>
+            <h3 className="font-bold" style={{ color: c.txt }}>Refuser l'ordonnance</h3>
+            <p className="text-xs" style={{ color: c.txt2 }}>{order.id} · {order.patient}</p>
+          </div>
+          <button onClick={onClose} disabled={loading}
+            className="ml-auto w-8 h-8 rounded-xl flex items-center justify-center border transition-colors hover:opacity-70 disabled:opacity-40"
+            style={{ borderColor: c.border, color: c.txt3 }}>
+            <X size={14} />
+          </button>
+        </div>
+
+        {/* Avertissement */}
+        <div className="rounded-xl p-3 mb-4 text-xs font-semibold flex gap-2"
+          style={{ background: "#E0555510", border: "1px solid #E0555530", color: "#C0392B" }}>
+          <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+          <span>
+            Le patient sera <strong>notifié immédiatement</strong>. Son ordonnance sera annulée
+            et les médicaments réservés retourneront automatiquement en stock.
+          </span>
+        </div>
+
+        {/* Motif */}
+        <label className="block text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt2 }}>
+          Motif du refus <span style={{ color: "#E05555" }}>*</span>
+        </label>
+        <textarea
+          value={reason}
+          onChange={e => setReason(e.target.value)}
+          placeholder="Ex : médicament en rupture, ordonnance illisible, doublon de prescription…"
+          rows={3}
+          className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border resize-none"
+          style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border, color: c.txt }}
+        />
+
+        <div className="flex gap-3 mt-5">
+          <button onClick={onClose} disabled={loading}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:opacity-80 disabled:opacity-40"
+            style={{ borderColor: c.border, color: c.txt2 }}>
+            Annuler
+          </button>
+          <button
+            onClick={() => onConfirm(reason)}
+            disabled={loading || !reason.trim()}
+            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+            style={{ background: "#E05555" }}>
+            {loading
+              ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              : <><X size={14} strokeWidth={3} /> Refuser l'ordonnance</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── MODAL: AJOUTER UN ARTICLE (STOCK) ───────────────────────────────────────
 function AddItemModal({ onClose, onAdd, dk }) {
   const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
   const [form, setForm] = useState({
-    name: "", molecule: "", category: "", expiry: "",
-    qty: "", min: "", price: "",
+    medication_id: null, category: "", expiry: "", qty: "", price: "", min_threshold: "10",
   });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [selectedMed, setSelectedMed] = useState(null);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    if (!searchQuery.trim() || searchQuery.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const results = await api.searchMedications(searchQuery).catch(() => []);
+        setSearchResults(Array.isArray(results) ? results.slice(0, 8) : (Array.isArray(results?.results) ? results.results.slice(0, 8) : []));
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const selectMed = (med) => {
+    setSelectedMed(med);
+    setSearchQuery(med.name || med.commercial_name || "");
+    setForm(f => ({ ...f, medication_id: med.id }));
+    setSearchResults([]);
+  };
 
   const inputStyle = { background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border, color: c.txt };
   const labelCls = "block text-xs font-bold uppercase tracking-wide mb-1.5";
 
   const handleAdd = () => {
-    if (!form.name.trim() || !form.category) return;
+    if (!form.medication_id) return;
     onAdd({
-      id: Date.now(),
-      name:     form.name,
-      molecule: form.molecule,
-      category: form.category,
-      expiry:   form.expiry || "2027-01-01",
-      qty:      parseInt(form.qty)   || 0,
-      min:      parseInt(form.min)   || 0,
-      price:    parseInt(form.price) || 0,
-      cnas:     false,
+      medication_id: form.medication_id,
+      expiry:        form.expiry || "2027-01-01",
+      qty:           parseInt(form.qty)           || 0,
+      price:         parseFloat(form.price)       || 0,
+      min_threshold: parseInt(form.min_threshold) || 10,
     });
     onClose();
   };
@@ -337,29 +451,41 @@ function AddItemModal({ onClose, onAdd, dk }) {
         </div>
 
         <div className="space-y-4">
-          {/* Nom du médicament */}
-          <div>
+          {/* Recherche médicament */}
+          <div className="relative">
             <label className={labelCls} style={{ color: c.txt2 }}>{t('med_name_label') || "Nom du médicament"}</label>
-            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              placeholder="Ex: Paracetamol 500mg"
-              className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
-              style={inputStyle} />
+            <div className="relative">
+              <input
+                value={searchQuery}
+                onChange={e => { setSearchQuery(e.target.value); setSelectedMed(null); setForm(f => ({ ...f, medication_id: null })); }}
+                placeholder="Rechercher un médicament…"
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
+                style={inputStyle}
+              />
+              {searching && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-t-transparent rounded-full animate-spin"
+                  style={{ borderColor: c.blue, borderTopColor: "transparent" }} />
+              )}
+            </div>
+            {searchResults.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 rounded-xl border shadow-lg overflow-hidden"
+                style={{ background: c.card, borderColor: c.border }}>
+                {searchResults.map(med => (
+                  <button key={med.id} onClick={() => selectMed(med)}
+                    className="w-full text-left px-4 py-2.5 text-sm transition-colors hover:opacity-80"
+                    style={{ background: "transparent", color: c.txt, borderBottom: `1px solid ${c.border}` }}>
+                    <span className="font-semibold">{med.name || med.commercial_name}</span>
+                    {med.molecule && <span className="ml-2 text-xs" style={{ color: c.txt3 }}>{med.molecule}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+            {selectedMed && (
+              <p className="mt-1 text-xs font-semibold" style={{ color: "#0F6E56" }}>
+                ✓ {selectedMed.name || selectedMed.commercial_name} sélectionné
+              </p>
+            )}
           </div>
-
-          {/* Molécule */}
-          <div>
-            <label className={labelCls} style={{ color: c.txt2 }}>{t('med_molecule_label') || "Molécule"}</label>
-            <input value={form.molecule} onChange={e => setForm(f => ({ ...f, molecule: e.target.value }))}
-              placeholder="Ex: Acetaminophen"
-              className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
-              style={inputStyle} />
-          </div>
-
-          {/* Catégorie — DashSelect */}
-          <DashSelect
-            label={t('category_label') || "Catégorie"} value={form.category} options={STOCK_CATEGORIES.map(c => t(c) || c)}
-            onSelect={v => setForm(f => ({ ...f, category: v }))}
-            dk={dk} c={c} placeholder={t('choose_category_placeholder') || "Choisir une catégorie..."} />
 
           {/* Date d'expiration */}
           <div>
@@ -370,12 +496,11 @@ function AddItemModal({ onClose, onAdd, dk }) {
               style={inputStyle} />
           </div>
 
-          {/* Champs numériques */}
-          <div className="grid grid-cols-3 gap-3">
+          {/* Quantité + Prix */}
+          <div className="grid grid-cols-2 gap-3">
             {[
               { label: t('qty_in_stock_label') || "Qté en stock", key: "qty",   placeholder: "0" },
-              { label: t('qty_min_alert_label') || "Qté min. alerte", key: "min",   placeholder: "0" },
-              { label: t('price_label') || "Prix (DZD)",   key: "price", placeholder: "0" },
+              { label: t('price_label') || "Prix (DZD)",          key: "price", placeholder: "0" },
             ].map(f => (
               <div key={f.key}>
                 <label className={labelCls} style={{ color: c.txt2 }}>{f.label}</label>
@@ -388,6 +513,23 @@ function AddItemModal({ onClose, onAdd, dk }) {
               </div>
             ))}
           </div>
+
+          {/* Seuil d'alerte minimum */}
+          <div>
+            <label className={labelCls} style={{ color: c.txt2 }}>
+              {t('min_threshold_label') || "Seuil d'alerte (qté min)"}
+            </label>
+            <input
+              value={form.min_threshold}
+              onChange={e => { const val = e.target.value.replace(/\D/g, ""); setForm(p => ({ ...p, min_threshold: val })); }}
+              placeholder="10"
+              className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
+              style={inputStyle}
+            />
+            <p className="mt-1 text-xs" style={{ color: c.txt3 }}>
+              {t('min_threshold_hint') || "Alerte automatique quand le stock descend sous ce seuil"}
+            </p>
+          </div>
         </div>
 
         <div className="flex gap-3 mt-6">
@@ -398,7 +540,7 @@ function AddItemModal({ onClose, onAdd, dk }) {
           </button>
           <button onClick={handleAdd}
             className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
-            style={{ background: c.blue, opacity: !form.name || !form.category ? 0.5 : 1 }}>
+            style={{ background: c.blue, opacity: !form.medication_id ? 0.5 : 1 }}>
             {t('save_btn') || "Enregistrer"}
           </button>
         </div>
@@ -409,169 +551,245 @@ function AddItemModal({ onClose, onAdd, dk }) {
 
 // ─── PAGE: ACCUEIL ────────────────────────────────────────────────────────────
 function HomePage({ dk, onNav }) {
-  const { t } = useLanguage();
+  const { userData } = useAuth();
   const c = dk ? T.dark : T.light;
-  const [showQr, setShowQr] = useState(false);
-  const [newOrder, setNewOrder] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [stats, setStats] = useState({});
+  const [orders, setOrders] = useState([]);
+  const [stock, setStock] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const stats = [
-    { label: t('orders_today_label') || "Commandes aujourd'hui",  value: "24",         icon: ShoppingCart,  color: c.blue,   trend: 12 },
-    { label: t('daily_revenue_label') || "Revenus du jour",         value: "84 200 DZD", icon: DollarSign,    color: c.green,  trend: 8  },
-    { label: t('stock_meds_label') || "Médicaments en stock",    value: "1 548",      icon: Package,       color: "#7B5EA7", trend: -3 },
-    { label: t('stock_alerts_count_label') || "Alertes stock",           value: "4",          icon: AlertTriangle, color: c.red,    trend: undefined },
-  ];
+  useEffect(() => {
+    Promise.all([
+      api.getPharmacyStats().catch(() => null),
+      api.getPharmacyOrders().catch(() => []),
+      api.getPharmacyStock().catch(() => []),
+      api.getNotifications().catch(() => []),
+    ]).then(([statsData, ordersData, stockData]) => {
+      setStats(statsData || {});
+      const rawOrders = Array.isArray(ordersData) ? ordersData : (ordersData?.results || []);
+      setOrders(rawOrders.slice(0, 5));
+      const rawStock = Array.isArray(stockData) ? stockData : (stockData?.results || []);
+      setStock(
+        rawStock
+          .filter(s => Number(s.quantity) <= (Number(s.medication_details?.min_threshold) || 10))
+          .slice(0, 5)
+      );
+      setLoading(false);
+    });
+  }, []);
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 300 }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+          <span style={{
+            display: "inline-block", width: 32, height: 32,
+            border: "2px solid #6492C9", borderTopColor: "transparent",
+            borderRadius: "50%", animation: "spin 0.8s linear infinite",
+          }} />
+          <p style={{ fontSize: "13px", color: c.txt2 }}>Chargement…</p>
+        </div>
+      </div>
+    );
+  }
+
+  const pending = orders.filter(o => o.status === "pending" || o.display_status === "pending").length;
+  const ruptures = stock.filter(s => Number(s.quantity) === 0).length;
+  const total = stats?.kpis?.today_revenue || 0;
+  const cnas = stats?.kpis?.cnas_amount || 0;
+  const pct = total > 0 ? Math.round((cnas / total) * 100) : 0;
+
+  const STATUS_BADGE = {
+    pending:   { label: "En attente",     bg: "#FAEEDA", color: "#854F0B" },
+    preparing: { label: "En préparation", bg: "#E6F1FB", color: "#185FA5" },
+    ready:     { label: "Prête",          bg: "#E1F5EE", color: "#0F6E56" },
+    delivered: { label: "Livrée",         bg: dk ? "#1E2D4A" : "#F0F4F8", color: c.txt2 },
+  };
+
+  const getAvatarColor = (name = "") => {
+    const idx = (name.charCodeAt(0) || 0) % AVATAR_COLORS.length;
+    return AVATAR_COLORS[idx];
+  };
+
+  const getInitials = (name = "") =>
+    name.split(" ").filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase()).join("") || "?";
+
+  const itemBg = dk ? "rgba(30,45,74,0.3)" : "#F8FAFC";
 
   return (
     <>
-      {showQr && <QrModal dk={dk} onClose={() => setShowQr(false)} onScan={() => setNewOrder(true)} />}
+      {showQrModal && <QrModal dk={dk} onClose={() => setShowQrModal(false)} />}
 
-      {/* Alerte nouvelle commande */}
-      {newOrder && (
-        <div className="mb-5 flex items-center gap-4 p-4 rounded-2xl border-2"
-          style={{ background: "#2D8C6F10", borderColor: "#2D8C6F44" }}>
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: "#2D8C6F" }}>
-            <Check size={18} className="text-white" strokeWidth={3} />
-          </div>
-          <div className="flex-1">
-            <p className="font-bold text-sm" style={{ color: c.txt }}>{t('scanned_success') || "Ordonnance scannée avec succès"}</p>
-            <p className="text-xs" style={{ color: c.txt2 }}>{t('order_created_desc', {id: 'ORD-2026-0482', patient: 'Alex Johnson', med: 'Lisinopril 10mg ×30'}) || "Commande ORD-2026-0482 créée — Alex Johnson · Lisinopril 10mg ×30"}</p>
-          </div>
-          <button onClick={() => setNewOrder(false)} style={{ color: c.txt3 }}><X size={16} /></button>
+      {/* Section 1 — Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
+        <div>
+          <h1 style={{ fontSize: "22px", fontWeight: "500", color: c.txt, margin: "0 0 4px" }}>
+            Bonjour, {userData?.first_name || "—"}
+          </h1>
+          <p style={{ fontSize: "13px", color: c.txt2, margin: 0 }}>
+            {new Date().toLocaleDateString("fr-FR", {
+              weekday: "long", day: "numeric", month: "long", year: "numeric",
+            })}
+          </p>
         </div>
-      )}
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {stats.map(s => <StatCard key={s.label} {...s} dk={dk} />)}
+        <button
+          onClick={() => setShowQrModal(true)}
+          style={{
+            background: "#304B71", color: "#fff", border: "none", borderRadius: "12px",
+            padding: "10px 20px", fontSize: "13px", fontWeight: "500", cursor: "pointer",
+            display: "flex", alignItems: "center", gap: "6px",
+          }}
+        >
+          <QrCode size={15} /> Scanner ordonnance
+        </button>
       </div>
 
-      {/* Main grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        <div className="xl:col-span-2 space-y-5">
+      {/* Section 2 — 4 KPI Cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "16px" }}>
+        <KpiCard
+          label="Commandes aujourd'hui"
+          value={stats?.kpis?.today_orders ?? "—"}
+          sub={`${pending} en attente`}
+          subColor="#854F0B"
+          dk={dk}
+        />
+        <KpiCard
+          label="Revenu du jour"
+          value={stats?.kpis?.today_revenue ? stats.kpis.today_revenue.toLocaleString("fr-FR") : "—"}
+          sub="DZD"
+          dk={dk}
+        />
+        <KpiCard
+          label="Articles en stock"
+          value={stats?.kpis?.stock_items ?? "—"}
+          sub={ruptures > 0 ? `${ruptures} en rupture` : "Stock normal"}
+          subColor={ruptures > 0 ? "#A32D2D" : "#0F6E56"}
+          dk={dk}
+        />
+        <KpiCard
+          label="Remboursement CNAS"
+          value={stats?.kpis?.cnas_amount ? stats.kpis.cnas_amount.toLocaleString("fr-FR") : "—"}
+          sub="DZD ce mois"
+          subColor="#6492C9"
+          dk={dk}
+        />
+      </div>
 
-          {/* Alertes stock */}
-          <Card dk={dk} empty={true}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold" style={{ color: c.txt }}>{t('priority_alerts_title') || "Alertes prioritaires"}</h3>
-              <Badge color={c.red} bg={c.red + "18"}>{t('alerts_count', {count: ALERTS.length}) || `${ALERTS.length} alertes`}</Badge>
-            </div>
-            <div className="space-y-3">
-              {ALERTS.map(a => (
-                <div key={a.id} className="flex items-center gap-3 p-3 rounded-xl cursor-pointer card-hover"
-                  style={{ background: dk ? a.bgDk : a.bg }}>
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                    style={{ background: a.color + "22" }}>
-                    <a.icon size={15} style={{ color: a.color }} />
-                  </div>
-                  <p className="flex-1 text-sm font-medium" style={{ color: c.txt }}>{a.text}</p>
-                  <button className="text-xs font-bold px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
-                    style={{ background: a.color, color: "#fff" }}>
-                    {a.action}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </Card>
+      {/* Section 3 — Grille 2 colonnes */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "14px" }}>
 
-          {/* Dernières commandes */}
-          <Card dk={dk} empty={true}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold" style={{ color: c.txt }}>{t('latest_orders_title') || "Dernières commandes"}</h3>
-              <button onClick={() => onNav("commandes")}
-                className="text-sm font-semibold hover:underline" style={{ color: c.blue }}>
-                {t('view_all_btn') || "Voir tout"}
+        {/* Colonne gauche */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+
+          {/* Card Dernières commandes */}
+          <Card dk={dk} empty>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "#A0B5CD" }}>
+                Dernières commandes
+              </p>
+              <button
+                onClick={() => onNav("commandes")}
+                className="text-xs font-semibold hover:underline"
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#6492C9" }}
+              >
+                Voir tout →
               </button>
             </div>
-            <div className="space-y-3">
-              {ORDERS.slice(0, 3).map(o => {
-                const st = STATUS_META[o.status];
-                return (
-                  <div key={o.id} className="flex items-center gap-4 p-3 rounded-xl border cursor-pointer card-hover"
-                    style={{ borderColor: c.border }}>
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                      style={{ background: c.blueLight }}>
-                      <FileText size={16} style={{ color: c.blue }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold text-sm" style={{ color: c.txt }}>{o.patient}</p>
-                        {o.cnas && <Badge color={c.blue} bg={c.blueLight}>CNAS</Badge>}
-                      </div>
-                      <p className="text-xs truncate" style={{ color: c.txt2 }}>{o.items[0]}{o.items.length > 1 ? ` +${o.items.length - 1}` : ""}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <Badge color={st.color} bg={st.bg}>{t(st.label) || st.label}</Badge>
-                      <p className="text-xs mt-1" style={{ color: c.txt3 }}>{o.date}</p>
-                    </div>
+            {orders.length === 0 ? (
+              <p className="text-sm text-center py-4" style={{ color: c.txt2 }}>
+                Aucune commande aujourd'hui
+              </p>
+            ) : orders.map(order => {
+              const statusKey = order.status || "pending";
+              const badge = STATUS_BADGE[statusKey] || STATUS_BADGE.pending;
+              const [avatarBg1, avatarBg2] = getAvatarColor(order.patient_name || "");
+              return (
+                <div
+                  key={order.id}
+                  className="flex items-center gap-3 rounded-xl mb-2 cursor-pointer transition-colors"
+                  style={{ padding: "10px 12px", background: itemBg }}
+                  onMouseEnter={e => { e.currentTarget.style.background = dk ? "rgba(100,146,201,0.12)" : "#EEF3FB"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = itemBg; }}
+                >
+                  <div className="shrink-0 flex items-center justify-center text-white text-xs font-bold"
+                    style={{ width: 34, height: 34, borderRadius: "50%", background: `linear-gradient(135deg, ${avatarBg1}, ${avatarBg2})` }}>
+                    {getInitials(order.patient_name || "Patient")}
                   </div>
-                );
-              })}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ color: c.txt }}>
+                      {order.patient_name || "Patient"}
+                    </p>
+                    <p className="text-xs truncate" style={{ color: c.txt2 }}>
+                      {order.items?.[0]?.drug_name || order.items?.[0]?.medication_name || "Ordonnance"}
+                      {order.items?.length > 1 ? ` + ${order.items.length - 1} autre(s)` : ""}
+                    </p>
+                  </div>
+                  <span className="text-xs font-bold shrink-0"
+                    style={{ padding: "3px 10px", borderRadius: "20px", background: badge.bg, color: badge.color }}>
+                    {badge.label}
+                  </span>
+                </div>
+              );
+            })}
+          </Card>
+
+          {/* Card Alertes stock */}
+          <Card dk={dk} empty>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "#A0B5CD" }}>
+                Alertes stock
+              </p>
+              <button
+                onClick={() => onNav("stock")}
+                className="text-xs font-semibold hover:underline"
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#6492C9" }}
+              >
+                Gérer →
+              </button>
             </div>
+            {stock.length === 0 ? (
+              <p className="text-sm" style={{ color: "#0F6E56", padding: "8px 0" }}>✓ Aucune alerte de stock</p>
+            ) : stock.map(item => {
+              const isRupture = Number(item.quantity) === 0;
+              return (
+                <div key={item.id} className="flex items-center justify-between rounded-xl mb-2"
+                  style={{ padding: "9px 12px", background: isRupture ? "#FCEBEB" : "#FAEEDA" }}>
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: c.txt }}>
+                      {item.medication_details?.name || "Médicament"}
+                    </p>
+                    <p className="text-xs" style={{ color: isRupture ? "#A32D2D" : "#854F0B" }}>
+                      {isRupture ? "Rupture · 0 unité" : `Stock faible · ${item.quantity} unité(s)`}
+                    </p>
+                  </div>
+                  <span className="text-xs font-bold"
+                    style={{ padding: "3px 10px", borderRadius: "20px", background: isRupture ? "#E24B4A" : "#EF9F27", color: "#fff" }}>
+                    {isRupture ? "Rupture" : "Faible"}
+                  </span>
+                </div>
+              );
+            })}
           </Card>
         </div>
 
-        {/* Right col */}
-        <div className="space-y-4">
-          {/* Mini stock critique */}
-          <Card dk={dk} empty={true}>
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-xs font-bold uppercase tracking-wide" style={{ color: c.txt3 }}>{t('stock_alerts_count_label') || "Stock critique"}</p>
-              <button onClick={() => onNav("stock")} className="text-xs font-semibold hover:underline" style={{ color: c.blue }}>
-                {t('manage_btn') || "Gérer"}
-              </button>
-            </div>
-            {STOCK.filter(s => s.qty < s.min).map(item => (
-              <div key={item.id} className="flex items-center gap-3 py-3 px-2 border-b last:border-0 cursor-pointer card-hover"
-                style={{ borderColor: c.border }}>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate" style={{ color: c.txt }}>{item.name}</p>
-                  <div className="w-full h-1.5 rounded-full mt-1 overflow-hidden" style={{ background: c.blueLight }}>
-                    <div className="h-full rounded-full" style={{ width: `${Math.min(100, item.qty / item.min * 100)}%`, background: item.qty < item.min * 0.4 ? c.red : c.amber }} />
-                  </div>
-                </div>
-                <span className="text-sm font-bold shrink-0" style={{ color: item.qty < item.min * 0.4 ? c.red : c.amber }}>
-                  {item.qty}
-                </span>
-              </div>
-            ))}
-          </Card>
-
-          {/* Notifications */}
-          <Card dk={dk} empty={true}>
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-xs font-bold uppercase tracking-wide" style={{ color: c.txt3 }}>{t('notifications_label') || "Notifications"}</p>
-              <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">3</span>
-            </div>
-            <div className="space-y-3">
-              {NOTIFICATIONS.slice(0, 3).map(n => (
-                <div key={n.id} className="flex items-start gap-3 p-3 rounded-xl cursor-pointer card-hover"
-                  style={{ background: dk ? n.bgDk : n.bg }}>
-                  <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: n.color }} />
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
-                    style={{ background: n.color + "22" }}>
-                    <n.icon size={13} style={{ color: n.color }} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold" style={{ color: c.txt }}>{n.title}</p>
-                    <p className="text-xs" style={{ color: c.txt3 }}>{n.sub}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          {/* Chiffre du jour */}
-          <Card dk={dk} style={{ background: "linear-gradient(135deg, #304B71, #6492C9)", border: "none" }}>
-            <p className="text-xs font-bold uppercase tracking-wide mb-2 text-white opacity-70">{t('cnas_today_title') || "CNAS — Aujourd'hui"}</p>
-            <p className="text-2xl font-bold text-white">52 400 DZD</p>
-            <p className="text-sm text-white opacity-80 mt-0.5">{t('reimbursed_on_desc', {total: '84 200'}) || "remboursé sur 84 200 DZD"}</p>
-            <div className="w-full h-2 rounded-full mt-3 overflow-hidden" style={{ background: "rgba(255,255,255,0.2)" }}>
-              <div className="h-full rounded-full bg-white" style={{ width: "62%" }} />
-            </div>
-            <p className="text-xs text-white opacity-60 mt-1.5">{t('covered_by_cnas_desc', {percent: 62}) || "62% couvert par la CNAS"}</p>
-          </Card>
-        </div>
+        {/* Colonne droite — Bilan CNAS */}
+        <Card dk={dk} empty>
+          <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#A0B5CD" }}>
+            Bilan CNAS ce mois
+          </p>
+          <p className="text-2xl font-bold mb-1" style={{ color: c.txt }}>
+            {cnas > 0 ? cnas.toLocaleString("fr-FR") : "—"}
+            <span className="text-sm font-normal ml-1" style={{ color: c.txt2 }}>DZD</span>
+          </p>
+          <p className="text-xs mb-1" style={{ color: c.txt2 }}>
+            sur {total > 0 ? `${total.toLocaleString("fr-FR")} DZD` : "—"} de revenu total
+          </p>
+          <div className="rounded-full overflow-hidden my-3" style={{ height: 6, background: dk ? "#1E2D4A" : "#F0F4F8" }}>
+            <div style={{ height: "100%", width: `${pct}%`, background: "#6492C9", borderRadius: "20px", transition: "width 0.5s ease" }} />
+          </div>
+          <p className="text-xs" style={{ color: c.txt2 }}>{pct}% couvert par la CNAS</p>
+        </Card>
       </div>
     </>
   );
@@ -598,7 +816,7 @@ function StockPage({ dk }) {
       name:     m.name || `Médicament #${row.medication}`,
       molecule: m.molecule || "",
       qty:      Number(row.quantity) || 0,
-      min:      Number(m.min_threshold) || 10,
+      min:      Number(row.min_threshold) || 10,
       price:    Number(row.selling_price) || Number(m.price_dzd) || 0,
       cnas:     !!m.cnas_covered,
       category: m.category || "—",
@@ -647,6 +865,27 @@ function StockPage({ dk }) {
     }
   };
 
+  const handleExportStock = () => {
+    const rows = stockItems.map(s => [
+      s.name || "",
+      s.qty,
+      s.min,
+      s.price || "",
+      s.expiry || "",
+    ]);
+    const csv = [
+      ["Médicament", "Quantité", "Seuil", "Prix", "Expiration"],
+      ...rows,
+    ].map(r => r.join(";")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "stock-pharmacie.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const allStock = stockItems;
 
   const filtered = allStock.filter(s => {
@@ -671,13 +910,13 @@ function StockPage({ dk }) {
           dk={dk}
           onClose={() => setShowAddModal(false)}
           onAdd={async (item) => {
-            // Persiste côté backend (medication_id requis si dispo, sinon le payload sera rejeté)
             try {
               await api.createPharmacyStock({
-                medication: item.medication_id,
-                quantity:   item.qty,
+                medication:    item.medication_id,
+                quantity:      item.qty,
+                min_threshold: item.min_threshold,
                 selling_price: item.price,
-                expiry_date: item.expiry,
+                expiry_date:   item.expiry,
               });
               await reload();
               setBanner({ type: "success", msg: "Article ajouté." });
@@ -734,7 +973,7 @@ function StockPage({ dk }) {
               </button>
             ))}
           </div>
-          <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all hover:opacity-80"
+          <button onClick={handleExportStock} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all hover:opacity-80"
             style={{ borderColor: c.border, color: c.txt2 }}>
             <Download size={13} /> {t('export_btn') || "Exporter"}
           </button>
@@ -764,6 +1003,13 @@ function StockPage({ dk }) {
               </tr>
             </thead>
             <tbody>
+              {!loading && filtered.length === 0 && (
+                <tr>
+                  <td colSpan={9} style={{ textAlign: "center", padding: "40px 0" }}>
+                    <p style={{ color: c.txt3, fontSize: "13px" }}>Aucun article trouvé pour cette recherche.</p>
+                  </td>
+                </tr>
+              )}
               {filtered.map(item => {
                 const st = getStockStatus(item);
                 return (
@@ -851,6 +1097,9 @@ function CommandesPage({ dk }) {
   const [loadError, setLoadError]       = useState("");
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [updatingId, setUpdatingId]     = useState(null);
+  const [refuseModal, setRefuseModal]   = useState(null);
+  const [refusingId, setRefusingId]     = useState(null);
+  const [successBanner, setSuccessBanner] = useState("");
 
   const mapOrder = (o) => {
     const status = (o.status || "new").toLowerCase();
@@ -868,6 +1117,7 @@ function CommandesPage({ dk }) {
     return {
       id: o.prescription_ref || `ORD-${o.id}`,
       _rawId: o.id,
+      _rawItems: Array.isArray(o.items) ? o.items : [],
       patient: o.patient_name || "Patient",
       doctor: o.doctor_name || "",
       date: dateStr,
@@ -899,12 +1149,15 @@ function CommandesPage({ dk }) {
 
   const newCount = orders.filter(o => o.status === "new").length;
 
+  const cancelledCount = orders.filter(o => o.status === "cancelled").length;
+
   const tabs = [
-    { id: "all",        label: t('all_orders_tab') || "Toutes",       count: orders.length },
-    { id: "new",        label: t('new_orders_tab') || "Nouvelles",     count: newCount, accent: true },
-    { id: "processing", label: t('processing_orders_tab') || "En prépa.",     count: orders.filter(o => o.status === "processing").length },
-    { id: "ready",      label: t('ready_orders_tab') || "Prêtes",        count: orders.filter(o => o.status === "ready").length },
-    { id: "delivered",  label: t('delivered_orders_tab') || "Récupérées",    count: orders.filter(o => o.status === "delivered").length },
+    { id: "all",        label: "Toutes",      count: orders.length },
+    { id: "new",        label: "Nouvelles",   count: newCount, accent: true },
+    { id: "processing", label: "En prépa.",   count: orders.filter(o => o.status === "processing").length },
+    { id: "ready",      label: "Prêtes",      count: orders.filter(o => o.status === "ready").length },
+    { id: "delivered",  label: "Récupérées",  count: orders.filter(o => o.status === "delivered").length },
+    { id: "cancelled",  label: "Refusées",    count: cancelledCount, danger: cancelledCount > 0 },
   ];
 
   const displayed = tab === "all" ? orders : orders.filter(o => o.status === tab);
@@ -940,6 +1193,61 @@ function CommandesPage({ dk }) {
   const markReady     = (order) => updateOrderStatus(order, "ready");
   const markDelivered = (order) => updateOrderStatus(order, "delivered");
 
+  const refuseOrder = async (order, reason) => {
+    const rawId = order._rawId;
+    setRefusingId(order.id);
+    try {
+      // 1. Annuler la commande côté backend
+      try {
+        await api.apiFetch(`/pharmacy/orders/${rawId}/refuse/`, {
+          method: "POST",
+          body: JSON.stringify({ reason }),
+        });
+      } catch {
+        await api.apiFetch(`/pharmacy/orders/${rawId}/status/`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "cancelled", reason }),
+        });
+      }
+
+      // 2. Réapprovisionner le stock pour chaque médicament de la commande
+      if (order._rawItems?.length > 0) {
+        const stockData = await api.getPharmacyStock().catch(() => []);
+        const stockList = Array.isArray(stockData) ? stockData : (stockData?.results || []);
+
+        await Promise.allSettled(
+          order._rawItems.map(async (item) => {
+            const medId = item.medication_id ?? item.medication ?? item.drug_id ?? null;
+            const qtyOrdered = Number(item.quantity) || 0;
+            if (!medId || qtyOrdered <= 0) return;
+
+            const stockEntry = stockList.find(
+              s => String(s.medication) === String(medId) ||
+                   String(s.medication_details?.id) === String(medId)
+            );
+            if (!stockEntry) return;
+
+            const newQty = Number(stockEntry.quantity) + qtyOrdered;
+            await api.updatePharmacyStock(stockEntry.id, { quantity: newQty });
+          })
+        );
+      }
+
+      // 3. Mettre à jour l'UI
+      setOrders(prev => prev.map(x =>
+        x.id === order.id ? { ...x, status: "cancelled", cancelReason: reason } : x
+      ));
+      setRefuseModal(null);
+      setSuccessBanner("Ordonnance refusée · Patient notifié · Stock réapprovisionné");
+      setTimeout(() => setSuccessBanner(""), 5000);
+    } catch (err) {
+      setLoadError(err?.message || "Impossible de refuser cette commande.");
+      setTimeout(() => setLoadError(""), 4000);
+    } finally {
+      setRefusingId(null);
+    }
+  };
+
   return (
     <>
       {showQr && (
@@ -964,6 +1272,15 @@ function CommandesPage({ dk }) {
       {selectedOrder && (
         <OrderDetailModal order={selectedOrder} dk={dk} onClose={() => setSelectedOrder(null)} />
       )}
+      {refuseModal && (
+        <RefuseOrderModal
+          order={refuseModal}
+          dk={dk}
+          loading={refusingId === refuseModal.id}
+          onClose={() => setRefuseModal(null)}
+          onConfirm={(reason) => refuseOrder(refuseModal, reason)}
+        />
+      )}
 
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
@@ -985,26 +1302,41 @@ function CommandesPage({ dk }) {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b mb-5 overflow-x-auto" style={{ borderColor: c.border, scrollbarWidth: "none" }}>
-        {tabs.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition-all whitespace-nowrap shrink-0"
-            style={{
-              color: tab === t.id ? c.blue : c.txt2,
-              borderBottom: tab === t.id ? `2px solid ${c.blue}` : "2px solid transparent",
-              marginBottom: -1,
-            }}>
-            {t.label}
-            <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
+        {tabs.map(tb => {
+          const activeColor = tb.danger ? c.red : c.blue;
+          return (
+            <button key={tb.id} onClick={() => setTab(tb.id)}
+              className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition-all whitespace-nowrap shrink-0"
               style={{
-                background: tab === t.id ? c.blue : t.accent && t.count > 0 ? c.blue + "22" : c.blueLight,
-                color:      tab === t.id ? "#fff"   : t.accent && t.count > 0 ? c.blue       : c.txt3,
+                color: tab === tb.id ? activeColor : c.txt2,
+                borderBottom: tab === tb.id ? `2px solid ${activeColor}` : "2px solid transparent",
+                marginBottom: -1,
               }}>
-              {t.count}
-            </span>
-          </button>
-        ))}
+              {tb.label}
+              <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
+                style={{
+                  background: tab === tb.id ? activeColor
+                    : tb.accent && tb.count > 0 ? c.blue + "22"
+                    : tb.danger && tb.count > 0 ? c.red + "18"
+                    : c.blueLight,
+                  color: tab === tb.id ? "#fff"
+                    : tb.accent && tb.count > 0 ? c.blue
+                    : tb.danger && tb.count > 0 ? c.red
+                    : c.txt3,
+                }}>
+                {tb.count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
+      {successBanner && (
+        <div className="mb-4 px-4 py-2.5 rounded-xl border text-sm font-semibold flex items-center gap-2"
+          style={{ background: "#2D8C6F12", borderColor: "#2D8C6F44", color: "#2D8C6F" }}>
+          <CheckCircle size={15} /> {successBanner}
+        </div>
+      )}
       {loadError && (
         <div
           className="mb-4 px-3 py-2 rounded-lg text-xs font-semibold border"
@@ -1029,17 +1361,19 @@ function CommandesPage({ dk }) {
           </div>
         )}
         {displayed.map(o => {
-          const st = STATUS_META[o.status];
+          const st = STATUS_META[o.status] || STATUS_META.new;
           const isNew        = o.status === "new";
           const isProcessing = o.status === "processing";
           const isReady      = o.status === "ready";
-          const isDelivered  = o.status === "delivered";
+          const isCancelled  = o.status === "cancelled";
+          const canRefuse    = isNew || isProcessing;
 
           return (
             <Card key={o.id} dk={dk} style={{
               padding: "16px 20px",
-              borderColor: isNew ? c.blue + "44" : undefined,
-              boxShadow:   isNew ? `0 0 0 1px ${c.blue}22, 0 2px 12px ${c.blue}12` : undefined,
+              borderColor: isNew ? c.blue + "44" : isCancelled ? c.red + "33" : undefined,
+              boxShadow:   isNew ? `0 0 0 1px ${c.blue}22, 0 2px 12px ${c.blue}12`
+                         : isCancelled ? `0 0 0 1px ${c.red}18` : undefined,
             }}>
               <div className="flex items-start gap-4 flex-wrap">
 
@@ -1084,56 +1418,83 @@ function CommandesPage({ dk }) {
                   <p className="text-xs mb-3" style={{ color: c.txt3 }}>{o.date}</p>
 
                   <div className="flex flex-col gap-2">
-                    {/* Nouvelle → Accepter & Préparer (Bleu) */}
+                    {/* Nouvelle → Accepter & Préparer */}
                     {isNew && (
                       <button onClick={() => acceptOrder(o)} disabled={updatingId === o.id}
                         className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-60"
                         style={{ background: "linear-gradient(135deg, #304B71, #6492C9)" }}>
                         {updatingId === o.id
                           ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          : <><Check size={13} strokeWidth={3} /> {t('accept_prepare_btn') || "Accepter & Préparer"}</>}
+                          : <><Check size={13} strokeWidth={3} /> Accepter &amp; Préparer</>}
                       </button>
                     )}
 
-                    {/* En préparation → Marquer Prêt (Vert) */}
+                    {/* En préparation → Marquer Prêt */}
                     {isProcessing && (
                       <button onClick={() => markReady(o)} disabled={updatingId === o.id}
                         className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-60"
                         style={{ background: c.green }}>
                         {updatingId === o.id
                           ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          : <><CheckCircle size={13} /> {t('mark_ready_btn') || "Marquer Prêt"}</>}
+                          : <><CheckCircle size={13} /> Marquer Prêt</>}
                       </button>
                     )}
 
-                    {/* Prêt → Livré / Récupéré (Gris neutre) */}
+                    {/* Refuser — visible sur new et processing */}
+                    {canRefuse && (
+                      <button
+                        onClick={() => setRefuseModal(o)}
+                        disabled={updatingId === o.id || refusingId === o.id}
+                        className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all hover:opacity-90 active:scale-95 disabled:opacity-60"
+                        style={{ background: "#E0555518", color: "#C0392B", border: "1px solid #E0555530" }}>
+                        {refusingId === o.id
+                          ? <span className="w-3 h-3 border-2 rounded-full animate-spin" style={{ borderColor: "#C0392B", borderTopColor: "transparent" }} />
+                          : <><X size={13} strokeWidth={3} /> Refuser</>}
+                      </button>
+                    )}
+
+                    {/* Prêt → Récupéré */}
                     {isReady && (
                       <button onClick={() => markDelivered(o)} disabled={updatingId === o.id}
                         className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all hover:opacity-80 active:scale-95 disabled:opacity-60"
                         style={{ background: c.blueLight, color: c.txt2, border: `1px solid ${c.border}` }}>
                         {updatingId === o.id
                           ? <span className="w-3 h-3 border-2 rounded-full animate-spin" style={{ borderColor: c.txt2, borderTopColor: "transparent" }} />
-                          : <><Truck size={13} /> {t('delivered_btn') || "Récupéré"}</>}
+                          : <><Truck size={13} /> Récupéré</>}
                       </button>
                     )}
 
-                    {/* Bouton Détails — toujours visible */}
-                    <button onClick={() => setSelectedOrder(o)}
-                      className="px-4 py-2 rounded-xl text-xs font-semibold border transition-all hover:opacity-80 flex items-center justify-center gap-1.5"
-                      style={{ borderColor: c.border, color: c.txt2 }}>
-                      <Eye size={13} /> {t('view_details_btn') || "Détails"}
-                    </button>
+                    {/* Détails — toujours visible sauf si refusée */}
+                    {!isCancelled && (
+                      <button onClick={() => setSelectedOrder(o)}
+                        className="px-4 py-2 rounded-xl text-xs font-semibold border transition-all hover:opacity-80 flex items-center justify-center gap-1.5"
+                        style={{ borderColor: c.border, color: c.txt2 }}>
+                        <Eye size={13} /> Détails
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Barre de progression si "new" — attire l'attention */}
+              {/* Bandeau "en attente" pour les nouvelles commandes */}
               {isNew && (
                 <div className="mt-3 flex items-center gap-2 pt-3 border-t" style={{ borderColor: c.blue + "22" }}>
                   <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: c.blue }} />
                   <p className="text-xs font-semibold" style={{ color: c.blue }}>
                     Ordonnance reçue — en attente d'acceptation
                   </p>
+                </div>
+              )}
+              {/* Bandeau motif de refus */}
+              {isCancelled && (
+                <div className="mt-3 flex items-start gap-2 pt-3 border-t" style={{ borderColor: c.red + "22" }}>
+                  <AlertTriangle size={13} className="shrink-0 mt-0.5" style={{ color: c.red }} />
+                  <div>
+                    <p className="text-xs font-bold" style={{ color: c.red }}>Ordonnance refusée</p>
+                    {o.cancelReason && (
+                      <p className="text-xs mt-0.5" style={{ color: c.txt2 }}>Motif : {o.cancelReason}</p>
+                    )}
+                  </div>
                 </div>
               )}
             </Card>
@@ -1170,27 +1531,18 @@ function StatistiquesPage({ dk }) {
   const fmtDzd = (n) => `${Number(n || 0).toLocaleString("fr-FR")} DZD`;
 
   const kpisFromBackend = stats?.kpis ? [
-    { label: t('orders_today_label') || "Commandes aujourd'hui", value: String(stats.kpis.today_orders ?? 0),  icon: ShoppingCart, color: c.blue   },
-    { label: t('daily_revenue_label') || "Revenu du jour",        value: fmtDzd(stats.kpis.today_revenue),       icon: DollarSign,   color: c.green  },
-    { label: t('stock_meds_label') || "Articles en stock",     value: String(stats.kpis.stock_items ?? 0),    icon: Package,      color: "#7B5EA7" },
-    { label: t('stock_alerts_count_label') || "Alertes stock",         value: String(stats.kpis.stock_alerts_count ?? 0), icon: AlertTriangle, color: c.amber },
+    { label: t('orders_today_label') || "Commandes aujourd'hui", value: String(stats.kpis.today_orders ?? 0),         icon: ShoppingCart,  color: c.blue   },
+    { label: t('daily_revenue_label') || "Revenu du jour",        value: fmtDzd(stats.kpis.today_revenue),             icon: DollarSign,    color: c.green  },
+    { label: t('reimbursed_cnas_label') || "Remboursé CNAS",      value: fmtDzd(stats.kpis.cnas_amount),               icon: Shield,        color: "#7B5EA7" },
+    { label: t('stock_alerts_count_label') || "Alertes stock",    value: String(stats.kpis.stock_alerts_count ?? 0),   icon: AlertTriangle, color: c.amber  },
   ] : null;
 
-  // Données graphiques : non encore exposées par le backend → masquées en prod.
-  const monthlyData = import.meta.env.DEV ? [
-    { month: "Oct", ventes: 62, cnas: 38 }, { month: "Nov", ventes: 75, cnas: 44 },
-    { month: "Déc", ventes: 88, cnas: 52 }, { month: "Jan", ventes: 71, cnas: 43 },
-    { month: "Fév", ventes: 83, cnas: 50 }, { month: "Mar", ventes: 91, cnas: 57 },
-  ] : [];
-  const maxVal = 100;
+  const monthlyData = stats?.monthly_data || [];
+  const maxVal = monthlyData.length
+    ? Math.max(...monthlyData.map(m => Math.max(m.ventes, m.cnas)), 1)
+    : 1;
 
-  const topMeds = import.meta.env.DEV ? [
-    { name: "Paracetamol 1g",   qty: 480, pct: 95, color: c.blue  },
-    { name: "Aspirin 100mg",    qty: 330, pct: 68, color: c.green },
-    { name: "Vitamin D3 2000IU",qty: 215, pct: 44, color: "#7B5EA7" },
-    { name: "Lisinopril 10mg",  qty: 142, pct: 30, color: c.amber },
-    { name: "Ibuprofen 400mg",  qty: 155, pct: 32, color: c.red   },
-  ] : [];
+  const topMeds = stats?.top_meds || [];
 
   return (
     <>
@@ -1230,77 +1582,86 @@ function StatistiquesPage({ dk }) {
               </span>
             </div>
           </div>
-          <div className="flex items-end gap-3 h-44">
-            {monthlyData.map(m => (
-              <div key={m.month} className="flex-1 flex flex-col items-center gap-1">
-                <div className="w-full flex items-end gap-0.5" style={{ height: 160 }}>
-                  <div className="flex-1 rounded-t transition-all"
-                    style={{ height: `${m.ventes / maxVal * 100}%`, background: c.blue, opacity: 0.85 }} />
-                  <div className="flex-1 rounded-t transition-all"
-                    style={{ height: `${m.cnas / maxVal * 100}%`, background: c.green, opacity: 0.85 }} />
+          {monthlyData.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-44 gap-2">
+              <BarChart2 size={32} style={{ color: c.txt3, opacity: 0.4 }} />
+              <p className="text-sm font-medium" style={{ color: c.txt3 }}>Aucune vente sur les 6 derniers mois</p>
+            </div>
+          ) : (
+            <div className="flex items-end gap-3 h-44">
+              {monthlyData.map(m => (
+                <div key={m.month} className="flex-1 flex flex-col items-center gap-1">
+                  <div className="w-full flex items-end gap-0.5" style={{ height: 160 }}>
+                    <div className="flex-1 rounded-t transition-all"
+                      style={{ height: `${m.ventes / maxVal * 100}%`, background: c.blue, opacity: 0.85 }} />
+                    <div className="flex-1 rounded-t transition-all"
+                      style={{ height: `${m.cnas / maxVal * 100}%`, background: c.green, opacity: 0.85 }} />
+                  </div>
+                  <span className="text-xs font-medium" style={{ color: c.txt3 }}>{m.month}</span>
                 </div>
-                <span className="text-xs font-medium" style={{ color: c.txt3 }}>{m.month}</span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
 
         {/* Top médicaments */}
         <Card dk={dk}>
           <h3 className="font-bold mb-5" style={{ color: c.txt }}>{t('top_meds_sold_title') || "Top médicaments vendus"}</h3>
-          <div className="space-y-4">
-            {topMeds.map(med => (
-              <div key={med.name}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <p className="text-sm font-semibold" style={{ color: c.txt }}>{med.name}</p>
-                  <span className="text-xs font-bold" style={{ color: med.color }}>{med.qty} unités</span>
+          {topMeds.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 gap-2">
+              <Package size={32} style={{ color: c.txt3, opacity: 0.4 }} />
+              <p className="text-sm font-medium" style={{ color: c.txt3 }}>Aucune commande livrée</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {topMeds.map(med => (
+                <div key={med.name}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-sm font-semibold" style={{ color: c.txt }}>{med.name}</p>
+                    <span className="text-xs font-bold" style={{ color: med.color }}>{med.qty} unités</span>
+                  </div>
+                  <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: c.blueLight }}>
+                    <div className="h-full rounded-full transition-all" style={{ width: `${med.pct}%`, background: med.color }} />
+                  </div>
                 </div>
-                <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: c.blueLight }}>
-                  <div className="h-full rounded-full transition-all" style={{ width: `${med.pct}%`, background: med.color }} />
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
 
         {/* Catégories */}
         <Card dk={dk}>
-          <h3 className="font-bold mb-5" style={{ color: c.txt }}>{t('category_distribution_title') || "Répartition par catégorie"}</h3>
-          <div className="space-y-3">
-            {[
-              { label: t('cardiology_label') || "Cardiologie",  pct: 32, color: c.blue   },
-              { label: t('analgesics_label') || "Antalgiques",  pct: 28, color: c.green  },
-              { label: t('diabetology_label') || "Diabétologie", pct: 18, color: c.amber  },
-              { label: t('vitamins_label') || "Vitamines",    pct: 12, color: "#7B5EA7" },
-              { label: t('others_label') || "Autres",       pct: 10, color: c.txt3   },
-            ].map(cat => (
-              <div key={cat.label} className="flex items-center gap-3">
-                <span className="text-sm w-28 shrink-0" style={{ color: c.txt2 }}>{cat.label}</span>
-                <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: c.blueLight }}>
-                  <div className="h-full rounded-full" style={{ width: `${cat.pct}%`, background: cat.color }} />
-                </div>
-                <span className="text-xs font-bold w-8 text-right" style={{ color: cat.color }}>{cat.pct}%</span>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        {/* CNAS détail */}
-        <Card dk={dk} style={{ background: "linear-gradient(135deg, #304B71, #6492C9)", border: "none" }}>
-          <p className="text-xs font-bold uppercase tracking-wide mb-4 text-white opacity-70">{t('cnas_report_title') || "Bilan CNAS — Mars 2026"}</p>
-          <div className="grid grid-cols-2 gap-4">
-            {[
-              { label: t('reimbursed_label') || "Remboursé",  value: "773 600 DZD" },
-              { label: t('pending_label') || "En attente", value: "124 800 DZD"  },
-              { label: t('rejected_label') || "Rejeté",     value: "18 200 DZD"   },
-              { label: t('rate_label') || "Taux",       value: "62%"          },
-            ].map(item => (
-              <div key={item.label} className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.12)" }}>
-                <p className="text-xs text-white opacity-70">{item.label}</p>
-                <p className="text-base font-bold text-white mt-0.5">{item.value}</p>
-              </div>
-            ))}
-          </div>
+          <h3 className="font-bold mb-4" style={{ color: c.txt }}>{t('category_distribution_title') || "Répartition par catégorie"}</h3>
+          {(stats?.categories || []).length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 gap-2">
+              <BarChart2 size={32} style={{ color: c.txt3, opacity: 0.4 }} />
+              <p className="text-sm font-medium" style={{ color: c.txt3 }}>Aucune donnée</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {(stats.categories).map((cat, i) => {
+                const maxCount = Math.max(...stats.categories.map(c2 => c2.count), 1);
+                const pct = Math.round((cat.count / maxCount) * 100);
+                const COLORS = [c.blue, c.green, '#7B5EA7', c.amber, c.red];
+                return (
+                  <div key={cat.medication__category || i}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-semibold capitalize" style={{ color: c.txt }}>
+                        {cat.medication__category || "Autre"}
+                      </span>
+                      <span className="text-xs font-bold" style={{ color: COLORS[i % COLORS.length] }}>
+                        {cat.count} réf. · {cat.total_qty} unités
+                      </span>
+                    </div>
+                    <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: c.blueLight }}>
+                      <div className="h-full rounded-full transition-all"
+                        style={{ width: `${pct}%`, background: COLORS[i % COLORS.length] }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </Card>
       </div>
     </>
@@ -1331,12 +1692,13 @@ function ParametresPage({ dk, onToggleDark }) {
   }, [user]);
 
   const [locForm, setLocForm] = useState({
-    address: "12 Rue Didouche Mourad",
-    commune: "Alger-Centre",
-    wilaya:  "Alger",
+    address: user?.address || "",
+    commune: user?.city   || "",
+    wilaya:  user?.wilaya || "",
     mapsUrl: "",
   });
   const [locSaved, setLocSaved] = useState(false);
+  const [locError, setLocError] = useState("");
 
   const handleSaveProfile = async () => {
     try {
@@ -1394,7 +1756,13 @@ function ParametresPage({ dk, onToggleDark }) {
   const inputStyle = { background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border, color: c.txt };
   const labelCls   = "block text-xs font-bold uppercase tracking-wide mb-1.5";
 
-  const handleSaveLocation = () => {
+  const handleSaveLocation = async () => {
+    setLocError("");
+    await api.updateMe({
+      address: locForm.address,
+      city:    locForm.commune,
+      wilaya:  locForm.wilaya,
+    }).catch(err => setLocError(err?.message || "Erreur lors de la sauvegarde."));
     setLocSaved(true);
     setTimeout(() => setLocSaved(false), 3000);
   };
@@ -1553,6 +1921,12 @@ function ParametresPage({ dk, onToggleDark }) {
           <div className="mb-5 p-3 rounded-xl text-xs font-semibold flex items-center gap-2"
             style={{ background: "#2D8C6F12", color: "#2D8C6F", border: "1px solid #2D8C6F44" }}>
             <Check size={14} /> {t('location_updated_success') || "Localisation mise à jour avec succès"}
+          </div>
+        )}
+        {locError && (
+          <div className="mb-5 p-3 rounded-xl text-xs font-semibold"
+            style={{ background: "#E0555518", color: "#E05555", border: "1px solid #E0555544" }}>
+            {locError}
           </div>
         )}
 
@@ -1770,11 +2144,20 @@ export default function PharmacistDashboard({ onLogout }) {
   const [activeChatConv, setActiveChatConv] = useState(null);
   const { unreadChatCount, setUnreadChatCount } = useData();
 
+  // Badge commandes dynamique
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+  useEffect(() => {
+    api.getPharmacyOrders().catch(() => []).then(data => {
+      const list = Array.isArray(data) ? data : (data?.results || []);
+      setPendingOrdersCount(list.filter(o => o.status === "pending").length);
+    });
+  }, []);
+
   const NAV = [
-    { id: "accueil",     label: t('nav_home') || "Accueil"       },
-    { id: "commandes",   label: t('nav_orders') || "Commandes",  badge: 2 },
-    { id: "stock",       label: t('nav_stock') || "Stock"         },
-    { id: "statistiques",label: t('nav_stats') || "Statistiques"  },
+    { id: "accueil",      label: t('nav_home')  || "Accueil"      },
+    { id: "commandes",    label: t('nav_orders') || "Commandes",   badge: pendingOrdersCount > 0 ? pendingOrdersCount : null },
+    { id: "stock",        label: t('nav_stock')  || "Stock"        },
+    { id: "statistiques", label: t('nav_stats')  || "Statistiques" },
   ];
 
   const renderPage = () => {
@@ -1870,10 +2253,12 @@ export default function PharmacistDashboard({ onLogout }) {
             </button>
             {/* Profile */}
             <div className="relative">
-              <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 border-2 z-10 flex items-center justify-center"
-                style={{ borderColor: c.nav, fontSize: 7, color: "#fff", fontWeight: 800, pointerEvents: "none" }}>
-                {notifCount}
-              </div>
+              {notifCount > 0 && (
+                <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 border-2 z-10 flex items-center justify-center"
+                  style={{ borderColor: c.nav, fontSize: 7, color: "#fff", fontWeight: 800, pointerEvents: "none" }}>
+                  {notifCount}
+                </div>
+              )}
               <button onClick={() => setProfileOpen(!profileOpen)}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all hover:opacity-80"
                 style={{ border: `1px solid ${c.border}`, background: "transparent" }}>

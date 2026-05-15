@@ -5,6 +5,7 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { DataProvider } from "./context/DataContext";
 import { LanguageProvider } from "./context/LanguageContext";
 import AppRouter from "./router/AppRouter";
+import ErrorToast from "./components/ErrorToast";
 import "./index.css";
 
 createRoot(document.getElementById("root")).render(
@@ -14,6 +15,7 @@ createRoot(document.getElementById("root")).render(
         <ThemeProvider>
           <DataProvider>
             <AppRouter />
+            <ErrorToast />
           </DataProvider>
         </ThemeProvider>
       </LanguageProvider>
