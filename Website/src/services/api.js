@@ -243,10 +243,15 @@ export async function getMe() {
  * @param {object} data — champs à modifier
  */
 export async function updateMe(data) {
-  return apiFetch("/auth/me/", {
-    method: "PATCH",
-    body: JSON.stringify(data),
-  });
+  if (data instanceof FormData || Object.values(data).some((v) => v instanceof File)) {
+    const fd = data instanceof FormData ? data : (() => {
+      const f = new FormData();
+      Object.entries(data).forEach(([k, v]) => { if (v != null) f.append(k, v); });
+      return f;
+    })();
+    return apiFetch("/auth/me/", { method: "PATCH", body: fd });
+  }
+  return apiFetch("/auth/me/", { method: "PATCH", body: JSON.stringify(data) });
 }
 
 /**
@@ -420,16 +425,26 @@ export async function getMedicalProfile() {
  */
 export async function updateMedicalProfile(data) {
   return apiFetch("/patients/medical-profile/", {
-    method: "PUT",
+    method: "PATCH",
     body: JSON.stringify(data),
   });
 }
 
 /**
  * Historique des antécédents médicaux
+ * @param {number} [patientId] — si fourni (vue médecin), filtre par patient
  */
-export async function getAntecedents() {
-  return apiFetch("/patients/antecedents/");
+export async function getAntecedents(patientId) {
+  const q = patientId ? `?patient=${patientId}` : "";
+  return apiFetch(`/patients/antecedents/${q}`);
+}
+
+/**
+ * (Médecin) Supprime un antécédent du dossier patient
+ * @param {number} antecedentId
+ */
+export async function deleteAntecedent(antecedentId) {
+  return apiFetch(`/patients/antecedents/${antecedentId}/`, { method: "DELETE" });
 }
 
 /**
@@ -441,11 +456,22 @@ export async function getMyPrescriptions() {
 }
 
 /**
- * Consultations du patient connecté
+ * Consultations du patient connecté (ou d'un patient spécifique vu par le médecin)
+ * @param {number} [patientId] — si fourni, filtre par patient
  * Returns: [{ id, doctor_name, patient_name, chief_complaint, diagnosis, status, consulted_at }]
  */
-export async function getMyConsultations() {
-  return apiFetch("/consultations/consultations/");
+export async function getMyConsultations(patientId) {
+  const q = patientId ? `?patient=${patientId}` : "";
+  return apiFetch(`/consultations/consultations/${q}`);
+}
+
+/**
+ * (Médecin) Ordonnances d'un patient lié
+ * @param {number} patientId
+ * Returns: [{ id, status, created_at, items: [{drug_name, dosage, frequency, duration}] }]
+ */
+export async function getPatientPrescriptions(patientId) {
+  return apiFetch(`/prescriptions/prescriptions/?patient=${patientId}`);
 }
 
 /**
@@ -628,6 +654,15 @@ export async function markNotificationRead(notificationId) {
   });
 }
 
+/**
+ * Marque toutes les notifications comme lues
+ */
+export async function markAllNotificationsRead() {
+  return apiFetch("/notifications/mark_all_as_read/", {
+    method: "POST",
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 6. PHARMACIE  →  /api/pharmacy/
 // ─────────────────────────────────────────────────────────────────────────────
@@ -664,6 +699,14 @@ export async function getPharmacyBranches() {
  */
 export async function getPharmacyStock() {
   return apiFetch("/pharmacy/stock/");
+}
+
+/**
+ * GET /api/pharmacy/stock/public-stock/?pharmacy_id=...
+ * Patient : consulter le stock d'une pharmacie spécifique
+ */
+export async function getPublicPharmacyStock(pharmacyId) {
+  return apiFetch(`/pharmacy/stock/public-stock/?pharmacy_id=${pharmacyId}`);
 }
 
 /**
@@ -730,6 +773,26 @@ export async function scanPrescriptionQr(token) {
     method: "POST",
     body: JSON.stringify({ token }),
   });
+}
+
+/**
+ * (Pharmacien) Crée une commande après scan QR ou manuellement
+ * POST /api/pharmacy/orders/
+ * @param {object} data — { prescription_id, notes? }
+ */
+export async function createPharmacyOrder(data) {
+  return apiFetch("/pharmacy/orders/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * (Patient) Liste les commandes pharmacie de l'utilisateur connecté
+ * GET /api/pharmacy/orders/my/
+ */
+export async function getMyPharmacyOrders() {
+  return apiFetch("/pharmacy/orders/");
 }
 
 // ─── Médecin : patients ayant un RDV avec le médecin connecté ─────────────────

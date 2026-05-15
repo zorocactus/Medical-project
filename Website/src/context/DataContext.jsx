@@ -84,6 +84,16 @@ export function DataProvider({ children }) {
     }
   };
 
+  const refreshDoctorPrescriptions = async () => {
+    try {
+      const data = await api.getMyPrescriptions();
+      const list = Array.isArray(data) ? data : (data?.results ?? []);
+      setPrescriptions(list);
+    } catch {
+      // silencieux — la liste reste à []
+    }
+  };
+
   const refreshGmPatients = async () => {
     try {
       const data = await api.getCaretakerDashboard();
@@ -110,6 +120,7 @@ export function DataProvider({ children }) {
       refreshPatientRequests();
       refreshDoctorPatients();
       refreshDashboardData();
+      refreshDoctorPrescriptions();
       // Polling toutes les 30s pour les nouvelles demandes
       const poll = setInterval(() => {
         refreshPatientRequests();
@@ -186,7 +197,7 @@ export function DataProvider({ children }) {
       patients, appointments, patientRequests, prescriptions, addPrescription,
       setAppointments, setPatientRequests,
       refreshDoctorAppointments, refreshPatientRequests,
-      refreshDoctorPatients, refreshGmPatients, refreshGmTreatments,
+      refreshDoctorPatients, refreshDoctorPrescriptions, refreshGmPatients, refreshGmTreatments,
       dashboardData, refreshDashboardData,
       gmPatients, gmTreatments, loadGMDemoData,
       addMedicationToTreatment, removeMedicationFromTreatment,

@@ -365,7 +365,7 @@ export default function Hero({ onStart }) {
 
               {/* Input area */}
               <div className="px-4 pb-4">
-                <div className="flex items-end gap-2 bg-white/[0.05] border border-white/10 rounded-[14px] px-4 py-3 focus-within:border-[#638ECB]/40 transition-colors">
+                <div className="flex items-center gap-2 bg-white/[0.05] border border-white/10 rounded-[14px] px-4 py-2 focus-within:border-[#638ECB]/40 transition-colors">
                   <textarea
                     ref={inputRef}
                     value={inputVal}
@@ -373,20 +373,20 @@ export default function Hero({ onStart }) {
                     onKeyDown={handleKey}
                     placeholder="Décrivez vos symptômes en détail…"
                     rows={1}
-                    className="flex-1 bg-transparent border-none outline-none resize-none text-white/80 placeholder-white/25 text-[.84rem] leading-relaxed max-h-20"
+                    className="flex-1 bg-transparent border-none outline-none resize-none text-white/80 placeholder-white/25 text-[0.95rem] leading-normal max-h-20 py-2"
                     style={{ fontFamily: "'DM Sans', sans-serif" }}
                   />
                   <button onClick={() => sendMessage(inputVal)}
-                    className="w-8 h-8 rounded-full bg-[#638ECB] hover:bg-[#395886] flex items-center justify-center flex-shrink-0 transition-all hover:scale-105 cursor-pointer border-none">
-                    <Send size={13} color="white" />
+                    className="w-9 h-9 rounded-full bg-[#638ECB] hover:bg-[#395886] flex items-center justify-center flex-shrink-0 transition-all hover:scale-105 cursor-pointer border-none">
+                    <Send size={18} color="white" />
                   </button>
                 </div>
                 <div className="flex items-center gap-3 mt-2 px-1">
-                  <button className="flex items-center gap-1.5 text-[.72rem] text-white/30 hover:text-white/60 transition-colors cursor-pointer border-none bg-transparent">
-                    <Paperclip size={11} /> Joindre
+                  <button className="flex items-center gap-1.5 text-[.78rem] text-white/30 hover:text-white/60 transition-colors cursor-pointer border-none bg-transparent">
+                    <Paperclip size={14} /> Joindre
                   </button>
-                  <button className="flex items-center gap-1.5 text-[.72rem] text-white/30 hover:text-white/60 transition-colors cursor-pointer border-none bg-transparent">
-                    <History size={11} /> Historique
+                  <button className="flex items-center gap-1.5 text-[.78rem] text-white/30 hover:text-white/60 transition-colors cursor-pointer border-none bg-transparent">
+                    <History size={14} /> Historique
                   </button>
                   <span className="ml-auto text-[.63rem] text-white/20">IA médicale — Non substitutif à un médecin</span>
                 </div>

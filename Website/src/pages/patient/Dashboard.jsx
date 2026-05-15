@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import Cropper from "react-easy-crop";
 import { useTheme } from "../../context/ThemeContext";
 import ErrorBoundary from "../../components/ErrorBoundary";
 import DashSelect from "../../components/ui/DashSelect";
@@ -63,14 +64,17 @@ import {
   Stethoscope,
   Leaf,
   Trash2,
+  Edit3,
+  Camera,
 } from "lucide-react";
 
 
 // ─── Card component ───────────────────────────────────────────────────────────
-function Card({ children, className = "", style = {}, dk, empty = false }) {
+function Card({ children, className = "", style = {}, dk, empty = false, ...props }) {
   const hoverClasses = empty ? "" : "card-hover";
   return (
     <div
+      {...props}
       className={`rounded-2xl p-5 shadow-sm border ${hoverClasses} ${className}`}
       style={{
         background: dk ? T.dark.card : T.light.card,
@@ -107,13 +111,24 @@ function SendToPharmacyModal({ rx, onClose, onConfirm, dk }) {
 
   useEffect(() => {
     api.getAllPharmacies().then(data => {
-      if (Array.isArray(data)) setPharmacies(data.map(p => p.name || p.pharm_name));
+      const list = Array.isArray(data) ? data : (data?.results || []);
+      setPharmacies(list.map(p => ({
+        id: p.id,
+        name: p.name || p.pharm_name,
+        pharmacist_user_id: p.pharmacist_user_id
+      })));
     }).catch(() => {});
   }, []);
 
   const handleConfirm = () => {
     if (!selectedPharmacy) return;
-    onConfirm({ pharmacy: selectedPharmacy, notes });
+    const selectedObj = pharmacies.find(p => p.name === selectedPharmacy);
+    onConfirm({ 
+      pharmacy: selectedPharmacy, 
+      pharmacyId: selectedObj?.id,
+      pharmacist_user_id: selectedObj?.pharmacist_user_id,
+      notes 
+    });
     onClose();
   };
 
@@ -160,7 +175,7 @@ function SendToPharmacyModal({ rx, onClose, onConfirm, dk }) {
           <DashSelect
             label={t('choose_pharmacy_label') || "Choisir une pharmacie"}
             value={selectedPharmacy}
-            options={pharmacies.length > 0 ? pharmacies : ["Chargement..."]}
+            options={pharmacies.length > 0 ? pharmacies.map(p => p.name) : ["Chargement..."]}
             onSelect={setSelectedPharmacy}
             dk={dk} c={c}
             placeholder={t('select_pharmacy_placeholder') || "Sélectionner une pharmacie..."}
@@ -298,6 +313,7 @@ function EmptyState({
 function EmergencyModal({ onClose, dk }) {
   const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
+  const [geoError, setGeoError] = useState("");
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -344,15 +360,17 @@ function EmergencyModal({ onClose, dk }) {
         </div>
         <div className="space-y-3 mb-4">
           <button
+            onClick={() => { window.location.href = "tel:15"; }}
             className="w-full py-3.5 rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-all hover:opacity-90"
             style={{
               background: "#E05555",
               boxShadow: "0 4px 20px rgba(224,85,85,0.4)",
             }}
           >
-            <Phone size={16} /> {t('call_samu_btn') || "Call 15 (SAMU) Now"}
+            <Phone size={16} /> {t('call_samu_btn') || "Appeler le 15 (SAMU)"}
           </button>
           <button
+            onClick={() => { window.location.href = "tel:1021"; }}
             className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors"
             style={{
               background: "rgba(224,85,85,0.1)",
@@ -360,18 +378,34 @@ function EmergencyModal({ onClose, dk }) {
               border: "1px solid rgba(224,85,85,0.2)",
             }}
           >
-            <MapPin size={15} /> {t('share_location_btn') || "Share My Location"}
+            <Phone size={15} /> Appeler le 1021 (Algérie)
           </button>
           <button
-            className="w-full py-3 rounded-xl font-semibold transition-colors"
+            onClick={() => {
+              if (!navigator.geolocation) return;
+              navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                  const { latitude, longitude } = pos.coords;
+                  window.open(
+                    `https://www.google.com/maps?q=${latitude},${longitude}`,
+                    "_blank"
+                  );
+                },
+                () => { setGeoError("Impossible d'accéder à votre position."); }
+              );
+            }}
+            className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors"
             style={{
               background: "rgba(224,85,85,0.06)",
               color: "#E05555",
               border: "1px solid rgba(224,85,85,0.15)",
             }}
           >
-            {t('notify_contacts_btn') || "Notify Emergency Contact"}
+            <MapPin size={15} /> {t('share_location_btn') || "Partager ma position"}
           </button>
+          {geoError && (
+            <p className="text-xs text-center" style={{ color: "#E05555" }}>{geoError}</p>
+          )}
         </div>
         <button
           onClick={onClose}
@@ -400,41 +434,52 @@ function DashboardPage({
   pendingIdentityRequest,
 }) {
   const { t } = useLanguage();
-  const [meds, setMeds] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
-  const [docs, setDocs] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [symptom, setSymptom] = useState("");
   const [emergency, setEmergency] = useState(false);
+  const [assignedCaregiver, setAssignedCaregiver] = useState(null);
+  const [hoveredKpi, setHoveredKpi] = useState(null);
+  const [hoveredQuick, setHoveredQuick] = useState(null);
   const c = dk ? T.dark : T.light;
+
+  const formatNotifDate = (dateStr) => {
+    try {
+      const d = new Date(dateStr);
+      const now = new Date();
+      const diff = now - d;
+      const mins = Math.floor(diff / 60000);
+      const hours = Math.floor(diff / 3600000);
+      const days = Math.floor(diff / 86400000);
+      if (mins < 60) return `Il y a ${mins} min`;
+      if (hours < 24) return `Il y a ${hours}h`;
+      if (days < 7) return `Il y a ${days}j`;
+      return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+    } catch { return ""; }
+  };
+
+  const fmtDate = (dateStr) => {
+    if (!dateStr) return "—";
+    try { return new Date(dateStr).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }); }
+    catch { return String(dateStr); }
+  };
 
   useEffect(() => {
     const handleList = (res) => Array.isArray(res) ? res : (res?.results || []);
-
-    // Fetch medications/treatments
-    api.getTreatments().then(res => {
-      const list = handleList(res);
-      setMeds(list.map(t => ({
-        id: t.id,
-        name: t.drug_name || t.medication_name || "Médicament",
-        time: t.dosage || t.frequency || "1 fois par jour",
-        taken: false
-      })));
-    }).catch(() => {});
-
-    // Fetch recent prescriptions
-    api.getMyPrescriptions().then(res => {
-      const list = handleList(res);
-      setPrescriptions(list.slice(0, 2));
-    }).catch(() => {});
-
-    // Fetch recent documents
-    api.getLabResults().then(res => {
-      const list = handleList(res);
-      setDocs(list.slice(0, 3));
-    }).catch(() => {});
+    Promise.all([
+      api.getMyPrescriptions().catch(() => []),
+      api.getMyPharmacyOrders().catch(() => []),
+      api.getCareRequests().catch(() => []),
+    ]).then(([rxRes, ordersRes, careRes]) => {
+      setPrescriptions(handleList(rxRes).slice(0, 2));
+      setOrders(handleList(ordersRes));
+      const careList = Array.isArray(careRes) ? careRes : [];
+      const assigned = careList.find(r => r.status === "accepted");
+      setAssignedCaregiver(assigned || null);
+    }).finally(() => setLoading(false));
   }, []);
 
-  const firstName = userData?.first_name || userData?.email?.split('@')[0] || "Guest";
   const safeAppts = Array.isArray(appointments) ? appointments : [];
   const upcomingAppts =
     safeAppts.filter(
@@ -462,42 +507,27 @@ function DashboardPage({
         <EmergencyModal onClose={() => setEmergency(false)} dk={dk} />
       )}
 
-      {/* Top bar */}
-      <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
+      {/* ── SECTION 1 : HEADER ── */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"20px" }}>
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-3" style={{ color: c.txt }}>
-            {t('welcome_back_prefix') || "Bonjour"}, <span style={{ color: c.blue }}>{firstName}</span>
-            {pendingIdentityRequest && (
-              <span className="text-[10px] font-black px-2 py-0.5 rounded-lg border animate-pulse" 
-                style={{ background: "#E8A83818", color: "#E8A838", borderColor: "#E8A83844" }}>
-                {t('pending_validation_badge')}
-              </span>
-            )}
+          <h1 style={{ fontSize:"22px", fontWeight:"500", color: dk ? "#F0F3FA" : "#0D2644", margin:"0 0 4px" }}>
+            Bonjour, {userData?.first_name || "—"}
           </h1>
-          {pendingIdentityRequest && (
-            <p className="text-xs mt-1 font-medium italic opacity-70" style={{ color: c.txt2 }}>
-              {t('identity_update_pending_msg')} ({pendingIdentityRequest.new_first_name} {pendingIdentityRequest.new_last_name})
-            </p>
-          )}
+          <p style={{ fontSize:"13px", color: dk ? "#8AAEE0" : "#5C738A", margin:0 }}>
+            {new Date().toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long", year:"numeric" })}
+          </p>
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <button
-            onClick={() => setEmergency(true)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 hover:brightness-110 hover:shadow-xl hover:-translate-y-0.5 shadow-lg cursor-pointer"
-            style={{
-              background: "linear-gradient(135deg, #E05555, #c93535)",
-              color: "#fff",
-            }}
-          >
-            <AlertTriangle size={15} />
-            {t('emergency_label') || "URGENCE"}
-          </button>
-        </div>
+        <button
+          onClick={() => setEmergency(true)}
+          style={{ background:"#E24B4A", color:"#fff", border:"none", borderRadius:"12px", padding:"10px 20px", fontSize:"13px", fontWeight:"500", cursor:"pointer", display:"flex", alignItems:"center", gap:"6px" }}
+        >
+          Urgence
+        </button>
       </div>
 
       {/* ── Demandes d'accès médecin ── */}
       {linkRequests.length > 0 && (
-        <div className="rounded-2xl border p-5 mb-6 space-y-3" style={{ background: c.card, borderColor: c.amber + "55" }}>
+        <div className="rounded-2xl border p-5 mb-5 space-y-3" style={{ background: c.card, borderColor: c.amber + "55" }}>
           <div className="flex items-center gap-2 mb-1">
             <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: c.amber + "18" }}>
               <Bell size={14} style={{ color: c.amber }} />
@@ -537,12 +567,10 @@ function DashboardPage({
         </div>
       )}
 
-      {/* AI Checker */}
+      {/* ── SECTION 2 : ANALYSE DE SYMPTÔMES IA ── */}
       <div
-        className="rounded-2xl p-6 mb-6 relative overflow-hidden shadow-sm card-hover"
-        style={{
-          background: "linear-gradient(135deg, #304B71 0%, #6492C9 100%)",
-        }}
+        className="rounded-2xl p-6 mb-5 relative overflow-hidden shadow-sm card-hover"
+        style={{ background: "linear-gradient(135deg, #304B71 0%, #6492C9 100%)" }}
       >
         <div className="absolute right-6 top-1/2 -translate-y-1/2 w-36 h-36 rounded-full opacity-10 bg-white pointer-events-none" />
         <div className="absolute right-20 top-1/2 -translate-y-1/2 w-20 h-20 rounded-full opacity-8 bg-white pointer-events-none" />
@@ -573,409 +601,522 @@ function DashboardPage({
         </div>
       </div>
 
-      {/* Main grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        <div className="xl:col-span-2 flex flex-col gap-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Prochains RDV */}
-            <Card dk={dk} empty={true}>
-              <div className="flex items-center justify-between mb-5">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-base" style={{ color: c.txt }}>
-                    {t('upcoming_appointments') || "Prochains RDV"}
-                  </h3>
-                  {upcomingAppts.length > 0 && (
-                    <Badge color={c.blue} bg={`${c.blue}11`}>
-                      {upcomingAppts.length} {t('active_label') || "actifs"}
-                    </Badge>
-                  )}
-                </div>
-                <button
-                  onClick={() => onNav("appointments")}
-                  className="text-sm font-semibold hover:underline hover:opacity-80 transition-all duration-200 cursor-pointer"
-                  style={{ color: c.blue }}
-                >
-                  {t('view_all_btn') || "View All"}
-                </button>
-              </div>
-              <div className="space-y-4">
-                {upcomingAppts.length === 0 ? (
-                  <EmptyState
-                    dk={dk}
-                    icon={Calendar}
-                    title={t('no_appointments_title') || "Aucun rendez-vous"}
-                    message={t('no_appointments_desc') || "Vous n'avez pas de consultations prévues pour le moment."}
-                  />
+      {/* ── SECTION 3 : KPI CARDS ── */}
+      {loading ? (
+        <div style={{ display:"flex", justifyContent:"center", padding:"24px 0 20px" }}>
+          <span className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: c.blue }} />
+        </div>
+      ) : (
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"12px", marginBottom:"16px" }}>
+
+          {/* KPI 1 — Prochain RDV */}
+          <div
+            onMouseEnter={() => setHoveredKpi(0)}
+            onMouseLeave={() => setHoveredKpi(null)}
+            style={{ background: dk ? "#172133" : "#ffffff", border: `0.5px solid ${hoveredKpi === 0 ? "#6492C9" : c.border}`, borderRadius:"16px", padding:"14px 16px", transition:"transform 0.2s, border-color 0.2s", transform: hoveredKpi === 0 ? "translateY(-2px)" : "translateY(0)" }}
+          >
+            <p style={{ fontSize:"11px", fontWeight:"600", textTransform:"uppercase", letterSpacing:"0.05em", color: dk ? "#8AAEE0" : "#5C738A", margin:"0 0 8px" }}>Prochain RDV</p>
+            {upcomingAppts[0] ? (
+              <>
+                <p style={{ fontSize:"13px", fontWeight:"500", color: dk ? "#F0F3FA" : "#0D2644", margin:"0 0 2px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  {upcomingAppts[0].doctor_name || "Médecin"}
+                </p>
+                <p style={{ fontSize:"12px", color:"#6492C9", margin:0 }}>
+                  {fmtDate(upcomingAppts[0].date)} · {upcomingAppts[0].start_time?.substring(0,5) || ""}
+                </p>
+              </>
+            ) : (
+              <p style={{ fontSize:"13px", color: dk ? "#8AAEE0" : "#5C738A", margin:0 }}>Aucun RDV prévu</p>
+            )}
+          </div>
+
+          {/* KPI 2 — Ordonnances */}
+          <div
+            onMouseEnter={() => setHoveredKpi(1)}
+            onMouseLeave={() => setHoveredKpi(null)}
+            style={{ background: dk ? "#172133" : "#ffffff", border: `0.5px solid ${hoveredKpi === 1 ? "#6492C9" : c.border}`, borderRadius:"16px", padding:"14px 16px", transition:"transform 0.2s, border-color 0.2s", transform: hoveredKpi === 1 ? "translateY(-2px)" : "translateY(0)" }}
+          >
+            <p style={{ fontSize:"11px", fontWeight:"600", textTransform:"uppercase", letterSpacing:"0.05em", color: dk ? "#8AAEE0" : "#5C738A", margin:"0 0 8px" }}>Ordonnances</p>
+            <p style={{ fontSize:"24px", fontWeight:"500", color: dk ? "#F0F3FA" : "#0D2644", margin:"0 0 2px", lineHeight:1 }}>{prescriptions.length}</p>
+            <p style={{ fontSize:"12px", color:"#0F6E56", margin:0 }}>
+              {prescriptions.filter(p => ["active","ACTIVE"].includes(p.status)).length} active(s)
+            </p>
+          </div>
+
+          {/* KPI 3 — Commande pharmacie */}
+          {(() => {
+            const order = orders[0];
+            const statusMap = {
+              pending:   { text:"En attente",       color: dk ? "#8AAEE0" : "#5C738A" },
+              preparing: { text:"En préparation",   color:"#EF9F27" },
+              ready:     { text:"Prête à retirer",  color:"#0F6E56" },
+              delivered: { text:"Livrée",           color:"#6492C9" },
+            };
+            const orderStatus = order ? (statusMap[order.status] || { text: order.status, color: dk ? "#8AAEE0" : "#5C738A" }) : null;
+            return (
+              <div
+                onMouseEnter={() => setHoveredKpi(2)}
+                onMouseLeave={() => setHoveredKpi(null)}
+                style={{ background: dk ? "#172133" : "#ffffff", border: `0.5px solid ${hoveredKpi === 2 ? "#6492C9" : c.border}`, borderRadius:"16px", padding:"14px 16px", transition:"transform 0.2s, border-color 0.2s", transform: hoveredKpi === 2 ? "translateY(-2px)" : "translateY(0)" }}
+              >
+                <p style={{ fontSize:"11px", fontWeight:"600", textTransform:"uppercase", letterSpacing:"0.05em", color: dk ? "#8AAEE0" : "#5C738A", margin:"0 0 8px" }}>Commande pharmacie</p>
+                {order ? (
+                  <>
+                    <p style={{ fontSize:"13px", fontWeight:"500", color: dk ? "#F0F3FA" : "#0D2644", margin:"0 0 2px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {order.pharmacy_name || "Pharmacie"}
+                    </p>
+                    <p style={{ fontSize:"12px", color: orderStatus.color, margin:0 }}>{orderStatus.text}</p>
+                  </>
                 ) : (
-                  upcomingAppts.slice(0, 2).map((a) => (
-                    <div
-                      key={a.id}
-                      onClick={() => onNav("appointments")}
-                      className="group flex items-center gap-4 p-3 rounded-2xl border transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 hover:bg-blue-50/40 dark:hover:bg-white/5 active:scale-[0.99] active:shadow-sm cursor-pointer"
-                      style={{
-                        borderColor: c.border,
-                        background: dk ? `${c.blue}05` : "#fff",
-                      }}
-                    >
-                      <div
-                        className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 shadow-sm"
-                        style={{ background: c.blueLight }}
-                      >
-                        <Calendar size={20} style={{ color: c.blue }} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className="text-sm font-bold truncate"
-                          style={{ color: c.txt }}
-                        >
-                          {a.doctor_name || "Médecin Inconnu"}
-                        </p>
-                        <p
-                          className="text-xs font-medium opacity-70"
-                          style={{ color: c.txt2 }}
-                        >
-                          {a.doctor_specialty || "Généraliste"}
-                        </p>
-                        <div className="mt-1.5 flex items-center gap-2">
-                          <div
-                            className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg border border-dashed"
-                            style={{
-                              borderColor: c.blue + "33",
-                              background: c.blue + "08",
-                            }}
-                          >
-                            <Clock size={10} style={{ color: c.blue }} />
-                            <span
-                              className="text-[10px] font-bold"
-                              style={{ color: c.blue }}
-                            >
-                              {a.date} ·{" "}
-                              {a.start_time?.substring(0, 5)}
-                            </span>
-                          </div>
-                          {a.status === "pending" && (
-                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md border"
-                              style={{ background: "#E8A83818", color: "#E8A838", borderColor: "#E8A83844" }}>
-                              {t('appointment_status_pending')}
-                            </span>
-                          )}
-                          {a.status === "confirmed" && (
-                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md border"
-                              style={{ background: "#2D8C6F18", color: "#2D8C6F", borderColor: "#2D8C6F44" }}>
-                              {t('appointment_status_confirmed')}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <ChevronRight size={14} style={{ color: c.txt3 }} />
-                    </div>
-                  ))
+                  <p style={{ fontSize:"13px", color: dk ? "#8AAEE0" : "#5C738A", margin:0 }}>Aucune commande</p>
                 )}
               </div>
-            </Card>
-            {/* Medications */}
-            <Card dk={dk} empty={true}>
-              <h3 className="font-semibold mb-4" style={{ color: c.txt }}>
-                {t('medication_reminders_title') || "Rappels médicaments"}
-              </h3>
-              <div className="space-y-4">
-                {meds.map((m, i) => (
-                  <div
-                    key={m.id}
-                    className="flex items-center gap-3 cursor-pointer hover:scale-[1.01] active:scale-[0.98] transition-all duration-150 animate-in fade-in slide-in-from-bottom-2"
-                    style={{ animationDelay: `${i * 100}ms` }}
-                  >
-                    <button
-                      onClick={() =>
-                        setMeds((ms) =>
-                          ms.map((x) =>
-                            x.id === m.id ? { ...x, taken: !x.taken } : x,
-                          ),
-                        )
-                      }
-                      className="shrink-0 transition-transform duration-200 hover:scale-110 cursor-pointer"
-                    >
-                      {m.taken ? (
-                        <CheckCircle size={22} style={{ color: c.green }} />
-                      ) : (
-                        <Circle size={22} style={{ color: c.blue, opacity: 0.8 }} />
-                      )}
-                    </button>
-                    <div>
-                      <p
-                        className="text-sm font-medium"
-                        style={{
-                          color: m.taken ? c.txt3 : c.txt,
-                          textDecoration: m.taken ? "line-through" : "none",
-                        }}
-                      >
-                        {m.name}
-                      </p>
-                      <p className="text-xs" style={{ color: c.txt3 }}>
-                        {m.time}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </div>
+            );
+          })()}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Documents */}
-            <Card dk={dk} empty={true}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold" style={{ color: c.txt }}>
-                  Recent Medical Documents
-                </h3>
+          {/* KPI 4 — Notifications */}
+          {(() => {
+            const unread = (notifications || []).filter(n => !n.is_read).length;
+            return (
+              <div
+                onMouseEnter={() => setHoveredKpi(3)}
+                onMouseLeave={() => setHoveredKpi(null)}
+                style={{ background: dk ? "#172133" : "#ffffff", border: `0.5px solid ${hoveredKpi === 3 ? "#6492C9" : c.border}`, borderRadius:"16px", padding:"14px 16px", transition:"transform 0.2s, border-color 0.2s", transform: hoveredKpi === 3 ? "translateY(-2px)" : "translateY(0)" }}
+              >
+                <p style={{ fontSize:"11px", fontWeight:"600", textTransform:"uppercase", letterSpacing:"0.05em", color: dk ? "#8AAEE0" : "#5C738A", margin:"0 0 8px" }}>Notifications</p>
+                <p style={{ fontSize:"24px", fontWeight:"500", color: dk ? "#F0F3FA" : "#0D2644", margin:"0 0 2px", lineHeight:1 }}>{unread}</p>
+                {unread > 0 ? (
+                  <p style={{ fontSize:"12px", color:"#A32D2D", margin:0 }}>{unread} non lue(s)</p>
+                ) : (
+                  <p style={{ fontSize:"12px", color: dk ? "#8AAEE0" : "#5C738A", margin:0 }}>Tout est lu</p>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* ── SECTION 4 : GRILLE 2 COLONNES ── */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 340px", gap:"14px", marginBottom:"16px" }}>
+
+        {/* COLONNE GAUCHE */}
+        <div style={{ display:"flex", flexDirection:"column", gap:"12px" }}>
+
+          {/* Card RDV */}
+          <div style={{ background: dk ? "#172133" : "#ffffff", border: `0.5px solid ${c.border}`, borderRadius:"16px", padding:"14px 16px" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"12px" }}>
+              <p style={{ fontSize:"11px", fontWeight:"600", textTransform:"uppercase", letterSpacing:"0.05em", color: dk ? "#8AAEE0" : "#5C738A", margin:0 }}>
+                Mes prochains rendez-vous
+              </p>
+              <button
+                onClick={() => onNav("appointments")}
+                style={{ fontSize:"12px", color:"#6492C9", background:"none", border:"none", cursor:"pointer", fontWeight:"500" }}
+              >
+                Voir tout →
+              </button>
+            </div>
+            {upcomingAppts.length === 0 ? (
+              <div style={{ textAlign:"center", padding:"20px 0" }}>
+                <p style={{ fontSize:"13px", color: dk ? "#8AAEE0" : "#5C738A", marginBottom:"10px" }}>Aucun rendez-vous prévu</p>
                 <button
-                  onClick={() => onNav("medical-profile")}
-                  className="text-sm font-semibold hover:underline hover:opacity-80 transition-all duration-200 cursor-pointer"
-                  style={{ color: c.blue }}
+                  onClick={() => onNav("appointments")}
+                  style={{ fontSize:"12px", fontWeight:"500", color:"#6492C9", background: dk ? "#1A2333" : "#E6F1FB", border:"none", borderRadius:"8px", padding:"6px 14px", cursor:"pointer" }}
                 >
-                  View All
+                  Prendre un RDV
                 </button>
               </div>
-              <table className="w-full">
-                <thead>
-                  <tr style={{ borderBottom: `1px solid ${c.border}` }}>
-                    <th
-                      className="text-left text-xs font-bold uppercase pb-2 tracking-wide"
-                      style={{ color: c.txt3 }}
-                    >
-                      Document Name
-                    </th>
-                    <th
-                      className="text-right text-xs font-bold uppercase pb-2 tracking-wide"
-                      style={{ color: c.txt3 }}
-                    >
-                      Date
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {docs.map((d) => (
-                    <tr
-                      key={d.id}
-                      className="cursor-pointer hover:bg-blue-50 dark:hover:bg-white/5 active:scale-[0.99] transition-all duration-200"
-                      style={{ borderBottom: `1px solid ${c.border}` }}
-                    >
-                      <td className="py-3 text-sm" style={{ color: c.txt }}>
-                        {d.test_name || d.name}
-                      </td>
-                      <td
-                        className="py-3 text-sm text-right"
-                        style={{ color: c.txt2 }}
-                      >
-                        {d.date || d.created_at?.split('T')[0]}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </Card>
-            {/* Caregiver + AI */}
-            <div className="flex flex-col gap-4">
-              <div
-                onClick={() => onNav("care-taker")}
-                className="rounded-2xl p-5 flex items-center gap-4 cursor-pointer card-hover flex-1"
-                style={{
-                  background: "linear-gradient(135deg, #2D8C6F, #3aaa88)",
-                }}
-              >
-                <Heart size={26} className="text-white shrink-0" />
-                <div>
-                  <p className="text-white font-semibold">Caregiver</p>
-                  <p className="text-white/80 text-sm">
-                    Fatima B. is assigned to you
-                  </p>
-                </div>
-              </div>
-              <div
-                onClick={() => onNav("ai-diagnosis")}
-                className="rounded-2xl p-5 flex items-center gap-4 cursor-pointer card-hover flex-1"
-                style={{
-                  background: "linear-gradient(135deg, #304B71, #4A6FA5)",
-                }}
-              >
-                <Star size={26} className="text-white shrink-0" />
-                <div>
-                  <p className="text-white font-semibold">AI Suggestion</p>
-                  <p className="text-white/80 text-sm">
-                    New health tip available
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right col */}
-        <div className="flex flex-col gap-5">
-          <Card dk={dk} empty={true}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold" style={{ color: c.txt }}>
-                Notifications
-              </h3>
-              {notifications?.filter((n) => !n.is_read && n.unread !== false)
-                .length > 0 && (
-                <span className="w-6 h-6 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
-                  {
-                    notifications.filter(
-                      (n) => !n.is_read && n.unread !== false,
-                    ).length
-                  }
-                </span>
-              )}
-            </div>
-            <div className="space-y-3">
-              {(notifications || []).slice(0, 3).map((n) => {
-                const isUnread = !n.is_read && n.unread !== false;
+            ) : (
+              upcomingAppts.slice(0, 3).map((appt) => {
+                const initials = (appt.doctor_name || "M").split(" ").map(n => n[0]).join("").toUpperCase().substring(0, 2);
                 return (
                   <div
-                    key={n.id}
-                    onClick={() => {
-                      if (isUnread) {
-                        api.markNotificationRead(n.id).catch(() => null);
-                        if (setNotifications) {
-                          setNotifications((prev) =>
-                            prev.map((x) =>
-                              x.id === n.id
-                                ? { ...x, is_read: true, unread: false }
-                                : x,
-                            ),
-                          );
-                        }
-                      }
-                    }}
-                    className="flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:scale-[0.99] active:shadow-sm"
-                    style={{
-                      background: isUnread ? c.blueLight : "transparent",
-                      border: `1px solid ${c.border}`,
-                    }}
+                    key={appt.id}
+                    onClick={() => onNav("appointments")}
+                    style={{ display:"flex", alignItems:"center", gap:"12px", padding:"10px 12px", background: dk ? "#1A2333" : "#F8FAFC", borderRadius:"12px", marginBottom:"8px", cursor:"pointer", transition:"background 0.15s" }}
+                    onMouseEnter={e => { e.currentTarget.style.background = dk ? "#1E2B40" : "#EEF3FB"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = dk ? "#1A2333" : "#F8FAFC"; }}
                   >
-                    <div
-                      className="w-1 self-stretch rounded-full shrink-0"
-                      style={{ background: isUnread ? c.blue : "transparent" }}
-                    />
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-                      style={{ background: c.blueLight }}
-                    >
-                      <Bell size={14} style={{ color: c.blue }} />
+                    <div style={{ width:"36px", height:"36px", borderRadius:"10px", background:"#6492C9", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontSize:"12px", fontWeight:"700", flexShrink:0 }}>
+                      {initials}
                     </div>
-                    <div>
-                      <p
-                        className="text-sm font-semibold"
-                        style={{ color: c.txt }}
-                      >
-                        {n.title || n.message || "Notification"}
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <p style={{ fontSize:"13px", fontWeight:"500", color: dk ? "#F0F3FA" : "#0D2644", margin:"0 0 2px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                        {appt.doctor_name || "Médecin"}
                       </p>
-                      <p className="text-xs" style={{ color: c.txt3 }}>
-                        {n.created_at || n.sub || "Récemment"}
+                      <p style={{ fontSize:"12px", color: dk ? "#8AAEE0" : "#5C738A", margin:0 }}>
+                        {appt.doctor_specialty || "Généraliste"} · {fmtDate(appt.date)} · {appt.start_time?.substring(0,5) || ""}
                       </p>
                     </div>
+                    {appt.status === "confirmed" && (
+                      <span style={{ fontSize:"11px", fontWeight:"600", padding:"3px 8px", borderRadius:"6px", background:"#E1F5EE", color:"#0F6E56", flexShrink:0 }}>Confirmé</span>
+                    )}
+                    {appt.status === "pending" && (
+                      <span style={{ fontSize:"11px", fontWeight:"600", padding:"3px 8px", borderRadius:"6px", background:"#FAEEDA", color:"#854F0B", flexShrink:0 }}>En attente</span>
+                    )}
                   </div>
                 );
-              })}
-              {(!notifications || notifications.length === 0) && (
-                <p
-                  className="text-xs text-center py-4"
-                  style={{ color: c.txt3 }}
-                >
-                  Aucune notification
-                </p>
-              )}
-            </div>
-
-            {notifications && notifications.length > 3 && (
-              <button
-                onClick={() => onNav("notifications")}
-                className="w-full mt-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 hover:brightness-110 hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
-                style={{
-                  background: c.blueLight,
-                  color: c.blue,
-                }}
-              >
-                View All
-              </button>
+              })
             )}
-            {notifications &&
-              notifications.length > 0 &&
-              notifications.length <= 3 && (
-                <button
-                  onClick={() => onNav("notifications")}
-                  className="w-full mt-4 py-2 text-xs font-semibold rounded-xl transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5 hover:shadow-sm border cursor-pointer"
-                  style={{ borderColor: c.border, color: c.txt2 }}
-                >
-                  Gérer les notifications
-                </button>
-              )}
-          </Card>
-          <Card dk={dk} empty={true}>
-            <h3 className="font-semibold mb-5" style={{ color: c.txt }}>
-              Prescription Status
-            </h3>
-            <div className="space-y-5">
-              {prescriptions.map((p, i) => (
+          </div>
+
+          {/* Card Accès rapide */}
+          <div style={{ background: dk ? "#172133" : "#ffffff", border: `0.5px solid ${c.border}`, borderRadius:"16px", padding:"14px 16px" }}>
+            <p style={{ fontSize:"11px", fontWeight:"600", textTransform:"uppercase", letterSpacing:"0.05em", color: dk ? "#8AAEE0" : "#5C738A", margin:"0 0 12px" }}>
+              Accès rapide
+            </p>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"8px" }}>
+              {[
+                { label:"Trouver un médecin", icon:<Search size={16} />,    bg:"#E6F1FB", color:"#4A6FA5", page:"appointments" },
+                { label:"Pharmacie",          icon:<Package size={16} />,   bg:"#E1F5EE", color:"#2D8C6F", page:"pharmacy" },
+                { label:"Ordonnances",        icon:<FileText size={16} />,  bg:"#FAEEDA", color:"#E8A838", page:"prescriptions" },
+                { label:"Garde-malade",       icon:<Heart size={16} />,     bg:"#EEEDFE", color:"#7F77DD", page:"care-taker" },
+              ].map((item, idx) => (
                 <div
-                  key={p.id}
-                  className="cursor-pointer hover:scale-[1.01] active:scale-[0.98] transition-all duration-150 animate-in fade-in slide-in-from-bottom-2"
-                  style={{ animationDelay: `${i * 100}ms` }}
+                  key={item.page}
+                  onClick={() => onNav(item.page)}
+                  onMouseEnter={() => setHoveredQuick(idx)}
+                  onMouseLeave={() => setHoveredQuick(null)}
+                  style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:"6px", padding:"12px 8px", background: dk ? "#1A2333" : "#F8FAFC", borderRadius:"12px", border: `0.5px solid ${hoveredQuick === idx ? "#6492C9" : "transparent"}`, cursor:"pointer", transition:"transform 0.15s, border-color 0.15s", transform: hoveredQuick === idx ? "translateY(-2px)" : "translateY(0)" }}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <p
-                      className="text-sm font-semibold"
-                      style={{ color: c.txt }}
-                    >
-                      Prescription #{p.id.substring(0, 8)}
-                    </p>
-                    <Badge 
-                      color={p.status?.toUpperCase() === 'ACTIVE' ? c.green : c.red} 
-                      bg={(p.status?.toUpperCase() === 'ACTIVE' ? c.green : c.red) + "18"}
-                    >
-                      {p.status}
-                    </Badge>
+                  <div style={{ width:"36px", height:"36px", borderRadius:"10px", background: item.bg, display:"flex", alignItems:"center", justifyContent:"center", color: item.color }}>
+                    {item.icon}
                   </div>
-                  <div
-                    className="w-full h-2 rounded-full overflow-hidden relative bg-black/5 dark:bg-white/5"
-                  >
-                    <div
-                      className="h-full rounded-full transition-all animate-fill bar-shimmer"
-                      style={{ 
-                        width: `100%`, 
-                        background: p.status?.toUpperCase() === 'ACTIVE' ? c.green : c.red 
-                      }}
-                    />
-                  </div>
-                  <p className="text-xs mt-1.5" style={{ color: c.txt3 }}>
-                    Issued by {p.doctor_name || "Doctor"} · {p.date || p.created_at?.split('T')[0]}
+                  <p style={{ fontSize:"11px", fontWeight:"500", color: dk ? "#F0F3FA" : "#0D2644", margin:0, textAlign:"center" }}>
+                    {item.label}
                   </p>
                 </div>
               ))}
             </div>
-          </Card>
+          </div>
+        </div>
+
+        {/* COLONNE DROITE */}
+        <div style={{ display:"flex", flexDirection:"column", gap:"12px" }}>
+
+          {/* Card Notifications */}
+          <div style={{ background: dk ? "#172133" : "#ffffff", border: `0.5px solid ${c.border}`, borderRadius:"16px", padding:"14px 16px" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"12px" }}>
+              <p style={{ fontSize:"11px", fontWeight:"600", textTransform:"uppercase", letterSpacing:"0.05em", color: dk ? "#8AAEE0" : "#5C738A", margin:0 }}>
+                Notifications
+              </p>
+              <button
+                onClick={() => (notifications || []).forEach(n => api.markNotificationRead(n.id).catch(() => {}))}
+                style={{ fontSize:"12px", color:"#6492C9", background:"none", border:"none", cursor:"pointer", fontWeight:"500" }}
+              >
+                Tout lire
+              </button>
+            </div>
+            {(!notifications || notifications.length === 0) ? (
+              <p style={{ fontSize:"12px", color: dk ? "#8AAEE0" : "#5C738A", textAlign:"center", padding:"12px 0" }}>
+                Aucune notification
+              </p>
+            ) : (
+              (notifications || []).slice(0, 5).map(notif => {
+                const typeUpper = (notif.type || notif.notification_type || "").toUpperCase();
+                const nc = typeUpper === "APPOINTMENT"
+                  ? { border:"#6492C9", bg: dk ? "#1A2333" : "#E6F1FB" }
+                  : typeUpper === "PHARMACY"
+                    ? { border:"#0F6E56", bg: dk ? "#162B24" : "#E1F5EE" }
+                    : typeUpper === "SYSTEM"
+                      ? { border:"#EF9F27", bg: dk ? "#2A2010" : "#FAEEDA" }
+                      : { border: c.border, bg: dk ? "#1A2333" : "#F8FAFC" };
+                return (
+                  <div
+                    key={notif.id}
+                    onClick={() => {
+                      if (!notif.is_read) {
+                        api.markNotificationRead(notif.id).catch(() => {});
+                        if (setNotifications) {
+                          setNotifications(prev => prev.map(x => x.id === notif.id ? { ...x, is_read: true } : x));
+                        }
+                      }
+                    }}
+                    style={{ padding:"10px 12px", background: nc.bg, borderRadius:"10px", borderLeft:`3px solid ${nc.border}`, marginBottom:"6px", cursor:"pointer" }}
+                  >
+                    <p style={{ fontSize:"12px", fontWeight:"500", color: dk ? "#F0F3FA" : "#0D2644", margin:"0 0 2px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {notif.title || (notif.message || "").substring(0, 40)}
+                    </p>
+                    <p style={{ fontSize:"11px", color: dk ? "#8AAEE0" : "#5C738A", margin:0 }}>
+                      {formatNotifDate(notif.created_at)}
+                    </p>
+                  </div>
+                );
+              })
+            )}
+            <button
+              onClick={() => onNav("notifications")}
+              style={{ display:"block", width:"100%", marginTop:"8px", padding:"8px", fontSize:"12px", fontWeight:"500", color:"#6492C9", background: dk ? "#1A2333" : "#E6F1FB", border:"none", borderRadius:"8px", cursor:"pointer", textAlign:"center" }}
+            >
+              Voir toutes les notifications →
+            </button>
+          </div>
+
+          {/* Card Caregiver — seulement si assigné */}
+          {assignedCaregiver && (() => {
+            const cgName = assignedCaregiver.caretaker_name || assignedCaregiver.caretaker?.full_name || "Garde-malade assigné";
+            const cgInitials = cgName.split(" ").map(n => n[0]).join("").toUpperCase().substring(0, 2);
+            return (
+              <div
+                onClick={() => onNav("care-taker")}
+                style={{ background: dk ? "#172133" : "#ffffff", border: `0.5px solid ${c.border}`, borderRadius:"16px", padding:"14px 16px", cursor:"pointer" }}
+              >
+                <p style={{ fontSize:"11px", fontWeight:"600", textTransform:"uppercase", letterSpacing:"0.05em", color: dk ? "#8AAEE0" : "#5C738A", margin:"0 0 10px" }}>
+                  Mon garde-malade
+                </p>
+                <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
+                  <div style={{ width:"36px", height:"36px", borderRadius:"50%", background:"#7F77DD", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontSize:"13px", fontWeight:"700", flexShrink:0 }}>
+                    {cgInitials}
+                  </div>
+                  <div>
+                    <p style={{ fontSize:"13px", fontWeight:"500", color: dk ? "#F0F3FA" : "#0D2644", margin:"0 0 2px" }}>{cgName}</p>
+                    <p style={{ fontSize:"11px", color: dk ? "#8AAEE0" : "#5C738A", margin:0 }}>
+                      Disponible{assignedCaregiver.phone ? ` · ${assignedCaregiver.phone}` : ""}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
+
+      {/* ── SECTION 5 : PRESCRIPTION STATUS ── */}
+      <Card dk={dk} empty={true}>
+        <h3 className="font-semibold mb-5" style={{ color: c.txt }}>
+          Prescription Status
+        </h3>
+        <div className="space-y-5">
+          {prescriptions.length === 0 ? (
+            <p className="text-xs text-center py-4" style={{ color: c.txt3 }}>Aucune ordonnance</p>
+          ) : (
+            prescriptions.map((p, i) => (
+              <div
+                key={p.id}
+                className="cursor-pointer hover:scale-[1.01] active:scale-[0.98] transition-all duration-150 animate-in fade-in slide-in-from-bottom-2"
+                style={{ animationDelay: `${i * 100}ms` }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-semibold" style={{ color: c.txt }}>
+                    {typeof p.id === "string"
+                      ? "Prescription #" + p.id.substring(0, 8)
+                      : "Prescription #" + String(p.id)}
+                  </p>
+                  <Badge
+                    color={p.status?.toUpperCase() === 'ACTIVE' ? c.green : c.red}
+                    bg={(p.status?.toUpperCase() === 'ACTIVE' ? c.green : c.red) + "18"}
+                  >
+                    {p.status}
+                  </Badge>
+                </div>
+                <div className="w-full h-2 rounded-full overflow-hidden relative bg-black/5 dark:bg-white/5">
+                  <div
+                    className="h-full rounded-full transition-all animate-fill bar-shimmer"
+                    style={{ width:`100%`, background: p.status?.toUpperCase() === 'ACTIVE' ? c.green : c.red }}
+                  />
+                </div>
+                <p className="text-xs mt-1.5" style={{ color: c.txt3 }}>
+                  {(() => {
+                    const doctorLabel = p.doctor_name ||
+                      (typeof p.doctor === "string" && !p.doctor.match(/^\d+$/) ? p.doctor : null) ||
+                      "—";
+                    return `Issued by ${doctorLabel}`;
+                  })()} · {p.date || p.created_at?.split('T')[0]}
+                </p>
+              </div>
+            ))
+          )}
+        </div>
+      </Card>
     </>
   );
 }
 
+
 // ─── MEDICAL PROFILE PAGE ─────────────────────────────────────────────────────
-function MedicalProfilePage(props) {
-  const { dk, profile, userId, userData } = props;
-  const { t } = useLanguage();
+function MedicalProfilePage({ dk }) {
   const c = dk ? T.dark : T.light;
 
-  const handleDownloadPDF = async (rxId) => {
-    if (!rxId) return;
-    const idStr = String(rxId);
+  // ── State ──────────────────────────────────────────────────────────────────
+  const [loading, setLoading] = useState(true);
+  const [userData, setUserData] = useState({});
+  const [profile, setProfile] = useState({});
+  const [antecedents, setAntecedents] = useState([]);
+  const [prescriptions, setPrescriptions] = useState([]);
+  const [consultations, setConsultations] = useState([]);
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState({ type: "", msg: "" });
+  const [pdfLoading, setPdfLoading] = useState(null);
+  const [selectedConsult, setSelectedConsult] = useState(null);
+
+  // ── Crop state ─────────────────────────────────────────────────────────────
+  const [cropMode, setCropMode] = useState(false);
+  const [cropSrc, setCropSrc] = useState(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+
+  const onCropComplete = useCallback((_, pixels) => {
+    setCroppedAreaPixels(pixels);
+  }, []);
+
+  const getCroppedImg = async (imageSrc, pixelCrop) => {
+    const image = new Image();
+    image.src = imageSrc;
+    await new Promise((res) => { image.onload = res; });
+    const canvas = document.createElement("canvas");
+    canvas.width = 300;
+    canvas.height = 300;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(
+      image,
+      pixelCrop.x, pixelCrop.y,
+      pixelCrop.width, pixelCrop.height,
+      0, 0, 300, 300
+    );
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.9);
+    });
+  };
+
+  const handleCropConfirm = async () => {
+    if (!croppedAreaPixels || !cropSrc) return;
+    const blob = await getCroppedImg(cropSrc, croppedAreaPixels);
+    const file = new File([blob], "profile.jpg", { type: "image/jpeg" });
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(blob));
+    setCropMode(false);
+    setCropSrc(null);
+  };
+
+  const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+
+  // ── Fetch on mount ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    Promise.all([
+      api.getMe().catch(() => null),
+      api.getMedicalProfile().catch(() => null),
+      api.getAntecedents().catch(() => []),
+      api.getMyPrescriptions().catch(() => []),
+      api.getMyConsultations().catch((err) => { console.error("[MedicalProfilePage] getMyConsultations error:", err); return []; }),
+    ]).then(([me, med, ants, rxs, consults]) => {
+      setUserData(me || {});
+      setProfile(med || {});
+      setAntecedents(Array.isArray(ants) ? ants : (ants?.results || []));
+      setPrescriptions(Array.isArray(rxs) ? rxs : (rxs?.results || []));
+      const consultList = Array.isArray(consults) ? consults : (consults?.results || []);
+      setConsultations(consultList);
+      setLoading(false);
+    });
+  }, []);
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  const calcAge = (dob) => {
+    if (!dob) return null;
+    const birth = new Date(dob);
+    const now = new Date();
+    let age = now.getFullYear() - birth.getFullYear();
+    const m = now.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
+    return isNaN(age) ? null : age;
+  };
+
+  const formatDate = (iso) => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return String(iso).split("T")[0] || "—";
+    return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+  };
+
+  const antecedentBadge = (status) => {
+    if (status === "chronic")  return { label: "Chronique", bg: c.blue + "22", color: c.blue };
+    if (status === "resolved") return { label: "Résolu",    bg: c.border,       color: c.txt3 };
+    return { label: "En cours", bg: c.amber + "22", color: c.amber };
+  };
+
+  const allergyColors = (severity) => {
+    if (severity === "severe")   return { bg: c.red   + "25", color: c.red   };
+    if (severity === "moderate") return { bg: c.amber + "25", color: c.amber };
+    return { bg: c.border, color: c.txt3 };
+  };
+
+  const parseVitals = (raw) => {
+    if (!raw) return null;
+    if (typeof raw === "object") return raw;
+    try { return JSON.parse(raw); } catch { return null; }
+  };
+
+  // ── Edit modal ─────────────────────────────────────────────────────────────
+  const openEdit = () => {
+    const allergyStr = Array.isArray(profile?.allergies)
+      ? profile.allergies.map((a) => a?.substance || String(a)).filter(Boolean).join(", ")
+      : "";
+    setEditForm({
+      phone:          (userData?.phone || "").replace(/\D/g, "").slice(0, 10),
+      city:           userData?.city   || "",
+      wilaya:         userData?.wilaya || "",
+      weight:         profile?.weight  != null ? String(profile.weight)  : "",
+      height:         profile?.height  != null ? String(profile.height)  : "",
+      bloodGroup:     profile?.blood_group || "",
+      allergies:      allergyStr,
+      emergencyName:  profile?.emergency_contact_name  || "",
+      emergencyPhone: (profile?.emergency_contact_phone || "").replace(/\D/g, "").slice(0, 10),
+    });
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    setSaveStatus({ type: "", msg: "" });
+    setEditOpen(true);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveStatus({ type: "", msg: "" });
+    try {
+      const fd = new FormData();
+      fd.append("phone",  editForm.phone  || "");
+      fd.append("city",   editForm.city   || "");
+      fd.append("wilaya", editForm.wilaya || "");
+      if (photoFile) fd.append("photo", photoFile);
+      await Promise.all([
+        api.updateMe(fd).catch(() => {}),
+        api.updateMedicalProfile({
+          weight:                  parseFloat(editForm.weight)  || null,
+          height:                  parseFloat(editForm.height)  || null,
+          blood_group:             editForm.bloodGroup,
+          allergies_input:         editForm.allergies.split(",").map((a) => a.trim()).filter(Boolean),
+          emergency_contact_name:  editForm.emergencyName,
+          emergency_contact_phone: editForm.emergencyPhone,
+        }).catch(() => {}),
+      ]);
+      setSaveStatus({ type: "success", msg: "Profil mis à jour ✓" });
+      const [me, med] = await Promise.all([
+        api.getMe().catch(() => null),
+        api.getMedicalProfile().catch(() => null),
+      ]);
+      if (me)  setUserData(me);
+      if (med) setProfile(med);
+      setTimeout(() => setEditOpen(false), 1200);
+    } catch (err) {
+      setSaveStatus({ type: "error", msg: err?.message || "Erreur lors de la mise à jour" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDownloadPDF = async (rx) => {
+    if (!rx?.id) return;
+    const idStr = String(rx.id);
+    setPdfLoading(idStr);
     try {
       const blob = await api.apiFetchBlob(`/prescriptions/${idStr}/pdf-download/`);
       if (blob.type === "application/json") {
         const text = await blob.text();
-        const errData = JSON.parse(text);
-        throw new Error(errData.detail || "Erreur serveur");
+        const err  = JSON.parse(text);
+        throw new Error(err.detail || "Erreur serveur");
       }
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -984,812 +1125,709 @@ function MedicalProfilePage(props) {
       a.download = `ordonnance-${idStr.slice(0, 8)}.pdf`;
       document.body.appendChild(a);
       a.click();
-      setTimeout(() => {
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-      }, 100);
+      setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
     } catch (err) {
       console.error("Erreur PDF:", err);
-      setStatus({ type: "error", msg: `Erreur de téléchargement : ${err.message}` });
-      setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
-    }
-  };
-
-  const [qrModal, setQrModal] = useState(null); // { rx, imageUrl }
-
-  const handleViewQR = async (rx) => {
-    if (!rx?.id) return;
-    const idStr = String(rx.id);
-    setQrModal({ rx, imageUrl: null });
-    try {
-      const blob = await api.apiFetchBlob(`/prescriptions/${idStr}/qr-image/`);
-      const url = window.URL.createObjectURL(blob);
-      setQrModal({ rx, imageUrl: url });
-    } catch (err) {
-      console.error("Erreur QR:", err);
-      setStatus({ type: "error", msg: "Impossible d'afficher le QR Code." });
-      setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
-      setQrModal(null);
-    }
-  };
-
-  const [tab, setTab] = useState("antecedents");
-  const [data, setData] = useState({
-    antecedents: [],
-    treatments: [],
-    diagnostics: [],
-    prescriptions: [],
-    analyses: [],
-  });
-  const [loading, setLoading] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [editForm, setEditForm] = useState({});
-  const [status, setStatus] = useState({ type: "", msg: "" });
-  const [showReasonInput, setShowReasonInput] = useState(false);
-  const [identityReason, setIdentityReason] = useState("");
-  const loadedTabs = useRef(new Set());
-
-  const pendingIdentityRequest = props.pendingIdentityRequest;
-
-  const FETCH_TABS = {
-    antecedents: true,
-    treatments: true,
-    analyses: true,
-    diagnostics: true,
-    prescriptions: true,
-  };
-
-  const TAB_LABELS = {
-    antecedents: "Antécédents",
-    diagnostics: "Diagnostics",
-    prescriptions: "Prescriptions",
-    analyses: "Analyses",
-    treatments: "Traitements",
-  };
-
-  useEffect(() => {
-    if (!FETCH_TABS[tab]) return;
-    if (loadedTabs.current.has(tab)) return;
-    async function fetchTabData() {
-      setLoading(true);
-      try {
-        if (tab === "antecedents") {
-          const res = await api.getAntecedents().catch(() => []);
-          const list = Array.isArray(res) ? res : (res?.results || []);
-          setData((d) => ({ ...d, antecedents: list }));
-        } else if (tab === "treatments") {
-          const res = await api.getTreatments().catch(() => []);
-          const list = Array.isArray(res) ? res : (res?.results || []);
-          setData((d) => ({ ...d, treatments: list }));
-        } else if (tab === "analyses") {
-          const res = await api.getLabResults().catch(() => []);
-          const list = Array.isArray(res) ? res : (res?.results || []);
-          setData((d) => ({ ...d, analyses: list }));
-        } else if (tab === "diagnostics") {
-          const res = await api.getMyConsultations().catch(() => []);
-          const list = Array.isArray(res) ? res : (res?.results || []);
-          const diags = list.filter((c) => c.status === "completed" && c.diagnosis);
-          setData((d) => ({ ...d, diagnostics: diags }));
-        } else if (tab === "prescriptions") {
-          const res = await api.getMyPrescriptions().catch(() => []);
-          const list = Array.isArray(res) ? res : (res?.results || []);
-          setData((d) => ({ ...d, prescriptions: list }));
-        }
-      } catch (_) {}
-      loadedTabs.current.add(tab);
-      setLoading(false);
-    }
-    fetchTabData();
-  }, [tab]);
-
-  const tabs = [
-    "antecedents",
-    "diagnostics",
-    "prescriptions",
-    "analyses",
-    "treatments",
-  ];
-  const safeProfile = profile || {};
-
-  // Liste d'options alignée avec la spec (Inconnu = absence côté UI)
-  const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", "Inconnu"];
-
-  // Convertit une ISO (YYYY-MM-DD) → affichage JJ/MM/AAAA dans l'input.
-  const isoToFr = (iso) => {
-    if (!iso) return "";
-    const s = String(iso);
-    if (s.includes("/")) return s.length > 10 ? s.slice(0, 10) : s;
-    const parts = s.split("-");
-    if (parts.length !== 3) return "";
-    return `${parts[2]}/${parts[1]}/${parts[0]}`;
-  };
-  // Convertit JJ/MM/AAAA → ISO YYYY-MM-DD (ou "" si invalide).
-  const frToIso = (fr) => {
-    if (!fr) return "";
-    const parts = String(fr).split("/");
-    if (parts.length !== 3 || parts[2].length !== 4) return "";
-    return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
-  };
-  // Masque JJ/MM/AAAA pour l'input texte.
-  const maskDob = (raw) => {
-    let v = String(raw || "").replace(/\D/g, "").slice(0, 8);
-    if (v.length > 4) return `${v.slice(0, 2)}/${v.slice(2, 4)}/${v.slice(4)}`;
-    if (v.length > 2) return `${v.slice(0, 2)}/${v.slice(2)}`;
-    return v;
-  };
-
-  const handleSaveProfile = async () => {
-    try {
-      setLoading(true);
-      const payload = { ...editForm };
-      
-      // Normalisation du groupe sanguin (backend utilise 'blood_group')
-      if (payload.blood_type) {
-        payload.blood_group = payload.blood_type === "Inconnu" ? "" : payload.blood_type;
-      }
-
-      // Normalisation de la date de naissance (backend utilise 'date_of_birth')
-      if (payload.dob) {
-        let isoDate = payload.dob;
-        if (String(payload.dob).includes("/")) {
-          isoDate = frToIso(payload.dob);
-        }
-        payload.date_of_birth = isoDate;
-      }
-
-      // Allergies : string → array
-      if (typeof payload.allergies === "string") {
-        payload.allergies = payload.allergies
-          .split(",")
-          .map((a) => a.trim())
-          .filter(Boolean);
-      }
-
-      // Détection de changement de nom/prénom
-      const nameChanged = 
-        (payload.first_name && payload.first_name !== (userData?.first_name || safeProfile.first_name)) ||
-        (payload.last_name && payload.last_name !== (userData?.last_name || safeProfile.last_name));
-
-      if (nameChanged && !identityReason) {
-        setShowReasonInput(true);
-        setStatus({ type: "info", msg: "Veuillez indiquer le motif du changement de nom." });
-        setLoading(false);
-        return;
-      }
-
-      const updatePromises = [];
-
-      // 1. Mise à jour immédiate (Téléphone, Ville, Email, etc.)
-      updatePromises.push(
-        api.updateMe({
-          email: payload.email,
-          phone: payload.phone,
-          sex: payload.sex,
-          city: payload.city,
-          wilaya: payload.wilaya,
-          address: payload.address,
-          postal_code: payload.postal_code,
-          date_of_birth: payload.date_of_birth
-        })
-      );
-
-      // 2. Mise à jour du profil médical
-      updatePromises.push(api.updateMedicalProfile(payload));
-
-      // 3. Demande de changement de nom
-      if (nameChanged && identityReason) {
-        updatePromises.push(
-          api.requestProfileUpdate({
-            new_first_name: payload.first_name || userData?.first_name || safeProfile.first_name || "",
-            new_last_name: payload.last_name || userData?.last_name || safeProfile.last_name || "",
-            reason: identityReason
-          })
-        );
-      }
-
-      await Promise.all(updatePromises);
-      setStatus({ 
-        type: "success", 
-        msg: nameChanged 
-          ? "Profil mis à jour. La demande de changement de nom a été envoyée à l'administrateur." 
-          : "Profil mis à jour avec succès" 
-      });
-      
-      setEditMode(false);
-      setShowReasonInput(false);
-      setIdentityReason("");
-      
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
-      
-    } catch (err) {
-      setStatus({ type: "error", msg: err?.message || "Erreur lors de la mise à jour" });
-      setTimeout(() => setStatus({ type: "", msg: "" }), 5000);
     } finally {
-      setLoading(false);
+      setPdfLoading(null);
     }
   };
+
+  // ── Loading spinner ────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="flex flex-col items-center gap-3">
+          <span className="w-10 h-10 border-2 rounded-full animate-spin"
+            style={{ borderColor: c.blue + "44", borderTopColor: c.blue }} />
+          <p className="text-sm font-medium" style={{ color: c.txt3 }}>Chargement...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const age      = calcAge(userData?.date_of_birth);
+  const allergies = Array.isArray(profile?.allergies) ? profile.allergies : [];
+  const completedConsults = consultations.filter((con) => con.status === "completed").slice(0, 5);
+  const initials = `${userData?.first_name?.[0] || ""}${userData?.last_name?.[0] || ""}`.toUpperCase() || "PJ";
 
   return (
     <>
-      {status.msg && (
+      <div className="space-y-6 pb-10">
+
+        {/* ── SECTION 1 — HEADER ───────────────────────────────────────────── */}
         <div
-          className="mb-4 p-3 rounded-xl text-sm font-semibold flex items-center gap-2"
+          className="rounded-2xl p-6 relative overflow-hidden"
           style={{
-            background:
-              status.type === "success"
-                ? "rgba(45, 140, 111, 0.15)"
-                : "rgba(224, 85, 85, 0.15)",
-            color: status.type === "success" ? "#2D8C6F" : "#E05555",
-            border: `1px solid ${status.type === "success" ? "rgba(45, 140, 111, 0.3)" : "rgba(224, 85, 85, 0.3)"}`,
+            background: dk
+              ? "linear-gradient(135deg, #0D1B2E 0%, #1A2845 50%, #213354 100%)"
+              : "linear-gradient(135deg, #304B71 0%, #4A6FA5 60%, #638ECB 100%)",
           }}
         >
-          {status.msg}
-        </div>
-      )}
+          <div style={{ position:"absolute", top:-50, right:-40, width:180, height:180, borderRadius:"50%", background:"rgba(255,255,255,0.06)", pointerEvents:"none" }} />
+          <div style={{ position:"absolute", bottom:-60, right:60, width:130, height:130, borderRadius:"50%", background:"rgba(255,255,255,0.04)", pointerEvents:"none" }} />
 
-      {pendingIdentityRequest && (
-        <div
-          className="mb-6 p-4 rounded-2xl border flex items-center gap-4 animate-in slide-in-from-top-2 duration-300"
-          style={{ background: "#E8A83812", borderColor: "#E8A83844" }}
-        >
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "#E8A83822" }}>
-            <AlertTriangle size={20} style={{ color: "#E8A838" }} />
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-bold" style={{ color: "#E8A838" }}>
-              {t('identity_update_pending_title')}
-            </p>
-            <p className="text-xs opacity-80" style={{ color: "#E8A838" }}>
-              {t('identity_update_pending_msg')} <strong>({pendingIdentityRequest.new_first_name} {pendingIdentityRequest.new_last_name})</strong>
-            </p>
-          </div>
-        </div>
-      )}
+          <div className="relative z-10 flex items-start gap-5 flex-wrap">
+            {/* Avatar */}
+            {userData?.photo ? (
+              <img src={userData.photo} alt="Photo de profil"
+                className="w-20 h-20 rounded-full object-cover shrink-0"
+                style={{ border: "3px solid rgba(255,255,255,0.30)" }} />
+            ) : (
+              <div className="w-20 h-20 rounded-full flex items-center justify-center font-bold text-2xl shrink-0"
+                style={{ background: "rgba(255,255,255,0.15)", border: "3px solid rgba(255,255,255,0.30)", color: "rgba(255,255,255,0.95)" }}>
+                {initials}
+              </div>
+            )}
 
-      {/* Profile header */}
-      <div
-        className="rounded-2xl p-6 mb-6 border"
-        style={{ background: c.blueLight, borderColor: c.border }}
-      >
-        <div className="flex items-start gap-5 flex-wrap">
-          {userData?.photo ? (
-            <img
-              src={userData.photo}
-              alt={`${userData.first_name || ""} ${userData.last_name || ""}`.trim() || "Profil"}
-              className="w-16 h-16 rounded-2xl object-cover shrink-0"
-            />
-          ) : (
-            <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-bold text-xl shrink-0"
-              style={{ background: "linear-gradient(135deg, #4A6FA5, #304B71)" }}
-            >
-              {profile?.user_initials || `${userData?.first_name?.[0] || ""}${userData?.last_name?.[0] || ""}`.toUpperCase() || "PJ"}
-            </div>
-          )}
-          <div className="flex-1 min-w-[250px]">
-            {editMode ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                {/* Prénom */}
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Prénom</label>
-                  <input type="text"
-                    value={editForm.first_name ?? userData?.first_name ?? safeProfile.first_name ?? ""}
-                    onChange={(e) => setEditForm({ ...editForm, first_name: e.target.value })}
-                    className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
-                    style={{ background: c.card, borderColor: c.border, color: c.txt }}
-                  />
-                </div>
-                {/* Nom */}
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Nom</label>
-                  <input type="text"
-                    value={editForm.last_name ?? userData?.last_name ?? safeProfile.last_name ?? ""}
-                    onChange={(e) => setEditForm({ ...editForm, last_name: e.target.value })}
-                    className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
-                    style={{ background: c.card, borderColor: c.border, color: c.txt }}
-                  />
-                </div>
-
-                {/* Motif du changement (apparaît si changement détecté) */}
-                {((editForm.first_name && editForm.first_name !== (userData?.first_name || safeProfile.first_name)) ||
-                  (editForm.last_name && editForm.last_name !== (userData?.last_name || safeProfile.last_name))) && (
-                  <div className="sm:col-span-2 animate-in fade-in slide-in-from-top-2">
-                    <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "#E8A838" }}>
-                      Motif du changement de nom (Requis pour validation Admin)
-                    </label>
-                    <textarea
-                      value={identityReason}
-                      onChange={(e) => setIdentityReason(e.target.value)}
-                      placeholder="Expliquez pourquoi vous souhaitez modifier votre identité officielle..."
-                      className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all min-h-[60px]"
-                      style={{ background: "#E8A83808", borderColor: "#E8A83844", color: c.txt }}
-                    />
-                  </div>
+            {/* Name + badges */}
+            <div className="flex-1 min-w-0">
+              <h2 className="font-black text-2xl text-white mb-2">
+                {userData?.first_name || ""} {userData?.last_name || "Mon Profil"}
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {age != null && (
+                  <span className="text-xs px-3 py-1.5 rounded-full font-semibold"
+                    style={{ background: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.90)" }}>
+                    {age} ans
+                  </span>
+                )}
+                {userData?.sex && (
+                  <span className="text-xs px-3 py-1.5 rounded-full font-semibold"
+                    style={{ background: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.90)" }}>
+                    {userData.sex === "male" ? "Masculin" : userData.sex === "female" ? "Féminin" : userData.sex}
+                  </span>
+                )}
+                {profile?.blood_group && (
+                  <span className="text-xs px-3 py-1.5 rounded-full font-bold"
+                    style={{ background: "#FCEBEB", color: "#A32D2D" }}>
+                    {profile.blood_group}
+                  </span>
                 )}
 
-                {/* Date de naissance — JJ/MM/AAAA */}
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Date de naissance</label>
-                  <input type="text" inputMode="numeric" placeholder="JJ/MM/AAAA" maxLength={10}
-                    value={maskDob(editForm.dob ?? isoToFr(safeProfile.dob) ?? "")}
-                    onChange={(e) => setEditForm({ ...editForm, dob: maskDob(e.target.value) })}
-                    className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
-                    style={{ background: c.card, borderColor: c.border, color: c.txt }}
-                  />
-                </div>
+              </div>
+            </div>
 
-                {/* Sexe */}
-                <div>
-                  <DashSelect
-                    label="Sexe"
-                    value={editForm.sex ?? safeProfile.sex ?? userData?.sex ?? ""}
-                    options={[
-                      { value: "", label: "Non spécifié" },
-                      { value: "M", label: "Masculin" },
-                      { value: "F", label: "Féminin" },
-                    ]}
-                    onSelect={(v) => setEditForm({ ...editForm, sex: v })}
-                    dk={dk}
-                    c={c}
-                  />
-                </div>
+            {/* Edit button */}
+            <button
+              onClick={openEdit}
+              className="flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl shrink-0 transition-all hover:opacity-90"
+              style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.30)", color: "rgba(255,255,255,0.90)" }}
+            >
+              <Edit3 size={13} />
+              Modifier
+            </button>
+          </div>
+        </div>
 
-                {/* Téléphone */}
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Téléphone</label>
-                  <input type="tel" inputMode="tel" maxLength={15}
-                    value={editForm.phone ?? userData?.phone ?? safeProfile.phone ?? ""}
-                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value.replace(/[^\d+ ]/g, "") })}
-                    className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
-                    style={{ background: c.card, borderColor: c.border, color: c.txt }}
-                  />
-                </div>
+        {/* ── SECTION 2 — INFOS PERSO + DONNÉES MÉDICALES ─────────────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-                {/* Groupe sanguin — select conforme à la spec */}
-                <div>
-                  <DashSelect
-                    label="Groupe sanguin"
-                    value={editForm.blood_type ?? safeProfile.blood_type ?? ""}
-                    options={[
-                      { value: "", label: "Non spécifié" },
-                      ...BLOOD_GROUPS.map((g) => ({ value: g, label: g })),
-                    ]}
-                    onSelect={(v) => setEditForm({ ...editForm, blood_type: v })}
-                    dk={dk}
-                    c={c}
-                  />
+          {/* Informations personnelles */}
+          <Card dk={dk}>
+            <p className="font-bold text-sm mb-4" style={{ color: c.txt }}>Informations personnelles</p>
+            <div className="space-y-3">
+              {[
+                { label: "Téléphone",         value: userData?.phone   || "Non renseigné" },
+                { label: "Ville",             value: userData?.city    || "—" },
+                { label: "Wilaya",            value: userData?.wilaya  || "—" },
+                {
+                  label: "Contact d'urgence",
+                  value: profile?.emergency_contact_name
+                    ? `${profile.emergency_contact_name}${profile.emergency_contact_phone ? " · " + profile.emergency_contact_phone : ""}`
+                    : "Non renseigné",
+                },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex justify-between items-start gap-3 py-1 border-b last:border-b-0"
+                  style={{ borderColor: c.border }}>
+                  <span className="text-xs font-semibold uppercase tracking-wide shrink-0"
+                    style={{ color: c.txt3 }}>{label}</span>
+                  <span className="text-sm text-right font-medium" style={{ color: c.txt }}>{value}</span>
                 </div>
+              ))}
+            </div>
+          </Card>
 
-                {/* Ville */}
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Ville</label>
-                  <input type="text"
-                    value={editForm.city ?? safeProfile.city ?? userData?.city ?? ""}
-                    onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
-                    className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
-                    style={{ background: c.card, borderColor: c.border, color: c.txt }}
-                  />
-                </div>
+          {/* Données médicales */}
+          <Card dk={dk}>
+            <p className="font-bold text-sm mb-4" style={{ color: c.txt }}>Données médicales</p>
 
-                {/* Wilaya */}
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Wilaya</label>
-                  <input type="text"
-                    value={editForm.wilaya ?? safeProfile.wilaya ?? userData?.wilaya ?? ""}
-                    onChange={(e) => setEditForm({ ...editForm, wilaya: e.target.value })}
-                    className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
-                    style={{ background: c.card, borderColor: c.border, color: c.txt }}
-                  />
+            {/* Poids / Taille / IMC */}
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              {[
+                { label: "Poids",  value: profile?.weight != null ? `${profile.weight} kg`              : "—" },
+                { label: "Taille", value: profile?.height != null ? `${profile.height} cm`              : "—" },
+                { label: "IMC",    value: profile?.bmi    != null ? Number(profile.bmi).toFixed(1)      : "—" },
+              ].map(({ label, value }) => (
+                <div key={label} className="rounded-xl p-3 text-center border"
+                  style={{ background: dk ? "#0D1B2E" : "#F7FAFD", borderColor: c.border }}>
+                  <div className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>{label}</div>
+                  <div className="font-bold text-base" style={{ color: c.txt }}>{value}</div>
                 </div>
+              ))}
+            </div>
 
-                {/* Allergies */}
-                <div className="sm:col-span-2">
-                  <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Allergies (séparées par des virgules)</label>
-                  <input type="text" placeholder="Ex: Pénicilline, Aspirine"
-                    value={editForm.allergies ?? (Array.isArray(safeProfile.allergies) ? safeProfile.allergies.join(", ") : (safeProfile.allergies || ""))}
-                    onChange={(e) => setEditForm({ ...editForm, allergies: e.target.value })}
-                    className="px-3 py-2 border rounded-xl text-sm w-full outline-none"
-                    style={{ background: c.card, borderColor: c.border, color: c.txt }} />
-                </div>
+            {/* Allergies */}
+            <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>Allergies</p>
+            {allergies.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {allergies.map((a, i) => {
+                  const sub = a?.substance || String(a);
+                  const { bg, color } = allergyColors(a?.severity);
+                  return (
+                    <span key={i} className="text-xs px-2.5 py-1 rounded-full font-semibold"
+                      style={{ background: bg, color }}>
+                      ⚠ {sub}
+                    </span>
+                  );
+                })}
               </div>
             ) : (
-              <>
-                <h2 className="text-xl font-bold flex items-center gap-3" style={{ color: c.txt }}>
-                  {userData?.first_name || userData?.email?.split('@')[0] || safeProfile.first_name || ""}{" "}
-                  {userData?.last_name || safeProfile.last_name || safeProfile.name || "Mon Profil Médical"}
-                  {pendingIdentityRequest && (
-                    <span 
-                      className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md animate-pulse"
-                      style={{ background: "#E8A83822", color: "#E8A838", border: "1px solid #E8A83844" }}
-                    >
-                      Modification en attente d'approbation
-                    </span>
-                  )}
-                </h2>
-                <p className="text-sm mt-1 mb-3" style={{ color: c.txt2 }}>
-                  ID Patient: #{userId || "---"}
-                  {safeProfile.dob && ` · Né(e) le : ${safeProfile.dob}`}
-                  {(safeProfile.sex || userData?.sex) && ` · ${(safeProfile.sex || userData?.sex) === "M" ? "Homme" : "Femme"}`}
-                  {safeProfile.city && ` · ${safeProfile.city}${safeProfile.wilaya ? `, ${safeProfile.wilaya}` : ""}`}
-                  {(userData?.phone || safeProfile.phone) && ` · 📞 ${userData?.phone || safeProfile.phone}`}
-                </p>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  <span
-                    className="text-xs font-bold px-3 py-1 rounded-full"
-                    style={{
-                      background: c.red + "18",
-                      color: c.red,
-                      border: `1px solid ${c.red}40`,
-                    }}
-                  >
-                    Groupe Sanguin: {safeProfile.blood_type || "Non spécifié"}
-                  </span>
-                  {(Array.isArray(safeProfile.allergies) ? safeProfile.allergies : (typeof safeProfile.allergies === 'string' ? safeProfile.allergies.split(",") : []))
-                    .filter((v) => v.trim())
-                    .map((a, i) => (
-                      <span
-                        key={i}
-                        className="text-xs font-bold px-3 py-1 rounded-full"
-                        style={{
-                          background: c.red + "15",
-                          color: c.red,
-                          border: `1px solid ${c.red}30`,
-                        }}
-                      >
-                        ⚠ {a.trim()}
-                      </span>
-                    ))}
-                </div>
-              </>
+              <p className="text-xs italic" style={{ color: c.txt3 }}>Aucune allergie connue</p>
             )}
-          </div>
+          </Card>
+        </div>
 
-          {/* Actions */}
-          <div className="flex gap-2 shrink-0 flex-wrap">
-            {editMode ? (
-              <>
-                <button
-                  onClick={() => setEditMode(false)}
-                  className="text-sm font-semibold px-4 py-2 rounded-xl border transition-colors hover:opacity-80"
+        {/* ── SECTION 3 — ANTÉCÉDENTS MÉDICAUX ────────────────────────────── */}
+        <Card dk={dk}>
+          <p className="font-bold text-sm mb-4" style={{ color: c.txt }}>Antécédents médicaux</p>
+          {antecedents.length > 0 ? (
+            <div className="space-y-3">
+              {antecedents.map((ant, i) => {
+                const badge = antecedentBadge(ant.status);
+                return (
+                  <div key={ant.id || i}
+                    className="flex items-center justify-between gap-4 p-3 rounded-xl border"
+                    style={{ background: dk ? "#0D1B2E" : "#F7FAFD", borderColor: c.border }}>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate" style={{ color: c.txt }}>
+                        {ant.name || ant.condition || "Antécédent"}
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>
+                        {ant.date_diagnosis ? `Depuis ${formatDate(ant.date_diagnosis)}` : "Date inconnue"}
+                        {ant.type === "personnel" ? " · Personnel" : ant.type === "familial" ? " · Familial" : ""}
+                      </p>
+                    </div>
+                    <span className="text-xs px-2.5 py-1 rounded-full font-bold shrink-0"
+                      style={{ background: badge.bg, color: badge.color }}>
+                      {badge.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-sm font-medium" style={{ color: c.txt3 }}>
+                Aucun antécédent enregistré.
+              </p>
+              <p className="text-xs mt-1" style={{ color: c.txt3 }}>
+                Votre historique médical apparaîtra ici une fois complété par votre médecin.
+              </p>
+            </div>
+          )}
+        </Card>
+
+        {/* ── SECTION 4 — DIAGNOSTICS + ORDONNANCES ───────────────────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+          {/* Diagnostics récents */}
+          <Card dk={dk}>
+            <p className="font-bold text-sm mb-4" style={{ color: c.txt }}>Diagnostics récents</p>
+            {completedConsults.length > 0 ? (
+              <div className="space-y-3">
+                {completedConsults.map((con, i) => (
+                  <div key={con.id || i}
+                    className="flex items-start gap-3 p-3 rounded-xl border"
+                    style={{ background: dk ? "#0D1B2E" : "#F7FAFD", borderColor: c.border }}>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                      style={{ background: c.blue + "20" }}>
+                      <Stethoscope size={15} style={{ color: c.blue }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate" style={{ color: c.txt }}>
+                        {con.diagnosis || "Diagnostic"}
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>
+                        {con.doctor_name ? `Dr. ${con.doctor_name}` : "—"} · {formatDate(con.consulted_at)}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => { console.log("[MedicalProfilePage] Voir détail clicked:", con); setSelectedConsult(con); }}
+                      className="text-xs font-semibold px-3 py-1.5 rounded-lg shrink-0 transition-all hover:opacity-80"
+                      style={{ background: c.blue + "18", color: c.blue }}
+                    >
+                      Voir détail
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm italic text-center py-6" style={{ color: c.txt3 }}>
+                Aucun diagnostic enregistré.
+              </p>
+            )}
+          </Card>
+
+          {/* Ordonnances */}
+          <Card dk={dk}>
+            <p className="font-bold text-sm mb-4" style={{ color: c.txt }}>Ordonnances</p>
+            {prescriptions.slice(0, 5).length > 0 ? (
+              <div className="space-y-3">
+                {prescriptions.slice(0, 5).map((rx, i) => {
+                  const firstDrug = Array.isArray(rx.items) && rx.items[0]?.drug_name;
+                  const idStr = String(rx.id);
+                  return (
+                    <div key={rx.id || i}
+                      className="flex items-center gap-3 p-3 rounded-xl border"
+                      style={{ background: dk ? "#0D1B2E" : "#F7FAFD", borderColor: c.border }}>
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                        style={{ background: c.green + "20" }}>
+                        <Pill size={15} style={{ color: c.green }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm truncate" style={{ color: c.txt }}>
+                          {firstDrug || "Ordonnance"}
+                        </p>
+                        <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>
+                          {formatDate(rx.created_at)}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleDownloadPDF(rx)}
+                        disabled={pdfLoading === idStr}
+                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all hover:opacity-80 shrink-0"
+                        style={{ background: c.blue + "18", color: c.blue, minWidth: 56 }}
+                      >
+                        {pdfLoading === idStr ? (
+                          <span className="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <><Download size={12} /> PDF</>
+                        )}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm italic text-center py-6" style={{ color: c.txt3 }}>
+                Aucune ordonnance.
+              </p>
+            )}
+          </Card>
+        </div>
+
+      </div>
+
+      {/* ── MODAL MODIFIER ──────────────────────────────────────────────────── */}
+      {editOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(4,28,60,0.65)", backdropFilter: "blur(10px)" }}
+          onClick={(e) => e.target === e.currentTarget && setEditOpen(false)}
+        >
+          <div
+            className="w-full max-w-[560px] rounded-[24px] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
+            style={{ background: c.card, boxShadow: "0 40px 100px rgba(4,44,83,0.35)" }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b"
+              style={{ borderColor: c.border }}>
+              <p className="font-bold text-base" style={{ color: c.txt }}>Modifier le profil</p>
+              <button
+                onClick={() => setEditOpen(false)}
+                className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:opacity-70"
+                style={{ background: c.border }}>
+                <X size={14} style={{ color: c.txt2 }} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5 max-h-[60vh] overflow-y-auto space-y-5">
+
+              {/* Photo de profil */}
+              <div className="flex flex-col items-center gap-2">
+                <label style={{ cursor: "pointer" }}>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/jpg"
+                    style={{ display: "none" }}
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (!file) return;
+                      const url = URL.createObjectURL(file);
+                      setCropSrc(url);
+                      setCrop({ x: 0, y: 0 });
+                      setZoom(1);
+                      setCropMode(true);
+                    }}
+                  />
+                  <div className="flex flex-col items-center gap-2">
+                    {(photoPreview || userData.photo) ? (
+                      <img
+                        src={photoPreview || userData.photo}
+                        alt="Photo de profil"
+                        style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover", border: `3px solid ${c.blue}` }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: 72, height: 72, borderRadius: "50%",
+                        background: c.blueLight, border: `3px solid ${c.blue}`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 22, fontWeight: 800, color: c.blue,
+                      }}>
+                        {initials}
+                      </div>
+                    )}
+                    <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: c.blue }}>
+                      <Camera size={12} />
+                      Changer la photo
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              {/* ── Modal de recadrage ─────────────────────────────────── */}
+              {cropMode && cropSrc && (
+                <div
+                  className="fixed inset-0 z-[60] flex flex-col items-center justify-center"
+                  style={{ background: "rgba(0,0,0,0.82)" }}
+                >
+                  <p className="text-white font-bold mb-4 text-sm">Recadrer la photo</p>
+
+                  {/* Zone de crop */}
+                  <div style={{ position: "relative", width: 280, height: 280, borderRadius: "50%", overflow: "hidden" }}>
+                    <Cropper
+                      image={cropSrc}
+                      crop={crop}
+                      zoom={zoom}
+                      aspect={1}
+                      cropShape="round"
+                      showGrid={false}
+                      onCropChange={setCrop}
+                      onZoomChange={setZoom}
+                      onCropComplete={onCropComplete}
+                    />
+                  </div>
+
+                  {/* Slider zoom */}
+                  <div className="flex items-center gap-3 mt-5 w-64">
+                    <span className="text-white text-xs">1×</span>
+                    <input
+                      type="range"
+                      min={1} max={3} step={0.05}
+                      value={zoom}
+                      onChange={(e) => setZoom(Number(e.target.value))}
+                      className="flex-1 accent-blue-400"
+                    />
+                    <span className="text-white text-xs">3×</span>
+                  </div>
+
+                  {/* Boutons */}
+                  <div className="flex gap-3 mt-5">
+                    <button
+                      onClick={handleCropConfirm}
+                      className="px-5 py-2 rounded-xl text-sm font-bold text-white"
+                      style={{ background: c.blue }}
+                    >
+                      Valider
+                    </button>
+                    <button
+                      onClick={() => { setCropMode(false); setCropSrc(null); }}
+                      className="px-5 py-2 rounded-xl text-sm font-semibold border border-white/30 text-white/80"
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Contact & Localisation */}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: c.blue }}>
+                  Contact &amp; Localisation
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Téléphone</label>
+                    <input
+                      type="tel"
+                      placeholder="0XXXXXXXXX"
+                      value={editForm.phone || ""}
+                      onChange={(e) => {
+                        let val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                        setEditForm((f) => ({ ...f, phone: val }));
+                      }}
+                      className="w-full h-10 px-3 text-sm rounded-xl outline-none border transition-all focus:border-blue-400"
+                      style={{ background: dk ? "#0D1B2E" : "#F7FAFD", borderColor: c.border, color: c.txt }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Ville</label>
+                    <input
+                      type="text"
+                      value={editForm.city || ""}
+                      onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))}
+                      className="w-full h-10 px-3 text-sm rounded-xl outline-none border"
+                      style={{ background: dk ? "#0D1B2E" : "#F7FAFD", borderColor: c.border, color: c.txt }}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <DashSelect
+                      label="Wilaya"
+                      value={editForm.wilaya || ""}
+                      options={[{ value: "", label: "Sélectionner une wilaya..." }, ...WILAYAS_LIST.map((w) => ({ value: w, label: w }))]}
+                      onSelect={(v) => setEditForm((f) => ({ ...f, wilaya: v }))}
+                      dk={dk}
+                      c={c}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Données médicales */}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: c.blue }}>
+                  Données médicales
+                </p>
+                <div className="grid grid-cols-3 gap-3 mb-3">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Poids (kg)</label>
+                    <input
+                      type="number" step="0.1" min="0"
+                      value={editForm.weight || ""}
+                      onChange={(e) => setEditForm((f) => ({ ...f, weight: e.target.value }))}
+                      className="w-full h-10 px-3 text-sm rounded-xl outline-none border"
+                      style={{ background: dk ? "#0D1B2E" : "#F7FAFD", borderColor: c.border, color: c.txt }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Taille (cm)</label>
+                    <input
+                      type="number" step="1" min="0"
+                      value={editForm.height || ""}
+                      onChange={(e) => setEditForm((f) => ({ ...f, height: e.target.value }))}
+                      className="w-full h-10 px-3 text-sm rounded-xl outline-none border"
+                      style={{ background: dk ? "#0D1B2E" : "#F7FAFD", borderColor: c.border, color: c.txt }}
+                    />
+                  </div>
+                  <div>
+                    <DashSelect
+                      label="Groupe sanguin"
+                      value={editForm.bloodGroup || ""}
+                      options={[{ value: "", label: "—" }, ...BLOOD_GROUPS.map((g) => ({ value: g, label: g }))]}
+                      onSelect={(v) => setEditForm((f) => ({ ...f, bloodGroup: v }))}
+                      dk={dk}
+                      c={c}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>
+                    Allergies (séparées par des virgules)
+                  </label>
+                  <input
+                    type="text" placeholder="Ex : pénicilline, arachides, latex..."
+                    value={editForm.allergies || ""}
+                    onChange={(e) => setEditForm((f) => ({ ...f, allergies: e.target.value }))}
+                    className="w-full h-10 px-3 text-sm rounded-xl outline-none border"
+                    style={{ background: dk ? "#0D1B2E" : "#F7FAFD", borderColor: c.border, color: c.txt }}
+                  />
+                </div>
+              </div>
+
+              {/* Contact d'urgence */}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: c.blue }}>
+                  Contact d&apos;urgence
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Nom</label>
+                    <input
+                      type="text"
+                      value={editForm.emergencyName || ""}
+                      onChange={(e) => setEditForm((f) => ({ ...f, emergencyName: e.target.value }))}
+                      className="w-full h-10 px-3 text-sm rounded-xl outline-none border"
+                      style={{ background: dk ? "#0D1B2E" : "#F7FAFD", borderColor: c.border, color: c.txt }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Téléphone</label>
+                    <input
+                      type="tel"
+                      placeholder="0XXXXXXXXX"
+                      value={editForm.emergencyPhone || ""}
+                      onChange={(e) => {
+                        let val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                        setEditForm((f) => ({ ...f, emergencyPhone: val }));
+                      }}
+                      className="w-full h-10 px-3 text-sm rounded-xl outline-none border transition-all focus:border-blue-400"
+                      style={{ background: dk ? "#0D1B2E" : "#F7FAFD", borderColor: c.border, color: c.txt }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t" style={{ borderColor: c.border, background: dk ? "#0D1117" : "#F7FAFD" }}>
+              {saveStatus.msg && (
+                <div
+                  className="flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-xl mb-3"
                   style={{
-                    color: c.txt2,
-                    borderColor: c.border,
-                    background: "transparent",
+                    background: saveStatus.type === "success" ? c.green + "15" : c.red + "15",
+                    color:      saveStatus.type === "success" ? c.green        : c.red,
+                    border:     `1px solid ${saveStatus.type === "success" ? c.green + "44" : c.red + "44"}`,
                   }}
+                >
+                  {saveStatus.type === "success" && <Check size={13} />}
+                  {saveStatus.msg}
+                </div>
+              )}
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setEditOpen(false)}
+                  className="px-5 py-2.5 text-sm rounded-xl border transition-all hover:opacity-80"
+                  style={{ borderColor: c.border, background: c.card, color: c.txt2 }}
                 >
                   Annuler
                 </button>
                 <button
-                  onClick={handleSaveProfile}
-                  disabled={loading}
-                  className="text-sm font-semibold px-4 py-2 rounded-xl transition-colors hover:opacity-80 text-white"
-                  style={{ background: c.blue, opacity: loading ? 0.7 : 1 }}
+                  onClick={handleSave}
+                  disabled={saving || saveStatus.type === "success"}
+                  className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl text-white transition-all hover:opacity-90"
+                  style={{
+                    background:  c.blue,
+                    opacity:     (saving || saveStatus.type === "success") ? 0.7 : 1,
+                    boxShadow:   `0 4px 16px ${c.blue}44`,
+                  }}
                 >
-                  {loading ? "En cours..." : "Sauvegarder"}
+                  {saving ? (
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Check size={14} />
+                  )}
+                  {saving ? "Enregistrement..." : "Sauvegarder"}
                 </button>
-              </>
-            ) : (
-              <button
-                onClick={() => {
-                  setEditForm({ ...safeProfile });
-                  setEditMode(true);
-                }}
-                className="text-sm font-semibold px-4 py-2 rounded-xl border transition-colors hover:opacity-80"
-                style={{
-                  color: c.blue,
-                  borderColor: c.blue,
-                  background: c.blueLight,
-                }}
-              >
-                Modifier le profil
-              </button>
-            )}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-      {/* Tabs */}
-      <div
-        className="flex gap-1 border-b mb-6"
-        style={{ borderColor: c.border }}
-      >
-        {tabs.map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className="px-4 py-2.5 text-sm font-semibold whitespace-nowrap transition-all"
-            style={{
-              color: tab === t ? c.blue : c.txt2,
-              borderBottom:
-                tab === t ? `2px solid ${c.blue}` : "2px solid transparent",
-              marginBottom: -1,
-            }}
-          >
-            {TAB_LABELS[t] || t}
-          </button>
-        ))}
-      </div>
-      {/* Tab content */}
-      {loading ? (
-        <div className="py-12 flex justify-center">
-          <div
-            className="w-8 h-8 rounded-full border-4 animate-spin"
-            style={{ borderColor: `${c.blue}40`, borderTopColor: c.blue }}
-          />
-        </div>
-      ) : (
-        <>
-          {tab === "antecedents" && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {data.antecedents.length === 0 ? (
-                <div className="col-span-full">
-                  <EmptyState
-                    dk={dk}
-                    icon={Activity}
-                    title="Aucun antécédent enregistré"
-                    message="Votre historique médical apparaîtra ici une fois complété par votre médecin."
-                  />
-                </div>
-              ) : (
-                data.antecedents.map((item, i) => (
-                  <Card key={item.id || i} dk={dk}>
-                    <div className="text-3xl mb-3">🩺</div>
-                    <p
-                      className="font-bold text-sm mb-1"
-                      style={{ color: c.txt }}
-                    >
-                      {item.name || item.description}
-                    </p>
-                    <p className="text-xs mb-3" style={{ color: c.txt2 }}>
-                      Diagnostiqué: {item.diagnosis_date || "Inconnu"}
-                    </p>
-                    <Badge color="#4A6FA5" bg="#4A6FA518">
-                      {item.type || "Général"}
-                    </Badge>
-                  </Card>
-                ))
-              )}
-            </div>
-          )}
-          {tab === "analyses" && (
-            <div className="space-y-4">
-              {data.analyses.length === 0 ? (
-                <EmptyState
-                  dk={dk}
-                  icon={FileSearch}
-                  title="Aucune analyse trouvée"
-                  message="Vos rapports de laboratoire et résultats d'examens seront listés ici."
-                />
-              ) : (
-                data.analyses.map((item, i) => (
-                  <Card key={item.id || i} dk={dk}>
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <p className="font-bold" style={{ color: c.txt }}>
-                          {item.test_name || "Analyse médicale"}
-                        </p>
-                        <p className="text-xs mt-1" style={{ color: c.txt2 }}>
-                          Labo: {item.lab_name || "Non spécifié"} · Date:{" "}
-                          {item.test_date}
-                        </p>
-                      </div>
-                      {item.document_url && (
-                        <button
-                          onClick={() =>
-                            window.open(item.document_url, "_blank")
-                          }
-                          className="text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors hover:opacity-80"
-                          style={{ color: c.blue, borderColor: c.border }}
-                        >
-                          Voir le document
-                        </button>
-                      )}
-                    </div>
-                    {item.notes && (
-                      <div
-                        className="flex items-start gap-2 p-3 rounded-xl"
-                        style={{
-                          background: c.blueLight,
-                          borderLeft: `3px solid ${c.blue}`,
-                        }}
-                      >
-                        <Activity
-                          size={14}
-                          style={{ color: c.blue, marginTop: 2, flexShrink: 0 }}
-                        />
-                        <p className="text-xs" style={{ color: c.txt2 }}>
-                          {item.notes}
-                        </p>
-                      </div>
-                    )}
-                  </Card>
-                ))
-              )}
-            </div>
-          )}
-
-          {tab === "treatments" && (
-            <div className="space-y-4">
-              {data.treatments.length === 0 ? (
-                <EmptyState
-                  dk={dk}
-                  icon={Pill}
-                  title="Aucun traitement actif"
-                  message="Vous n'avez pas de prescriptions ou de traitements en cours enregistrés."
-                />
-              ) : (
-                data.treatments.map((item, i) => (
-                  <Card key={item.id || i} dk={dk}>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-bold" style={{ color: c.txt }}>
-                          {item.medication_name || "Médicament"}
-                        </p>
-                        <p className="text-xs mt-1" style={{ color: c.txt2 }}>
-                          {item.dosage} · {item.frequency}
-                        </p>
-                      </div>
-                      <Badge color="#2D8C6F" bg="#2D8C6F18">
-                        Actif
-                      </Badge>
-                    </div>
-                  </Card>
-                ))
-              )}
-            </div>
-          )}
-          {tab === "diagnostics" && (
-            <div className="space-y-4">
-              {data.diagnostics.length === 0 ? (
-                <EmptyState
-                  dk={dk}
-                  icon={FileText}
-                  title="Aucun diagnostic enregistré"
-                  message="Vos diagnostics apparaîtront ici suite à vos consultations avec un spécialiste."
-                />
-              ) : (
-                data.diagnostics.map((item, i) => (
-                  <Card key={item.id || i} dk={dk}>
-                    <div className="flex items-start justify-between gap-3 flex-wrap">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold" style={{ color: c.txt }}>{item.diagnosis}</p>
-                        <p className="text-xs mt-1" style={{ color: c.txt2 }}>
-                          Dr. {item.doctor_name || "—"} · {item.consulted_at ? new Date(item.consulted_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
-                        </p>
-                        {item.chief_complaint && (
-                          <p className="text-xs mt-2 italic" style={{ color: c.txt3 }}>Motif : {item.chief_complaint}</p>
-                        )}
-                      </div>
-                      <Badge color={c.blue} bg={c.blue + "18"}>Terminée</Badge>
-                    </div>
-                  </Card>
-                ))
-              )}
-            </div>
-          )}
-
-          {tab === "prescriptions" && (
-            <div className="space-y-4">
-              {data.prescriptions.length === 0 ? (
-                <EmptyState
-                  dk={dk}
-                  icon={FileText}
-                  title="Aucune prescription enregistrée"
-                  message="Vos ordonnances apparaîtront ici suite à vos consultations."
-                />
-              ) : (
-                data.prescriptions.map((rx, i) => {
-                  const API_ORIGIN = "http://127.0.0.1:8000";
-                  const qrUrl = rx.id ? `${API_ORIGIN}/api/prescriptions/${rx.id}/qr-image/` : null;
-                  const pdfUrl = rx.id ? `${API_ORIGIN}/api/prescriptions/${rx.id}/pdf-download/` : null;
-                  const rxDate = rx.created_at
-                    ? new Date(rx.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })
-                    : "—";
-                  return (
-                    <Card key={rx.id || i} dk={dk}>
-                      {/* Header */}
-                      <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-                        <div>
-                          <p className="font-bold text-sm" style={{ color: c.txt }}>
-                            Ordonnance du {rxDate}
-                          </p>
-                          <p className="text-xs mt-0.5" style={{ color: c.txt2 }}>
-                            Dr. {rx.doctor_name || "—"}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge color={rx.status === "active" ? c.green : c.txt3} bg={(rx.status === "active" ? c.green : c.txt3) + "18"}>
-                            {rx.status === "active" ? "Active" : rx.status || "—"}
-                          </Badge>
-                        </div>
-                      </div>
-                      {/* Items */}
-                      {Array.isArray(rx.items) && rx.items.length > 0 && (
-                        <div className="space-y-2 mb-3">
-                          {rx.items.map((it, j) => (
-                            <div key={j} className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: c.blueLight }}>
-                              <Pill size={14} style={{ color: c.blue, flexShrink: 0 }} />
-                              <div className="flex-1 min-w-0">
-                                <span className="text-xs font-semibold" style={{ color: c.txt }}>{it.drug_name}</span>
-                                {(it.dosage || it.frequency || it.duration) && (
-                                  <span className="text-xs ml-1" style={{ color: c.txt3 }}>
-                                    {[it.dosage, it.frequency, it.duration].filter(Boolean).join(" · ")}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {/* QR + PDF actions */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {qrUrl && rx.qr_token && (
-                          <button
-                            onClick={() => handleViewQR(rx)}
-                            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-opacity hover:opacity-75"
-                            style={{ color: c.blue, borderColor: c.border, background: "transparent" }}
-                          >
-                            <QrCode size={13} />
-                            QR Code
-                          </button>
-                        )}
-                        {pdfUrl && (
-                          <button
-                            onClick={() => handleDownloadPDF(rx.id)}
-                            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-opacity hover:opacity-75"
-                            style={{ color: c.txt2, borderColor: c.border, background: "transparent" }}
-                          >
-                            <Download size={13} />
-                            PDF
-                          </button>
-                        )}
-                      </div>
-                    </Card>
-                  );
-                })
-              )}
-            </div>
-          )}
-
-        </>
       )}
 
-      {/* QR Modal */}
-      {qrModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-60 backdrop-blur-sm">
-          <div className="bg-white p-8 rounded-3xl max-w-sm w-full shadow-2xl relative flex flex-col items-center">
-            <button
-              onClick={() => {
-                if (qrModal.imageUrl) window.URL.revokeObjectURL(qrModal.imageUrl);
-                setQrModal(null);
-              }}
-              className="absolute top-5 right-5 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
-            >
-              <X size={20} className="text-gray-600" />
-            </button>
-            <h3 className="font-black text-xl mb-1 text-gray-900">Ordonnance</h3>
-            <p className="text-xs font-bold text-gray-500 mb-6 uppercase tracking-widest">
-              {qrModal.rx.doctor_name || "—"} • {qrModal.rx.created_at?.split("T")[0] || "—"}
-            </p>
-            <div className="p-4 rounded-[24px] mb-6 bg-white border border-gray-100 shadow-xl flex items-center justify-center w-52 h-52">
-              {qrModal.imageUrl ? (
-                <img src={qrModal.imageUrl} alt="QR Code ordonnance" className="w-44 h-44 object-contain" />
-              ) : (
-                <div className="flex flex-col items-center gap-2">
-                  <span className="w-8 h-8 border-2 border-[#395886] border-t-transparent rounded-full animate-spin" />
-                  <span className="text-xs text-gray-400">Chargement…</span>
+      {/* ── MODAL COMPTE-RENDU ──────────────────────────────────────────────── */}
+      {selectedConsult && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(4,28,60,0.65)", backdropFilter: "blur(10px)" }}
+          onClick={(e) => e.target === e.currentTarget && setSelectedConsult(null)}
+        >
+          <div
+            className="w-full max-w-[580px] rounded-[24px] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
+            style={{ background: c.card, boxShadow: "0 40px 100px rgba(4,44,83,0.35)", maxHeight: "90vh", overflowY: "auto" }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b" style={{ borderColor: c.border }}>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: c.blue + "20" }}>
+                  <Stethoscope size={16} style={{ color: c.blue }} />
+                </div>
+                <p className="font-bold text-base" style={{ color: c.txt }}>Compte-rendu de consultation</p>
+              </div>
+              <button
+                onClick={() => setSelectedConsult(null)}
+                className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:opacity-70"
+                style={{ background: c.border }}
+              >
+                <X size={14} style={{ color: c.txt2 }} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5 space-y-5">
+
+              {/* En-tête : médecin + date */}
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: "Médecin", value: selectedConsult.doctor_name ? `Dr. ${selectedConsult.doctor_name}` : "—" },
+                  { label: "Date", value: formatDate(selectedConsult.consulted_at) },
+                ].map(({ label, value }) => (
+                  <div key={label} className="p-3 rounded-xl" style={{ background: dk ? "#0D1B2E" : "#F7FAFD" }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>{label}</p>
+                    <p className="text-sm font-semibold" style={{ color: c.txt }}>{value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Motif / Diagnostic / Plan */}
+              {[
+                { label: "Motif de consultation", value: selectedConsult.chief_complaint },
+                { label: "Diagnostic",            value: selectedConsult.diagnosis },
+                { label: "Plan de traitement",    value: selectedConsult.treatment_plan },
+              ].map(({ label, value }) => (
+                <div key={label}>
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: c.blue }}>{label}</p>
+                  <p className="text-sm leading-relaxed" style={{ color: value ? c.txt : c.txt3 }}>
+                    {value || "—"}
+                  </p>
+                </div>
+              ))}
+
+              {/* Constantes vitales */}
+              {(() => {
+                const v = parseVitals(selectedConsult.vitals);
+                const items = [
+                  { label: "Tension artérielle",   value: v?.blood_pressure ?? v?.bp,   unit: "mmHg" },
+                  { label: "Fréquence cardiaque",  value: v?.heart_rate     ?? v?.hr,   unit: "bpm"  },
+                  { label: "Température",           value: v?.temperature    ?? v?.temp, unit: "°C"   },
+                  { label: "SpO₂",                  value: v?.oxygen_saturation ?? v?.spo2, unit: "%" },
+                ].filter((x) => x.value != null && x.value !== "");
+                if (!items.length) return null;
+                return (
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: c.blue }}>Constantes vitales</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {items.map(({ label, value, unit }) => (
+                        <div key={label} className="p-3 rounded-xl" style={{ background: dk ? "#0D1B2E" : "#F7FAFD" }}>
+                          <p className="text-[10px] font-semibold mb-0.5" style={{ color: c.txt3 }}>{label}</p>
+                          <p className="text-sm font-bold" style={{ color: c.txt }}>
+                            {value} <span className="text-xs font-normal" style={{ color: c.txt3 }}>{unit}</span>
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Suivi prévu */}
+              {selectedConsult.follow_up_date && (
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: c.blue }}>Suivi prévu</p>
+                  <p className="text-sm font-semibold" style={{ color: c.txt }}>
+                    Prochain rendez-vous : {formatDate(selectedConsult.follow_up_date)}
+                  </p>
+                  {selectedConsult.follow_up_notes && (
+                    <p className="text-sm mt-1 leading-relaxed" style={{ color: c.txt2 }}>
+                      {selectedConsult.follow_up_notes}
+                    </p>
+                  )}
                 </div>
               )}
+
             </div>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-7 h-7 rounded-[6px] bg-[#F5F7FB] border border-[#E4EAF5] flex items-center justify-center">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#395886" strokeWidth="2">
-                  <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-                  <rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M17 14h4M14 17v4"/>
-                </svg>
-              </div>
-              <p className="text-[13px] font-bold text-gray-600">Présentez ce QR Code à votre pharmacien</p>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t flex justify-end" style={{ borderColor: c.border, background: dk ? "#0D1117" : "#F7FAFD" }}>
+              <button
+                onClick={() => setSelectedConsult(null)}
+                className="px-5 py-2.5 text-sm font-semibold rounded-xl border transition-all hover:opacity-80"
+                style={{ borderColor: c.border, background: c.card, color: c.txt2 }}
+              >
+                Fermer
+              </button>
             </div>
           </div>
         </div>
@@ -2298,6 +2336,8 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
         .diag-scroll::-webkit-scrollbar-thumb { background:rgba(99,142,203,.22); border-radius:99px; }
         .diag-chip:hover { background: ${dk ? "rgba(99,142,203,.18)" : "#dbe9ff"} !important; }
         .diag-textarea::placeholder { color: ${dk ? "rgba(240,243,250,0.38)" : "rgba(13,27,46,0.38)"} !important; }
+        .diag-textarea::-webkit-scrollbar { display: none; }
+        .diag-textarea { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
 
       {/* ── LEFT SIDEBAR ── */}
@@ -2380,11 +2420,6 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
           </button>
           <div style={{ flex:1 }}>
             <p style={{ fontSize:13, fontWeight:700, color:c.txt, lineHeight:1.2 }}>Diagnostic IA</p>
-            <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-              <span style={{ width:5, height:5, borderRadius:"50%", background:"#4ade80",
-                animation:"diagPulse 2s infinite", display:"inline-block" }}/>
-              <span style={{ fontSize:10, color:c.txt3 }}>Gemini + ChromaDB · En ligne</span>
-            </div>
           </div>
           
         </div>
@@ -2487,16 +2522,16 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
 
         {/* Input */}
         <div style={{ padding:"10px 14px 14px", flexShrink:0, background:c.card, borderTop:`1px solid ${c.border}` }}>
-          <div style={{ display:"flex", alignItems:"flex-end", gap:8, background:c.bg,
-            border:`2px solid ${c.border}`, borderRadius:16, padding:"10px 14px", transition:"border-color 200ms" }}
+          <div style={{ display:"flex", alignItems:"center", gap:8, background:c.bg,
+            border:`2px solid ${c.border}`, borderRadius:16, padding:"8px 14px", transition:"border-color 200ms" }}
             onFocusCapture={e => e.currentTarget.style.borderColor = c.blue}
             onBlurCapture={e => e.currentTarget.style.borderColor = c.border}>
-            <label style={{ width:28, height:28, borderRadius:8, border:`1px solid ${c.border}`,
+            <label style={{ width:34, height:34, borderRadius:10, border:`1px solid ${c.border}`,
               background:"transparent", cursor:"pointer", display:"flex", alignItems:"center",
               justifyContent:"center", flexShrink:0 }}>
               <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
                 multiple style={{ display:"none" }} onChange={handleFileChange}/>
-              <Paperclip size={13} color={c.txt3}/>
+              <Paperclip size={18} color={c.txt3}/>
             </label>
 
             <textarea ref={textareaRef} value={input} className="diag-textarea"
@@ -2504,24 +2539,24 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
               onKeyDown={e => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), send())}
               placeholder="Décrivez vos symptômes en détail…" rows={1}
               style={{ flex:1, border:"none", outline:"none", background:"transparent", resize:"none",
-                fontSize:13, color:c.txt, lineHeight:1.5, fontFamily:"'DM Sans', sans-serif",
-                maxHeight:100, overflowY:"auto" }}/>
+                fontSize:15, color:c.txt, lineHeight:1.2, fontFamily:"'DM Sans', sans-serif",
+                maxHeight:100, overflowY:"hidden", padding:"9px 0", minHeight:34 }}/>
 
             <button onClick={toggleRecording}
-              style={{ width:28, height:28, borderRadius:8, flexShrink:0,
+              style={{ width:34, height:34, borderRadius:10, flexShrink:0,
                 border:`1px solid ${isRecording ? "#ef4444" : c.border}`,
                 background: isRecording ? "rgba(239,68,68,.1)" : "transparent",
                 cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
-              <Mic size={13} color={isRecording ? "#ef4444" : c.txt3}/>
+              <Mic size={18} color={isRecording ? "#ef4444" : c.txt3}/>
             </button>
 
             <button onClick={() => send()} disabled={!input.trim() && attachedFiles.length === 0}
-              style={{ width:36, height:36, borderRadius:10, border:"none", flexShrink:0,
+              style={{ width:40, height:40, borderRadius:12, border:"none", flexShrink:0,
                 cursor: (input.trim() || attachedFiles.length > 0) ? "pointer" : "default",
                 display:"flex", alignItems:"center", justifyContent:"center", transition:"all 200ms",
                 background: (input.trim() || attachedFiles.length > 0) ? "#395886" : c.border,
                 boxShadow: (input.trim() || attachedFiles.length > 0) ? "0 2px 8px rgba(57,88,134,.3)" : "none" }}>
-              <Send size={14} color="#fff"/>
+              <Send size={20} color="#fff"/>
             </button>
           </div>
 
@@ -2707,7 +2742,11 @@ function AppointmentsPage({
         if (specFilter !== "All") filters.specialty = specFilter;
         if (selectedCity)
           filters.city = selectedCity;
-        if (debouncedSearch) filters.search = debouncedSearch;
+        if (debouncedSearch) {
+          // Strip "Dr." / "Dr " prefix added on frontend — backend stores full_name without it
+          const stripped = debouncedSearch.replace(/^dr\.?\s*/i, '').trim();
+          if (stripped) filters.search = stripped;
+        }
         if (selectedDate) filters.date = selectedDate;
 
         const data = await api.getDoctors(filters).catch(() => []);
@@ -2734,26 +2773,7 @@ function AppointmentsPage({
           gender: d.gender === "female" ? "F" : "M",
           available_slots_for_date: d.available_slots_for_date || [],
         }));
-        if (normalized.length === 0) {
-          setDoctors([{
-            id: 'mock-1',
-            name: "Dr. Sarah Smith",
-            spec: "Cardiologue",
-            loc: "Clinique Al-Azhar, Alger",
-            rating: 4.9,
-            exp: 12,
-            reviews: 124,
-            initials: "SS",
-            color: "#4A6FA5",
-            phone: "+213 555 12 34 56",
-            lang: ["Français", "Arabe", "Anglais"],
-            bio: "Spécialiste en cardiologie interventionnelle avec plus de 12 ans d'expérience.",
-            edu: "Faculté de Médecine d'Alger.",
-            gender: "F"
-          }]);
-        } else {
-          setDoctors(normalized);
-        }
+        setDoctors(normalized);
       } catch (err) {
         if (import.meta.env.DEV) console.error("Error fetching doctors:", err);
       } finally {
@@ -2903,6 +2923,10 @@ function AppointmentsPage({
       ...prev,
       [reviewModal.id]: [newReview, ...(prev[reviewModal.id] || [])]
     }));
+    api.leaveReview(reviewModal.id, {
+      rating: reviewStars,
+      comment: reviewComment.trim() || null,
+    }).catch(() => {});
     setReviewModal(null);
     setReviewStars(0);
     setReviewHover(0);
@@ -4319,6 +4343,14 @@ function AppointmentsPage({
           )}
 
               {/* ── Grille médecins ── */}
+              {filteredDoctors.length === 0 && !loading && (
+                <div className="col-span-2 py-12 text-center" style={{ color: c.txt3 }}>
+                  <p className="text-sm font-semibold" style={{ color: c.txt2 }}>
+                    Aucun médecin disponible pour ces critères.
+                  </p>
+                  <p className="text-xs mt-1">Essayez de modifier vos filtres.</p>
+                </div>
+              )}
               <div
                 className="grid gap-5 mb-10 grid-cols-1 md:grid-cols-2"
                 ref={docListRef}
@@ -4358,7 +4390,7 @@ function AppointmentsPage({
                           {doc.initials}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="font-bold truncate group-hover:text-blue-500 transition-colors" style={{ color: c.txt }}>
+                          <p className="font-bold group-hover:text-blue-500 transition-colors leading-snug" title={doc.name} style={{ color: c.txt, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                             {doc.name}
                           </p>
                           <p className="text-xs mt-0.5 truncate" style={{ color: c.txt2 }}>
@@ -4521,38 +4553,83 @@ function PrescriptionsPage({ dk }) {
   const [selectedQr, setSelectedQr] = useState(null);
   const [qrImageUrl, setQrImageUrl] = useState(null);
   const [downloading, setDownloading] = useState(null);
-  // Click & Collect state
   const [rxList, setRxList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sendingRx, setSendingRx] = useState(null);
+  // { [rxId]: { ccStatus: "sent"|"preparing"|"ready", pharmacy: str, orderId: str|null } }
   const [ccStatuses, setCcStatuses] = useState({});
+  const pollRef = useRef(null);
 
+  // ── Polling statut commande ────────────────────────────────────────────────
+  const pollOrders = useCallback(async () => {
+    const sentIds = Object.keys(ccStatuses).filter(
+      (id) => ccStatuses[id]?.orderId && ccStatuses[id]?.ccStatus !== "ready"
+    );
+    if (sentIds.length === 0) return;
+
+    try {
+      const data = await api.getMyPharmacyOrders();
+      const orders = Array.isArray(data) ? data : (data?.results || []);
+      setCcStatuses((prev) => {
+        const next = { ...prev };
+        orders.forEach((o) => {
+          const rxId = o.prescription_id ?? o.prescription;
+          if (!rxId || !next[rxId]) return;
+          const backMap = {
+            pending: "sent", preparing: "preparing",
+            ready: "ready", delivered: "ready",
+          };
+          const mapped = backMap[(o.status || "").toLowerCase()] || "sent";
+          next[rxId] = { ...next[rxId], ccStatus: mapped };
+        });
+        return next;
+      });
+    } catch {
+      // silencieux
+    }
+  }, [ccStatuses]);
+
+  // Lance le polling quand des commandes sont en cours
+  useEffect(() => {
+    const hasPending = Object.values(ccStatuses).some(
+      (s) => s?.orderId && s?.ccStatus !== "ready"
+    );
+    if (hasPending) {
+      clearInterval(pollRef.current);
+      pollRef.current = setInterval(pollOrders, 15_000);
+    } else {
+      clearInterval(pollRef.current);
+    }
+    return () => clearInterval(pollRef.current);
+  }, [ccStatuses, pollOrders]);
+
+  // ── Envoi vers pharmacie ───────────────────────────────────────────────────
   const handleSendConfirm = async (rxId, data) => {
     // Optimistic UI
-    setCcStatuses(prev => ({
+    setCcStatuses((prev) => ({
       ...prev,
-      [rxId]: {
-        ccStatus: "sent",
-        pharmacy: data.pharmacy,
-        notes: data.notes
-      }
+      [rxId]: { ccStatus: "sent", pharmacy: data.pharmacy, orderId: null },
     }));
     setSendingRx(null);
-    // Crée la commande côté backend (non bloquant pour l'UI)
+
     try {
-      await api.apiFetch("/pharmacy/orders/", {
-        method: "POST",
-        body: JSON.stringify({
-          prescription: rxId,
-          patient_message: data.notes || "",
-          order_type: "prescription",
-          withdrawal_method: "patient",
-        }),
+      const order = await api.createPharmacyOrder({
+        prescription: rxId,
+        patient_message: data.notes || "",
+        order_type: "prescription",
+        withdrawal_method: "patient",
+        pharmacist: data.pharmacist_user_id || undefined,
       });
+      // Enregistre l'orderId réel pour le polling
+      if (order?.id) {
+        setCcStatuses((prev) => ({
+          ...prev,
+          [rxId]: { ...prev[rxId], orderId: order.id },
+        }));
+      }
     } catch (err) {
       console.error("Erreur envoi ordonnance à la pharmacie:", err);
-      // Revert optimistic state
-      setCcStatuses(prev => {
+      setCcStatuses((prev) => {
         const next = { ...prev };
         delete next[rxId];
         return next;
@@ -4560,28 +4637,73 @@ function PrescriptionsPage({ dk }) {
     }
   };
 
+  // ── Chargement des ordonnances et statut des commandes ─────────────────────
   useEffect(() => {
-    api.getMyPrescriptions().then(data => {
-      const results = Array.isArray(data) ? data : (data?.results || []);
-      setRxList(results.map(rx => ({
-        id: rx.id,
-        doctor: rx.doctor_name || (rx.doctor ? "Dr. " + rx.doctor.last_name : "Inconnu"),
-        date: rx.created_at?.split('T')[0] || "Date inconnue",
-        status: rx.status || "ACTIVE",
-        statusColor: (rx.status || "ACTIVE").toUpperCase() === "ACTIVE" ? "#2D8C6F" : "#E05555",
-        meds: (rx.items || []).map(item => item.drug_name) || rx.medication_list || [],
-        qr_token: rx.qr_token || null,
-      })));
-    }).catch(err => {
-      console.error("Erreur chargement prescriptions:", err);
-      setRxList([]);
-    }).finally(() => setLoading(false));
+    Promise.all([
+      api.getMyPrescriptions(),
+      api.getMyPharmacyOrders().catch(() => ({ results: [] }))
+    ]).then(([rxData, orderData]) => {
+      // 1. Charger les ordonnances
+      const results = Array.isArray(rxData) ? rxData : (rxData?.results || []);
+      setRxList(
+        results.map((rx) => {
+          const statusRaw = (rx.status || "active").toLowerCase();
+          const isExpired = rx.valid_until
+            ? new Date(rx.valid_until) < new Date()
+            : false;
+          const statusDisplay = isExpired ? "EXPIRED" : statusRaw.toUpperCase();
+          const statusColor =
+            statusDisplay === "ACTIVE"   ? "#2D8C6F" :
+            statusDisplay === "EXPIRED"  ? "#E8A838" :
+            statusDisplay === "CANCELLED"? "#E05555" : "#9AACBE";
+
+          return {
+            id: rx.id,
+            doctor: rx.doctor_name || (rx.doctor ? "Dr. " + rx.doctor : "Inconnu"),
+            date: rx.created_at?.split("T")[0] || "Date inconnue",
+            validUntil: rx.valid_until ? rx.valid_until.split("T")[0] : null,
+            status: statusDisplay,
+            statusColor,
+            meds: (rx.items || []).map((item) => item.drug_name),
+            qr_token: rx.qr_token || null,
+          };
+        })
+      );
+
+      // 2. Initialiser ccStatuses avec les commandes actives
+      const orders = Array.isArray(orderData) ? orderData : (orderData?.results || []);
+      const initialStatuses = {};
+      orders.forEach((o) => {
+        const rxId = o.prescription_id ?? o.prescription;
+        if (!rxId) return;
+        const status = (o.status || "").toLowerCase();
+        
+        const backMap = {
+          pending: "sent", preparing: "preparing",
+          ready: "ready", delivered: "ready",
+        };
+        const mapped = backMap[status] || "sent";
+        
+        // On évite d'écraser si la commande est annulée sauf si pertinent
+        if (status !== "cancelled") {
+            initialStatuses[rxId] = {
+              ccStatus: mapped,
+              pharmacy: o.pharmacist_name || "Pharmacie",
+              orderId: o.id
+            };
+        }
+      });
+      setCcStatuses(initialStatuses);
+      
+    }).catch(() => setRxList([]))
+      .finally(() => setLoading(false));
   }, []);
 
   const filteredRxList = rxList.filter(
     (rx) => filter === "All" || rx.status === filter.toUpperCase(),
   );
 
+  // ── Téléchargement PDF ─────────────────────────────────────────────────────
   const handleDownload = async (id) => {
     if (!id) return;
     const idStr = String(id);
@@ -4590,8 +4712,7 @@ function PrescriptionsPage({ dk }) {
       const blob = await api.apiFetchBlob(`/prescriptions/${idStr}/pdf-download/`);
       if (blob.type === "application/json") {
         const text = await blob.text();
-        const errData = JSON.parse(text);
-        throw new Error(errData.detail || "Erreur serveur");
+        throw new Error(JSON.parse(text)?.detail || "Erreur serveur");
       }
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -4600,10 +4721,7 @@ function PrescriptionsPage({ dk }) {
       a.download = `ordonnance-${idStr.slice(0, 8)}.pdf`;
       document.body.appendChild(a);
       a.click();
-      setTimeout(() => {
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-      }, 100);
+      setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
     } catch (err) {
       console.error("Erreur PDF:", err);
     } finally {
@@ -4611,25 +4729,55 @@ function PrescriptionsPage({ dk }) {
     }
   };
 
+  // ── Affichage QR ───────────────────────────────────────────────────────────
   const handleShowQr = async (rx) => {
     setSelectedQr(rx);
-    if (qrImageUrl) {
-      window.URL.revokeObjectURL(qrImageUrl);
-      setQrImageUrl(null);
-    }
+    if (qrImageUrl) { window.URL.revokeObjectURL(qrImageUrl); setQrImageUrl(null); }
     try {
       const blob = await api.apiFetchBlob(`/prescriptions/${String(rx.id)}/qr-image/`);
-      const url = window.URL.createObjectURL(blob);
-      setQrImageUrl(url);
+      setQrImageUrl(window.URL.createObjectURL(blob));
     } catch (err) {
       console.error("Erreur QR:", err);
     }
   };
 
+  // ── Helper date ────────────────────────────────────────────────────────────
+  const fmtDate = (iso) => {
+    if (!iso) return null;
+    try {
+      return new Date(iso).toLocaleDateString("fr-FR", {
+        day: "2-digit", month: "short", year: "numeric",
+      });
+    } catch { return iso; }
+  };
+
   return (
     <>
+      {/* Filtres */}
+      <div className="flex gap-2 mb-5 flex-wrap">
+        {["All", "Active", "Expired", "Cancelled"].map((f) => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
+            style={{
+              background: filter === f ? c.blue : "transparent",
+              color: filter === f ? "#fff" : c.txt2,
+              borderColor: filter === f ? c.blue : c.border,
+            }}
+          >
+            {f === "All" ? "Toutes" : f === "Active" ? "Actives" : f === "Expired" ? "Expirées" : "Annulées"}
+          </button>
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredRxList.length === 0 ? (
+        {loading ? (
+          <div className="col-span-3 flex justify-center py-12">
+            <span className="w-8 h-8 border-2 rounded-full animate-spin"
+              style={{ borderColor: c.blue + "44", borderTopColor: c.blue }} />
+          </div>
+        ) : filteredRxList.length === 0 ? (
           <EmptyState
             dk={dk}
             icon={FileText}
@@ -4639,6 +4787,7 @@ function PrescriptionsPage({ dk }) {
         ) : (
           filteredRxList.map((rx) => {
             const cc = ccStatuses[rx.id];
+            const isActive = rx.status === "ACTIVE";
             return (
               <Card key={rx.id} dk={dk}>
                 <div className="flex gap-4 flex-wrap">
@@ -4655,80 +4804,93 @@ function PrescriptionsPage({ dk }) {
                   <div className="flex-1 min-w-48">
                     <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                       <div>
-                        <p className="font-bold" style={{ color: c.txt }}>
-                          Prescription #{rx.id}
+                        <p className="font-bold text-sm" style={{ color: c.txt }}>
+                          {rx.doctor}
                         </p>
-                        <p className="text-xs" style={{ color: c.txt2 }}>
-                          Issued by {rx.doctor} · {rx.date}
+                        <p className="text-xs" style={{ color: c.txt3 }}>
+                          {fmtDate(rx.date)}
+                          {rx.validUntil && (
+                            <span style={{ color: rx.status === "EXPIRED" ? "#E8A838" : c.txt3 }}>
+                              {" "}· Valide jusqu'au {fmtDate(rx.validUntil)}
+                            </span>
+                          )}
                         </p>
                       </div>
                       <Badge color={rx.statusColor} bg={rx.statusColor + "18"}>
-                        {rx.status}
+                        {rx.status === "ACTIVE" ? "Active" :
+                         rx.status === "EXPIRED" ? "Expirée" :
+                         rx.status === "CANCELLED" ? "Annulée" : rx.status}
                       </Badge>
                     </div>
-                    <div className="space-y-1">
-                      {rx.meds.map((m) => (
-                        <p key={m} className="text-sm" style={{ color: c.txt }}>
-                          • {m}
-                        </p>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {rx.meds.slice(0, 3).map((m) => (
+                        <span key={m}
+                          className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                          style={{ background: c.blue + "14", color: c.blue }}>
+                          {m}
+                        </span>
                       ))}
+                      {rx.meds.length > 3 && (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                          style={{ background: c.border, color: c.txt3 }}>
+                          +{rx.meds.length - 3}
+                        </span>
+                      )}
                     </div>
                   </div>
+                </div>
 
-                  {/* Actions */}
-                  <div className="flex flex-col gap-2 shrink-0">
-                    <button
-                      onClick={() => handleDownload(rx.id)}
-                      disabled={downloading === rx.id}
-                      className="text-xs font-semibold px-3 py-2 rounded-lg border transition-colors hover:opacity-80 disabled:opacity-50 flex items-center gap-2 justify-center"
-                      style={{ color: c.txt2, borderColor: c.border }}
-                    >
-                      {downloading === rx.id ? (
-                        <span
-                          className="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin"
-                          style={{ borderColor: c.txt2 }}
-                        />
-                      ) : (
-                        "⬇ PDF"
-                      )}
-                    </button>
-                    <button
-                      onClick={() => handleShowQr(rx)}
-                      className="flex items-center gap-2 justify-center text-xs font-semibold px-3 py-2 rounded-lg text-white transition-colors hover:opacity-80 active:scale-95"
-                      style={{ background: c.blue }}
-                    >
-                      <QrCode size={14} /> QR Code
-                    </button>
-
-                    {/* Bouton envoi — visible si ACTIVE et pas encore envoyé */}
-                    {rx.status === "ACTIVE" && !cc && (
-                      <button
-                        onClick={() => setSendingRx(rx)}
-                        className="flex items-center gap-1.5 justify-center text-xs font-bold px-3 py-2 rounded-lg text-white transition-all hover:opacity-90 active:scale-95"
-                        style={{ background: "linear-gradient(135deg, #304B71, #6492C9)" }}
-                      >
-                        <Send size={12} /> Envoyer
-                      </button>
+                {/* Actions */}
+                <div className="flex gap-2 mt-4 flex-wrap">
+                  <button
+                    onClick={() => handleDownload(rx.id)}
+                    disabled={downloading === rx.id}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors hover:opacity-80 disabled:opacity-50"
+                    style={{ color: c.txt2, borderColor: c.border }}
+                  >
+                    {downloading === rx.id ? (
+                      <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Download size={12} />
                     )}
+                    PDF
+                  </button>
+                  <button
+                    onClick={() => handleShowQr(rx)}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg text-white transition-colors hover:opacity-80"
+                    style={{ background: c.blue }}
+                  >
+                    <QrCode size={12} /> QR Code
+                  </button>
 
-                    {/* Badge "Envoyé" si déjà transmis */}
-                    {cc && (
-                      <div className="flex items-center gap-1.5 justify-center text-[10px] font-bold px-3 py-1.5 rounded-lg"
-                        style={{ background: c.blue + "15", color: c.blue }}>
-                        <CheckCircle size={11} />
-                        {cc.ccStatus === "ready" ? "Prêt !" : "Transmis"}
-                      </div>
-                    )}
-                  </div>
+                  {/* Envoyer à la pharmacie — visible si ACTIVE et pas encore envoyé */}
+                  {isActive && !cc && (
+                    <button
+                      onClick={() => setSendingRx(rx)}
+                      className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg text-white transition-all hover:opacity-90 active:scale-95 ml-auto"
+                      style={{ background: "linear-gradient(135deg, #304B71, #6492C9)" }}
+                    >
+                      <Send size={12} /> Envoyer
+                    </button>
+                  )}
+
+                  {/* Statut Click & Collect */}
+                  {cc && (
+                    <span className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg ml-auto"
+                      style={{ background: cc.ccStatus === "ready" ? "#2D8C6F18" : c.blue + "15",
+                               color: cc.ccStatus === "ready" ? "#2D8C6F" : c.blue }}>
+                      {cc.ccStatus === "ready"
+                        ? <><CheckCircle size={11} /> Prêt !</>
+                        : cc.ccStatus === "preparing"
+                        ? <><Clock size={11} /> En préparation</>
+                        : <><Send size={11} /> Transmis</>}
+                    </span>
+                  )}
                 </div>
 
                 {/* Tracker Click & Collect */}
                 {cc && (
-                  <ClickCollectTracker
-                    ccStatus={cc.ccStatus}
-                    pharmacy={cc.pharmacy}
-                    dk={dk}
-                  />
+                  <ClickCollectTracker ccStatus={cc.ccStatus} pharmacy={cc.pharmacy} dk={dk} />
                 )}
               </Card>
             );
@@ -4760,19 +4922,18 @@ function PrescriptionsPage({ dk }) {
             >
               <X size={20} className="text-gray-600" />
             </button>
-            <h3 className="font-black text-xl mb-1 text-gray-900">
-              Ordonnance
-            </h3>
-            <p className="text-xs font-bold text-gray-500 mb-6 uppercase tracking-widest">
-              {selectedQr.doctor} • {selectedQr.date}
+            <h3 className="font-black text-xl mb-1 text-gray-900">Ordonnance</h3>
+            <p className="text-xs font-bold text-gray-500 mb-1 uppercase tracking-widest">
+              {selectedQr.doctor} · {fmtDate(selectedQr.date)}
             </p>
+            {selectedQr.validUntil && (
+              <p className="text-[10px] text-gray-400 mb-5">
+                Valide jusqu'au {fmtDate(selectedQr.validUntil)}
+              </p>
+            )}
             <div className="p-4 rounded-[24px] mb-6 bg-white border border-gray-100 shadow-xl flex items-center justify-center w-52 h-52">
               {qrImageUrl ? (
-                <img
-                  src={qrImageUrl}
-                  alt="QR Code ordonnance"
-                  className="w-44 h-44 object-contain"
-                />
+                <img src={qrImageUrl} alt="QR Code ordonnance" className="w-44 h-44 object-contain" />
               ) : (
                 <div className="flex flex-col items-center gap-2">
                   <span className="w-8 h-8 border-2 border-[#395886] border-t-transparent rounded-full animate-spin" />
@@ -4780,21 +4941,15 @@ function PrescriptionsPage({ dk }) {
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-7 h-7 rounded-[6px] bg-[#F5F7FB] border border-[#E4EAF5] flex items-center justify-center">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#395886" strokeWidth="2">
-                  <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-                  <rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M17 14h4M14 17v4"/>
-                </svg>
-              </div>
-              <p className="text-[13px] font-bold text-gray-600">
-                Présentez ce QR Code à votre pharmacien
-              </p>
-            </div>
+            <p className="text-[13px] font-bold text-gray-600 mb-4">
+              Présentez ce QR Code à votre pharmacien
+            </p>
             {selectedQr.meds && selectedQr.meds.length > 0 && (
               <div className="w-full flex flex-wrap gap-1.5 justify-center">
                 {selectedQr.meds.map((m) => (
-                  <span key={m} className="px-2.5 py-1 rounded-[5px] bg-[#EEF3FB] border border-[#B1C9EF]/30 text-[.68rem] text-[#395886] font-medium">{m}</span>
+                  <span key={m} className="px-2.5 py-1 rounded-[5px] bg-[#EEF3FB] border border-[#B1C9EF]/30 text-[.68rem] text-[#395886] font-medium">
+                    {m}
+                  </span>
                 ))}
               </div>
             )}
@@ -4802,268 +4957,420 @@ function PrescriptionsPage({ dk }) {
         </div>
       )}
 
-      {/* Toast Notification */}
+      {/* Toast téléchargement */}
       {downloading && (
         <div
           className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-6 py-3.5 rounded-full shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5"
           style={{ background: c.blue, color: "#fff" }}
         >
-          <span className="w-5 h-5 border-2 border-white border-t-transparent flex-shrink-0 rounded-full animate-spin"></span>
-          <span className="font-bold text-sm">
-            Téléchargement du PDF en cours...
-          </span>
+          <span className="w-5 h-5 border-2 border-white border-t-transparent flex-shrink-0 rounded-full animate-spin" />
+          <span className="font-bold text-sm">Téléchargement du PDF en cours...</span>
         </div>
       )}
     </>
   );
 }
 
+
 // ─── PHARMACY PAGE ────────────────────────────────────────────────────────────
+
 function PharmacyPage({ dk }) {
   const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
+  
+  // États principaux
+  const [viewMode, setViewMode] = useState("explore"); // "explore" ou "stock"
+  const [selectedPharmacy, setSelectedPharmacy] = useState(null);
+  const [pharmacies, setPharmacies] = useState([]);
+  const [stockItems, setStockItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [activeMapPharma, setActiveMapPharma] = useState(null);
+  const [isMapLocked, setIsMapLocked] = useState(false);
+
+  // État du Panier (Global à la page pharmacie)
   const [cart, setCart] = useState(() => {
     try { return JSON.parse(localStorage.getItem("medsmart_pharmacy_cart") || "{}"); } catch { return {}; }
   });
-  const [pharmacyItems, setPharmacyItems] = useState([]);
-  const [activeTags, setActiveTags] = useState([]);
-  const { globalSearch, setGlobalSearch } = useData();
-  const searchTerm = globalSearch;
-  const setSearchTerm = setGlobalSearch;
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(searchTerm);
-    }, 400);
-    return () => clearTimeout(handler);
-  }, [searchTerm]);
-
+  // Chargement initial des pharmacies
   useEffect(() => {
     setLoading(true);
-    const filters = { search: debouncedSearch };
-    if (activeTags.includes("CNAS")) filters.cnas_covered = "true";
-    
-    api.getMedications(filters).then(data => {
-      const results = Array.isArray(data) ? data : (data?.results || []);
-      setPharmacyItems(results.map(m => ({
-        id: m.id,
-        name: m.name,
-        molecule: m.molecule,
-        price: m.price_dzd ? `${m.price_dzd} DZD` : "—",
-        stock: m.is_active ? "In Stock" : "Out of Stock",
-        cnas: m.cnas_covered,
-        qty: 0,
-      })));
-    }).catch(err => {
-      console.error("Erreur chargement médicaments:", err);
-      setPharmacyItems([]);
+    api.getAllPharmacies().then(data => {
+      const list = Array.isArray(data) ? data : (data?.results || []);
+      setPharmacies(list);
+      if (list.length > 0) setActiveMapPharma(list[0]);
     }).finally(() => setLoading(false));
-  }, [debouncedSearch, activeTags]);
+  }, []);
+
+  // Déverrouille la carte quand on revient en mode exploration
+  useEffect(() => {
+    if (viewMode === "explore") setIsMapLocked(false);
+  }, [viewMode]);
+
+  // Réinitialise le panier quand on change de pharmacie
+  useEffect(() => {
+    setCart({});
+  }, [selectedPharmacy?.id]);
+
+  // Chargement du stock quand une pharmacie est sélectionnée
+  useEffect(() => {
+    if (viewMode === "stock" && selectedPharmacy) {
+      setLoading(true);
+      setStockItems([]);
+      api.getPublicPharmacyStock(selectedPharmacy.id).then(data => {
+        const list = Array.isArray(data) ? data : [];
+        setStockItems(list.map(s => ({
+          id: s.id,
+          name: s.name || "Médicament",
+          molecule: s.molecule || "",
+          price: parseFloat(s.price) || 0,
+          stock_qty: s.stock_qty || 0,
+        })));
+      }).catch(() => setStockItems([]))
+        .finally(() => setLoading(false));
+    }
+  }, [viewMode, selectedPharmacy]);
 
   useEffect(() => {
     localStorage.setItem("medsmart_pharmacy_cart", JSON.stringify(cart));
   }, [cart]);
 
-  const toggleTag = (tag) => {
-    setActiveTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
-  };
-
   const addToCart = (id) => setCart((c) => ({ ...c, [id]: (c[id] || 0) + 1 }));
-  const cartItems = pharmacyItems.filter((item) => (cart[item.id] || 0) > 0);
+  
+  // Calcul du sous-total (basé sur stockItems car c'est là qu'on a les prix de la pharmacie actuelle)
+  const cartItems = stockItems.filter((item) => (cart[item.id] || 0) > 0);
   const subtotal = cartItems.reduce(
-    (sum, item) => sum + parseInt(item.price) * (cart[item.id] || 0),
-    0,
+    (sum, item) => sum + parseFloat(item.price) * (cart[item.id] || 0),
+    0
   );
 
+  // ── Rendu : Exploration (Liste + Carte) ────────────────────────────────────
+  if (viewMode === "explore") {
+    return (
+      <div className="flex flex-col lg:flex-row gap-5 mt-4 min-h-[calc(100vh-180px)]">
+        {/* Liste des Pharmacies */}
+        <div className="flex-1 overflow-y-auto scrollbar-hide px-2 pb-2" style={{ maxHeight: "calc(100vh - 180px)" }}>
+          <div className="flex items-center justify-between mb-4 px-1">
+            <h2 className="font-black text-xl tracking-tight" style={{ color: c.txt }}>{t('nearby_pharmacies') || "Pharmacies à proximité"}</h2>
+            <Badge color={c.blue} bg={c.blueLight}>{pharmacies.length}</Badge>
+          </div>
+          
+          {loading && pharmacies.length === 0 ? (
+            <div className="py-10 text-center opacity-50" style={{ color: c.txt }}>{t('loading')}...</div>
+          ) : (
+            <div className="grid gap-4 grid-cols-1">
+              {pharmacies.map((ph, idx) => {
+                const isSelected = activeMapPharma?.id === ph.id;
+                const isLocked = isMapLocked && isSelected;
+                const PALETTE = ["#4A6FA5","#2D8C6F","#7B5EA7","#E8A838","#E05555","#2196F3","#009688"];
+                const color = PALETTE[idx % PALETTE.length];
+                const initials = ph.name.split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase();
+                return (
+                  <div
+                    key={ph.id}
+                    onMouseEnter={() => { if (!isMapLocked) setActiveMapPharma(ph); }}
+                    onClick={() => {
+                      if (isMapLocked && isSelected) {
+                        setIsMapLocked(false);
+                      } else {
+                        setActiveMapPharma(ph);
+                        setIsMapLocked(true);
+                      }
+                    }}
+                    className="group flex flex-col rounded-xl border shadow-md hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 overflow-hidden cursor-pointer"
+                    style={{
+                      background: c.card,
+                      borderColor: isLocked ? c.blue : (isSelected ? `${c.blue}88` : c.border),
+                      boxShadow: isLocked ? `0 0 0 2px ${c.blue}` : (isSelected ? `0 0 0 2px ${c.blue}33` : undefined),
+                    }}
+                  >
+                    {/* Infos principales */}
+                    <div className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div
+                          className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0 shadow-md"
+                          style={{ background: `linear-gradient(135deg, ${color}, ${color}bb)` }}
+                        >
+                          {initials}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold truncate" style={{ color: c.txt }}>{ph.name}</p>
+                          <p className="text-xs mt-0.5 truncate" style={{ color: c.txt2 }}>{ph.pharm_city}</p>
+                          {ph.pharm_phone && (
+                            <p className="text-xs font-bold mt-1" style={{ color: c.blue }}>{ph.pharm_phone}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 text-xs mt-3" style={{ color: c.txt3 }}>
+                        <MapPin size={12} className="shrink-0" />
+                        <span className="truncate">{ph.pharm_address}</span>
+                      </div>
+
+                      <div className="flex gap-1.5 mt-3 flex-wrap">
+                        {ph.is_open_24h && (
+                          <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full" style={{ background: "#2D8C6F18", color: "#2D8C6F" }}>
+                            Ouvert 24h/7j
+                          </span>
+                        )}
+                        {ph.cnas_coverage && (
+                          <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full" style={{ background: c.blueLight, color: c.blue }}>
+                            Chifa ✓
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="p-3 mt-auto flex gap-2 border-t" style={{ borderColor: c.border }}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setActiveMapPharma(ph); }}
+                        className="flex-1 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors hover:opacity-80"
+                        style={{ color: c.txt2, borderColor: c.border, background: "transparent" }}
+                      >
+                        Voir sur la carte
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedPharmacy(ph);
+                          setViewMode("stock");
+                        }}
+                        className="flex-1 text-xs font-bold px-3 py-2 rounded-lg text-white shadow-sm active:scale-95 hover:opacity-90 flex items-center justify-center gap-1"
+                        style={{ background: c.blue }}
+                      >
+                        {t('view_medications') || "Voir les médicaments"}
+                        <ArrowRight size={12} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Carte (Iframe Google Maps) */}
+        <div 
+          className="hidden lg:block sticky top-4 rounded-3xl overflow-hidden shadow-xl border-4"
+          style={{ 
+            flex: "0 0 40%", 
+            height: "calc(100vh - 180px)",
+            borderColor: c.card,
+            background: dk ? "#0f1b2d" : "#dce6f0"
+          }}
+        >
+          {activeMapPharma ? (
+            <iframe
+              key={activeMapPharma?.id}
+              src={`https://maps.google.com/maps?q=${encodeURIComponent(activeMapPharma.name + ", " + activeMapPharma.pharm_address + ", Algérie")}&z=15&output=embed`}
+              width="100%"
+              height="100%"
+              style={{ border: 0 }}
+              loading="lazy"
+              title="Pharmacy Map"
+            />
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center p-10 text-center opacity-40" style={{ color: c.txt }}>
+              <MapPin size={48} className="mb-4" />
+              <p>{t('select_pharmacy_map') || "Sélectionnez une pharmacie pour la voir sur la carte"}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Rendu : Stock d'une pharmacie (Catalogue) ──────────────────────────────
   return (
-    <>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start mt-4">
-        {/* Medications grid */}
+    <div className="mt-4">
+      <button 
+        onClick={() => setViewMode("explore")}
+        className="flex items-center gap-2 mb-6 text-sm font-bold transition-all hover:-translate-x-1"
+        style={{ color: c.blue }}
+      >
+        <ChevronRight size={18} className="rotate-180" />
+        {t('back_to_pharmacies') || "Retour aux pharmacies"}
+      </button>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        {/* Catalogue */}
         <div className="lg:col-span-2">
-          <Card dk={dk} className="mb-4" style={{ padding: "15px 18px" }}>
-            <div className="flex items-center gap-2">
-              <Search size={15} style={{ color: c.txt3 }} />
-              <input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder={t('search_medication_placeholder')}
-                className="outline-none text-sm bg-transparent flex-1"
-                style={{ color: c.txt }}
-              />
-              <div className="flex gap-2">
-                {["In Stock", "Generic", "CNAS"].map((tag) => {
-                  const isActive = activeTags.includes(tag);
-                  return (
-                    <span
-                      key={tag}
-                      onClick={() => toggleTag(tag)}
-                      className="text-xs px-2.5 py-1 rounded-full cursor-pointer border transition-all"
-                      style={{
-                        color: isActive ? "#fff" : c.blue,
-                        borderColor: isActive ? c.blue : c.border,
-                        background: isActive ? c.blue : c.blueLight,
-                      }}
-                    >
-                      {tag}
-                    </span>
-                  );
-                })}
+          <header className="mb-6">
+            <h2 className="text-2xl font-black mb-1" style={{ color: c.txt }}>{selectedPharmacy?.name}</h2>
+            <p className="text-sm opacity-60" style={{ color: c.txt }}>{selectedPharmacy?.pharm_address}</p>
+          </header>
+
+          {loading ? (
+            <div className="py-20 text-center opacity-50" style={{ color: c.txt }}>{t('loading')}...</div>
+          ) : stockItems.length === 0 ? (
+            <div className="py-20 text-center opacity-40 bg-slate-500/5 rounded-3xl" style={{ color: c.txt }}>
+              <Pill size={40} className="mx-auto mb-4" />
+              <p>{t('no_stock_available') || "Aucun médicament disponible dans cette pharmacie pour le moment."}</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {stockItems.map((item) => (
+                <Card key={item.id} dk={dk} style={{ padding: 16 }}>
+                  <p className="font-bold text-sm mb-0.5" style={{ color: c.txt }}>{item.name}</p>
+                  <p className="text-xs mb-3" style={{ color: c.txt2 }}>{item.molecule}</p>
+                  
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="font-black text-base" style={{ color: c.blue }}>{item.price.toFixed(2)} DZD</span>
+                    <Badge color={c.green} bg={c.green + "15"}>{item.stock_qty} en stock</Badge>
+                  </div>
+
+                  <button
+                    onClick={() => addToCart(item.id)}
+                    className="w-full py-2.5 rounded-xl text-xs font-bold transition-all hover:opacity-90 flex items-center justify-center gap-2"
+                    style={{ background: c.blue, color: "#fff" }}
+                  >
+                    <Plus size={14} />
+                    {t('add_to_cart')}
+                  </button>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Panier (Cart) */}
+        <div className="sticky top-4">
+          <Card dk={dk} style={{ padding: "20px" }}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2.5 rounded-xl" style={{ background: c.blueLight }}>
+                <ShoppingBag size={20} style={{ color: c.blue }} />
+              </div>
+              <div>
+                <span className="font-bold block" style={{ color: c.txt }}>{t('my_cart')}</span>
+                <span className="text-[10px] uppercase tracking-wider opacity-50 font-bold" style={{ color: c.txt }}>
+                  {selectedPharmacy?.name}
+                </span>
               </div>
             </div>
-          </Card>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {pharmacyItems.map((item) => (
-              <Card
-                key={item.id}
-                dk={dk}
-                style={{ padding: 16, marginTop: "15px" }}
-              >
-                <p
-                  className="font-bold text-sm mb-0.5"
-                  style={{ color: c.txt }}
-                >
-                  {item.name}
-                </p>
-                <p className="text-xs mb-3" style={{ color: c.txt2 }}>
-                  {item.molecule}
-                </p>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="font-bold" style={{ color: c.blue }}>
-                    {item.price}
-                  </span>
-                  <div className="flex gap-1">
-                    <Badge
-                      color={item.stock === "In Stock" ? c.green : c.red}
-                      bg={(item.stock === "In Stock" ? c.green : c.red) + "18"}
-                    >
-                      {item.stock === "In Stock" ? t('in_stock') : t('out_of_stock')}
-                    </Badge>
-                    {item.cnas && (
-                      <Badge color={c.blue} bg={c.blueLight}>
-                        CNAS
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-                <button
-                  onClick={() =>
-                    item.stock === "In Stock" && addToCart(item.id)
-                  }
-                  disabled={item.stock !== "In Stock"}
-                  className="w-full py-2 rounded-xl text-sm font-semibold transition-all"
-                  style={{
-                    background: item.stock === "In Stock" ? c.blue : c.border,
-                    color: item.stock === "In Stock" ? "#fff" : c.txt3,
-                    cursor:
-                      item.stock === "In Stock" ? "pointer" : "not-allowed",
-                  }}
-                >
-                  {item.stock === "In Stock" ? t('add_to_cart') : t('unavailable')}
-                </button>
-              </Card>
-            ))}
-          </div>
-        </div>
-        {/* Cart */}
-        <div className="sticky top-20">
-          <Card dk={dk}>
-            <div className="flex items-center gap-2 mb-4">
-              <ShoppingBag size={18} style={{ color: c.blue }} />
-              <span className="font-bold" style={{ color: c.txt }}>
-                {t('my_cart')}
-              </span>
-              <Badge color={c.blue} bg={c.blueLight}>
-                {t('items_count', { count: cartItems.length })}
-              </Badge>
-            </div>
+
             {cartItems.length === 0 ? (
-              <p className="text-sm text-center py-6" style={{ color: c.txt3 }}>
-                {t('empty_cart')}
-              </p>
+              <div className="text-center py-10 opacity-30" style={{ color: c.txt }}>
+                <ShoppingBag size={32} className="mx-auto mb-2" />
+                <p className="text-xs font-bold">{t('empty_cart')}</p>
+              </div>
             ) : (
               <>
-                {cartItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center gap-3 py-3 border-b"
-                    style={{ borderColor: c.border }}
-                  >
-                    <div className="flex-1">
-                      <p
-                        className="text-sm font-semibold"
-                        style={{ color: c.txt }}
-                      >
-                        {item.name}
-                      </p>
-                      <p className="text-xs" style={{ color: c.txt2 }}>
-                        {item.price}
-                      </p>
+                <div className="space-y-3 mb-6 max-h-[300px] overflow-y-auto pr-1">
+                  {cartItems.map((item) => (
+                    <div key={item.id} className="flex items-center gap-3 py-3 border-b border-dashed" style={{ borderColor: c.border }}>
+                      <div className="flex-1">
+                        <p className="text-xs font-bold" style={{ color: c.txt }}>{item.name}</p>
+                        <p className="text-[10px] font-bold" style={{ color: c.blue }}>{item.price.toFixed(2)} DZD</p>
+                      </div>
+                      <div className="flex items-center gap-2 bg-slate-500/5 p-1 rounded-lg">
+                        <button
+                          onClick={() => setCart((c) => ({ ...c, [item.id]: Math.max(0, (c[item.id] || 0) - 1) }))}
+                          className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold transition-colors hover:bg-white hover:shadow-sm"
+                          style={{ color: c.txt }}
+                        >
+                          −
+                        </button>
+                        <span className="text-xs font-bold w-4 text-center" style={{ color: c.txt }}>{cart[item.id]}</span>
+                        <button
+                          onClick={() => addToCart(item.id)}
+                          className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold transition-colors hover:bg-white hover:shadow-sm"
+                          style={{ color: c.txt }}
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() =>
-                          setCart((c) => ({
-                            ...c,
-                            [item.id]: Math.max(0, (c[item.id] || 0) - 1),
-                          }))
-                        }
-                        className="w-6 h-6 rounded-lg border flex items-center justify-center text-sm font-bold"
-                        style={{ borderColor: c.border, color: c.blue }}
-                      >
-                        −
-                      </button>
-                      <span
-                        className="text-sm font-semibold w-4 text-center"
-                        style={{ color: c.txt }}
-                      >
-                        {cart[item.id]}
-                      </span>
-                      <button
-                        onClick={() => addToCart(item.id)}
-                        className="w-6 h-6 rounded-lg border flex items-center justify-center text-sm font-bold"
-                        style={{ borderColor: c.border, color: c.blue }}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                <div className="pt-3 space-y-2">
-                  <div
-                    className="flex justify-between text-sm"
-                    style={{ color: c.txt2 }}
-                  >
+                  ))}
+                </div>
+
+                <div className="space-y-2 mb-6">
+                  <div className="flex justify-between text-xs font-bold" style={{ color: c.txt2 }}>
                     <span>{t('subtotal')}</span>
-                    <span>{subtotal} DZD</span>
+                    <span>{subtotal.toFixed(2)} DZD</span>
                   </div>
-                  <div
-                    className="flex justify-between text-sm"
-                    style={{ color: c.green }}
-                  >
-                    <span>{t('shifa_coverage')}</span>
-                    <span>− {Math.round(subtotal * 0.6)} DZD</span>
+                  <div className="flex justify-between text-[10px] font-bold" style={{ color: c.green }}>
+                    <span>{t('shifa_coverage')} (80%)</span>
+                    <span>− {(subtotal * 0.8).toFixed(2)} DZD</span>
                   </div>
-                  <div
-                    className="flex justify-between font-bold border-t pt-2"
-                    style={{ borderColor: c.border, color: c.txt }}
-                  >
-                    <span>{t('total')}</span>
-                    <span>{Math.round(subtotal * 0.4)} DZD</span>
+                  <div className="flex justify-between font-black text-lg border-t pt-3 mt-2" style={{ borderColor: c.border, color: c.txt }}>
+                    <span>TOTAL</span>
+                    <span>{(subtotal * 0.2).toFixed(2)} DZD</span>
                   </div>
                 </div>
+
+                <button
+                  className="w-full py-4 rounded-2xl font-black text-white shadow-lg active:scale-95 transition-all hover:opacity-90 flex items-center justify-center gap-2"
+                  style={{ 
+                    background: c.blue,
+                    boxShadow: `0 8px 20px ${c.blue}40`
+                  }}
+                  onClick={() => alert("Commande envoyée à la pharmacie !")}
+                >
+                  <CheckCircle size={18} />
+                  {t('confirm_order') || "Confirmer la commande"}
+                </button>
               </>
             )}
           </Card>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
 // ─── CARE TAKER PAGE ──────────────────────────────────────────────────────────
 const WILAYAS_CT = ["Toutes", "Alger", "Oran", "Constantine", "Annaba", "Blida", "Sétif", "Tlemcen", "Batna", "Autres"];
+
+const CITIES_BY_WILAYA = {
+  "Alger": ["Alger Centre","Bab El Oued","Hussein Dey","El Harrach","Kouba","Birmandreis","Hydra","Ben Aknoun","Birkhadem","Dar El Beïda","Rouiba","Zeralda","Chéraga","Draria","Bouzaréah"],
+  "Oran": ["Oran","Es Senia","Bir El Djir","Arzew","Bethioua","Ain El Turck","Mers El Kebir","Sidi Chami","El Kerma"],
+  "Constantine": ["Constantine","El Khroub","Hamma Bouziane","Aïn Smara","Didouche Mourad","Zighoud Youcef"],
+  "Annaba": ["Annaba","El Bouni","Ain Berda","Berrahal","Chetaïbi"],
+  "Blida": ["Blida","Boufarik","Bougara","Meftah","Larbaâ","Chiffa","Bouinan"],
+  "Batna": ["Batna","Barika","Aïn Touta","Merouana","N'Gaous","Tazoult"],
+  "Sétif": ["Sétif","El Eulma","Aïn Oulmane","Aïn Azel","Bougaâ","Aïn Arnat"],
+  "Tlemcen": ["Tlemcen","Ghazaouet","Maghnia","Remchi","Nedroma","Bab El Assa"],
+  "Tizi Ouzou": ["Tizi Ouzou","Azazga","Draâ El Mizan","Larbaa Nath Irathen","Tigzirt","Boghni"],
+  "Béjaïa": ["Béjaïa","Akbou","Amizour","Souk El Tenine","Tazmalt","Kherrata"],
+  "Jijel": ["Jijel","Taher","El Milia","Chekfa","Texenna"],
+  "Médéa": ["Médéa","Berrouaghia","Ksar El Boukhari","Tablat","Aziz"],
+  "Mostaganem": ["Mostaganem","Sidi Ali","Ain Nouissy","Mazagran","Stidia"],
+  "Bouira": ["Bouira","Aïn Bessem","Lakhdaria","M'chedallah","Sour El Ghouzlane"],
+  "Bordj Bou Arréridj": ["Bordj Bou Arréridj","Ras El Oued","Bordj Ghedir","El Achir"],
+  "Boumerdès": ["Boumerdès","Khemis El Khechna","Thénia","Bordj Menaïel","Boudouaou","Dellys"],
+  "Tipaza": ["Tipaza","Koléa","Hadjout","Cherchell","Damous","Aïn Tagourait"],
+  "Aïn Defla": ["Aïn Defla","Khemis Miliana","El Abadia","El Attaf","Miliana"],
+  "Tissemsilt": ["Tissemsilt","Bordj Bounaama","Theniet El Had"],
+  "Relizane": ["Relizane","Mazouna","Oued Rhiou","Yellel","Mendes"],
+  "Chlef": ["Chlef","Ténès","El Karimia","Ouled Fares","Harenfa"],
+  "Skikda": ["Skikda","Azzaba","Collo","El Harrouch","Tamalous"],
+  "Guelma": ["Guelma","Bouchegouf","Oued Zenati","Héliopolis"],
+  "Souk Ahras": ["Souk Ahras","Sedrata","Taoura","Mechroha"],
+  "El Tarf": ["El Tarf","El Kala","Ben M'Hidi","Besbes"],
+  "Mila": ["Mila","Ferdjioua","Chelghoum Laïd","Tadjenanet","Oued Endja"],
+  "Khenchela": ["Khenchela","Babar","Aïn Touila","Bouhmama"],
+  "Oum El Bouaghi": ["Oum El Bouaghi","Aïn M'lila","Aïn Beïda","Aïn Fakroun"],
+  "Tébessa": ["Tébessa","Bir El Ater","Cheria","El Ogla","Morsott"],
+  "Biskra": ["Biskra","Tolga","El Kantara","Ouled Djellal","Sidi Okba","Zeribet El Oued"],
+  "Djelfa": ["Djelfa","Aïn Oussera","Messaad","Moudjbara","El Idrissia"],
+  "Laghouat": ["Laghouat","Ksar El Hirane","Sidi Makhlouf","Aflou"],
+  "El Bayadh": ["El Bayadh","Brezina","El Abiodh Sidi Cheikh","Rogassa"],
+  "Naâma": ["Naâma","Mécheria","Aïn Sefra","Sfissifa","Morghangue"],
+  "Saïda": ["Saïda","Aïn El Hadjar","Youb","Moulay Larbi"],
+  "Mascara": ["Mascara","Mohammadia","Sig","Ghriss","Oggaz"],
+  "Tiaret": ["Tiaret","Frenda","Sougueur","Mahdia","Ksar Chellala"],
+  "Adrar": ["Adrar","Reggane","Timimoun","Zaouiet Kounta"],
+  "Béchar": ["Béchar","Abadla","Kenadsa","Tabelbala","Igli"],
+  "Tamanrasset": ["Tamanrasset","In Salah","In Guezzam","Abalessa"],
+  "Illizi": ["Illizi","Djanet","In Amenas","Bordj El Haoues"],
+  "Tindouf": ["Tindouf"],
+  "El Oued": ["El Oued","Guemar","Robbah","Nakhla","Bir El Ater","Debila"],
+  "Ouargla": ["Ouargla","Hassi Messaoud","Touggourt","N'Goussa","El Borma"],
+  "Ghardaïa": ["Ghardaïa","Metlili","Guerrara","El Meniaa","Berriane"],
+  "Aïn Témouchent": ["Aïn Témouchent","Hammam Bou Hadjar","Beni Saf","El Amria","Béni Saf"],
+  "Sidi Bel Abbès": ["Sidi Bel Abbès","Telagh","Ras El Ma","Ben Badis","Tessala"],
+};
 
 const WILAYAS_LIST = [
   "Alger","Oran","Constantine","Annaba","Blida","Batna","Sétif","Tlemcen",
@@ -5149,9 +5456,17 @@ function CareTakerPage({ dk }) {
   }, []);
 
   useEffect(() => {
-    // 2. Fetch existing request
-    api.getAdminCareRequests().then(data => {
-      const results = Array.isArray(data) ? data : (data?.results || []);
+    Promise.all([
+      api.getCareRequests().catch(() => []),
+      api.getMedicalProfile().catch(() => null),
+    ]).then(([reqData, medData]) => {
+      const existingPhone = medData?.emergency_contact_phone || "";
+      const existingAddress = userData?.address || "";
+
+      if (existingPhone) setEmergencyPhone(existingPhone);
+      if (existingAddress) setHomeAddress(existingAddress);
+
+      const results = Array.isArray(reqData) ? reqData : (reqData?.results || []);
       if (results.length > 0) {
         const req = results[0];
         setPendingRequest({
@@ -5168,9 +5483,13 @@ function CareTakerPage({ dk }) {
           tags: [],
           bio: ""
         });
-        setIsAccepted(req.status === 'accepted');
-        if (req.status === 'accepted') {
+        const accepted = req.status === 'accepted';
+        setIsAccepted(accepted);
+        if (accepted) {
           setTab("assigned");
+          const phoneOk = existingPhone.replace(/\D/g, "").length >= 9;
+          const addrOk  = existingAddress.trim().length >= 5;
+          if (phoneOk && addrOk) setEmergencyContactFilled(true);
         }
       }
     }).catch(err => {
@@ -5204,23 +5523,39 @@ function CareTakerPage({ dk }) {
     setReviewModal(null); setReviewStars(0); setReviewHover(0); setReviewComment("");
   };
 
-  const handleAssign = (ct) => {
-    setPendingRequest(ct);
-    setIsAccepted(false);
-    setEmergencyContactFilled(false);
-    setEmergencyPhone("");
-    setTab("assigned");
+  const handleAssign = async (ct) => {
+    try {
+      await api.createCareRequest({
+        caretaker: ct.id,
+        patient_message: "",
+      });
+      setPendingRequest(ct);
+      setIsAccepted(false);
+      setEmergencyContactFilled(false);
+      setTab("assigned");
+    } catch (err) {
+      setCtError(err.message || "Erreur lors de l'envoi de la demande.");
+    }
   };
 
   const handleReassign = () => {
-    setPendingRequest(null); setIsAccepted(false); setEmergencyContactFilled(false); setEmergencyPhone(""); setHomeAddress("");
+    setPendingRequest(null); setIsAccepted(false); setEmergencyContactFilled(false);
     setTab("find");
   };
 
-  const handleFinalize = () => {
+  const handleFinalize = async () => {
     const phoneOk = emergencyPhone.replace(/\D/g, "").length >= 9;
     const addrOk  = homeAddress.trim().length >= 5;
-    if (phoneOk && addrOk) setEmergencyContactFilled(true);
+    if (!phoneOk || !addrOk) return;
+    try {
+      await Promise.all([
+        api.updateMe({ address: homeAddress }),
+        api.updateMedicalProfile({ emergency_contact_phone: emergencyPhone }),
+      ]);
+      setEmergencyContactFilled(true);
+    } catch {
+      setCtError("Erreur lors de la sauvegarde. Veuillez réessayer.");
+    }
   };
 
   return (
@@ -5483,27 +5818,6 @@ function CareTakerPage({ dk }) {
                 </button>
               </div>
 
-              {/* Bouton pour simuler l'acceptation (mock UI) */}
-              <Card dk={dk} className="border-dashed">
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <div>
-                    <p className="text-sm font-bold" style={{ color: c.txt }}>Simulation pour test UI</p>
-                    <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>Cliquez pour simuler que le garde-malade a accepté votre demande.</p>
-                  </div>
-                  <button onClick={() => {
-                    setIsAccepted(true);
-                    addNotification(
-                      "Nouvelle mission assignée",
-                      `${pendingRequest?.name || "Un garde-malade"} a accepté votre demande de soins.`,
-                      "success"
-                    );
-                  }}
-                    className="px-5 py-2.5 rounded-xl text-sm font-bold text-white shadow-md active:scale-95"
-                    style={{ background: c.green }}>
-                    ✓ Simuler l'acceptation
-                  </button>
-                </div>
-              </Card>
             </div>
 
           ) : !emergencyContactFilled ? (
@@ -5855,7 +6169,25 @@ function CareTakerPage({ dk }) {
 function NotificationsPage({ dk, notifications, setNotifications }) {
   const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
-  const { globalNotifications = [] } = useData();
+  const { globalNotifications = [], markAllNotificationsRead: markGlobalRead } = useData();
+
+  const handleMarkAllAsRead = async () => {
+    // 1. Context (transient) notifications
+    markGlobalRead();
+    
+    // 2. Backend & local state notifications
+    try {
+      await api.markAllNotificationsRead();
+      if (setNotifications) {
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true, unread: false })));
+      }
+    } catch(err) {
+      // Fallback local update if API fails or not yet synced
+      if (setNotifications) {
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true, unread: false })));
+      }
+    }
+  };
 
   const mergedNotifications = useMemo(() => {
     const adapted = globalNotifications.map((n) => ({
@@ -5870,26 +6202,51 @@ function NotificationsPage({ dk, notifications, setNotifications }) {
     return combined.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
   }, [notifications, globalNotifications]);
 
-  useEffect(() => {
-    const unread = (notifications || []).filter(n => !n.is_read);
-    if (unread.length === 0) return;
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true, unread: false })));
-    unread.forEach(n => {
-      if (typeof n.id === "number") {
-        api.markNotificationRead(n.id).catch(() => {});
+  const handleMarkSingleRead = async (n) => {
+    if (typeof n.id === "string" && n.id.startsWith("g_")) {
+      markGlobalRead(parseInt(n.id.replace("g_", "")));
+    } else {
+      try {
+        await api.markNotificationRead(n.id);
+        if (setNotifications) {
+          setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, is_read: true, unread: false } : item));
+        }
+      } catch(err) {
+        if (setNotifications) {
+          setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, is_read: true, unread: false } : item));
+        }
       }
-    });
+    }
+  };
+
+  useEffect(() => {
+    // Auto-mark as read when visiting the page could be optional, 
+    // but here we keep it for user convenience or rely on the button.
+    // To respect the user request for an "option", we can keep the button as the main way.
   }, []);
 
   return (
     <>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: c.txt }}>
-          {t('notifications')}
-        </h1>
-        <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
-          {t('stay_updated')}
-        </p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: c.txt }}>
+            {t('notifications')}
+          </h1>
+          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
+            {t('stay_updated')}
+          </p>
+        </div>
+        
+        {mergedNotifications.some(n => !n.is_read) && (
+          <button 
+            onClick={handleMarkAllAsRead}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all hover:opacity-80 border"
+            style={{ borderColor: c.border, background: c.card, color: c.blue }}
+          >
+            <Check size={14} />
+            Tout marquer comme lu
+          </button>
+        )}
       </div>
       <div className="space-y-3">
         {mergedNotifications.map((n) => {
@@ -5934,10 +6291,19 @@ function NotificationsPage({ dk, notifications, setNotifications }) {
                 </div>
               </div>
               {isUnread && (
-                <div
-                  className="w-2 h-2 rounded-full mt-1.5 shrink-0"
-                  style={{ background: typeColor }}
-                />
+                <div className="flex flex-col items-end gap-3 shrink-0">
+                  <div
+                    className="w-2 h-2 rounded-full mt-1 shrink-0"
+                    style={{ background: typeColor }}
+                  />
+                  <button 
+                    onClick={() => handleMarkSingleRead(n)}
+                    className="p-1.5 rounded-lg transition-all hover:bg-black/5 dark:hover:bg-white/5 group/check"
+                    title="Marquer comme lu"
+                  >
+                    <Check size={14} className="opacity-40 group-hover/check:opacity-100 transition-opacity" style={{ color: c.txt }} />
+                  </button>
+                </div>
               )}
             </div>
           );
@@ -5969,8 +6335,34 @@ function SettingsPage(props) {
     last_name: "",
     email: "",
     phone: "",
-    city: "Alger",
+    city: "",
+    wilaya: "",
+    sex: "",
+    date_of_birth: "",
+    address: "",
+    postal_code: "",
   });
+
+  const isoToFr = (iso) => {
+    if (!iso) return "";
+    const s = String(iso);
+    if (s.includes("/")) return s.length > 10 ? s.slice(0, 10) : s;
+    const parts = s.split("-");
+    if (parts.length !== 3) return "";
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  };
+  const frToIso = (fr) => {
+    if (!fr) return "";
+    const parts = String(fr).split("/");
+    if (parts.length !== 3 || parts[2].length !== 4) return "";
+    return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+  };
+  const maskDob = (raw) => {
+    let v = String(raw || "").replace(/\D/g, "").slice(0, 8);
+    if (v.length > 4) return `${v.slice(0, 2)}/${v.slice(2, 4)}/${v.slice(4)}`;
+    if (v.length > 2) return `${v.slice(0, 2)}/${v.slice(2)}`;
+    return v;
+  };
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState({ type: "", msg: "" });
 
@@ -5999,12 +6391,19 @@ function SettingsPage(props) {
 
   useEffect(() => {
     if (userData) {
+      const rawSex = userData.sex || "";
+      const normSex = rawSex === "M" ? "male" : rawSex === "F" ? "female" : rawSex;
       setForm({
         first_name: userData.first_name || "",
         last_name: userData.last_name || "",
         email: userData.email || "",
         phone: userData.phone || "",
-        city: userData.city || "Alger",
+        city: userData.city || "",
+        wilaya: userData.wilaya || "",
+        sex: normSex,
+        date_of_birth: isoToFr(userData.date_of_birth) || "",
+        address: userData.address || "",
+        postal_code: userData.postal_code || "",
       });
     }
   }, [userData]);
@@ -6030,13 +6429,19 @@ function SettingsPage(props) {
 
       const updatePromises = [];
 
-      updatePromises.push(
-        api.updateMe({
-          email: emailChanged ? form.email : undefined,
-          phone: form.phone,
-          city: form.city,
-        })
-      );
+      const mePayload = {};
+      if (emailChanged) mePayload.email = form.email;
+      if (form.phone) mePayload.phone = form.phone;
+      if (form.city) mePayload.city = form.city;
+      if (form.wilaya) mePayload.wilaya = form.wilaya;
+      if (form.sex) mePayload.sex = form.sex;
+      if (form.address) mePayload.address = form.address;
+      if (form.postal_code) mePayload.postal_code = form.postal_code;
+      if (form.date_of_birth) {
+        const iso = frToIso(form.date_of_birth);
+        if (iso) mePayload.date_of_birth = iso;
+      }
+      if (Object.keys(mePayload).length > 0) updatePromises.push(api.updateMe(mePayload));
 
       if (nameChanged && identityReason) {
         updatePromises.push(
@@ -6200,23 +6605,92 @@ function SettingsPage(props) {
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Téléphone</label>
                 <input type="tel"
+                  placeholder="0XXXXXXXXX"
                   value={form.phone}
-                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                  onChange={(e) => {
+                    let val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                    setForm((f) => ({ ...f, phone: val }));
+                  }}
+                  className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all focus:border-blue-400"
+                  style={{ background: c.card, borderColor: c.border, color: c.txt }}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Date de naissance</label>
+                <input type="text" inputMode="numeric" placeholder="JJ/MM/AAAA" maxLength={10}
+                  value={maskDob(form.date_of_birth || "")}
+                  onChange={(e) => setForm((f) => ({ ...f, date_of_birth: maskDob(e.target.value) }))}
                   className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
                   style={{ background: c.card, borderColor: c.border, color: c.txt }}
                 />
               </div>
+              <div>
+                <DashSelect
+                  label="Sexe"
+                  value={form.sex}
+                  options={[
+                    { value: "", label: "Non spécifié" },
+                    { value: "male", label: "Masculin" },
+                    { value: "female", label: "Féminin" },
+                  ]}
+                  onSelect={(v) => setForm((f) => ({ ...f, sex: v }))}
+                  dk={dk}
+                  c={c}
+                />
+              </div>
             </div>
-            <div className="mb-4">
-              <DashSelect
-                label="Wilaya"
-                value={form.city}
-                options={WILAYAS_LIST}
-                onSelect={(v) => setForm((f) => ({ ...f, city: v }))}
-                dk={dk}
-                c={c}
-                placeholder="Sélectionner une wilaya..."
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+              <div className="sm:col-span-2">
+                <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Adresse</label>
+                <input type="text"
+                  value={form.address}
+                  onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+                  className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                  style={{ background: c.card, borderColor: c.border, color: c.txt }}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Code postal</label>
+                <input type="text" maxLength={10}
+                  value={form.postal_code}
+                  onChange={(e) => setForm((f) => ({ ...f, postal_code: e.target.value.replace(/\D/g, "") }))}
+                  className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                  style={{ background: c.card, borderColor: c.border, color: c.txt }}
+                />
+              </div>
+              <div>
+                <DashSelect
+                  label="Wilaya"
+                  value={form.wilaya}
+                  options={[{ value: "", label: "Sélectionner une wilaya..." }, ...WILAYAS_LIST.map((w) => ({ value: w, label: w }))]}
+                  onSelect={(v) => setForm((f) => ({ ...f, wilaya: v, city: "" }))}
+                  dk={dk}
+                  c={c}
+                />
+              </div>
+              <div>
+                {form.wilaya && CITIES_BY_WILAYA[form.wilaya] ? (
+                  <DashSelect
+                    label="Ville"
+                    value={form.city}
+                    options={[{ value: "", label: "Sélectionner une ville..." }, ...CITIES_BY_WILAYA[form.wilaya].map((v) => ({ value: v, label: v })), { value: "Autre", label: "Autre" }]}
+                    onSelect={(v) => setForm((f) => ({ ...f, city: v }))}
+                    dk={dk}
+                    c={c}
+                  />
+                ) : (
+                  <>
+                    <label className="block text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: c.txt3 }}>Ville</label>
+                    <input type="text"
+                      value={form.city}
+                      placeholder="Sélectionner d'abord une wilaya"
+                      onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+                      className="px-3 py-2 border rounded-xl text-sm w-full outline-none transition-all"
+                      style={{ background: c.card, borderColor: c.border, color: c.txt }}
+                    />
+                  </>
+                )}
+              </div>
             </div>
             <button
               onClick={handleSaveProfile}
@@ -6380,7 +6854,8 @@ export default function PatientDashboard({ onLogout }) {
         const apptsArray = Array.isArray(appts) ? appts : (appts?.results || []);
         setAppointments(apptsArray);
         setMedicalProfile(profile);
-        setNotifications(Array.isArray(notifs) ? notifs : []);
+        const notifsArray = Array.isArray(notifs) ? notifs : (notifs?.results || []);
+        setNotifications(notifsArray);
         const pending = Array.isArray(identityReqs) ? identityReqs.find(r => r.status === 'pending') : null;
         setPendingIdentityRequest(pending);
       } catch (err) {
@@ -6392,15 +6867,21 @@ export default function PatientDashboard({ onLogout }) {
     fetchData();
   }, []);
 
-  // Polling toutes les 30s pour voir les changements de statut (accepté/refusé)
+  // Polling toutes les 15s pour voir les changements (rendez-vous et notifications)
   useEffect(() => {
     const poll = setInterval(async () => {
       try {
-        const fresh = await api.getMyAppointments();
-        const apptsArray = Array.isArray(fresh) ? fresh : (fresh?.results || []);
+        const [freshAppts, freshNotifs] = await Promise.all([
+          api.getMyAppointments(),
+          api.getNotifications()
+        ]);
+        const apptsArray = Array.isArray(freshAppts) ? freshAppts : (freshAppts?.results || []);
         setAppointments(apptsArray);
+        
+        const notifsArray = Array.isArray(freshNotifs) ? freshNotifs : (freshNotifs?.results || []);
+        setNotifications(notifsArray);
       } catch {}
-    }, 30_000);
+    }, 15_000);
     return () => clearInterval(poll);
   }, []);
 
@@ -6706,9 +7187,7 @@ export default function PatientDashboard({ onLogout }) {
                   >
                     {fullName}
                   </p>
-                  <p className="text-xs" style={{ color: c.txt3 }}>
-                    ID: #{userData?.id || "----"}
-                  </p>
+
                 </div>
                 <ChevronDown size={13} style={{ color: c.txt3 }} />
               </button>
@@ -6763,7 +7242,7 @@ export default function PatientDashboard({ onLogout }) {
                           {fullName}
                         </p>
                         <p className="text-xs" style={{ color: c.txt3 }}>
-                          Patient · ID #{userData?.id || "----"}
+                          Patient
                         </p>
                       </div>
                     </div>

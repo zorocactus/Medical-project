@@ -1005,6 +1005,8 @@ function AIDiagnosisPage({ dk, setPage }) {
         .diag-scroll::-webkit-scrollbar-thumb { background:rgba(99,142,203,.22); border-radius:99px; }
         .diag-chip:hover { opacity: 0.8; }
         .diag-textarea::placeholder { color: ${dk ? "rgba(240,243,250,0.38)" : "rgba(13,27,46,0.38)"} !important; }
+        .diag-textarea::-webkit-scrollbar { display: none; }
+        .diag-textarea { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
 
       {/* LEFT SIDEBAR */}
@@ -1132,25 +1134,25 @@ function AIDiagnosisPage({ dk, setPage }) {
         </div>
 
         <div style={{ padding: "10px 14px 14px", flexShrink: 0, background: c.card, borderTop: `1px solid ${c.border}` }}>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 8, background: c.bg, border: `2px solid ${c.border}`, borderRadius: 16, padding: "10px 14px", transition: "border-color 200ms" }}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: c.bg, border: `2px solid ${c.border}`, borderRadius: 16, padding: "8px 14px", transition: "border-color 200ms" }}
             onFocusCapture={e => e.currentTarget.style.borderColor = c.blue}
             onBlurCapture={e => e.currentTarget.style.borderColor = c.border}>
-            <label style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${c.border}`, background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <label style={{ width: 34, height: 34, borderRadius: 10, border: `1px solid ${c.border}`, background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" multiple style={{ display: "none" }} onChange={handleFileChange}/>
-              <Paperclip size={13} color={c.txt3}/>
+              <Paperclip size={18} color={c.txt3}/>
             </label>
             <textarea ref={textareaRef} value={input} className="diag-textarea"
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), send())}
               placeholder="Décrivez les symptômes du patient en détail…" rows={1}
-              style={{ flex: 1, border: "none", outline: "none", background: "transparent", resize: "none", fontSize: 13, color: c.txt, lineHeight: 1.5, fontFamily: "'DM Sans', sans-serif", maxHeight: 100, overflowY: "auto" }}/>
+              style={{ flex: 1, border: "none", outline: "none", background: "transparent", resize: "none", fontSize: 15, color: c.txt, lineHeight: 1.2, fontFamily: "'DM Sans', sans-serif", maxHeight: 100, overflowY: "hidden", padding: "9px 0", minHeight: 34 }}/>
             <button onClick={toggleRecording}
-              style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0, border: `1px solid ${isRecording ? "#ef4444" : c.border}`, background: isRecording ? "rgba(239,68,68,.1)" : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Mic size={13} color={isRecording ? "#ef4444" : c.txt3}/>
+              style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0, border: `1px solid ${isRecording ? "#ef4444" : c.border}`, background: isRecording ? "rgba(239,68,68,.1)" : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Mic size={18} color={isRecording ? "#ef4444" : c.txt3}/>
             </button>
             <button onClick={() => send()} disabled={!input.trim() && attachedFiles.length === 0}
-              style={{ width: 36, height: 36, borderRadius: 10, border: "none", flexShrink: 0, cursor: (input.trim() || attachedFiles.length > 0) ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 200ms", background: (input.trim() || attachedFiles.length > 0) ? "#395886" : c.border, boxShadow: (input.trim() || attachedFiles.length > 0) ? "0 2px 8px rgba(57,88,134,.3)" : "none" }}>
-              <Send size={14} color="#fff"/>
+              style={{ width: 40, height: 40, borderRadius: 12, border: "none", flexShrink: 0, cursor: (input.trim() || attachedFiles.length > 0) ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 200ms", background: (input.trim() || attachedFiles.length > 0) ? "#395886" : c.border, boxShadow: (input.trim() || attachedFiles.length > 0) ? "0 2px 8px rgba(57,88,134,.3)" : "none" }}>
+              <Send size={20} color="#fff"/>
             </button>
           </div>
           {attachedFiles.length > 0 && (
@@ -2342,7 +2344,7 @@ export default function GardeMaladeDashboard({ onLogout }) {
                 </div>
                 <div className="hidden sm:block text-left">
                   <p className="text-sm font-semibold leading-tight" style={{ color: c.txt }}>{fullName}</p>
-                  <p className="text-xs" style={{ color: c.txt3 }}>ID: #{user?.id || "----"}</p>
+
                 </div>
                 <ChevronDown size={13} style={{ color: c.txt3 }} />
               </button>
@@ -2380,7 +2382,7 @@ export default function GardeMaladeDashboard({ onLogout }) {
                       </div>
                       <div>
                         <p className="text-sm font-bold" style={{ color: c.txt }}>{fullName}</p>
-                        <p className="text-xs" style={{ color: c.txt3 }}>Garde-Malade · ID #{user?.id || "----"}</p>
+                        <p className="text-xs" style={{ color: c.txt3 }}>Garde-Malade</p>
                         {tarifMensuel && (
                           <p className="text-xs font-bold mt-0.5" style={{ color: c.green }}>
                             Tarif mensuel : {Number(tarifMensuel).toLocaleString("fr-DZ")} DA

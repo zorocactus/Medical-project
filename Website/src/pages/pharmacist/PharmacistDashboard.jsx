@@ -946,7 +946,19 @@ function CommandesPage({ dk }) {
         <QrModal
           dk={dk}
           onClose={() => setShowQr(false)}
-          onScan={() => loadOrders()}
+          onScan={async (scanResult) => {
+            // scanResult contient { prescription: { id, ... } } si le backend est branché
+            const prescriptionId = scanResult?.prescription?.id ?? scanResult?.id ?? null;
+            if (prescriptionId) {
+              try {
+                await api.createPharmacyOrder({ prescription_id: prescriptionId });
+              } catch (err) {
+                // Commande déjà existante ou endpoint pas encore prêt — on continue
+                console.warn("createPharmacyOrder:", err?.message);
+              }
+            }
+            await loadOrders();
+          }}
         />
       )}
       {selectedOrder && (

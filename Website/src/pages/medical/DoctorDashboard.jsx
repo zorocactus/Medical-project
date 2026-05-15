@@ -33,6 +33,8 @@ import {
   Download,
   Zap,
   ChevronRight,
+  AlertTriangle,
+  QrCode,
 } from "lucide-react";
 
 import { useAuth } from "../../context/AuthContext";
@@ -473,18 +475,12 @@ function PatientRequests({ requests, onStartConsultation }) {
       <div className="flex flex-col gap-5">
         {safeRequests.map((req, idx) => {
           const patientName = req.patient_name || req.name || "Patient";
-          const initials = patientName.split(" ").filter(Boolean).map(n => n[0]).join("").toUpperCase().slice(0, 2) || "P";
           const detail = req.motif || req.detail || "Consultation";
           const displayTime = req.start_time ? req.start_time.slice(0, 5) : (req.time || "");
           const displayDate = req.date || "";
           return (
           <div key={req.id || idx} className="flex items-center justify-between group">
             <div className="flex items-center gap-3">
-              <div
-                className="w-10 h-10 rounded-full flex items-center justify-center text-white text-[13px] font-bold bg-[#6492C9]"
-              >
-                {initials}
-              </div>
               <div>
                 <div
                   className="text-[13px] font-bold leading-tight"
@@ -899,16 +895,18 @@ function PatientsView({ onSelectPatient }) {
     firstName: p.first_name || p.firstName || "",
     lastName: p.last_name || p.lastName || "",
     age: p.age || "—",
-    condition: "—",
-    status: "Active",
+    blood_group: p.blood_group || p.medical_profile?.blood_group || null,
+    allergies: Array.isArray(p.allergies) ? p.allergies : (Array.isArray(p.medical_profile?.allergies) ? p.medical_profile.allergies : []),
+    lastVisit: p.last_visit || p.last_appointment || null,
     _type: "linked",
   }));
   const extMapped = externalPatients.map(p => ({
-    id: `ext-${p.id}`, firstName: p.first_name, lastName: p.last_name, age: p.age || "—", condition: p.condition || "—", status: "Externe", _type: "external",
+    id: `ext-${p.id}`, firstName: p.first_name, lastName: p.last_name, age: p.age || "—",
+    blood_group: null, allergies: [], lastVisit: null, _type: "external",
   }));
   const allPatients = [...apiPatients, ...extMapped];
   const filtered = allPatients.filter(p =>
-    `${p.firstName} ${p.lastName} ${p.condition}`.toLowerCase().includes(localSearch.toLowerCase())
+    `${p.firstName} ${p.lastName}`.toLowerCase().includes(localSearch.toLowerCase())
   );
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -1117,168 +1115,169 @@ function PatientsView({ onSelectPatient }) {
 
         {/* Bouton nouveau patient */}
         <button onClick={() => setShowExtModal(true)}
-          className="px-5 py-2.5 rounded-2xl text-white text-sm font-bold flex items-center gap-2 transition-transform hover:scale-105 shrink-0"
-          style={{ background: c.blue, boxShadow: `0 4px 12px ${c.blue}44`, minHeight: 52 }}>
+          className="px-5 py-3 rounded-2xl text-white text-sm font-bold flex items-center gap-2 shrink-0 transition-all hover:opacity-90"
+          style={{ background: "#304B71", boxShadow: "0 4px 12px rgba(48,75,113,0.35)" }}>
           <Plus size={17} /> Nouveau patient
         </button>
       </div>
 
-      {/* ── Section : Mes patients (toujours visible) ── */}
-      <div>
-        {/* En-tête avec compteur + filtre local */}
-        <div className="flex items-center gap-3 mb-3">
-          <h3 className="text-sm font-bold shrink-0" style={{ color: c.txt }}>
-            Mes patients
-            <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: c.blue + "18", color: c.blue }}>
-              {filtered.length}
-            </span>
-          </h3>
-          <div className="flex-1 flex items-center px-4 py-2 rounded-xl border"
-            style={{ borderColor: c.border, background: c.card, color: c.txt }}>
-            <Search size={14} className="mr-2 shrink-0" style={{ color: c.txt3 }} />
+      {/* ── Card : Mes patients ── */}
+      <div className={`rounded-2xl shadow-sm border overflow-hidden ${dk ? "bg-[#172133] border-gray-800" : "bg-white border-gray-100"}`}>
+        {/* Header card */}
+        <div className={`px-5 py-4 flex items-center justify-between border-b ${dk ? "border-gray-800" : "border-gray-100"}`}>
+          <div className="flex items-center gap-2">
+            <span className="text-[15px] font-bold" style={{ color: dk ? "#ffffff" : "#0D2644" }}>Mes patients</span>
+            <span className="text-[15px] font-semibold" style={{ color: "#A0B5CD" }}>·</span>
+            <span className="text-[15px] font-bold" style={{ color: c.blue }}>{filtered.length}</span>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border" style={{ borderColor: c.border, background: dk ? "#0D1117" : "#F8FAFC" }}>
+            <Search size={13} style={{ color: "#A0B5CD" }} />
             <input
               type="text"
-              placeholder="Filtrer mes patients…"
+              placeholder="Filtrer…"
               value={localSearch}
               onChange={e => { setLocalSearch(e.target.value); setPage(1); }}
-              className="flex-1 bg-transparent border-none outline-none text-sm placeholder:text-[#9AACBE]"
-              style={{ color: c.txt }}
+              className="bg-transparent border-none outline-none text-sm w-28"
+              style={{ color: dk ? "#ffffff" : "#0D2644" }}
             />
             {localSearch && (
-              <button onClick={() => { setLocalSearch(""); setPage(1); }} className="ml-2 opacity-40 hover:opacity-70">
-                <X size={13} style={{ color: c.txt3 }} />
+              <button onClick={() => { setLocalSearch(""); setPage(1); }} className="opacity-40 hover:opacity-70">
+                <X size={12} style={{ color: "#A0B5CD" }} />
               </button>
             )}
           </div>
         </div>
 
-        {/* Table des patients */}
-        <Card dk={dk} empty className="p-0 overflow-hidden">
-          {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-14 h-14 rounded-full flex items-center justify-center mb-4" style={{ background: c.bg }}>
-                <Search size={22} style={{ color: c.txt3 }} />
-              </div>
-              <p className="font-bold mb-1" style={{ color: c.txt }}>
-                {localSearch ? `Aucun résultat pour "${localSearch}"` : "Aucun patient lié pour l'instant"}
-              </p>
-              <p className="text-sm" style={{ color: c.txt3 }}>
-                {localSearch ? "Essayez un autre terme" : "Recherchez un patient dans le système pour envoyer une demande de liaison"}
-              </p>
+        {/* Liste */}
+        {filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3" style={{ background: dk ? "rgba(30,45,74,0.3)" : "#F8FAFC" }}>
+              <Search size={20} style={{ color: "#A0B5CD" }} />
             </div>
-          ) : (
-            <>
-              {/* En-têtes colonnes */}
-              <div className="grid grid-cols-[2fr_0.6fr_auto] px-6 py-3 border-b font-bold text-[11px] uppercase tracking-wider"
-                style={{ background: c.bg + "66", borderColor: c.border, color: c.txt3 }}>
-                {["Patient", "Âge", "Actions"].map(col => <span key={col}>{col}</span>)}
-              </div>
+            <p className="font-bold mb-1" style={{ color: dk ? "#ffffff" : "#0D2644" }}>
+              {localSearch ? `Aucun résultat pour "${localSearch}"` : "Aucun patient lié pour l'instant"}
+            </p>
+            <p className="text-sm" style={{ color: "#5C738A" }}>
+              {localSearch ? "Essayez un autre terme" : "Recherchez un patient dans le système"}
+            </p>
+          </div>
+        ) : (
+          <>
+            {paginated.map((p, idx) => {
+              const fi = (page - 1) * PAGE_SIZE + idx;
+              const isConfirming = unlinkConfirmId === p.id;
+              const isUnlinking = unlinkingId === p.id;
+              const visitDate = p.lastVisit ? (() => { try { return new Date(p.lastVisit).toLocaleDateString("fr-FR"); } catch { return null; } })() : null;
+              const severeAllergies = Array.isArray(p.allergies) ? p.allergies.filter(a => a && a.severity === "severe") : [];
+              return (
+                <div
+                  key={p.id || idx}
+                  className={`flex items-center gap-4 px-5 py-3.5 transition-colors duration-150 ${idx < paginated.length - 1 ? (dk ? "border-b border-gray-800" : "border-b border-gray-50") : ""}`}
+                  onMouseEnter={e => { e.currentTarget.style.background = dk ? "rgba(30,45,74,0.3)" : "#F8FAFC"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = ""; }}
+                >
+                  {/* Avatar */}
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
+                    style={{ background: AVATAR_COLORS[fi % AVATAR_COLORS.length] }}>
+                    {getInitials(p.firstName, p.lastName)}
+                  </div>
 
-              {/* Lignes */}
-              <div className="divide-y" style={{ borderColor: c.border }}>
-                {paginated.map((p, idx) => {
-                  const fi = (page - 1) * PAGE_SIZE + idx;
-                  const isConfirming = unlinkConfirmId === p.id;
-                  const isUnlinking  = unlinkingId === p.id;
-                  return (
-                    <div key={p.id || idx}
-                      className="grid grid-cols-[2fr_0.6fr_auto] px-6 py-3.5 items-center"
-                      style={{ background: "transparent" }}>
-
-                      {/* Identité */}
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
-                          style={{ backgroundColor: AVATAR_COLORS[fi % AVATAR_COLORS.length] }}>
-                          {getInitials(p.firstName, p.lastName)}
-                        </div>
-                        <div>
-                          <p className="font-bold text-[13.5px]" style={{ color: c.txt }}>{p.firstName} {p.lastName}</p>
-                          {p._type === "external" && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ color: c.amber, background: c.amber + "18" }}>Sans compte</span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Âge */}
-                      <span className="text-sm font-medium" style={{ color: c.txt2 }}>{p.age}</span>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-2">
-                        {/* Voir profil */}
-                        {p._type !== "external" && (
-                          <button
-                            onClick={() => onSelectPatient?.(p)}
-                            className="px-3 py-1.5 rounded-xl border text-xs font-bold transition-all hover:opacity-80"
-                            style={{ color: c.blue, borderColor: c.blue, background: c.blue + "0D" }}>
-                            Voir profil
-                          </button>
-                        )}
-                        {p._type === "external" && (
-                          <span className="px-3 py-1.5 rounded-xl border text-xs font-bold"
-                            style={{ color: c.txt3, borderColor: c.border, opacity: 0.5 }}>
-                            Externe
-                          </span>
-                        )}
-
-                        {/* Résilier la liaison (uniquement patients avec compte) */}
-                        {p._type !== "external" && (
-                          isConfirming ? (
-                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border animate-in fade-in"
-                              style={{ borderColor: c.red + "44", background: c.red + "0A" }}>
-                              <span className="text-[11px] font-bold" style={{ color: c.red }}>Confirmer ?</span>
-                              <button
-                                onClick={() => handleUnlink(p.id)}
-                                disabled={isUnlinking}
-                                className="text-[11px] font-black px-2 py-0.5 rounded-lg text-white transition-all disabled:opacity-60"
-                                style={{ background: c.red }}>
-                                {isUnlinking
-                                  ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />
-                                  : "Oui"}
-                              </button>
-                              <button
-                                onClick={() => setUnlinkConfirmId(null)}
-                                className="text-[11px] font-bold px-2 py-0.5 rounded-lg border transition-all hover:opacity-70"
-                                style={{ color: c.txt3, borderColor: c.border }}>
-                                Non
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => setUnlinkConfirmId(p.id)}
-                              className="px-3 py-1.5 rounded-xl border text-xs font-bold transition-all hover:opacity-80"
-                              style={{ color: c.red, borderColor: c.red + "55", background: c.red + "08" }}>
-                              Résilier
-                            </button>
-                          )
-                        )}
-                      </div>
+                  {/* Nom + badges */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-bold text-[13.5px]" style={{ color: dk ? "#ffffff" : "#0D2644" }}>
+                        {p.firstName} {p.lastName}
+                      </span>
+                      {p.blood_group && (
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#FCEBEB", color: "#A32D2D" }}>
+                          {p.blood_group}
+                        </span>
+                      )}
+                      {severeAllergies.map((a, i) => (
+                        <span key={i} className="text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: "#FFF7ED", color: "#C2410C" }}>
+                          <AlertTriangle size={10} /> {a.substance || a.name || String(a)}
+                        </span>
+                      ))}
+                      {p._type === "external" && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ color: c.amber, background: c.amber + "18" }}>Sans compte</span>
+                      )}
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
 
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between px-6 py-3.5 border-t" style={{ borderColor: c.border }}>
-                  <p className="text-xs font-medium" style={{ color: c.txt3 }}>
-                    Page {page} / {totalPages} · {filtered.length} patients
-                  </p>
-                  <div className="flex gap-2">
-                    {[["‹ Préc.", () => setPage(p => Math.max(1, p - 1)), page === 1],
-                      ["Suiv. ›", () => setPage(p => Math.min(totalPages, p + 1)), page === totalPages]
-                    ].map(([label, fn, dis]) => (
-                      <button key={label} onClick={fn} disabled={dis}
-                        className="px-4 py-1.5 rounded-lg text-xs font-bold border transition-all disabled:opacity-30"
-                        style={{ color: c.txt2, borderColor: c.border, background: c.card }}>
-                        {label}
+                  {/* Âge + Dernier RDV */}
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-medium" style={{ color: "#5C738A" }}>{p.age} ans</p>
+                    {p._type === "external" ? (
+                      <p className="text-xs" style={{ color: "#A0B5CD" }}>Patient externe</p>
+                    ) : (
+                      <p className="text-xs" style={{ color: "#A0B5CD" }}>
+                        {visitDate ? `Dernier RDV : ${visitDate}` : "—"}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 shrink-0 ml-1">
+                    {p._type !== "external" && (
+                      <button
+                        onClick={() => onSelectPatient?.(p)}
+                        className="px-3 py-1.5 rounded-xl border text-xs font-bold transition-all hover:opacity-80"
+                        style={{ color: c.blue, borderColor: c.blue, background: c.blue + "0D" }}>
+                        Voir profil
                       </button>
-                    ))}
+                    )}
+                    {p._type !== "external" && (
+                      isConfirming ? (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border animate-in fade-in"
+                          style={{ borderColor: "#FECACA", background: dk ? "rgba(239,68,68,0.08)" : "#FFF5F5" }}>
+                          <span className="text-[11px] font-bold" style={{ color: "#EF4444" }}>Confirmer ?</span>
+                          <button
+                            onClick={() => handleUnlink(p.id)}
+                            disabled={isUnlinking}
+                            className="text-[11px] font-black px-2 py-0.5 rounded-lg text-white bg-red-500 transition-all disabled:opacity-60">
+                            {isUnlinking ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" /> : "Oui"}
+                          </button>
+                          <button
+                            onClick={() => setUnlinkConfirmId(null)}
+                            className="text-[11px] font-bold px-2 py-0.5 rounded-lg border transition-all hover:opacity-70"
+                            style={{ color: "#5C738A", borderColor: c.border }}>
+                            Non
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setUnlinkConfirmId(p.id)}
+                          className="px-3 py-1.5 rounded-xl border text-xs font-bold transition-all hover:bg-red-50"
+                          style={{ color: "#EF4444", borderColor: "#FECACA", background: "transparent" }}>
+                          Résilier
+                        </button>
+                      )
+                    )}
                   </div>
                 </div>
-              )}
-            </>
-          )}
-        </Card>
+              );
+            })}
+
+            {totalPages > 1 && (
+              <div className={`flex items-center justify-between px-5 py-3.5 border-t ${dk ? "border-gray-800" : "border-gray-100"}`}>
+                <p className="text-xs font-medium" style={{ color: "#A0B5CD" }}>
+                  Page {page} / {totalPages} · {filtered.length} patients
+                </p>
+                <div className="flex gap-2">
+                  {[["‹ Préc.", () => setPage(p => Math.max(1, p - 1)), page === 1],
+                    ["Suiv. ›", () => setPage(p => Math.min(totalPages, p + 1)), page === totalPages]
+                  ].map(([label, fn, dis]) => (
+                    <button key={label} onClick={fn} disabled={dis}
+                      className="px-4 py-1.5 rounded-lg text-xs font-bold border transition-all disabled:opacity-30"
+                      style={{ color: c.txt2, borderColor: c.border, background: c.card }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
@@ -1288,461 +1287,548 @@ function PatientsView({ onSelectPatient }) {
 // SUB-VIEW : PRESCRIPTIONS
 // ============================================================================
 
+// ── helpers locaux ────────────────────────────────────────────────────────────
+const FREQ_DISPLAY = {
+  "1x_day":   "1x/jour",
+  "2x_day":   "2x/jour",
+  "3x_day":   "3x/jour",
+  "every_8h": "toutes les 8h",
+  "as_needed":"si besoin",
+};
+const FREQ_OPTIONS_UI = ["1x/jour", "2x/jour", "3x/jour", "toutes les 8h", "si besoin"];
+const FREQ_UI_TO_API  = {
+  "1x/jour":       "1x_day",
+  "2x/jour":       "2x_day",
+  "3x/jour":       "3x_day",
+  "toutes les 8h": "every_8h",
+  "si besoin":     "as_needed",
+};
+
+function fmtDateShort(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d)) return iso;
+  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function isExpired(validUntil) {
+  if (!validUntil) return false;
+  return new Date(validUntil) < new Date();
+}
+
 function PrescriptionsView() {
   const { theme } = useTheme();
   const dk = theme === "dark";
   const c = dk ? T.dark : T.light;
   const { t } = useLanguage();
 
-  const { patients = [], prescriptions = [], addPrescription } = useData();
+  const { patients = [], prescriptions: ctxPrescriptions = [], addPrescription, refreshDoctorPrescriptions } = useData();
 
-  // Patients externes (sans compte)
+  // ── état liste ──────────────────────────────────────────────────────────────
+  const [rxList, setRxList]       = useState([]);
+  const [search, setSearch]       = useState("");
+  const [cancellingId, setCancellingId] = useState(null);
+  const [qrModal, setQrModal]     = useState(null); // { rx }
+  const [qrBlob, setQrBlob]       = useState(null);
+  const [pdfLoading, setPdfLoading] = useState({});
+  const [banner, setBanner]       = useState(null); // { type, msg }
+
+  // ── état formulaire ──────────────────────────────────────────────────────────
   const [externalPatients, setExternalPatients] = useState([]);
+  const [showOverlay, setShowOverlay]   = useState(false);
+  const overlayRef                      = useRef(null);
+  const [patientName, setPatientName]   = useState("");
+  const [patientId, setPatientId]       = useState("");
+  const [externalPatientId, setExtId]   = useState("");
+  const [patientType, setPatientType]   = useState("");
+  const [meds, setMeds] = useState([{ name: "", dosage: "", frequency: "1x/jour", duration: "" }]);
+  const [formNotes, setFormNotes]       = useState("");
+  const [submitting, setSubmitting]     = useState(false);
+  const [formError, setFormError]       = useState("");
+
+  // ── init data ────────────────────────────────────────────────────────────────
   useEffect(() => {
     api.getExternalPatients()
       .then(d => setExternalPatients(Array.isArray(d) ? d : (d?.results ?? [])))
       .catch(() => {});
   }, []);
 
-  const EMPTY_FORM = {
-    patientId: "",       // id numérique (avec compte) ou "" si externe
-    externalPatientId: "", // id numérique (sans compte) ou ""
-    patientName: "",
-    patientType: "",     // "linked" | "external" | ""
-    medication: "",
-    strength: "",
-    dosage: "",
-    frequency: "Once daily",
-    duration: "",
-    notes: "",
-  };
+  useEffect(() => {
+    setRxList(Array.isArray(ctxPrescriptions) ? ctxPrescriptions : []);
+  }, [ctxPrescriptions]);
 
-  const [form, setForm]                       = useState(EMPTY_FORM);
-  const [errors, setErrors]                   = useState({});
-  const [success, setSuccess]                 = useState("");
-  const [errorBanner, setErrorBanner]         = useState("");
-  const [submitting, setSubmitting]           = useState(false);
-  const [focusedField, setFocusedField]       = useState(null);
-  const [showOverlay, setShowOverlay]         = useState(false);
-  const overlayRef                            = useRef(null);
-
-  // ── Fermer l'overlay au clic extérieur ──────────────────────────────────────
+  // ── fermer overlay patient au clic extérieur ──────────────────────────────
   useEffect(() => {
     const handler = (e) => {
-      if (overlayRef.current && !overlayRef.current.contains(e.target)) {
-        setShowOverlay(false);
-      }
+      if (overlayRef.current && !overlayRef.current.contains(e.target)) setShowOverlay(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    if (errors[name]) setErrors((p) => ({ ...p, [name]: "" }));
-    if (name === "patientName") {
-      // Réinitialise la sélection si l'utilisateur retape
-      setForm((p) => ({ ...p, patientName: value, patientId: "", externalPatientId: "", patientType: "" }));
-      setShowOverlay(true);
-    } else {
-      setForm((p) => ({ ...p, [name]: value }));
-    }
-  };
-
-  // ── Construction de la liste fusionnée ──────────────────────────────────────
-  // PatientSerializer expose first_name / last_name à la racine (pas imbriqués sous user)
-  const linkedList = (Array.isArray(patients) ? patients : []).map((p) => {
+  // ── liste patients fusionnée ──────────────────────────────────────────────
+  const linkedList = (Array.isArray(patients) ? patients : []).map(p => {
     const name = `${p.first_name || p.user?.first_name || ""} ${p.last_name || p.user?.last_name || ""}`.trim()
                || p.email || `Patient #${p.id}`;
     return { id: p.id, name, _type: "linked" };
   });
-  const extList = (Array.isArray(externalPatients) ? externalPatients : []).map((p) => ({
-    id:    p.id,
-    name:  `${p.first_name} ${p.last_name}`.trim(),
-    _type: "external",
+  const extList = (Array.isArray(externalPatients) ? externalPatients : []).map(p => ({
+    id: p.id, name: `${p.first_name} ${p.last_name}`.trim(), _type: "external",
   }));
   const allPatients = [...linkedList, ...extList];
-
-  const query = form.patientName.toLowerCase().trim();
-  const filtered = query
-    ? allPatients.filter((p) => p.name.toLowerCase().includes(query))
+  const ptQuery = patientName.toLowerCase().trim();
+  const filteredPts = ptQuery
+    ? allPatients.filter(p => p.name.toLowerCase().includes(ptQuery))
     : allPatients;
 
   const handleSelectPatient = (p) => {
-    setForm((prev) => ({
-      ...prev,
-      patientName:       p.name,
-      patientId:         p._type === "linked"   ? p.id : "",
-      externalPatientId: p._type === "external" ? p.id : "",
-      patientType:       p._type,
-    }));
+    setPatientName(p.name);
+    setPatientId(p._type === "linked" ? p.id : "");
+    setExtId(p._type === "external" ? p.id : "");
+    setPatientType(p._type);
     setShowOverlay(false);
-    if (errors.patientName) setErrors((e) => ({ ...e, patientName: "" }));
   };
 
-  // Map UI frequency → backend choices
-  const frequencyMap = {
-    "Once daily":        "1x_day",
-    "Twice daily":       "2x_day",
-    "Three times daily": "3x_day",
-    "As needed":         "as_needed",
+  // ── médicaments ───────────────────────────────────────────────────────────
+  const addMed    = () => setMeds(prev => [...prev, { name: "", dosage: "", frequency: "1x/jour", duration: "" }]);
+  const removeMed = (i) => setMeds(prev => prev.filter((_, idx) => idx !== i));
+  const updateMed = (i, field, val) => setMeds(prev => prev.map((m, idx) => idx === i ? { ...m, [field]: val } : m));
+
+  // ── annuler ordonnance ───────────────────────────────────────────────────
+  const handleCancelRx = async (rxId) => {
+    setCancellingId(rxId);
+    try {
+      await api.apiFetch(`/prescriptions/prescriptions/${rxId}/`, { method: "DELETE" });
+      setRxList(prev => prev.map(r => r.id === rxId ? { ...r, status: "cancelled" } : r));
+      if (refreshDoctorPrescriptions) refreshDoctorPrescriptions().catch(() => {});
+    } catch (err) {
+      setBanner({ type: "error", msg: err?.message || "Impossible d'annuler l'ordonnance." });
+      setTimeout(() => setBanner(null), 4000);
+    } finally {
+      setCancellingId(null);
+    }
   };
 
+  // ── PDF ──────────────────────────────────────────────────────────────────
+  const handlePdfDownload = async (rxId) => {
+    setPdfLoading(prev => ({ ...prev, [rxId]: true }));
+    try {
+      const blob = await api.apiFetchBlob(`/prescriptions/${rxId}/pdf-download/`);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `ordonnance-${String(rxId).slice(0, 8)}.pdf`;
+      a.click(); URL.revokeObjectURL(url);
+    } catch {}
+    setPdfLoading(prev => ({ ...prev, [rxId]: false }));
+  };
+
+  // ── QR ────────────────────────────────────────────────────────────────────
+  const handleQrOpen = async (rx) => {
+    setQrModal(rx); setQrBlob(null);
+    try {
+      const blob = await api.apiFetchBlob(`/prescriptions/${String(rx.id)}/qr-image/`);
+      setQrBlob(URL.createObjectURL(blob));
+    } catch {}
+  };
+
+  // ── submit formulaire ─────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e?.preventDefault();
-    setErrorBanner("");
-    const err = {};
-    if (!form.patientName?.trim())                         err.patientName = "Sélectionnez un patient.";
-    if (!form.patientId && !form.externalPatientId)       err.patientName = "Sélectionnez un patient depuis la liste.";
-    if (!form.medication.trim())                          err.medication  = t('dashboard.doctor.prescription.required');
-    if (!form.dosage.trim())                              err.dosage      = t('dashboard.doctor.prescription.required');
-    if (!form.duration.trim())                            err.duration    = t('dashboard.doctor.prescription.required');
-    if (Object.keys(err).length > 0) return setErrors(err);
+    setFormError("");
+    if (!patientId && !externalPatientId) return setFormError("Sélectionnez un patient depuis la liste.");
+    if (meds.some(m => !m.name.trim())) return setFormError("Chaque médicament doit avoir un nom.");
 
     setSubmitting(true);
     try {
       const payload = {
-        chief_complaint: "Ordonnance rapide",
-        notes: form.notes || "",
-        items: [{
-          drug_name: form.medication + (form.strength ? ` ${form.strength}` : ""),
-          dosage:    form.dosage,
-          frequency: frequencyMap[form.frequency] || "1x_day",
-          duration:  form.duration,
-        }],
+        notes: formNotes || "",
+        items: meds.map(m => ({
+          drug_name: m.name.trim(),
+          dosage:    m.dosage.trim(),
+          frequency: FREQ_UI_TO_API[m.frequency] || "1x_day",
+          duration:  m.duration.trim(),
+        })),
       };
-      if (form.patientType === "external") {
-        payload.external_patient_id = form.externalPatientId;
-      } else {
-        payload.patient_id = form.patientId;
-      }
+      if (patientType === "external") payload.external_patient_id = externalPatientId;
+      else                            payload.patient_id          = patientId;
 
       const created = await api.createQuickPrescription(payload);
+      if (created) setRxList(prev => [created, ...prev]);
+      if (typeof addPrescription === "function" && created) addPrescription(created);
 
-      if (typeof addPrescription === "function") {
-        addPrescription({
-          id:          created?.id || `#RX${String((Array.isArray(prescriptions) ? prescriptions.length : 0) + 1001).padStart(4, "0")}`,
-          patientName: form.patientName,
-          medication:  form.medication,
-          strength:    form.strength,
-          dosage:      form.dosage,
-          frequency:   form.frequency,
-          duration:    form.duration,
-          notes:       form.notes,
-          date:        new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "short" }),
-          status:      "Active",
-          qr_token:    created?.qr_token,
-          is_external: form.patientType === "external",
-        });
-      }
-
-      setForm(EMPTY_FORM);
-      setSuccess(t('dashboard.doctor.prescription.created'));
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (apiErr) {
-      setErrorBanner(apiErr?.message || "Échec de la création de l'ordonnance.");
-      setTimeout(() => setErrorBanner(""), 5000);
+      setPatientName(""); setPatientId(""); setExtId(""); setPatientType("");
+      setMeds([{ name: "", dosage: "", frequency: "1x/jour", duration: "" }]);
+      setFormNotes("");
+      setBanner({ type: "success", msg: "Ordonnance créée avec succès." });
+      setTimeout(() => setBanner(null), 3500);
+    } catch (err) {
+      setFormError(err?.message || "Échec de la création de l'ordonnance.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const rxList = Array.isArray(prescriptions) ? prescriptions : [];
+  // ── filtrage liste ────────────────────────────────────────────────────────
+  const filteredRx = rxList.filter(rx => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    const drugs = (rx.items || []).map(it => (it.drug_name || "").toLowerCase()).join(" ");
+    const pname = (rx.patient_name || "").toLowerCase();
+    return drugs.includes(q) || pname.includes(q);
+  });
 
-  const FieldWrapper = ({ name, label, children, error }) => {
-    const isFocused = focusedField === name;
-    return (
-      <div className="space-y-2">
-        <label className="text-[13px] font-bold uppercase tracking-wider ml-1" style={{ color: c.txt3 }}>
-          {label || name.charAt(0).toUpperCase() + name.slice(1)}
-        </label>
-        <label
-          className="relative flex items-stretch rounded-2xl border transition-all duration-300 cursor-text overflow-hidden"
-          style={{
-            borderColor: error ? c.red : isFocused ? "#6492C9" : c.border,
-            background:  dk ? c.bg + "22" : "#F8FAFC",
-            boxShadow:   isFocused ? "0 0 0 4px rgba(100,146,201,0.1)" : "none",
-            minHeight:   56,
-          }}
-        >
-          {children}
-        </label>
-        {error && <p className="text-xs font-bold ml-1" style={{ color: c.red }}>{error}</p>}
-      </div>
-    );
+  const thisMonth = rxList.filter(rx => {
+    const d = rx.created_at ? new Date(rx.created_at) : null;
+    if (!d) return false;
+    const now = new Date();
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).length;
+
+  // ── input style helper ────────────────────────────────────────────────────
+  const inp = {
+    background:  dk ? "rgba(30,45,74,0.35)" : "#F8FAFC",
+    borderColor: c.border,
+    color:       c.txt,
   };
 
   return (
     <div className="animate-in fade-in duration-500">
-      {success && (
-        <div className="mb-5 px-4 py-3 rounded-xl border flex items-center gap-2"
-          style={{ background: c.green + "15", borderColor: c.green + "44" }}>
-          <Check size={16} style={{ color: c.green }} />
-          <p className="text-sm font-bold" style={{ color: c.green }}>{success}</p>
+
+      {/* Bannière globale */}
+      {banner && (
+        <div className="mb-4 px-4 py-3 rounded-xl border flex items-center gap-2 animate-in slide-in-from-top-3"
+          style={{
+            background:  banner.type === "success" ? c.green + "15" : c.red + "15",
+            borderColor: banner.type === "success" ? c.green + "44" : c.red + "44",
+          }}>
+          {banner.type === "success"
+            ? <Check size={15} style={{ color: c.green }} />
+            : <X size={15} style={{ color: c.red }} />}
+          <p className="text-sm font-bold" style={{ color: banner.type === "success" ? c.green : c.red }}>{banner.msg}</p>
         </div>
       )}
-      {errorBanner && (
-        <div className="mb-5 px-4 py-3 rounded-xl border flex items-center gap-2"
-          style={{ background: c.red + "15", borderColor: c.red + "44" }}>
-          <X size={16} style={{ color: c.red }} />
-          <p className="text-sm font-bold" style={{ color: c.red }}>{errorBanner}</p>
-        </div>
-      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card dk={dk} className="lg:col-span-2 p-8">
-          <h2 className="text-[17px] font-bold mb-8" style={{ color: c.txt }}>
-            {t('dashboard.doctor.prescription.writeNew')}
-          </h2>
-          <form onSubmit={handleSubmit} className="space-y-6">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 14, alignItems: "start" }}>
 
-            {/* ── Champ patient avec overlay flottant ── */}
-            <div className="space-y-2" ref={overlayRef}>
-              <label className="text-[13px] font-bold uppercase tracking-wider ml-1" style={{ color: c.txt3 }}>
-                {t('dashboard.doctor.prescription.patientNameLabel')}
-              </label>
-              <div className="relative">
-                <label
-                  className="relative flex items-stretch rounded-2xl border transition-all duration-300 cursor-text overflow-hidden"
-                  style={{
-                    borderColor: errors.patientName ? c.red : focusedField === "patientName" ? "#6492C9" : c.border,
-                    background:  dk ? c.bg + "22" : "#F8FAFC",
-                    boxShadow:   focusedField === "patientName" ? "0 0 0 4px rgba(100,146,201,0.1)" : "none",
-                    minHeight:   56,
-                  }}
-                >
-                  <Search size={16} className="self-center ml-4 shrink-0" style={{ color: c.txt3 }} />
-                  <input
-                    type="text"
-                    name="patientName"
-                    value={form.patientName}
-                    onChange={handleChange}
-                    onFocus={() => { setFocusedField("patientName"); setShowOverlay(true); }}
-                    onBlur={() => setFocusedField(null)}
-                    placeholder={t('dashboard.doctor.prescription.patientNamePh')}
-                    className="flex-1 px-3 py-4 bg-transparent border-none outline-none text-sm font-semibold"
-                    style={{ color: c.txt }}
-                    autoComplete="off"
-                  />
-                  {form.patientType && (
-                    <span
-                      className="self-center mr-4 text-[11px] font-black px-2 py-1 rounded-lg"
-                      style={{
-                        background: form.patientType === "external" ? c.amber + "20" : c.green + "20",
-                        color:      form.patientType === "external" ? c.amber : c.green,
-                      }}
-                    >
-                      {form.patientType === "external" ? "Sans compte" : "Avec compte"}
-                    </span>
-                  )}
-                </label>
+        {/* ══ COLONNE GAUCHE — liste ══════════════════════════════════════════ */}
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="flex items-end justify-between">
+            <div>
+              <h1 className="text-xl font-black" style={{ color: c.txt }}>Ordonnances</h1>
+              <p className="text-sm mt-0.5" style={{ color: c.txt3 }}>{thisMonth} ordonnance{thisMonth !== 1 ? "s" : ""} ce mois</p>
+            </div>
+          </div>
 
-                {/* Overlay flottant */}
-                {showOverlay && (
-                  <div
-                    className="absolute left-0 right-0 top-full mt-2 rounded-2xl border shadow-2xl z-[100] overflow-hidden"
+          {/* Barre de recherche */}
+          <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl border"
+            style={{ background: dk ? c.card : "#fff", borderColor: c.border }}>
+            <Search size={15} style={{ color: c.txt3, flexShrink: 0 }} />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Rechercher par médicament ou patient…"
+              className="flex-1 bg-transparent border-none outline-none text-sm"
+              style={{ color: c.txt }}
+            />
+            {search && (
+              <button onClick={() => setSearch("")} className="shrink-0 hover:opacity-70 transition-opacity">
+                <X size={13} style={{ color: c.txt3 }} />
+              </button>
+            )}
+          </div>
+
+          {/* Liste ordonnances */}
+          {filteredRx.length === 0 ? (
+            <div className="text-center py-16 opacity-50">
+              <FileText size={44} className="mx-auto mb-3" style={{ color: c.txt3 }} />
+              <p className="text-sm font-bold" style={{ color: c.txt3 }}>
+                {search ? "Aucun résultat pour cette recherche" : "Aucune ordonnance"}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredRx.map(rx => {
+                const expired = isExpired(rx.valid_until);
+                const cancelled = rx.status === "cancelled";
+                const statusColor = cancelled ? c.txt3 : expired ? c.txt3 : c.green;
+                const statusLabel = cancelled ? "Annulée" : expired ? "Expirée" : "Active";
+                const isConfirming = cancellingId === `confirm-${rx.id}`;
+                const isCancelling = cancellingId === rx.id;
+                const items = Array.isArray(rx.items) ? rx.items : [];
+
+                return (
+                  <div key={rx.id}
+                    className="rounded-2xl border p-4 transition-all duration-200"
                     style={{ background: c.card, borderColor: c.border }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.borderColor = "#6492C9"; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.borderColor = c.border; }}
                   >
-                    {/* Légende */}
-                    <div className="flex items-center gap-3 px-4 py-2 border-b" style={{ borderColor: c.border, background: dk ? c.bg : "#F8FAFC" }}>
-                      <span className="flex items-center gap-1 text-[11px] font-bold" style={{ color: c.green }}>
-                        <span className="w-2 h-2 rounded-full inline-block" style={{ background: c.green }} />
-                        Avec compte
+                    {/* Row 1 — patient + statut */}
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-black shrink-0"
+                          style={{ background: "#304B71" }}>
+                          {(rx.patient_name || "?").charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-sm truncate" style={{ color: c.txt }}>{rx.patient_name || "—"}</p>
+                          <p className="text-xs" style={{ color: c.txt3 }}>
+                            {fmtDateShort(rx.created_at)}
+                            {rx.valid_until && (
+                              <> · Valide jusqu'au <span style={{ color: expired ? c.red : c.txt3 }}>{fmtDateShort(rx.valid_until)}</span></>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-black px-2.5 py-1 rounded-full shrink-0"
+                        style={{ background: statusColor + "18", color: statusColor }}>
+                        {statusLabel}
                       </span>
-                      <span className="flex items-center gap-1 text-[11px] font-bold" style={{ color: c.amber }}>
-                        <span className="w-2 h-2 rounded-full inline-block" style={{ background: c.amber }} />
-                        Sans compte
-                      </span>
-                      <span className="ml-auto text-[11px]" style={{ color: c.txt3 }}>{filtered.length} résultat{filtered.length !== 1 ? "s" : ""}</span>
                     </div>
 
-                    {/* Liste */}
-                    <div className="max-h-56 overflow-y-auto">
-                      {filtered.length === 0 ? (
-                        <div className="py-6 text-center text-sm font-bold" style={{ color: c.txt3 }}>
-                          Aucun patient trouvé
-                        </div>
-                      ) : (
-                        filtered.map((p, idx) => (
+                    {/* Row 2 — pills médicaments */}
+                    {items.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {items.map((it, i) => (
+                          <span key={i}
+                            className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                            style={{ background: c.blue + "15", color: c.blue }}>
+                            {it.drug_name}{it.dosage ? ` · ${it.dosage}` : ""}
+                            {it.frequency ? ` · ${FREQ_DISPLAY[it.frequency] || it.frequency}` : ""}
+                            {it.duration  ? ` · ${it.duration}` : ""}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs italic mb-3" style={{ color: c.txt3 }}>Aucun médicament enregistré</p>
+                    )}
+
+                    {/* Row 3 — actions */}
+                    <div className="flex items-center gap-2 justify-end flex-wrap">
+                      <button
+                        onClick={() => handleQrOpen(rx)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all hover:opacity-80"
+                        style={{ borderColor: c.border, color: c.txt2 }}>
+                        <QrCode size={12} /> QR Code
+                      </button>
+                      <button
+                        onClick={() => handlePdfDownload(rx.id)}
+                        disabled={!!pdfLoading[rx.id]}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all hover:opacity-80 disabled:opacity-50"
+                        style={{ borderColor: c.border, color: c.txt2 }}>
+                        {pdfLoading[rx.id]
+                          ? <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                          : <Download size={12} />}
+                        PDF
+                      </button>
+                      {!cancelled && !expired && (
+                        isConfirming ? (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => { setCancellingId(null); handleCancelRx(rx.id); }}
+                              className="px-3 py-1.5 rounded-xl text-xs font-black text-white"
+                              style={{ background: c.red }}>Confirmer</button>
+                            <button
+                              onClick={() => setCancellingId(null)}
+                              className="px-3 py-1.5 rounded-xl text-xs font-semibold border"
+                              style={{ borderColor: c.border, color: c.txt2 }}>Annuler</button>
+                          </div>
+                        ) : (
                           <button
-                            key={`${p._type}-${p.id}-${idx}`}
-                            type="button"
-                            onMouseDown={(e) => { e.preventDefault(); handleSelectPatient(p); }}
-                            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-left transition-colors"
-                            style={{ color: c.txt }}
-                            onMouseEnter={(e) => (e.currentTarget.style.background = c.blue + "12")}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                          >
-                            <span
-                              className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0"
-                              style={{
-                                background: p._type === "external" ? c.amber + "25" : c.green + "25",
-                                color:      p._type === "external" ? c.amber : c.green,
-                              }}
-                            >
-                              {p.name.charAt(0).toUpperCase()}
-                            </span>
-                            <span className="flex-1 font-semibold">{p.name}</span>
-                            <span
-                              className="text-[10px] font-black px-2 py-0.5 rounded-lg"
-                              style={{
-                                background: p._type === "external" ? c.amber + "20" : c.green + "20",
-                                color:      p._type === "external" ? c.amber : c.green,
-                              }}
-                            >
-                              {p._type === "external" ? "Sans compte" : "Avec compte"}
-                            </span>
+                            onClick={() => setCancellingId(`confirm-${rx.id}`)}
+                            disabled={isCancelling}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all hover:opacity-80 disabled:opacity-50"
+                            style={{ borderColor: c.red + "55", color: c.red }}>
+                            {isCancelling
+                              ? <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                              : <Trash2 size={12} />}
+                            Annuler
                           </button>
-                        ))
+                        )
                       )}
                     </div>
                   </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* ══ COLONNE DROITE — formulaire sticky ═════════════════════════════ */}
+        <div style={{ position: "sticky", top: 72 }}>
+          <div className="rounded-2xl border p-5 space-y-4" style={{ background: c.card, borderColor: c.border }}>
+            <h2 className="font-black text-[15px]" style={{ color: c.txt }}>Nouvelle ordonnance</h2>
+
+            {formError && (
+              <div className="px-3 py-2 rounded-xl border text-xs font-semibold"
+                style={{ background: c.red + "12", borderColor: c.red + "44", color: c.red }}>
+                {formError}
+              </div>
+            )}
+
+            {/* Patient autocomplete */}
+            <div ref={overlayRef} className="relative">
+              <label className="block text-[11px] font-bold uppercase tracking-wider mb-1.5" style={{ color: c.txt3 }}>
+                Patient
+              </label>
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border"
+                style={{ ...inp, borderColor: c.border }}>
+                <Search size={13} style={{ color: c.txt3, flexShrink: 0 }} />
+                <input
+                  type="text"
+                  value={patientName}
+                  onChange={e => { setPatientName(e.target.value); setPatientId(""); setExtId(""); setPatientType(""); setShowOverlay(true); }}
+                  onFocus={() => setShowOverlay(true)}
+                  placeholder="Nom du patient…"
+                  className="flex-1 bg-transparent border-none outline-none text-sm"
+                  style={{ color: c.txt }}
+                  autoComplete="off"
+                />
+                {patientType && (
+                  <span className="text-[10px] font-black px-1.5 py-0.5 rounded-lg shrink-0"
+                    style={{ background: patientType === "external" ? c.amber + "20" : c.green + "20",
+                             color: patientType === "external" ? c.amber : c.green }}>
+                    {patientType === "external" ? "Ext." : "Lié"}
+                  </span>
                 )}
               </div>
-              {errors.patientName && (
-                <p className="text-xs font-bold ml-1" style={{ color: c.red }}>{errors.patientName}</p>
+              {showOverlay && filteredPts.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 rounded-xl border shadow-2xl z-[100] overflow-hidden max-h-48 overflow-y-auto"
+                  style={{ background: c.card, borderColor: c.border }}>
+                  {filteredPts.slice(0, 20).map((p, i) => (
+                    <button key={`${p._type}-${p.id}-${i}`} type="button"
+                      onMouseDown={e => { e.preventDefault(); handleSelectPatient(p); }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left transition-colors"
+                      style={{ color: c.txt }}
+                      onMouseEnter={e => e.currentTarget.style.background = c.blue + "12"}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                      <span className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black shrink-0"
+                        style={{ background: p._type === "external" ? c.amber + "25" : c.green + "25",
+                                 color: p._type === "external" ? c.amber : c.green }}>
+                        {p.name.charAt(0).toUpperCase()}
+                      </span>
+                      <span className="flex-1 font-semibold">{p.name}</span>
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FieldWrapper name="medication" error={errors.medication}>
-                <input
-                  type="text"
-                  name="medication"
-                  value={form.medication}
-                  onChange={handleChange}
-                  onFocus={() => setFocusedField("medication")}
-                  onBlur={() => setFocusedField(null)}
-                  placeholder="e.g. Amoxicillin"
-                  className="w-full px-5 py-4 bg-transparent border-none outline-none text-sm font-semibold"
-                  style={{ color: c.txt }}
-                />
-              </FieldWrapper>
-              <FieldWrapper name="strength" error={errors.strength}>
-                <input
-                  type="text"
-                  name="strength"
-                  value={form.strength}
-                  onChange={handleChange}
-                  onFocus={() => setFocusedField("strength")}
-                  onBlur={() => setFocusedField(null)}
-                  placeholder="e.g. 500mg"
-                  className="w-full px-5 py-4 bg-transparent border-none outline-none text-sm font-semibold"
-                  style={{ color: c.txt }}
-                />
-              </FieldWrapper>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FieldWrapper name="dosage" error={errors.dosage}>
-                <input
-                  type="text"
-                  name="dosage"
-                  value={form.dosage}
-                  onChange={handleChange}
-                  onFocus={() => setFocusedField("dosage")}
-                  onBlur={() => setFocusedField(null)}
-                  placeholder="e.g. 1 tablet"
-                  className="w-full px-5 py-4 bg-transparent border-none outline-none text-sm font-semibold"
-                  style={{ color: c.txt }}
-                />
-              </FieldWrapper>
-              <div className="space-y-2">
-                <DashSelect
-                  label="Frequency"
-                  value={form.frequency}
-                  options={FREQUENCY_OPTIONS}
-                  onSelect={f => setForm(p => ({ ...p, frequency: f }))}
-                  dk={dk}
-                  c={c}
-                />
+            {/* Section médicaments */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[11px] font-bold uppercase tracking-wider" style={{ color: c.txt3 }}>
+                  Médicaments ({meds.length}/10)
+                </label>
+                {meds.length < 10 && (
+                  <button type="button" onClick={addMed}
+                    className="text-[11px] font-black px-2.5 py-1 rounded-lg transition-all hover:opacity-80"
+                    style={{ background: c.blue + "15", color: c.blue }}>
+                    + Ajouter
+                  </button>
+                )}
+              </div>
+              <div className="space-y-3">
+                {meds.map((m, i) => (
+                  <div key={i} className="rounded-xl p-3 space-y-2"
+                    style={{ background: dk ? "rgba(30,45,74,0.35)" : "#F8FAFC", border: `1px solid ${c.border}` }}>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={m.name}
+                        onChange={e => updateMed(i, "name", e.target.value)}
+                        placeholder="Nom du médicament *"
+                        className="flex-1 bg-transparent border-none outline-none text-sm font-semibold"
+                        style={{ color: c.txt }}
+                      />
+                      {meds.length > 1 && (
+                        <button type="button" onClick={() => removeMed(i)}
+                          className="w-5 h-5 flex items-center justify-center rounded-md hover:opacity-70 transition-opacity shrink-0"
+                          style={{ color: c.red }}>
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={m.dosage}
+                        onChange={e => updateMed(i, "dosage", e.target.value)}
+                        placeholder="Dosage (ex: 500mg)"
+                        className="w-full px-2.5 py-1.5 rounded-lg border text-xs outline-none"
+                        style={inp}
+                      />
+                      <DashSelect
+                        value={m.frequency}
+                        options={FREQ_OPTIONS_UI}
+                        onSelect={val => updateMed(i, "frequency", val)}
+                        dk={dk} c={c}
+                        placeholder="Fréquence"
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      value={m.duration}
+                      onChange={e => updateMed(i, "duration", e.target.value)}
+                      placeholder="Durée (ex: 30 jours)"
+                      className="w-full px-2.5 py-1.5 rounded-lg border text-xs outline-none"
+                      style={inp}
+                    />
+                  </div>
+                ))}
               </div>
             </div>
 
-            <FieldWrapper name="duration" error={errors.duration}>
-              <input
-                type="text"
-                name="duration"
-                value={form.duration}
-                onChange={handleChange}
-                onFocus={() => setFocusedField("duration")}
-                onBlur={() => setFocusedField(null)}
-                placeholder="e.g. 7 days"
-                className="w-full px-5 py-4 bg-transparent border-none outline-none text-sm font-semibold"
-                style={{ color: c.txt }}
-              />
-            </FieldWrapper>
-
-            <div className="space-y-2">
-              <label className="text-[13px] font-bold uppercase tracking-wider ml-1" style={{ color: c.txt3 }}>
-                {t('dashboard.doctor.prescription.notes')}
+            {/* Notes */}
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider mb-1.5" style={{ color: c.txt3 }}>
+                Notes <span className="font-normal normal-case" style={{ color: c.txt3 }}>(optionnel)</span>
               </label>
               <textarea
-                name="notes"
-                value={form.notes}
-                onChange={handleChange}
-                rows={3}
-                onFocus={() => setFocusedField("notes")}
-                onBlur={() => setFocusedField(null)}
-                className="w-full px-4 py-3 rounded-2xl border outline-none transition-all duration-300 resize-none font-medium text-sm"
-                style={{
-                  background:  dk ? c.bg + "22" : "#F8FAFC",
-                  borderColor: focusedField === "notes" ? "#6492C9" : c.border,
-                  boxShadow:   focusedField === "notes" ? "0 0 0 4px rgba(100,146,201,0.1)" : "none",
-                  color:       c.txt,
-                }}
+                value={formNotes}
+                onChange={e => setFormNotes(e.target.value)}
+                rows={2}
+                placeholder="Instructions spéciales, précautions…"
+                className="w-full px-3 py-2 rounded-xl border text-sm outline-none resize-none"
+                style={inp}
               />
             </div>
 
+            {/* Soumettre */}
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               disabled={submitting}
-              className="w-full text-white font-black py-4 rounded-xl transition-all shadow-md hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              style={{ background: c.blue, boxShadow: `0 4px 15px ${c.blue}44` }}
-            >
+              className="w-full py-3 rounded-xl text-sm font-black text-white transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
+              style={{ background: "linear-gradient(135deg, #304B71, #6492C9)" }}>
               {submitting && <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
-              {submitting ? "Génération…" : t('dashboard.doctor.prescription.generate')}
+              {submitting ? "Génération…" : "Générer l'ordonnance"}
             </button>
-          </form>
-        </Card>
-
-        {/* ── Ordonnances récentes ── */}
-        <Card dk={dk} empty={true} className="p-6 h-fit">
-          <h2 className="text-[17px] font-bold mb-5" style={{ color: c.txt }}>
-            {t('dashboard.doctor.prescription.recent')}
-          </h2>
-          {rxList.length === 0 ? (
-            <div className="text-center py-10 opacity-50">
-              <FileText size={40} className="mx-auto mb-3" style={{ color: c.txt3 }} />
-              <p className="text-sm font-bold" style={{ color: c.txt3 }}>{t('dashboard.doctor.prescription.none')}</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {rxList.slice(0, 6).map((rx, i) => (
-                <div key={i}
-                  className="flex items-center justify-between p-3 rounded-xl border cursor-pointer card-hover"
-                  style={{ background: c.bg + "22", borderColor: c.border }}
-                >
-                  <div>
-                    <p className="text-sm font-bold" style={{ color: c.txt }}>{rx.medication || rx.items?.[0]?.drug_name || "—"}</p>
-                    <p className="text-[11px] font-medium" style={{ color: c.txt3 }}>
-                      {rx.patientName || rx.patient_name || "—"} · {rx.date || rx.created_at?.slice(0, 10) || ""}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <Badge color={c.green} bg={c.green + "15"}>{rx.status || "Active"}</Badge>
-                    {rx.is_external && (
-                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background: c.amber + "20", color: c.amber }}>
-                        Sans compte
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
+          </div>
+        </div>
       </div>
+
+      {/* ── Modal QR ──────────────────────────────────────────────────────── */}
+      {qrModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white p-8 rounded-3xl max-w-xs w-full shadow-2xl flex flex-col items-center relative">
+            <button onClick={() => { setQrModal(null); if (qrBlob) URL.revokeObjectURL(qrBlob); setQrBlob(null); }}
+              className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
+              <X size={18} className="text-gray-600" />
+            </button>
+            <h3 className="font-black text-lg text-gray-900 mb-1">QR Code</h3>
+            <p className="text-xs text-gray-500 mb-5 uppercase tracking-widest">{qrModal.patient_name}</p>
+            <div className="w-48 h-48 rounded-2xl border border-gray-100 shadow-lg flex items-center justify-center mb-4 bg-white p-3">
+              {qrBlob
+                ? <img src={qrBlob} alt="QR" className="w-full h-full object-contain" />
+                : <span className="w-8 h-8 border-2 border-[#395886] border-t-transparent rounded-full animate-spin" />}
+            </div>
+            <p className="text-xs text-gray-400">Présentez ce code au pharmacien</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1751,539 +1837,493 @@ function PrescriptionsView() {
 // SUB-VIEW : PATIENT DETAIL (DOSSIER MÉDICAL)
 // ============================================================================
 
-function PatientDetailView({ patient, onBack, dk }) {
+function PatientDetailView({ patient, onBack, dk, onStartConsultation }) {
   const c = dk ? T.dark : T.light;
-  const { t } = useLanguage();
 
-  const [activeTab, setActiveTab] = useState("history");
+  const [patientData, setPatientData] = useState({});
+  const [history, setHistory] = useState([]);
+  const [prescriptions, setPrescriptions] = useState([]);
+  const [consultations, setConsultations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addForm, setAddForm] = useState({ name: "", description: "", date: "", type: "Chronique" });
+  const [pdfLoading, setPdfLoading] = useState({});
 
-  // --- STATE FOR MEDICAL HISTORY ---
-  const [history, setHistory] = useState([
-    {
-      date: "Oct 12, 2023",
-      title: "Type 2 Diabetes Checkup",
-      doc: "Dr. Benali",
-      note: "Patient reports stable glucose levels. Reduced Metformin dosage.",
-      type: "Chronic",
-    },
-    {
-      date: "Aug 05, 2023",
-      title: "Annual Physical Exam",
-      doc: "Dr. Kaci",
-      note: "All vitals normal. Recommended increased physical activity.",
-      type: "Normal",
-    },
-  ]);
-  const [showAddHistory, setShowAddHistory] = useState(false);
-  const [newHist, setNewHist] = useState({ title: "", date: "", type: "Chronic" });
+  const patientId = patient?.id;
 
-  // --- STATE FOR LAB RESULTS ---
-  const [labs, setLabs] = useState([
-    {
-      test: "Blood Glucose (HbA1c)",
-      result: "6.4%",
-      ref: "4.0 - 5.6%",
-      status: "High",
-    },
-    {
-      test: "Total Cholesterol",
-      result: "185 mg/dL",
-      ref: "< 200 mg/dL",
-      status: "Normal",
-    },
-    {
-      test: "LDL Cholesterol",
-      result: "110 mg/dL",
-      ref: "< 100 mg/dL",
-      status: "Borderline",
-    },
-  ]);
-  const [showAddLab, setShowAddLab] = useState(false);
-  const [newLab, setNewLab] = useState({ test: "", note: "" });
+  useEffect(() => {
+    if (!patientId || String(patientId).startsWith("ext-")) { setLoading(false); return; }
+    Promise.all([
+      api.getPatientRecord(patientId).catch(() => null),
+      api.getAntecedents(patientId).catch(() => []),
+      api.getPatientPrescriptions(patientId).catch(() => []),
+      api.getMyConsultations(patientId).catch(() => []),
+    ]).then(([record, antecedents, rxList, consults]) => {
+      setPatientData(record || {});
+      setHistory(Array.isArray(antecedents) ? antecedents : []);
+      setPrescriptions(Array.isArray(rxList) ? rxList : []);
+      setConsultations(Array.isArray(consults) ? consults : []);
+      setLoading(false);
+    });
+  }, [patientId]);
 
   if (!patient) return null;
 
-  const name = patient.name || patient.patient || 
-    (patient.firstName && patient.lastName ? `${patient.firstName} ${patient.lastName}` : null) || 
-    patient.firstName || 
-    patient.lastName || 
-    "Unknown Patient";
+  const name = `${patient.firstName || ""} ${patient.lastName || ""}`.trim() || "—";
   const age = patient.age || "—";
+  const sex = patientData?.profile?.gender || patientData?.gender || null;
+  const bloodGroup =
+    patientData?.medical_profile?.blood_group ||
+    patientData?.medical_profile?.blood_type ||
+    null;
+  const allergies = Array.isArray(patientData?.medical_profile?.allergies)
+    ? patientData.medical_profile.allergies
+    : [];
+  const weight = patientData?.medical_profile?.weight ?? null;
+  const height = patientData?.medical_profile?.height ?? null;
+  const bmi = patientData?.medical_profile?.bmi ?? null;
+  const phone = patientData?.phone || patientData?.profile?.phone || null;
+  const emergencyPhone = patientData?.medical_profile?.emergency_contact_phone || null;
 
-  const handleAddHistory = (e) => {
+  const completedConsults = consultations.filter((ct) => ct.status === "completed");
+  const lastVisit = completedConsults.length > 0 ? completedConsults[0].consulted_at : null;
+  const avatarIdx = typeof patientId === "number" ? patientId % AVATAR_COLORS.length : 0;
+  const avatarColor = AVATAR_COLORS[avatarIdx];
+  const avatarInitials = getInitials(patient.firstName || "", patient.lastName || "");
+
+  const fmtDate = (d) => {
+    if (!d) return "—";
+    try { return new Date(d).toLocaleDateString("fr-FR"); } catch { return String(d); }
+  };
+
+  const allergyBadgeStyle = (severity) => {
+    if (severity === "severe")   return { bg: "#FCEBEB", color: "#A32D2D" };
+    if (severity === "moderate") return { bg: "#FAEEDA", color: "#854F0B" };
+    return { bg: "#E6F1FB", color: "#185FA5" };
+  };
+
+  const antecedentBadgeStyle = (type) => {
+    const t = (type || "").toLowerCase();
+    if (t === "chronique" || t === "chronic") return { bg: "#E6F1FB", color: "#185FA5", border: false };
+    if (t === "en cours")                     return { bg: "#FAEEDA", color: "#854F0B", border: false };
+    return { bg: "transparent", color: c.txt3, border: true };
+  };
+
+  const handleDeleteAntecedent = async (id) => {
+    try { await api.deleteAntecedent(id); } catch {}
+    setHistory((prev) => prev.filter((a) => a.id !== id));
+    setConfirmDelete(null);
+  };
+
+  const handleAddAntecedent = async (e) => {
     e.preventDefault();
-    if (!newHist.title) return;
-    const item = {
-      ...newHist,
-      doc: "Dr. Current",
-      note: "Added during current consultation.",
-    };
-    setHistory([item, ...history]);
-    setNewHist({ title: "", date: "", type: "Chronic" });
-    setShowAddHistory(false);
+    if (!addForm.name.trim()) return;
+    let newItem = null;
+    try {
+      newItem = await api.addDiagnosisToPatient(patientId, {
+        condition: addForm.name,
+        description: addForm.description || undefined,
+        diagnosis_date: addForm.date || undefined,
+        type: addForm.type,
+      });
+    } catch {}
+    setHistory((prev) => [
+      ...prev,
+      newItem || { name: addForm.name, diagnosis_date: addForm.date, type: addForm.type, description: addForm.description },
+    ]);
+    setAddForm({ name: "", description: "", date: "", type: "Chronique" });
+    setShowAddForm(false);
   };
 
-  const handleAddLab = (e) => {
-    e.preventDefault();
-    if (!newLab.test) return;
-    const item = {
-      test: newLab.test,
-      result: "Pending",
-      ref: "—",
-      status: "Requested",
-    };
-    setLabs([item, ...labs]);
-    setNewLab({ test: "", note: "" });
-    setShowAddLab(false);
+  const handleDownloadPdf = async (rxId) => {
+    setPdfLoading((prev) => ({ ...prev, [rxId]: true }));
+    try {
+      const blob = await api.apiFetchBlob(`/prescriptions/${rxId}/pdf-download/`);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ordonnance-${rxId}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {}
+    setPdfLoading((prev) => ({ ...prev, [rxId]: false }));
   };
 
-  const handleDeleteHistory = (index) => {
-    setHistory(history.filter((_, i) => i !== index));
-  };
+  // Correction 3 — photo de profil
+  const photoUrl =
+    patientData?.photo ||
+    patientData?.profile?.photo ||
+    patientData?.user?.photo ||
+    null;
 
-  const handleDeleteLab = (index) => {
-    setLabs(labs.filter((_, i) => i !== index));
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <div
+          className="w-10 h-10 rounded-full border-4 animate-spin"
+          style={{ borderColor: c.blue + "44", borderTopColor: c.blue }}
+        />
+      </div>
+    );
+  }
+
+  // Tokens alignés MedicalProfilePage
+  const pdvCard   = dk ? "bg-[#172133] border-gray-800"  : "bg-white border-gray-100";
+  const pdvItem   = dk ? "bg-[#1E2D4A]/30" : "bg-[#F8FAFC]";
+  const pdvTxt    = dk ? "#ffffff" : "#0D2644";
+  const pdvTxt2   = dk ? "#9CA3AF" : "#5C738A";
+  const pdvLabel  = "#A0B5CD";
 
   return (
-    <div className="animate-in fade-in duration-500 space-y-6 pb-10">
-      {/* Header with Back Button */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onBack}
-            className="w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:bg-opacity-10"
-            style={{ background: c.blue + "22", color: c.blue }}
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <div>
-            <h1 className="text-2xl font-black" style={{ color: c.txt }}>
-              {name}
-            </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <Badge color={c.txt3} bg={c.bg + "44"}>
-                {age} years old
-              </Badge>
-              <Badge color={c.red} bg={c.red + "15"}>
-                O+ Positive
-              </Badge>
-              <Badge color="#8B5CF6" bg="#8B5CF615">
-                Penicillin Allergy
-              </Badge>
+    <div className="animate-in fade-in duration-500 space-y-6 pb-10 min-h-screen px-1">
+      {/* Retour */}
+      <button
+        onClick={onBack}
+        className="flex items-center gap-2 text-sm font-bold transition-all hover:opacity-70"
+        style={{ color: c.blue }}
+      >
+        <ArrowLeft size={18} /> Retour
+      </button>
+
+      {/* SECTION 1 — HEADER PATIENT */}
+      <div
+        className="rounded-2xl p-6 relative overflow-hidden"
+        style={{
+          background: dk
+            ? "linear-gradient(135deg, #0D1B2E 0%, #1A2845 50%, #213354 100%)"
+            : "linear-gradient(135deg, #304B71 0%, #4A6FA5 60%, #638ECB 100%)",
+        }}
+      >
+        {/* Cercles décoratifs */}
+        <div style={{ position: "absolute", top: -50, right: -40, width: 180, height: 180, borderRadius: "50%", background: "rgba(255,255,255,0.06)", pointerEvents: "none" }} />
+        <div style={{ position: "absolute", bottom: -60, right: 60, width: 130, height: 130, borderRadius: "50%", background: "rgba(255,255,255,0.04)", pointerEvents: "none" }} />
+
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            {/* Avatar */}
+            <div style={{ position: "relative", flexShrink: 0 }}>
+              {photoUrl && (
+                <img
+                  src={photoUrl}
+                  alt="Photo patient"
+                  style={{
+                    width: 64, height: 64, borderRadius: "50%",
+                    objectFit: "cover", flexShrink: 0,
+                    border: "3px solid rgba(255,255,255,0.30)",
+                  }}
+                  onError={(e) => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }}
+                />
+              )}
+              <div
+                style={{
+                  width: 64, height: 64, borderRadius: "50%",
+                  background: "rgba(255,255,255,0.15)",
+                  border: "3px solid rgba(255,255,255,0.30)",
+                  display: photoUrl ? "none" : "flex",
+                  alignItems: "center", justifyContent: "center",
+                  fontSize: 21, fontWeight: 700, color: "rgba(255,255,255,0.95)",
+                  flexShrink: 0,
+                }}
+              >
+                {avatarInitials}
+              </div>
             </div>
+            <div>
+              <h1 className="text-xl font-black text-white">{name}</h1>
+              <p className="text-sm mt-1 flex items-center flex-wrap gap-1.5" style={{ color: "rgba(255,255,255,0.75)" }}>
+                <span>{age} ans</span>
+                {sex && (<><span className="opacity-50">·</span><span>{sex}</span></>)}
+                {lastVisit && (<><span className="opacity-50">·</span><span>Dernier RDV : {fmtDate(lastVisit)}</span></>)}
+              </p>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {bloodGroup && (
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: "#FCEBEB", color: "#A32D2D" }}>
+                    {bloodGroup}
+                  </span>
+                )}
+                {allergies.filter((a) => a.severity === "severe").map((a, i) => (
+                  <span key={i} className="text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1" style={{ background: "rgba(255,247,237,0.90)", color: "#C2410C" }}>
+                    <AlertTriangle size={11} /> {a.substance || a.name || String(a)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3 sm:flex-col sm:items-end">
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-bold transition-all hover:opacity-90"
+              style={{ color: "rgba(255,255,255,0.90)", borderColor: "rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.12)" }}
+            >
+              Antécédent
+            </button>
+            <button
+              onClick={onStartConsultation}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all hover:opacity-90"
+              style={{ background: "rgba(255,255,255,0.20)", border: "1px solid rgba(255,255,255,0.35)", color: "#ffffff" }}
+            >
+              <Activity size={15} /> Démarrer consultation
+            </button>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: History & Labs */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card dk={dk} empty={true} className="p-0 overflow-hidden shadow-2xl border-0">
-            <div className="flex items-center justify-between border-b pr-4" style={{ borderColor: c.border }}>
-              <div className="flex">
-                {["history", "lab", "prescriptions"].map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`px-6 py-4 text-sm font-bold transition-all relative ${
-                      activeTab === tab ? "" : "opacity-30"
-                    }`}
-                    style={{ color: activeTab === tab ? c.blue : c.txt }}
-                  >
-                    {tab === "history" && t('dashboard.doctor.medicalRecord.medicalHistoryTab')}
-                    {tab === "lab" && t('dashboard.doctor.medicalRecord.labResultsTab')}
-                    {tab === "prescriptions" && t('dashboard.doctor.medicalRecord.pastPrescriptionsTab')}
-                    {activeTab === tab && (
-                      <div
-                        className="absolute bottom-0 left-0 right-0 h-1.5 rounded-t-full"
-                        style={{ background: c.blue }}
-                      />
+      {/* SECTION 2 — 3 COLONNES */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className={`rounded-2xl p-5 border shadow-sm ${pdvCard}`}
+          style={{ transition: "transform 0.2s, border-color 0.2s" }}
+          onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.borderColor = "#6492C9"; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.borderColor = ""; }}>
+          <h3 className="text-[11px] font-bold mb-4 tracking-wider uppercase" style={{ color: pdvLabel }}>Données physiques</h3>
+          <div className="grid grid-cols-3 gap-3 text-center">
+            {[
+              { label: "Poids",  value: weight != null ? `${weight} kg` : "—" },
+              { label: "Taille", value: height != null ? `${height} cm` : "—" },
+              { label: "IMC",    value: bmi    != null ? Number(bmi).toFixed(1) : "—" },
+            ].map(({ label, value }) => (
+              <div key={label} className="rounded-xl p-3" style={{ background: dk ? "rgba(30,45,74,0.3)" : "#F8FAFC" }}>
+                <p className="text-lg font-black" style={{ color: pdvTxt }}>{value}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider mt-0.5" style={{ color: "#A0B5CD" }}>{label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className={`rounded-2xl p-5 border shadow-sm ${pdvCard}`}
+          style={{ transition: "transform 0.2s, border-color 0.2s" }}
+          onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.borderColor = "#6492C9"; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.borderColor = ""; }}>
+          <h3 className="text-[11px] font-bold mb-4 tracking-wider uppercase" style={{ color: pdvLabel }}>Allergies</h3>
+          {allergies.length === 0 ? (
+            <p className="text-sm italic" style={{ color: pdvTxt2 }}>Aucune allergie connue</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {allergies.map((a, i) => {
+                const s = allergyBadgeStyle(a.severity);
+                return (
+                  <span key={i} className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: s.bg, color: s.color }}>
+                    {a.substance || a.name || String(a)}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className={`rounded-2xl p-5 border shadow-sm ${pdvCard}`}
+          style={{ transition: "transform 0.2s, border-color 0.2s" }}
+          onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.borderColor = "#6492C9"; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.borderColor = ""; }}>
+          <h3 className="text-[11px] font-bold mb-4 tracking-wider uppercase" style={{ color: pdvLabel }}>Contact</h3>
+          <div className="space-y-2">
+            <p className="text-sm font-bold" style={{ color: pdvTxt }}>{phone || "—"}</p>
+            <p className="text-sm" style={{ color: pdvTxt2 }}>
+              Urgence : <span className="font-bold" style={{ color: pdvTxt }}>{emergencyPhone || "Non renseigné"}</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION 3 — 2 COLONNES */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Antécédents */}
+        <div className={`rounded-2xl p-5 border shadow-sm ${pdvCard}`}
+          style={{ transition: "transform 0.2s, border-color 0.2s" }}
+          onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.borderColor = "#6492C9"; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.borderColor = ""; }}>
+          <h3 className="text-[11px] font-bold mb-4 tracking-wider uppercase" style={{ color: pdvLabel }}>Antécédents médicaux</h3>
+          <div className="space-y-3">
+            {history.length === 0 && !showAddForm && (
+              <p className="text-sm italic" style={{ color: pdvTxt2 }}>Aucun antécédent enregistré.</p>
+            )}
+            {history.map((ant, idx) => {
+              const antId = ant.id;
+              const antName = ant.condition || ant.name || "—";
+              const bs = antecedentBadgeStyle(ant.type);
+              const isConfirming = confirmDelete === antId;
+              return (
+                <div key={antId ?? idx} className={`flex items-center justify-between px-4 py-3 rounded-xl ${pdvItem}`}>
+                  <div>
+                    <p className="text-sm font-bold" style={{ color: pdvTxt }}>{antName}</p>
+                    {ant.diagnosis_date && (
+                      <p className="text-xs mt-0.5" style={{ color: pdvTxt2 }}>Depuis {fmtDate(ant.diagnosis_date)}</p>
                     )}
-                  </button>
-                ))}
-              </div>
-              
-              {activeTab === "history" && (
-                <button
-                  onClick={() => setShowAddHistory(!showAddHistory)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 text-[11px] font-black tracking-wider transition-all hover:bg-opacity-10 active:scale-95"
-                  style={{ 
-                    borderColor: c.blue, 
-                    color: c.blue, 
-                    background: c.blue + "08"
-                  }}
-                >
-                  <Plus size={14} /> {t('dashboard.doctor.medicalRecord.addAntecedent')}
-                </button>
-              )}
-              {activeTab === "lab" && (
-                <button
-                  onClick={() => setShowAddLab(!showAddLab)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 text-[11px] font-black tracking-wider transition-all hover:bg-opacity-10 active:scale-95"
-                  style={{ 
-                    borderColor: c.blue, 
-                    color: c.blue, 
-                    background: c.blue + "08"
-                  }}
-                >
-                  <Plus size={14} /> {t('dashboard.doctor.medicalRecord.requestLabTest')}
-                </button>
-              )}
-            </div>
-
-            <div className="p-8">
-              {activeTab === "history" && (
-                <div className="space-y-8">
-                  {/* Premium Form Add History */}
-                  {showAddHistory && (
-                    <div 
-                      className="p-6 rounded-[28px] border-2 mb-10 space-y-5 animate-in zoom-in-95 duration-300 shadow-2xl relative overflow-hidden" 
-                      style={{ borderColor: c.blue + "33", background: dk ? "#1A2333" : "#F8FAFC" }}
-                    >
-                      <div className="absolute top-0 left-0 w-1.5 h-full" style={{ background: c.blue }} />
-                      
-                      <div className="flex items-center justify-between">
-                        <p className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: c.blue }}>
-                          {t('dashboard.doctor.medicalRecord.newRecord')}
-                        </p>
-                        <button onClick={() => setShowAddHistory(false)} className="opacity-40 hover:opacity-100 transition-all hover:bg-red-500/10 p-1 rounded-lg">
-                          <X size={18} />
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">{t('dashboard.doctor.medicalRecord.pathology')}</label>
-                          <input
-                            placeholder="ex: Hypertension"
-                            value={newHist.title}
-                            onChange={e => setNewHist({...newHist, title: e.target.value})}
-                            className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
-                            style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt }}
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">{t('dashboard.doctor.medicalRecord.diagDate')}</label>
-                          <input
-                            type="date"
-                            value={newHist.date}
-                            onChange={e => setNewHist({...newHist, date: e.target.value})}
-                            className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500 font-sans"
-                            style={{ 
-                              background: dk ? c.blueLight : "#fff", 
-                              borderColor: c.border, 
-                              color: c.txt,
-                              fontFamily: 'inherit'
-                            }}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <DashSelect
-                          label={t('dashboard.doctor.medicalRecord.antecedentType')}
-                          value={newHist.type}
-                          options={[
-                            { value: "Chronic", label: "Chronique" },
-                            { value: "Acute", label: "Aigu" },
-                            { value: "Surgical", label: "Chirurgical" },
-                            { value: "Allergy", label: "Allergie" },
-                          ]}
-                          onSelect={v => setNewHist({ ...newHist, type: v })}
-                          dk={dk}
-                          c={c}
-                        />
-                      </div>
-
-                      <div className="flex gap-4 pt-3">
-                        <button
-                          onClick={() => setShowAddHistory(false)}
-                          className="flex-1 py-4 rounded-xl text-xs font-black transition-all hover:bg-opacity-5"
-                          style={{ color: c.txt2 }}
-                        >
-                          {t('dashboard.doctor.medicalRecord.cancel')}
-                        </button>
-                        <button
-                          onClick={handleAddHistory}
-                          className="flex-[2] py-4 rounded-xl text-white text-xs font-black shadow-xl transition-all hover:scale-[1.02] active:scale-95"
-                          style={{ background: c.blue, boxShadow: `0 8px 25px ${c.blue}44` }}
-                        >
-                          {t('dashboard.doctor.medicalRecord.updateRecord')}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {history.map((h, i) => (
-                    <div
-                      key={i}
-                      className="relative pl-8 border-l-2 last:border-l-0 pb-8 last:pb-0 group"
-                      style={{ borderColor: c.border }}
-                    >
-                      {/* Delete Button */}
-                      <button 
-                        onClick={() => handleDeleteHistory(i)}
-                        className="absolute right-0 top-0 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/10 text-red-500"
-                        title="Supprimer l'antécédent"
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    {ant.type && (
+                      <span
+                        className={`text-xs font-bold px-2.5 py-1 rounded-full ${bs.border ? "border" : ""}`}
+                        style={{ background: bs.bg, color: bs.color, borderColor: bs.border ? c.border : undefined }}
                       >
-                        <Trash2 size={16} />
+                        {ant.type}
+                      </span>
+                    )}
+                    {isConfirming ? (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleDeleteAntecedent(antId)}
+                          className="text-xs font-black px-2 py-1 rounded-lg text-white"
+                          style={{ background: c.red }}
+                        >
+                          Confirmer
+                        </button>
+                        <button
+                          onClick={() => setConfirmDelete(null)}
+                          className="text-xs font-black px-2 py-1 rounded-lg border"
+                          style={{ color: pdvTxt2, borderColor: c.border }}
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDelete(antId)}
+                        className="w-6 h-6 rounded-md border flex items-center justify-center transition-colors"
+                        style={{ color: pdvTxt2, borderColor: dk ? "#374151" : "#E5E7EB", background: "transparent" }}
+                        onMouseEnter={e => { e.currentTarget.style.background = "#FEF2F2"; e.currentTarget.style.color = "#EF4444"; e.currentTarget.style.borderColor = "#FECACA"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = pdvTxt2; e.currentTarget.style.borderColor = dk ? "#374151" : "#E5E7EB"; }}
+                      >
+                        <Trash2 size={12} />
                       </button>
-
-                      <div
-                        className="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 bg-white"
-                        style={{ borderColor: c.blue }}
-                      />
-                      <div className="flex items-center gap-2">
-                        <p
-                          className="text-[11px] font-black uppercase tracking-widest opacity-40"
-                          style={{ color: c.txt }}
-                        >
-                          {h.date}
-                        </p>
-                        {h.type && (
-                          <span 
-                            className="text-[9px] font-black uppercase px-2 py-0.5 rounded-md" 
-                            style={{
-                              background: h.type === "Chronic" ? c.red + "15" : c.blue + "15",
-                              color: h.type === "Chronic" ? c.red : c.blue
-                            }}
-                          >
-                            {h.type}
-                          </span>
-                        )}
-                      </div>
-                      <h3
-                        className="text-lg font-black mt-1"
-                        style={{ color: c.txt }}
-                      >
-                        {h.title}
-                      </h3>
-                      <p
-                        className="text-[13px] font-bold mt-1"
-                        style={{ color: c.blue }}
-                      >
-                        {h.doc}
-                      </p>
-                      <p
-                        className="text-sm mt-3 leading-relaxed opacity-60 font-medium"
-                        style={{ color: c.txt }}
-                      >
-                        {h.note}
-                      </p>
-                    </div>
-                  ))}
+                    )}
+                  </div>
                 </div>
-              )}
+              );
+            })}
 
-              {activeTab === "lab" && (
-                <div className="space-y-6">
-                  {/* Premium Form Add Lab Request */}
-                  {showAddLab && (
-                    <div 
-                      className="p-6 rounded-[28px] border-2 mb-10 space-y-5 animate-in zoom-in-95 duration-300 shadow-2xl relative overflow-hidden" 
-                      style={{ borderColor: c.blue + "33", background: dk ? "#1A2333" : "#F8FAFC" }}
-                    >
-                      <div className="absolute top-0 left-0 w-1.5 h-full" style={{ background: c.blue }} />
-                      
-                      <div className="flex items-center justify-between">
-                        <p className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: c.blue }}>
-                          {t('dashboard.doctor.medicalRecord.newLabAnalysis')}
-                        </p>
-                        <button onClick={() => setShowAddLab(false)} className="opacity-40 hover:opacity-100 transition-all hover:bg-red-500/10 p-1 rounded-lg">
-                          <X size={18} />
-                        </button>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">{t('dashboard.doctor.medicalRecord.requestedAnalysis')}</label>
-                        <input
-                          placeholder="ex: Bilan Lipidique Complet"
-                          value={newLab.test}
-                          onChange={e => setNewLab({...newLab, test: e.target.value})}
-                          className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
-                          style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt }}
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">{t('dashboard.doctor.medicalRecord.notesUrgency')}</label>
-                        <textarea
-                          placeholder="Indications cliniques..."
-                          value={newLab.note}
-                          onChange={e => setNewLab({...newLab, note: e.target.value})}
-                          className="w-full px-4 py-4 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500 resize-none h-24"
-                          style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt }}
-                        />
-                      </div>
-
-                      <div className="flex gap-4 pt-3">
-                        <button 
-                          onClick={() => setShowAddLab(false)}
-                          className="flex-1 py-4 rounded-xl text-xs font-black transition-all hover:bg-opacity-5"
-                          style={{ color: c.txt2 }}
-                        >
-                          {t('dashboard.doctor.medicalRecord.cancel')}
-                        </button>
-                        <button
-                          onClick={handleAddLab}
-                          className="flex-[2] py-4 rounded-xl text-white text-xs font-black shadow-xl transition-all hover:scale-[1.02] active:scale-95"
-                          style={{ background: c.blue, boxShadow: `0 8px 25px ${c.blue}44` }}
-                        >
-                          {t('dashboard.doctor.medicalRecord.confirmRequest')}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {labs.map((l, i) => (
-                    <div key={i} style={{
-                      display: "flex", alignItems: "center", gap: "12px",
-                      padding: "16px", borderRadius: "16px",
-                      border: `2px solid ${c.border}`,
-                      marginBottom: "10px",
-                    }}>
-                      {/* Icône */}
-                      <div style={{ padding: "10px", borderRadius: "12px", background: l.status === "Requested" ? c.amber + "22" : c.blue + "15", flexShrink: 0 }}>
-                        <Activity size={20} style={{ color: l.status === "Requested" ? c.amber : c.blue }} />
-                      </div>
-                      {/* Nom + réf */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontSize: 15, fontWeight: 600, color: c.txt, margin: 0, lineHeight: 1.3 }}>{l.test}</p>
-                        <p style={{ fontSize: 12, opacity: 0.5, fontStyle: "italic", color: c.txt, margin: 0, marginTop: 3 }}>{t('dashboard.doctor.medicalRecord.ref')} : {l.ref}</p>
-                      </div>
-                      {/* Résultat + badge + trash dans un seul bloc */}
-                      <div style={{ display: "flex", alignItems: "center", gap: "16px", flexShrink: 0 }}>
-                        <div style={{ textAlign: "right" }}>
-                          <p style={{ fontSize: 16, fontWeight: 700, color: l.status === "Requested" ? c.amber : l.status === "Normal" ? c.green : l.status === "Borderline" ? c.amber : c.red, margin: 0 }}>{l.result}</p>
-                          <span style={{ fontSize: 10, letterSpacing: "0.5px", fontWeight: 700, textTransform: "uppercase", padding: "2px 8px", borderRadius: 6, display: "inline-block", marginTop: 4, background: (l.status === "Requested" ? c.amber : l.status === "Normal" ? c.green : l.status === "Borderline" ? c.amber : c.red) + "18", color: l.status === "Requested" ? c.amber : l.status === "Normal" ? c.green : l.status === "Borderline" ? c.amber : c.red }}>{l.status}</span>
-                        </div>
-                        <button onClick={() => handleDeleteLab(i)}
-                          style={{ padding: "8px", borderRadius: "8px", background: c.red + "15", border: "none", cursor: "pointer", flexShrink: 0 }}>
-                          <Trash2 size={15} color={c.red} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {activeTab === "prescriptions" && (
-                <div className="space-y-4">
-                  {[
-                    {
-                      med: "Metformin 500mg",
-                      freq: "Twice daily",
-                      dur: "3 months",
-                      date: "Sep 2023",
-                    },
-                    {
-                      med: "Lisinopril 10mg",
-                      freq: "Once daily",
-                      dur: "6 months",
-                      date: "Jun 2023",
-                    },
-                  ].map((p, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-4 p-5 rounded-2xl border-2 hover:shadow-md transition-all"
-                      style={{ borderColor: c.border }}
-                    >
-                      <div
-                        className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
-                        style={{ background: c.blue + "15", color: c.blue }}
-                      >
-                        <FileText size={22} />
-                      </div>
-                      <div className="flex-1">
-                        <p
-                          className="text-base font-black"
-                          style={{ color: c.txt }}
-                        >
-                          {p.med}
-                        </p>
-                        <p
-                          className="text-xs opacity-50 font-bold mt-0.5"
-                          style={{ color: c.txt }}
-                        >
-                          {p.freq} · {p.dur}
-                        </p>
-                      </div>
-                      <p
-                        className="text-xs font-black opacity-30"
-                        style={{ color: c.txt }}
-                      >
-                        {p.date}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </Card>
-        </div>
-
-        {/* Right Column: Quick Notes & Action */}
-        <div className="space-y-6">
-          <Card dk={dk} className="p-8 shadow-xl border-0">
-            <h2 className="text-xl font-black mb-8" style={{ color: c.txt }}>
-              {t('dashboard.doctor.consultation.accountReport')}
-            </h2>
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label
-                  className="text-[11px] font-black uppercase tracking-widest ml-1 opacity-40"
-                  style={{ color: c.txt }}
-                >
-                  {t('dashboard.doctor.consultation.currentSymptoms')}
-                </label>
-                <textarea
-                  className="w-full rounded-[20px] p-5 text-sm font-bold border-2 outline-none transition-all focus:border-blue-500 min-h-[120px] resize-none"
-                  style={{
-                    background: dk ? c.blueLight : "#F8FAFC",
-                    borderColor: c.border,
-                    color: c.txt,
-                  }}
-                  placeholder={t('dashboard.doctor.consultation.clinicalNotesPh')}
-                />
-              </div>
-              <div className="space-y-2">
-                <label
-                  className="text-[11px] font-black uppercase tracking-widest ml-1 opacity-40"
-                  style={{ color: c.txt }}
-                >
-                  {t('dashboard.doctor.consultation.prelimDiagnosis')}
-                </label>
+            {showAddForm && (
+              <div className="p-4 rounded-xl border-2 space-y-3" style={{ borderColor: c.blue + "44", background: dk ? "#1A2333" : "#F8FAFC" }}>
                 <input
-                  className="w-full rounded-2xl px-5 py-4 text-sm font-bold border-2 outline-none focus:border-blue-500"
-                  style={{
-                    background: dk ? c.blueLight : "#F8FAFC",
-                    borderColor: c.border,
-                    color: c.txt,
-                  }}
-                  placeholder={t('dashboard.doctor.consultation.diagnosisSearch')}
+                  placeholder="Nom de l'antécédent *"
+                  value={addForm.name}
+                  onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border text-sm outline-none"
+                  style={{ background: dk ? "#172133" : "#fff", borderColor: c.border, color: pdvTxt }}
                 />
+                <textarea
+                  placeholder="Description (optionnel)"
+                  value={addForm.description}
+                  onChange={(e) => setAddForm({ ...addForm, description: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border text-sm outline-none resize-none h-16"
+                  style={{ background: dk ? "#172133" : "#fff", borderColor: c.border, color: pdvTxt }}
+                />
+                <input
+                  type="date"
+                  value={addForm.date}
+                  onChange={(e) => setAddForm({ ...addForm, date: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border text-sm outline-none"
+                  style={{ background: dk ? "#172133" : "#fff", borderColor: c.border, color: pdvTxt }}
+                />
+                <div className="flex gap-2">
+                  {["Chronique", "En cours", "Résolu"].map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setAddForm({ ...addForm, type: t })}
+                      className="flex-1 py-2 rounded-xl text-xs font-bold border transition-all"
+                      style={{
+                        background: addForm.type === t ? c.blue : "transparent",
+                        color: addForm.type === t ? "white" : pdvTxt2,
+                        borderColor: addForm.type === t ? c.blue : c.border,
+                      }}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleAddAntecedent}
+                    className="flex-1 py-2 rounded-xl text-white text-sm font-bold"
+                    style={{ background: c.blue }}
+                  >
+                    Ajouter
+                  </button>
+                  <button
+                    onClick={() => setShowAddForm(false)}
+                    className="flex-1 py-2 rounded-xl border text-sm font-bold"
+                    style={{ borderColor: c.border, color: pdvTxt2 }}
+                  >
+                    Annuler
+                  </button>
+                </div>
               </div>
-              <button
-                className="w-full py-4.5 rounded-2xl text-white font-black text-[15px] shadow-2xl transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3 mt-4"
-                style={{
-                  background: `linear-gradient(135deg, ${c.blue}, #304B71)`,
-                  boxShadow: `0 12px 30px ${c.blue}44`,
-                }}
-              >
-                <Send size={20} /> {t('dashboard.doctor.consultation.terminate')}
-              </button>
-            </div>
-          </Card>
+            )}
+          </div>
         </div>
+
+        {/* Consultations passées */}
+        <div className={`rounded-2xl p-5 border shadow-sm ${pdvCard}`}
+          style={{ transition: "transform 0.2s, border-color 0.2s" }}
+          onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.borderColor = "#6492C9"; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.borderColor = ""; }}>
+          <h3 className="text-[11px] font-bold mb-4 tracking-wider uppercase" style={{ color: pdvLabel }}>Consultations passées</h3>
+          {completedConsults.length === 0 ? (
+            <p className="text-sm italic" style={{ color: pdvTxt2 }}>Aucune consultation enregistrée.</p>
+          ) : (
+            <div className="space-y-3">
+              {completedConsults.slice(0, 5).map((ct, i) => (
+                <div key={ct.id || i} className={`flex items-center justify-between px-4 py-3 rounded-xl ${pdvItem}`}>
+                  <div>
+                    <p className="text-sm font-bold" style={{ color: pdvTxt }}>{ct.diagnosis || "Consultation"}</p>
+                    {ct.chief_complaint && (
+                      <p className="text-xs mt-0.5" style={{ color: pdvTxt2 }}>Motif : {ct.chief_complaint}</p>
+                    )}
+                  </div>
+                  <span className="text-xs font-bold shrink-0 ml-2" style={{ color: pdvTxt2 }}>{fmtDate(ct.consulted_at)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* SECTION 4 — ORDONNANCES */}
+      <div className={`rounded-2xl p-5 border shadow-sm ${pdvCard}`}
+        style={{ transition: "transform 0.2s, border-color 0.2s" }}
+        onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.borderColor = "#6492C9"; }}
+        onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.borderColor = ""; }}>
+        <h3 className="text-[11px] font-bold mb-4 tracking-wider uppercase" style={{ color: pdvLabel }}>Ordonnances passées</h3>
+        {prescriptions.length === 0 ? (
+          <p className="text-sm italic" style={{ color: pdvTxt2 }}>Aucune ordonnance disponible.</p>
+        ) : (
+          <div className="space-y-3">
+            {prescriptions.map((rx, i) => (
+              <div key={rx.id || i} className={`flex items-center justify-between px-4 py-3 rounded-xl ${pdvItem}`}>
+                <div>
+                  <p className="text-sm font-bold" style={{ color: pdvTxt }}>
+                    {rx.items?.[0]?.drug_name || "Ordonnance"}
+                  </p>
+                  <p className="text-xs mt-0.5" style={{ color: pdvTxt2 }}>{fmtDate(rx.created_at)}</p>
+                </div>
+                {rx.id && (
+                  <button
+                    onClick={() => handleDownloadPdf(rx.id)}
+                    disabled={!!pdfLoading[rx.id]}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold transition-all hover:opacity-80 disabled:opacity-50"
+                    style={{ color: c.blue, borderColor: c.blue, background: c.blue + "0D" }}
+                  >
+                    {pdfLoading[rx.id] ? (
+                      <span
+                        className="w-4 h-4 border-2 rounded-full animate-spin inline-block"
+                        style={{ borderColor: c.blue + "44", borderTopColor: c.blue }}
+                      />
+                    ) : (
+                      <Download size={14} />
+                    )}
+                    PDF
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }
-
-// ============================================================================
-// SUB-VIEW : STATISTICS
-// ============================================================================
 
 function StatisticsView() {
   const { theme } = useTheme();
@@ -2966,15 +3006,13 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
   const [newHist, setNewHist] = useState({ title: "", date: "", type: "Chronic" });
   const [showAddLab, setShowAddLab] = useState(false);
   const [newLab, setNewLab] = useState({ test: "", note: "" });
-  const [showAddPrescription, setShowAddPrescription] = useState(false);
-  const [newRx, setNewRx] = useState({ medication: "", dosage: "", frequency: "Once daily", duration: "7" });
-  const [isRxSaving, setIsRxSaving] = useState(false);
-  const [rxError, setRxError] = useState(null);
+  const [showQuitConfirm, setShowQuitConfirm] = useState(false);
 
   // ── Right column ──
   const [vitals, setVitals] = useState({ bp: "", hr: "", temp: "", spo2: "" });
   const [symptoms, setSymptoms] = useState("");
   const [diagnosis, setDiagnosis] = useState("");
+  const [plan, setPlan] = useState("");
   const [diagnosisError, setDiagnosisError] = useState(false);
   const [successBanner, setSuccessBanner] = useState(false);
   const [isTerminating, setIsTerminating] = useState(false);
@@ -3060,8 +3098,12 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
     if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
     return age;
   })();
-  const bloodType = patientData?.medical_profile?.blood_type;
-  const patientAllergies = patientData?.medical_profile?.allergies;
+  const bloodGroup = patientData?.medical_profile?.blood_group
+    || patientData?.medical_profile?.blood_type
+    || null;
+  const patientAllergies = Array.isArray(patientData?.medical_profile?.allergies)
+    ? patientData.medical_profile.allergies.map(a => a?.substance || a?.name || a).filter(Boolean)
+    : [];
 
   // ── Handlers ──
   const handleAddHistory = (e) => {
@@ -3070,6 +3112,13 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
     setHistory(prev => [{ ...newHist, doc: doctorName || "Dr. Current", note: "Ajouté pendant la consultation.", _local: true }, ...prev]);
     setNewHist({ title: "", date: "", type: "Chronic" });
     setShowAddHistory(false);
+    const pid = appointment?.patient_id ?? appointment?.id ?? null;
+    if (pid) {
+      api.addDiagnosisToPatient(pid, {
+        condition: newHist.title,
+        diagnosis_date: newHist.date || undefined,
+      }).catch(() => {});
+    }
   };
   const handleDeleteHistory = (i) => setHistory(prev => prev.filter((_, idx) => idx !== i));
 
@@ -3082,30 +3131,6 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
   };
   const handleDeleteLab = (i) => setLabs(prev => prev.filter((_, idx) => idx !== i));
 
-  const handleAddPrescription = async (e) => {
-    e.preventDefault();
-    if (!newRx.medication) return;
-    setRxError(null);
-    setIsRxSaving(true);
-    const payload = {
-      med: newRx.medication + (newRx.dosage ? ` ${newRx.dosage}` : ""),
-      freq: newRx.frequency,
-      dur: `${newRx.duration} jours`,
-      date: new Date().toLocaleDateString("fr-FR"),
-      patient_id: appointment?.patient_id,
-      appointment_id: appointment?.id,
-    };
-    try {
-      const saved = await api.addPrescription(payload);
-      setPrescriptions(prev => [saved || payload, ...prev]);
-      setNewRx({ medication: "", dosage: "", frequency: "Once daily", duration: "7" });
-      setShowAddPrescription(false);
-    } catch (err) {
-      setRxError(err.message || "Impossible d'enregistrer l'ordonnance. Vérifiez votre connexion.");
-    } finally {
-      setIsRxSaving(false);
-    }
-  };
 
   const handleTerminate = async () => {
     if (!diagnosis.trim()) {
@@ -3123,6 +3148,7 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
         appointment_id: appointment?.id,
         symptoms,
         diagnosis,
+        treatment_plan: plan || undefined,
         vitals: {
           blood_pressure:    vitals.bp   || null,
           heart_rate:        vitals.hr   ? Number(vitals.hr)   : null,
@@ -3131,11 +3157,33 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
         },
         prescriptions: prescriptions
           .filter(p => p._local)
-          .map(p => ({
-            medication: p.med,
-            frequency:  p.freq,
-            duration:   p.dur,
-          })),
+          .map(p => {
+            const FREQ_MAP = {
+              // Labels anglais (FREQUENCY_OPTIONS du formulaire de consultation)
+              "Once daily":        "1x_day",
+              "Twice daily":       "2x_day",
+              "Three times daily": "3x_day",
+              "Every 8 hours":     "every_8h",
+              "As needed":         "as_needed",
+              // Labels français (formulaire rapide PrescriptionsView)
+              "1x/jour":           "1x_day",
+              "2x/jour":           "2x_day",
+              "3x/jour":           "3x_day",
+              "toutes les 8h":     "every_8h",
+              "si besoin":         "as_needed",
+              // Valeurs API directes (déjà mappées)
+              "1x_day":   "1x_day",
+              "2x_day":   "2x_day",
+              "3x_day":   "3x_day",
+              "every_8h": "every_8h",
+              "as_needed":"as_needed",
+            };
+            return {
+              drug_name: p.med,
+              frequency: FREQ_MAP[p.freq] || "1x_day",
+              duration:  p.dur,
+            };
+          }),
         lab_requests: labs
           .filter(l => l._local)
           .map(l => ({
@@ -3297,470 +3345,212 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: c.blue + "22", color: c.blue }}>
-            <Activity size={20} />
+      {/* ── HEADER pleine largeur ── */}
+      <div className={`rounded-2xl p-4 border shadow-sm flex items-center justify-between gap-4 flex-wrap ${dk ? "bg-[#172133] border-gray-800" : "bg-white border-gray-100"}`}>
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
+            style={{ background: "#304B71" }}>
+            {getInitials(...(patientName + " ").split(" ").slice(0, 2))}
           </div>
-          <div>
-            <h1 className="text-2xl font-black" style={{ color: c.txt }}>{patientName}</h1>
-            <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <Badge color={c.txt3} bg={c.bg + "44"}>{patientAge} ans</Badge>
-              <Badge color={c.blue} bg={c.blue + "15"}>RDV #{appointment?.id}</Badge>
-              {bloodType && (
-                <Badge color={c.red} bg={c.red + "15"}>{bloodType}</Badge>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-bold text-[15px]" style={{ color: dk ? "#ffffff" : "#0D2644" }}>{patientName}</span>
+              <span className="text-sm" style={{ color: "#5C738A" }}>{patientAge} ans</span>
+              {bloodGroup && (
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#FCEBEB", color: "#A32D2D" }}>{bloodGroup}</span>
               )}
-              {patientAllergies && (
-                <Badge color={c.amber} bg={c.amber + "15"}>⚠ {patientAllergies}</Badge>
-              )}
-              {isDataFallback && (
-                <Badge color={c.amber} bg={c.amber + "18"}>{t('dashboard.doctor.consultation.dataUnavailable')}</Badge>
-              )}
+              {patientAllergies.slice(0, 2).map((a, i) => (
+                <span key={i} className="text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: "#FFF7ED", color: "#C2410C" }}>
+                  <AlertTriangle size={9} /> {a}
+                </span>
+              ))}
             </div>
           </div>
         </div>
-        {/* Bouton terminer en haut */}
-        <button
-          onClick={handleTerminate}
-          disabled={isTerminating}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black text-white shadow-lg transition-all hover:opacity-90 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-          style={{ background: isTerminating ? "#9AACBE" : `linear-gradient(135deg, #E05555, #B03030)` }}
-        >
-          {isTerminating ? (
-            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        <div className="flex items-center gap-2 shrink-0">
+          {showQuitConfirm ? (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl border"
+              style={{ borderColor: "#FECACA", background: dk ? "rgba(239,68,68,0.08)" : "#FFF5F5" }}>
+              <span className="text-sm font-semibold whitespace-nowrap" style={{ color: "#5C738A" }}>Quitter sans sauvegarder ?</span>
+              <button onClick={() => onComplete()} className="px-3 py-1 rounded-lg text-xs font-black text-white bg-red-500">Confirmer</button>
+              <button onClick={() => setShowQuitConfirm(false)} className="px-3 py-1 rounded-lg text-xs font-bold border"
+                style={{ color: "#5C738A", borderColor: dk ? "#374151" : "#E5E7EB" }}>Annuler</button>
+            </div>
           ) : (
-            <Check size={16} />
+            <button onClick={() => setShowQuitConfirm(true)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl border text-sm font-bold transition-all hover:bg-red-50"
+              style={{ color: "#EF4444", borderColor: "#FECACA", background: "transparent" }}>
+              <X size={15} /> Quitter
+            </button>
           )}
-          {isTerminating ? "Clôture en cours…" : "Terminer la session"}
-        </button>
+          <button onClick={handleTerminate} disabled={isTerminating}
+            className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-50"
+            style={{ background: "#304B71" }}>
+            {isTerminating
+              ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              : <Check size={15} />}
+            Terminer la session
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* ── Left column: tabs ── */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card dk={dk} empty={true} className="p-0 overflow-hidden shadow-2xl border-0">
-            {/* Tab bar */}
-            <div className="flex items-center justify-between border-b pr-4" style={{ borderColor: c.border }}>
-              <div className="flex">
-                {["history", "lab", "prescriptions"].map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`px-6 py-4 text-sm font-bold transition-all relative ${activeTab === tab ? "" : "opacity-30"}`}
-                    style={{ color: activeTab === tab ? c.blue : c.txt }}
-                  >
-                    {tab === "history" && t('dashboard.doctor.medicalRecord.medicalHistoryTab')}
-                    {tab === "lab" && t('dashboard.doctor.medicalRecord.labResultsTab')}
-                    {tab === "prescriptions" && t('dashboard.doctor.medicalRecord.pastPrescriptionsTab')}
-                    {activeTab === tab && (
-                      <div className="absolute bottom-0 left-0 right-0 h-1.5 rounded-t-full" style={{ background: c.blue }} />
-                    )}
-                  </button>
+      {/* ── 2 COLONNES ── */}
+      <div className="flex gap-5 items-start">
+
+        {/* COLONNE GAUCHE — dossier patient */}
+        <div className="flex-1 space-y-4 min-w-0">
+
+          {/* Card Antécédents médicaux (lecture seule) */}
+          <div className={`rounded-2xl p-5 border shadow-sm ${dk ? "bg-[#172133] border-gray-800" : "bg-white border-gray-100"}`}>
+            <h3 className="text-[11px] font-bold mb-4 tracking-wider uppercase" style={{ color: "#A0B5CD" }}>Antécédents médicaux</h3>
+            {history.length === 0 ? (
+              <p className="text-sm italic" style={{ color: dk ? "#9CA3AF" : "#5C738A" }}>Aucun antécédent enregistré.</p>
+            ) : (
+              <div className="space-y-2">
+                {history.map((h, i) => {
+                  const typeKey = (h.type || "").toLowerCase();
+                  const typeBg = typeKey === "chronic" || typeKey === "chronique" ? "#E6F1FB"
+                    : typeKey === "en cours" ? "#FAEEDA" : "transparent";
+                  const typeColor = typeKey === "chronic" || typeKey === "chronique" ? "#185FA5"
+                    : typeKey === "en cours" ? "#854F0B" : (dk ? "#9CA3AF" : "#5C738A");
+                  return (
+                    <div key={i} className="flex items-center justify-between px-3 py-2.5 rounded-xl"
+                      style={{ background: dk ? "rgba(30,45,74,0.3)" : "#F8FAFC" }}>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold truncate" style={{ color: dk ? "#ffffff" : "#0D2644" }}>{h.title || h.condition || "—"}</p>
+                        {(h.date || h.diagnosis_date) && (
+                          <p className="text-xs mt-0.5" style={{ color: dk ? "#9CA3AF" : "#5C738A" }}>
+                            Depuis {h.date || h.diagnosis_date}
+                          </p>
+                        )}
+                      </div>
+                      {h.type && (
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ml-2" style={{ background: typeBg, color: typeColor }}>
+                          {h.type}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Card Allergies connues */}
+          <div className={`rounded-2xl p-5 border shadow-sm ${dk ? "bg-[#172133] border-gray-800" : "bg-white border-gray-100"}`}>
+            <h3 className="text-[11px] font-bold mb-4 tracking-wider uppercase" style={{ color: "#A0B5CD" }}>Allergies connues</h3>
+            {Array.isArray(patientData?.medical_profile?.allergies) && patientData.medical_profile.allergies.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {patientData.medical_profile.allergies.map((a, i) => {
+                  const sev = a?.severity;
+                  const bg = sev === "severe" ? "#FCEBEB" : sev === "moderate" ? "#FAEEDA" : "#E6F1FB";
+                  const col = sev === "severe" ? "#A32D2D" : sev === "moderate" ? "#854F0B" : "#185FA5";
+                  return (
+                    <span key={i} className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: bg, color: col }}>
+                      {a?.substance || a?.name || String(a)}
+                    </span>
+                  );
+                })}
+              </div>
+            ) : patientAllergies.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {patientAllergies.map((a, i) => (
+                  <span key={i} className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: "#E6F1FB", color: "#185FA5" }}>{a}</span>
                 ))}
               </div>
-              {activeTab === "history" && (
-                <button onClick={() => setShowAddHistory(!showAddHistory)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 text-[11px] font-black tracking-wider transition-all hover:bg-opacity-10 active:scale-95"
-                  style={{ borderColor: c.blue, color: c.blue, background: c.blue + "08" }}>
-                  <Plus size={14} /> {t('dashboard.doctor.medicalRecord.addAntecedent')}
-                </button>
-              )}
-              {activeTab === "lab" && (
-                <button onClick={() => setShowAddLab(!showAddLab)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 text-[11px] font-black tracking-wider transition-all hover:bg-opacity-10 active:scale-95"
-                  style={{ borderColor: c.blue, color: c.blue, background: c.blue + "08" }}>
-                  <Plus size={14} /> {t('dashboard.doctor.medicalRecord.requestLabTest')}
-                </button>
-              )}
-              {activeTab === "prescriptions" && (
-                <button onClick={() => setShowAddPrescription(!showAddPrescription)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 text-[11px] font-black tracking-wider transition-all hover:bg-opacity-10 active:scale-95"
-                  style={{ borderColor: c.blue, color: c.blue, background: c.blue + "08" }}>
-                  <Plus size={14} /> {t('dashboard.doctor.medicalRecord.addPrescription')}
-                </button>
-              )}
-            </div>
-
-            <div className="p-8">
-              {/* ── History tab ── */}
-              {activeTab === "history" && (
-                <div className="space-y-8">
-                  {showAddHistory && (
-                    <div className="p-6 rounded-[28px] border-2 mb-10 space-y-5 animate-in zoom-in-95 duration-300 shadow-2xl relative overflow-hidden"
-                      style={{ borderColor: c.blue + "33", background: dk ? "#1A2333" : "#F8FAFC" }}>
-                      <div className="absolute top-0 left-0 w-1.5 h-full" style={{ background: c.blue }} />
-                      <div className="flex items-center justify-between">
-                        <p className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: c.blue }}>{t('dashboard.doctor.medicalRecord.newRecord')}</p>
-                        <button onClick={() => setShowAddHistory(false)} className="opacity-40 hover:opacity-100 transition-all hover:bg-red-500/10 p-1 rounded-lg"><X size={18} /></button>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">{t('dashboard.doctor.medicalRecord.pathology')}</label>
-                          <input placeholder="ex: Hypertension" value={newHist.title}
-                            onChange={e => setNewHist({ ...newHist, title: e.target.value })}
-                            className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
-                            style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt }} />
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">{t('dashboard.doctor.medicalRecord.diagDate')}</label>
-                          <input type="date" value={newHist.date} onChange={e => setNewHist({ ...newHist, date: e.target.value })}
-                            className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
-                            style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt, fontFamily: "inherit" }} />
-                        </div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <DashSelect
-                          label={t('dashboard.doctor.medicalRecord.antecedentType')}
-                          value={newHist.type}
-                          options={[
-                            { value: "Chronic", label: "Chronique" },
-                            { value: "Acute", label: "Aigu" },
-                            { value: "Surgical", label: "Chirurgical" },
-                            { value: "Allergy", label: "Allergie" },
-                          ]}
-                          onSelect={v => setNewHist({ ...newHist, type: v })}
-                          dk={dk}
-                          c={c}
-                        />
-                      </div>
-                      <div className="flex gap-4 pt-3">
-                        <button onClick={() => setShowAddHistory(false)} className="flex-1 py-4 rounded-xl text-xs font-black" style={{ color: c.txt2 }}>{t('dashboard.doctor.medicalRecord.cancel')}</button>
-                        <button onClick={handleAddHistory} className="flex-[2] py-4 rounded-xl text-white text-xs font-black shadow-xl transition-all hover:scale-[1.02] active:scale-95"
-                          style={{ background: c.blue, boxShadow: `0 8px 25px ${c.blue}44` }}>{t('dashboard.doctor.medicalRecord.updateRecord')}</button>
-                      </div>
-                    </div>
-                  )}
-                  {history.map((h, i) => (
-                    <div key={i} className="relative pl-8 border-l-2 last:border-l-0 pb-8 last:pb-0 group" style={{ borderColor: c.border }}>
-                      <button onClick={() => handleDeleteHistory(i)}
-                        className="absolute right-0 top-0 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/10 text-red-500">
-                        <Trash2 size={16} />
-                      </button>
-                      <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 bg-white" style={{ borderColor: c.blue }} />
-                      <div className="flex items-center gap-2">
-                        <p className="text-[11px] font-black uppercase tracking-widest opacity-40" style={{ color: c.txt }}>{h.date}</p>
-                        {h.type && (
-                          <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-md"
-                            style={{ background: h.type === "Chronic" ? c.red + "15" : c.blue + "15", color: h.type === "Chronic" ? c.red : c.blue }}>
-                            {h.type}
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="text-lg font-black mt-1" style={{ color: c.txt }}>{h.title}</h3>
-                      <p className="text-[13px] font-bold mt-1" style={{ color: c.blue }}>{h.doc}</p>
-                      <p className="text-sm mt-3 leading-relaxed opacity-60 font-medium" style={{ color: c.txt }}>{h.note}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* ── Lab tab ── */}
-              {activeTab === "lab" && (
-                <div className="space-y-2.5">
-                  {showAddLab && (
-                    <div className="p-6 rounded-[28px] border-2 mb-10 space-y-5 animate-in zoom-in-95 duration-300 shadow-2xl relative overflow-hidden"
-                      style={{ borderColor: c.blue + "33", background: dk ? "#1A2333" : "#F8FAFC" }}>
-                      <div className="absolute top-0 left-0 w-1.5 h-full" style={{ background: c.blue }} />
-                      <div className="flex items-center justify-between">
-                        <p className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: c.blue }}>{t('dashboard.doctor.medicalRecord.newLabAnalysis')}</p>
-                        <button onClick={() => setShowAddLab(false)} className="opacity-40 hover:opacity-100 transition-all hover:bg-red-500/10 p-1 rounded-lg"><X size={18} /></button>
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">{t('dashboard.doctor.medicalRecord.requestedAnalysis')}</label>
-                        <input placeholder="ex: Bilan Lipidique Complet" value={newLab.test}
-                          onChange={e => setNewLab({ ...newLab, test: e.target.value })}
-                          className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
-                          style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt }} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">{t('dashboard.doctor.medicalRecord.notesUrgency')}</label>
-                        <textarea placeholder="Indications cliniques..." value={newLab.note}
-                          onChange={e => setNewLab({ ...newLab, note: e.target.value })}
-                          className="w-full px-4 py-4 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500 resize-none h-24"
-                          style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt }} />
-                      </div>
-                      <div className="flex gap-4 pt-3">
-                        <button onClick={() => setShowAddLab(false)} className="flex-1 py-4 rounded-xl text-xs font-black" style={{ color: c.txt2 }}>{t('dashboard.doctor.medicalRecord.cancel')}</button>
-                        <button onClick={handleAddLab} className="flex-[2] py-4 rounded-xl text-white text-xs font-black shadow-xl transition-all hover:scale-[1.02] active:scale-95"
-                          style={{ background: c.blue, boxShadow: `0 8px 25px ${c.blue}44` }}>{t('dashboard.doctor.medicalRecord.confirmRequest')}</button>
-                      </div>
-                    </div>
-                  )}
-                  {labs.map((l, i) => (
-                    <div key={i} style={{
-                      display: "flex", alignItems: "center", gap: "12px",
-                      padding: "16px", borderRadius: "16px",
-                      border: `2px solid ${c.border}`,
-                      marginBottom: "10px",
-                    }}>
-                      {/* Icône */}
-                      <div style={{ padding: "10px", borderRadius: "12px", background: l.status === "Requested" ? c.amber + "22" : c.blue + "15", flexShrink: 0 }}>
-                        <Activity size={20} style={{ color: l.status === "Requested" ? c.amber : c.blue }} />
-                      </div>
-                      {/* Nom + réf */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontSize: 15, fontWeight: 600, color: c.txt, margin: 0, lineHeight: 1.3 }}>{l.test}</p>
-                        <p style={{ fontSize: 12, opacity: 0.5, fontStyle: "italic", color: c.txt, margin: 0, marginTop: 3 }}>{t('dashboard.doctor.medicalRecord.ref')} : {l.ref}</p>
-                      </div>
-                      {/* Résultat + badge + trash dans un seul bloc */}
-                      <div style={{ display: "flex", alignItems: "center", gap: "16px", flexShrink: 0 }}>
-                        <div style={{ textAlign: "right" }}>
-                          <p style={{ fontSize: 16, fontWeight: 700, color: l.status === "Requested" ? c.amber : l.status === "Normal" ? c.green : l.status === "Borderline" ? c.amber : c.red, margin: 0 }}>{l.result}</p>
-                          <span style={{ fontSize: 10, letterSpacing: "0.5px", fontWeight: 700, textTransform: "uppercase", padding: "2px 8px", borderRadius: 6, display: "inline-block", marginTop: 4, background: (l.status === "Requested" ? c.amber : l.status === "Normal" ? c.green : l.status === "Borderline" ? c.amber : c.red) + "18", color: l.status === "Requested" ? c.amber : l.status === "Normal" ? c.green : l.status === "Borderline" ? c.amber : c.red }}>{l.status}</span>
-                        </div>
-                        <button onClick={() => setLabs(prev => prev.filter((_, j) => j !== i))}
-                          style={{ padding: "8px", borderRadius: "8px", background: c.red + "15", border: "none", cursor: "pointer", flexShrink: 0 }}>
-                          <Trash2 size={15} color={c.red} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* ── Prescriptions tab ── */}
-              {activeTab === "prescriptions" && (
-                <div className="space-y-4">
-                  {showAddPrescription && (
-                    <div className="p-6 rounded-[28px] border-2 mb-6 space-y-5 animate-in zoom-in-95 duration-300 shadow-2xl relative overflow-hidden"
-                      style={{ borderColor: c.blue + "33", background: dk ? "#1A2333" : "#F8FAFC" }}>
-                      <div className="absolute top-0 left-0 w-1.5 h-full" style={{ background: c.blue }} />
-                      <div className="flex items-center justify-between">
-                        <p className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: c.blue }}>{t('dashboard.doctor.medicalRecord.newPrescriptionForm')}</p>
-                        <button onClick={() => setShowAddPrescription(false)} className="opacity-40 hover:opacity-100 transition-all hover:bg-red-500/10 p-1 rounded-lg"><X size={18} /></button>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">{t('dashboard.doctor.medicalRecord.medicationLabel')}</label>
-                          <input placeholder="ex: Paracétamol" value={newRx.medication}
-                            onChange={e => setNewRx({ ...newRx, medication: e.target.value })}
-                            className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
-                            style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt }} />
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">{t('dashboard.doctor.prescription.dosage')}</label>
-                          <input placeholder="ex: 500mg" value={newRx.dosage}
-                            onChange={e => setNewRx({ ...newRx, dosage: e.target.value })}
-                            className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
-                            style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt }} />
-                        </div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <DashSelect
-                          label={t('dashboard.doctor.prescription.frequency.label')}
-                          value={newRx.frequency}
-                          options={FREQUENCY_OPTIONS}
-                          onSelect={f => setNewRx(r => ({ ...r, frequency: f }))}
-                          dk={dk}
-                          c={c}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-black uppercase tracking-wider opacity-40 ml-1">{t('dashboard.doctor.medicalRecord.durationDays')}</label>
-                        <input type="text" inputMode="numeric" placeholder="7" value={newRx.duration}
-                          onKeyDown={(e) => { const ok = ["Backspace","Delete","Tab","ArrowLeft","ArrowRight"]; if (!ok.includes(e.key) && !/^\d$/.test(e.key)) e.preventDefault(); }}
-                          onChange={e => setNewRx({ ...newRx, duration: e.target.value.replace(/\D/g, "").slice(0, 3) })}
-                          className="w-full px-4 py-3 rounded-2xl border-2 text-sm font-bold outline-none transition-all focus:border-blue-500"
-                          style={{ background: dk ? c.blueLight : "#fff", borderColor: c.border, color: c.txt }} />
-                      </div>
-                      {rxError && (
-                        <div
-                          className="flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-semibold animate-in fade-in duration-200"
-                          style={{ background: c.red + "15", borderColor: c.red + "40", color: c.red }}
-                        >
-                          <X size={13} /> {rxError}
-                        </div>
-                      )}
-                      <div className="flex gap-4 pt-3">
-                        <button
-                          onClick={() => { setShowAddPrescription(false); setRxError(null); }}
-                          disabled={isRxSaving}
-                          className="flex-1 py-4 rounded-xl text-xs font-black disabled:opacity-40"
-                          style={{ color: c.txt2 }}
-                        >{t('dashboard.doctor.medicalRecord.cancel')}</button>
-                        <button
-                          onClick={handleAddPrescription}
-                          disabled={isRxSaving}
-                          className="flex-[2] py-4 rounded-xl text-white text-xs font-black shadow-xl transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100 flex items-center justify-center gap-2"
-                          style={{ background: c.blue, boxShadow: `0 8px 25px ${c.blue}44` }}
-                        >
-                          {isRxSaving ? (
-                            <><span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> {t('dashboard.doctor.medicalRecord.saving')}</>
-                          ) : t('dashboard.doctor.medicalRecord.saveRx')}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  {prescriptions.map((p, i) => (
-                    <div key={i} className="p-5 rounded-2xl border-2 hover:shadow-md transition-all space-y-3"
-                      style={{ borderColor: c.border }}>
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
-                          style={{ background: c.blue + "15", color: c.blue }}>
-                          <FileText size={22} />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-base font-black" style={{ color: c.txt }}>{p.med}</p>
-                          <p className="text-xs opacity-50 font-bold mt-0.5" style={{ color: c.txt }}>{p.freq} · {p.dur}</p>
-                        </div>
-                        <p className="text-xs font-black opacity-30" style={{ color: c.txt }}>{p.date}</p>
-                      </div>
-                      <div className="flex items-center gap-3 pt-2 border-t" style={{ borderColor: c.border }}>
-                        {p.prescription_qr_url ? (
-                          qrBlobMap[p.id || p.prescription_qr_url]
-                            ? <img
-                                src={qrBlobMap[p.id || p.prescription_qr_url]}
-                                alt="QR ordonnance"
-                                className="w-14 h-14 rounded-lg object-contain shrink-0"
-                                style={{ background: "#fff", padding: 2 }}
-                              />
-                            : <div className="w-14 h-14 rounded-lg shrink-0 flex items-center justify-center border-2 border-dashed"
-                                style={{ borderColor: c.border, color: c.txt3 }}>
-                                <span className="text-[9px] font-bold text-center leading-tight">QR…</span>
-                              </div>
-                        ) : (
-                          <div className="w-14 h-14 rounded-lg shrink-0 flex items-center justify-center border-2 border-dashed"
-                            style={{ borderColor: c.border, color: c.txt3 }}>
-                            <span className="text-[9px] font-bold text-center leading-tight">QR<br/>EN ATTENTE</span>
-                          </div>
-                        )}
-                        <div className="flex flex-col gap-1.5">
-                          <p className="text-[10px] font-black uppercase tracking-wider" style={{ color: c.txt3 }}>
-                            {p.prescription_qr_url ? t('dashboard.doctor.medicalRecord.qrAvailable') : t('dashboard.doctor.medicalRecord.qrAfterValidation')}
-                          </p>
-                          {p.prescription_qr_url ? (
-                            (() => {
-                              const idStr = p.id ? String(p.id) : null;
-                              const isLoading = idStr && pdfDownloading === idStr;
-                              const hasErr = idStr && pdfError?.id === idStr;
-                              return (
-                                <div className="flex flex-col gap-1.5 w-fit">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDownloadRxPdf(p.id)}
-                                    disabled={!p.id || isLoading}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all hover:opacity-80 active:scale-95 w-fit disabled:opacity-60 disabled:cursor-not-allowed"
-                                    style={{ background: c.blue + "15", color: c.blue, border: "none" }}
-                                  >
-                                    {isLoading ? (
-                                      <span className="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: c.blue }} />
-                                    ) : (
-                                      <Download size={12} />
-                                    )}
-                                    {t('dashboard.doctor.medicalRecord.download')}
-                                  </button>
-                                  {hasErr && (
-                                    <p className="px-2 py-1 rounded-md text-[10px] font-semibold border" style={{ background: c.red + "15", borderColor: c.red + "40", color: c.red }}>
-                                      {pdfError.msg}
-                                    </p>
-                                  )}
-                                </div>
-                              );
-                            })()
-                          ) : (
-                            <span className="text-[10px] font-medium" style={{ color: c.txt3 }}>
-                              #{p.prescription_token || "—"}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </Card>
+            ) : (
+              <p className="text-sm italic" style={{ color: dk ? "#9CA3AF" : "#5C738A" }}>Aucune allergie connue</p>
+            )}
+          </div>
         </div>
 
-        {/* ── Right column: Compte-rendu ── */}
-        <div className="space-y-6">
-          <Card dk={dk} className="p-8 shadow-xl border-0">
-            <h2 className="text-xl font-black mb-8" style={{ color: c.txt }}>{t('dashboard.doctor.consultation.accountReport')}</h2>
-            <div className="space-y-6">
-              {/* ── Constantes vitales ── */}
-              <div className="space-y-3">
-                <label className="text-[11px] font-black uppercase tracking-widest ml-1 opacity-40" style={{ color: c.txt }}>
-                  {t('dashboard.doctor.consultation.vitals')}
-                </label>
-                <div className="grid grid-cols-2 gap-2.5">
-                  {[
-                    { key: "bp",   label: "Tension",  placeholder: "120/80", unit: "mmHg" },
-                    { key: "hr",   label: "FC",        placeholder: "72",     unit: "bpm"  },
-                    { key: "temp", label: "Temp.",     placeholder: "37.2",   unit: "°C"   },
-                    { key: "spo2", label: "SpO2",      placeholder: "98",     unit: "%"    },
-                  ].map(({ key, label, placeholder, unit }) => (
-                    <div key={key} className="rounded-2xl border-2 px-3 py-2.5 flex items-center gap-2 transition-all focus-within:border-blue-400"
-                      style={{ borderColor: c.border, background: dk ? c.blueLight : "#F8FAFC" }}>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[9px] font-black uppercase tracking-wider mb-0.5" style={{ color: c.txt3 }}>{label}</p>
-                        <input
-                          type="text"
-                          placeholder={placeholder}
-                          value={vitals[key]}
-                          onChange={e => setVitals(v => ({ ...v, [key]: e.target.value }))}
-                          className="w-full bg-transparent outline-none text-sm font-bold"
-                          style={{ color: c.txt }}
-                        />
-                      </div>
-                      <span className="text-[10px] font-bold shrink-0" style={{ color: c.txt3 }}>{unit}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+        {/* COLONNE DROITE — compte-rendu */}
+        <div style={{ width: 360, flexShrink: 0 }} className="space-y-4">
 
-              <div className="space-y-2">
-                <label className="text-[11px] font-black uppercase tracking-widest ml-1 opacity-40" style={{ color: c.txt }}>
-                  {t('dashboard.doctor.consultation.currentSymptoms')}
-                </label>
+          {/* Card Constantes vitales */}
+          <div className={`rounded-2xl p-5 border shadow-sm ${dk ? "bg-[#172133] border-gray-800" : "bg-white border-gray-100"}`}>
+            <h3 className="text-[11px] font-bold mb-4 tracking-wider uppercase" style={{ color: "#A0B5CD" }}>Constantes vitales</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { key: "bp",   label: "Tension",     placeholder: "120/80", unit: "mmHg" },
+                { key: "hr",   label: "FC",           placeholder: "72",     unit: "bpm"  },
+                { key: "temp", label: "Température",  placeholder: "37.2",   unit: "°C"   },
+                { key: "spo2", label: "SpO₂",         placeholder: "98",     unit: "%"    },
+              ].map(({ key, label, placeholder, unit }) => (
+                <div key={key} className="rounded-xl p-2.5 flex flex-col gap-1"
+                  style={{ background: dk ? "rgba(30,45,74,0.3)" : "#F8FAFC" }}>
+                  <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#A0B5CD" }}>{label}</span>
+                  <div className="flex items-baseline gap-1">
+                    <input
+                      type="text"
+                      placeholder={placeholder}
+                      value={vitals[key]}
+                      onChange={e => setVitals(v => ({ ...v, [key]: e.target.value }))}
+                      className="flex-1 min-w-0 bg-transparent border-none outline-none font-medium"
+                      style={{ fontSize: 16, fontWeight: 500, color: dk ? "#ffffff" : "#0D2644" }}
+                    />
+                    <span className="text-xs shrink-0" style={{ color: "#A0B5CD" }}>{unit}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Card formulaire */}
+          <div className={`rounded-2xl p-5 border shadow-sm ${dk ? "bg-[#172133] border-gray-800" : "bg-white border-gray-100"}`}>
+            <div className="space-y-4">
+
+              {/* Symptômes / Motif */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#A0B5CD" }}>Symptômes / Motif</label>
                 <textarea
                   value={symptoms}
                   onChange={e => setSymptoms(e.target.value)}
-                  className="w-full rounded-[20px] p-5 text-sm font-bold border-2 outline-none transition-all focus:border-blue-500 min-h-[120px] resize-none"
-                  style={{ background: dk ? c.blueLight : "#F8FAFC", borderColor: c.border, color: c.txt }}
-                  placeholder={t('dashboard.doctor.consultation.clinicalNotesPh')}
+                  rows={3}
+                  className="w-full rounded-xl border outline-none resize-none text-sm"
+                  style={{ padding: "8px 10px", background: dk ? "rgba(30,45,74,0.3)" : "#F8FAFC", borderColor: dk ? "#374151" : "#E5E7EB", color: dk ? "#ffffff" : "#0D2644" }}
+                  placeholder="Décrire les symptômes…"
                 />
               </div>
-              <div className="space-y-2" ref={diagnosisRef}>
-                <label className="text-[11px] font-black uppercase tracking-widest ml-1 opacity-40" style={{ color: diagnosisError ? c.red : c.txt }}>
-                  {t('dashboard.doctor.consultation.prelimDiagnosis')} <span style={{ color: c.red }}>*</span>
+
+              {/* Diagnostic */}
+              <div className="space-y-1.5" ref={diagnosisRef}>
+                <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: diagnosisError ? "#EF4444" : "#A0B5CD" }}>
+                  Diagnostic <span style={{ color: "#EF4444" }}>*</span>
                 </label>
                 <input
                   value={diagnosis}
                   onChange={e => { setDiagnosis(e.target.value); if (e.target.value.trim()) setDiagnosisError(false); }}
-                  className="w-full rounded-2xl px-5 py-4 text-sm font-bold border-2 outline-none focus:border-blue-500"
-                  style={{ background: dk ? c.blueLight : "#F8FAFC", borderColor: diagnosisError ? c.red : c.border, color: c.txt }}
-                  placeholder={t('dashboard.doctor.consultation.diagnosisSearch')}
+                  className="w-full rounded-xl border outline-none text-sm"
+                  style={{ padding: "8px 10px", background: dk ? "rgba(30,45,74,0.3)" : "#F8FAFC", borderColor: diagnosisError ? "#EF4444" : (dk ? "#374151" : "#E5E7EB"), color: dk ? "#ffffff" : "#0D2644" }}
+                  placeholder="Diagnostic principal…"
                 />
                 {diagnosisError && (
-                  <p className="text-xs font-semibold ml-1" style={{ color: c.red }}>{t('dashboard.doctor.consultation.diagnosisRequired')}</p>
+                  <p className="text-xs font-semibold" style={{ color: "#EF4444" }}>Le diagnostic est requis</p>
                 )}
               </div>
+
+              {/* Plan de traitement */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#A0B5CD" }}>Plan de traitement</label>
+                <textarea
+                  value={plan}
+                  onChange={e => setPlan(e.target.value)}
+                  rows={2}
+                  className="w-full rounded-xl border outline-none resize-none text-sm"
+                  style={{ padding: "8px 10px", background: dk ? "rgba(30,45,74,0.3)" : "#F8FAFC", borderColor: dk ? "#374151" : "#E5E7EB", color: dk ? "#ffffff" : "#0D2644" }}
+                  placeholder="Plan de traitement proposé…"
+                />
+              </div>
+
               {terminateError && (
-                <div
-                  className="flex items-center gap-2 px-4 py-3 rounded-xl border text-xs font-semibold animate-in fade-in duration-200"
-                  style={{ background: c.red + "15", borderColor: c.red + "40", color: c.red }}
-                >
-                  <X size={14} /> {terminateError}
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-semibold"
+                  style={{ background: c.red + "15", borderColor: c.red + "40", color: c.red }}>
+                  <X size={13} /> {terminateError}
                 </div>
               )}
-              <button
-                onClick={handleTerminate}
-                disabled={isTerminating || !symptoms.trim() || !diagnosis.trim()}
-                className="w-full py-4 rounded-2xl text-white font-black text-[15px] shadow-2xl transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none flex items-center justify-center gap-3 mt-4"
-                style={{ background: `linear-gradient(135deg, ${c.blue}, #304B71)`, boxShadow: `0 12px 30px ${c.blue}44` }}
-              >
-                {isTerminating ? (
-                  <>
-                    <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    {t('dashboard.doctor.consultation.saving')}
-                  </>
-                ) : (
-                  <><Send size={20} /> {t('dashboard.doctor.consultation.terminate')}</>
-                )}
-              </button>
             </div>
-          </Card>
+          </div>
         </div>
       </div>
     </div>
@@ -4122,6 +3912,13 @@ export default function DoctorDashboard({ onLogout }) {
               setSelectedPatient(null);
               setCurrentPage("patients");
             }}
+            onStartConsultation={() => {
+              setActiveConsultation({
+                patient: selectedPatient?.id,
+                patient_name: `${selectedPatient?.firstName || ""} ${selectedPatient?.lastName || ""}`.trim(),
+              });
+              setCurrentPage("consultation-session");
+            }}
           />
         );
       case "messages":
@@ -4305,9 +4102,7 @@ export default function DoctorDashboard({ onLogout }) {
                   >
                     {doctorName}
                   </p>
-                  <p className="text-[10px]" style={{ color: c.txt3 }}>
-                    ID: #{user?.id || "----"}
-                  </p>
+
                 </div>
                 <ChevronDown size={13} style={{ color: c.txt3 }} />
               </button>
@@ -4346,7 +4141,7 @@ export default function DoctorDashboard({ onLogout }) {
                           className="text-xs truncate"
                           style={{ color: c.txt3 }}
                         >
-                          {doctorRole} · #{user?.id || "---"}
+                          {doctorRole}
                         </p>
                       </div>
                     </div>

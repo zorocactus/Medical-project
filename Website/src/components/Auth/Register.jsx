@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { User, EyeOff, Eye, Facebook, Mail, Lock, ArrowRight, UserCircle, ShieldCheck } from "lucide-react";
+import { User, EyeOff, Eye, Mail, Lock, ArrowRight, UserCircle, ShieldCheck } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { sendRegisterOTP, verifyRegisterOTP } from "../../services/api";
@@ -32,8 +32,6 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchT
     blue:        "#638ECB",
     divLine:     "rgba(255,255,255,0.12)",
     divTxt:      "rgba(255,255,255,0.4)",
-    oauthCls:    "bg-white/8 hover:bg-white/[.12] border-white/20",
-    oauthIcon:   "rgba(255,255,255,0.85)",
     switchTxt:   "rgba(255,255,255,0.6)",
     msgBorder:   "rgba(255,255,255,0.15)",
     msgBg:       "rgba(59,130,246,0.08)",
@@ -54,8 +52,6 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchT
     blue:        "#4A6FA5",
     divLine:     "#E4EAF5",
     divTxt:      "#9AACBE",
-    oauthCls:    "bg-white hover:bg-[#F8FAFC] border-[#E4EAF5]",
-    oauthIcon:   "#5A6E8A",
     switchTxt:   "#5A6E8A",
     msgBorder:   "#D0DBF0",
     msgBg:       "#EEF3FB",
@@ -74,8 +70,6 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchT
   const [showPassword, setShowPassword]         = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [accountType, setAccountType]           = useState(initialData?.accountType || "patient");
-  const [isGoogleLoading, setIsGoogleLoading]   = useState(false);
-  const [isFacebookLoading, setIsFacebookLoading] = useState(false);
   const [oauthMessage, setOauthMessage]         = useState("");
 
   // OTP step 1.5
@@ -228,26 +222,9 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchT
     }
   }
 
-  function handleDevFill() {
-    const ts = Date.now();
-    if (onNextStep) {
-      onNextStep({ firstName: "Dev", lastName: "Test", email: `dev${ts}@test.com`, password: "DevTest@123", confirmPassword: "DevTest@123", accountType });
-    } else {
-      onLogin(accountType);
-    }
-  }
 
-  const handleGoogleLogin = () => {
-    if (isGoogleLoading || isFacebookLoading) return;
-    setIsGoogleLoading(true);
-    setTimeout(() => { setIsGoogleLoading(false); setOauthMessage(t('auth.login.googleUnavailable')); }, 1000);
-  };
 
-  const handleFacebookLogin = () => {
-    if (isGoogleLoading || isFacebookLoading) return;
-    setIsFacebookLoading(true);
-    setTimeout(() => { setIsFacebookLoading(false); setOauthMessage(t('auth.login.facebookUnavailable')); }, 1000);
-  };
+
 
   const inputCls = (err, extraPad = "pr-4") =>
     `w-full pl-9 ${extraPad} py-[10px] rounded-xl text-sm transition-all outline-none border-2 ${c.placeholder} ${err ? "border-red-400" : c.inputBorder}`;
@@ -508,46 +485,8 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchT
           </div>
         </form>
 
-        <div className="flex items-center gap-3 mt-3 mb-2">
-          <div className="flex-1 h-px" style={{ background: c.divLine }} />
-          <span className="text-[11px]" style={{ color: c.divTxt }}>{t('auth.register.orWith')}</span>
-          <div className="flex-1 h-px" style={{ background: c.divLine }} />
-        </div>
-
-        <div className="flex flex-col items-center gap-3">
-          {oauthMessage && (
-            <div className="w-full p-3 rounded-xl text-xs font-medium border"
-              style={{ color: c.subtitle, borderColor: c.msgBorder, background: c.msgBg }}>
-              {oauthMessage}
-            </div>
-          )}
-          <div className="flex gap-3 w-full">
-            <button
-              type="button" onClick={handleGoogleLogin} disabled={isGoogleLoading || isFacebookLoading}
-              className={`flex-1 h-10 flex items-center justify-center rounded-xl transition-all disabled:opacity-50 border-2 cursor-pointer group ${c.oauthCls}`}
-            >
-              {isGoogleLoading ? (
-                <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white/60" />
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="18" height="18" className="transition-transform group-hover:scale-110">
-                  <path fill={c.oauthIcon} d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
-                </svg>
-              )}
-            </button>
-            <button
-              type="button" onClick={handleFacebookLogin} disabled={isGoogleLoading || isFacebookLoading}
-              className={`flex-1 h-10 flex items-center justify-center rounded-xl transition-all disabled:opacity-50 border-2 cursor-pointer group ${c.oauthCls}`}
-            >
-              {isFacebookLoading ? (
-                <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white/60" />
-              ) : (
-                <Facebook size={18} fill={c.oauthIcon} strokeWidth={0} className="transition-transform group-hover:scale-110" />
-              )}
-            </button>
-          </div>
-
           {onSwitchToLogin && (
-            <p className="text-center text-[12px] pt-1" style={{ color: c.switchTxt }}>
+            <p className="text-center text-[12px] pt-5" style={{ color: c.switchTxt }}>
               {t('auth.register.alreadyAccount')}{" "}
               <button type="button" onClick={onSwitchToLogin}
                 className="font-semibold transition-colors hover:underline cursor-pointer" style={{ color: c.blue }}>
@@ -555,16 +494,10 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchT
               </button>
             </p>
           )}
-        </div>
 
       </div>
 
-      {import.meta.env.DEV && (
-        <button type="button" onClick={handleDevFill}
-          className="fixed bottom-4 left-4 z-50 bg-black/80 text-[#8AAEE0] text-[10px] px-3 py-1.5 rounded border border-[#2A4A7F] hover:bg-[#173253] font-mono cursor-pointer transition-colors">
-          ⚡ DEV: Auto-Fill
-        </button>
-      )}
+
     </div>
   );
 }

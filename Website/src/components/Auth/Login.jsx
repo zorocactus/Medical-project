@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Mail, Lock, EyeOff, Eye, ArrowRight, Facebook, Activity } from "lucide-react";
+import { Mail, Lock, EyeOff, Eye, ArrowRight, Activity } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import { useLanguage } from "../../context/LanguageContext";
@@ -34,8 +34,6 @@ function LoginInner({ onLogin, onSwitchToRegister, onForgotPassword }) {
     blueHover:   "#7AABEE",
     divLine:     "rgba(255,255,255,0.12)",
     divTxt:      "rgba(255,255,255,0.4)",
-    oauthCls:    "bg-white/8 hover:bg-white/[.12] border-white/20",
-    oauthIcon:   "rgba(255,255,255,0.85)",
     switchTxt:   "rgba(255,255,255,0.6)",
     msgBorder:   "rgba(255,255,255,0.15)",
     msgBg:       "rgba(59,130,246,0.08)",
@@ -53,8 +51,6 @@ function LoginInner({ onLogin, onSwitchToRegister, onForgotPassword }) {
     blueHover:   "#3D5E8F",
     divLine:     "#E4EAF5",
     divTxt:      "#9AACBE",
-    oauthCls:    "bg-white hover:bg-[#F8FAFC] border-[#E4EAF5]",
-    oauthIcon:   "#5A6E8A",
     switchTxt:   "#5A6E8A",
     msgBorder:   "#D0DBF0",
     msgBg:       "#EEF3FB",
@@ -66,8 +62,6 @@ function LoginInner({ onLogin, onSwitchToRegister, onForgotPassword }) {
   const [errors, setErrors] = useState({});
   const [apiError, setApiError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [isFacebookLoading, setIsFacebookLoading] = useState(false);
   const [oauthMessage, setOauthMessage] = useState("");
 
   useEffect(() => {
@@ -96,17 +90,7 @@ function LoginInner({ onLogin, onSwitchToRegister, onForgotPassword }) {
     }
   }
 
-  const handleGoogleLogin = async () => {
-    if (isGoogleLoading || isFacebookLoading) return;
-    setIsGoogleLoading(true);
-    setTimeout(() => { setIsGoogleLoading(false); setOauthMessage(t('auth.login.googleUnavailable')); }, 1000);
-  };
 
-  const handleFacebookLogin = async () => {
-    if (isGoogleLoading || isFacebookLoading) return;
-    setIsFacebookLoading(true);
-    setTimeout(() => { setIsFacebookLoading(false); setOauthMessage(t('auth.login.facebookUnavailable')); }, 1000);
-  };
 
   // classe commune pour les inputs (sans fond ni border, ajoutés via style + c.inputBorder)
   const inputBase = (padRight, hasError) =>
@@ -227,42 +211,7 @@ function LoginInner({ onLogin, onSwitchToRegister, onForgotPassword }) {
             )}
           </button>
 
-          {/* ── Séparateur ──────────────────────────── */}
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px" style={{ background: c.divLine }} />
-            <span className="text-xs" style={{ color: c.divTxt }}>{t('auth.login.orWith')}</span>
-            <div className="flex-1 h-px" style={{ background: c.divLine }} />
-          </div>
 
-          {/* ── OAuth ────────────────────────────────── */}
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={handleGoogleLogin}
-              disabled={isGoogleLoading || isFacebookLoading || loading}
-              className={`flex-1 h-12 flex items-center justify-center rounded-xl transition-all disabled:opacity-50 border-2 cursor-pointer group ${c.oauthCls}`}
-            >
-              {isGoogleLoading ? (
-                <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white/60" />
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="20" height="20" className="transition-transform group-hover:scale-110">
-                  <path fill={c.oauthIcon} d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
-                </svg>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={handleFacebookLogin}
-              disabled={isGoogleLoading || isFacebookLoading || loading}
-              className={`flex-1 h-12 flex items-center justify-center rounded-xl transition-all disabled:opacity-50 border-2 cursor-pointer group ${c.oauthCls}`}
-            >
-              {isFacebookLoading ? (
-                <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white/60" />
-              ) : (
-                <Facebook size={20} fill={c.oauthIcon} strokeWidth={0} className="transition-transform group-hover:scale-110" />
-              )}
-            </button>
-          </div>
 
           {/* ── Switch vers Register ─────────────────── */}
           {onSwitchToRegister && (
