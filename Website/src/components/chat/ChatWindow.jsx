@@ -770,7 +770,7 @@ export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = fa
               {/* Input row — tous les éléments alignés verticalement au centre */}
               <div className="flex items-center gap-2">
 
-                {/* 📎 Pièce jointe */}
+                {/* Pièce jointe */}
                 <input
                   ref={fileInputRef}
                   type="file"

@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Phone, User, Home, ChevronDown } from "lucide-react";
 import StepBar from "./StepBar";
 import { useTheme } from "../../../context/ThemeContext";
@@ -476,9 +476,10 @@ export default function PersonalInfoForm({
           onClick={() => onComplete(devFillData)}
           className="fixed bottom-4 left-4 z-50 bg-black/80 text-[#8AAEE0] text-[10px] px-3 py-1.5 rounded border border-[#2A4A7F] hover:bg-[#173253] font-mono cursor-pointer"
         >
-          ⚡ DEV: Auto-Fill
+          DEV: Auto-Fill
         </button>
       )}
     </div>
   );
 }
+

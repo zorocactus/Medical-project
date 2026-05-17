@@ -71,52 +71,7 @@ function StatCard({ label, value, sub, icon: Icon, color, dk }) {
 // CONSTANTES STATIQUES
 // ============================================================================
 
-// Données de démonstration uniquement actives en développement
-// Plus de données fictives — les offres de missions proviennent de l'API.
-const SAMPLE_REQUESTS = [];
 
-// ─── Profils patients détaillés (pour le modal "Détails du profil") ────────────
-const PATIENT_PROFILES = {
-  1: {
-    name: "Nadia Khelifa", age: 58, gender: "F", city: "Alger-Centre",
-    conditions: ["Diabète Type 2", "Hypertension artérielle"],
-    vitals: [
-      { label: "Glycémie à jeun", value: "8.2 mmol/L", highlight: true },
-      { label: "Tension artérielle", value: "145/92 mmHg", highlight: true },
-      { label: "IMC", value: "28.4 kg/m²", highlight: false },
-    ],
-    treatments: ["Metformin 500mg (2×/jour)", "Lisinopril 10mg (1×/jour)", "Aspirine 75mg (1×/jour)"],
-    notes: "Patiente stable. Surveillance glycémique et tensionnelle quotidienne requise. Régime alimentaire contrôlé.",
-    difficulty: "Modérée",
-    diffColor: "#E8A838",
-  },
-  2: {
-    name: "Youcef Belaid", age: 72, gender: "M", city: "El Biar",
-    conditions: ["Post-chirurgie cardiaque (bypass)", "Insuffisance cardiaque légère"],
-    vitals: [
-      { label: "Fréquence cardiaque", value: "72 bpm", highlight: false },
-      { label: "SpO2", value: "97%", highlight: false },
-      { label: "Tension artérielle", value: "130/85 mmHg", highlight: true },
-    ],
-    treatments: ["Warfarin 5mg (1×/jour)", "Amiodarone 200mg (1×/jour)", "Bisoprolol 2.5mg"],
-    notes: "Surveillance nocturne intensive requise. Pansement cicatrice à refaire toutes les 48h. Mobilisation assistée.",
-    difficulty: "Élevée",
-    diffColor: "#E05555",
-  },
-  3: {
-    name: "Meriem Kaci", age: 32, gender: "F", city: "Sidi Yahia",
-    conditions: ["Fracture membre inférieur", "Rééducation post-fracture"],
-    vitals: [
-      { label: "Tension artérielle", value: "120/80 mmHg", highlight: false },
-      { label: "Température", value: "37.1°C", highlight: false },
-      { label: "Saturation O2", value: "99%", highlight: false },
-    ],
-    treatments: ["Ibuprofène 400mg (3×/jour)", "Calcium D3 (1×/jour)", "Anticoagulant préventif"],
-    notes: "Aide à la mobilité et soins de plaie requis. Exercices de rééducation supervisés. Patient coopératif.",
-    difficulty: "Faible",
-    diffColor: "#2D8C6F",
-  },
-};
 
 // ─── AI HISTORIQUE ─────────────────────────────────────────────────────────────
 
@@ -128,7 +83,7 @@ const WILAYAS_LIST = [
   "Guelma","Souk Ahras","El Tarf","Mila","Khenchela","Oum El Bouaghi","Tébessa",
   "Biskra","Djelfa","Laghouat","El Bayadh","Naâma","Saïda","Mascara","Tiaret",
   "Adrar","Béchar","Tamanrasset","Illizi","Tindouf","El Oued","Ouargla",
-  "Ghardaïa","Aïn Témouchent","Sidi Bel Abbès","Mascara","Autres",
+  "Ghardaïa","Aïn Témouchent","Sidi Bel Abbès","Autres",
 ];
 
 // ─── EmergencyModal (copie exacte du Patient Dashboard) ──────────────────────
@@ -223,137 +178,349 @@ function EmergencyModal({ onClose, dk }) {
 // SOUS-COMPOSANTS
 // ============================================================================
 
-function HomeView({ onChangePage, dk, c, setEmergency }) {
+const AVATAR_COLORS = ["#4A6FA5", "#2D8C6F", "#E8A838", "#7B5EA7", "#E05555", "#2196F3", "#00897B", "#F4511E"];
+
+function formatDate(date) {
+  const s = date.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function formatNotifDate(created_at) {
+  if (!created_at) return "";
+  const d = new Date(created_at);
+  const diff = Math.floor((Date.now() - d.getTime()) / 60000);
+  if (diff < 1) return "À l'instant";
+  if (diff < 60) return `Il y a ${diff} min`;
+  if (diff < 1440) return `Il y a ${Math.floor(diff / 60)}h`;
+  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+}
+
+function HomeView({ onChangePage, dk, c }) {
   const { t } = useLanguage();
   const { userData } = useAuth();
-  const { gmPatients: patients } = useData();
-  const userName = userData?.first_name || userData?.firstName || "Fatima";
+  const userName = userData?.first_name || userData?.firstName || "—";
 
-  const schedule = patients.length === 0 ? [] : [
-    { time: "8:00 AM", name: "Alex — Lisinopril 10mg", status: "done" },
-    { time: "9:00 AM", name: "Youcef — Warfarin 5mg", status: "done" },
-    { time: "12:00 PM", name: "Nadia — Metformin 500mg", status: "done" },
-    { time: "2:30 PM", name: "Alex — Metformin 500mg", status: "pending", in: "2h 30min" },
-    { time: "5:00 PM", name: "Youcef — Amiodarone 200mg", status: "pending", in: "5h" },
-    { time: "8:00 PM", name: "All — Evening doses", status: "pending" },
-  ];
+  const [patients, setPatients] = useState([]);
+  const [requests, setRequests] = useState([]);
+  const [schedules, setSchedules] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showEmergency, setShowEmergency] = useState(false);
 
-  const emergencyContacts = patients.length === 0 ? [] : [
-    { name: "Dr. Benali Karim", role: t('primary_physician') || "Médecin traitant", initials: "BK", color: c.green },
-    { name: "SAMU 15", role: t('medical_emergency') || "Urgences Médicales", initials: "15", color: c.red },
-    { name: "Famille Alex", role: "+213 555 890 123", initials: "FJ", color: c.blue },
+  useEffect(() => {
+    Promise.all([
+      api.getCaretakerDashboard().catch(() => null),
+      api.getCareRequests().catch(() => null),
+      api.getMedicationSchedules().catch(() => null),
+      api.getNotifications().catch(() => null),
+    ]).then(([dashboard, reqs, scheds, notifs]) => {
+      setPatients(Array.isArray(dashboard?.my_patients) ? dashboard.my_patients : []);
+      const reqList = Array.isArray(reqs) ? reqs : (reqs?.results || []);
+      setRequests(reqList.filter(r => r.status === "pending" || !r.status));
+      const schedList = Array.isArray(scheds) ? scheds : (scheds?.results || []);
+      setSchedules(schedList);
+      const notifList = Array.isArray(notifs) ? notifs : (notifs?.results || []);
+      setNotifications(notifList.slice(0, 5));
+    }).finally(() => setLoading(false));
+  }, []);
+
+  const SLOT_TIMES = { morning: "08:00", afternoon: "14:00", evening: "20:00" };
+  const todayMeds = schedules.flatMap(sch => {
+    const patientName = sch.patient_name || sch.patientName || "Patient";
+    return ["morning", "afternoon", "evening"].flatMap(slot => {
+      const meds = (sch.medications || {})[slot] || [];
+      return meds.map(med => ({
+        time: SLOT_TIMES[slot],
+        label: `${patientName} — ${med.name || ""}${med.dosage ? ` ${med.dosage}` : ""}`.trim(),
+      }));
+    });
+  }).sort((a, b) => a.time.localeCompare(b.time));
+
+  const pendingCount = requests.length;
+  const nextPatient = patients[0];
+  const nextPatientName = nextPatient
+    ? (nextPatient.name || nextPatient.full_name || [nextPatient.first_name, nextPatient.last_name].filter(Boolean).join(" ") || "—")
+    : "—";
+
+  const patientEmergencyContacts = patients
+    .filter(p => p.emergencyContact || p.emergency_contact_name || p.emergencyPhone || p.emergency_contact_phone)
+    .map(p => ({
+      name: p.emergencyContact || p.emergency_contact_name || "Contact",
+      phone: p.emergencyPhone || p.emergency_contact_phone || "",
+      initials: (p.emergencyContact || p.emergency_contact_name || "?").charAt(0).toUpperCase(),
+    }));
+
+  const labelStyle = { color: dk ? "#A0B5CD" : "#5C738A", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em" };
+  const cardBg = dk ? "#172133" : "#ffffff";
+  const pageBg = dk ? "#0B1120" : "#F8FAFC";
+
+  const kpis = [
+    { label: "Patients assignés", value: loading ? "—" : patients.length, icon: Users, color: c.blue },
+    { label: "Médicaments aujourd'hui", value: loading ? "—" : todayMeds.length, icon: Pill, color: c.green },
+    { label: "Nouvelles offres", value: loading ? "—" : pendingCount, icon: Bell, color: c.amber },
+    { label: "Prochain patient", value: loading ? "—" : nextPatientName, icon: Heart, color: c.purple || "#7B5EA7", small: true },
   ];
 
   return (
-    <div className="space-y-8 pb-12 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div className="pb-12 animate-in fade-in duration-500">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold mb-1" style={{ color: c.txt }}>
-            {t('welcome_back_prefix') || "Bonjour"}, <span style={{ color: c.blue }}>{userName}</span>
+          <h1 className="text-3xl font-bold" style={{ color: c.txt }}>
+            Bonjour, <span style={{ color: dk ? "#ffffff" : "#0D2644" }}>{userName}</span>
           </h1>
+          <p className="mt-1" style={labelStyle}>{formatDate(new Date())}</p>
         </div>
         <button
-          onClick={() => setEmergency(true)}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all hover:opacity-90 active:scale-95 shadow-lg"
+          onClick={() => setShowEmergency(true)}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all hover:opacity-90 active:scale-95 shadow-lg shrink-0"
           style={{ background: "linear-gradient(135deg, #E05555, #c93535)", color: "#fff" }}
         >
-          <AlertTriangle size={15} /> {t('emergency_btn') || "URGENCE"}
+          <ShieldAlert size={15} /> {t('emergency_btn') || "URGENCE"}
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold uppercase tracking-[0.2em]" style={{ color: c.txt3 }}>{t('my_patients_title') || "MES PATIENTS"}</h2>
-            <button onClick={() => onChangePage("myPatients")} className="text-xs font-bold hover:underline" style={{ color: c.blue }}>{t('view_all_btn') || "Voir tout"}</button>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {kpis.map((kpi, i) => (
+          <div key={i} className="rounded-2xl p-4 border card-hover"
+            style={{ background: cardBg, borderColor: c.border }}>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3"
+              style={{ background: kpi.color + "18" }}>
+              <kpi.icon size={18} style={{ color: kpi.color }} />
+            </div>
+            <div className={`font-bold leading-tight mb-1 ${kpi.small ? "text-base truncate" : "text-2xl"}`} style={{ color: c.txt }}>
+              {kpi.value}
+            </div>
+            <div style={labelStyle}>{kpi.label}</div>
           </div>
-          <div className="space-y-4">
-            {patients.length === 0 ? (
-              <Card dk={dk} empty={true} className="h-48 flex flex-col items-center justify-center text-center">
-                <Users size={32} style={{ color: c.txt3, opacity: 0.5 }} className="mb-4" />
-                <p style={{ color: c.txt3 }}>{t('no_patients_assigned') || "Aucun patient assigné."}</p>
-              </Card>
-            ) : patients.map((patient) => (
-              <Card key={patient.id} dk={dk} className="group overflow-hidden relative hover:border-blue-500/30">
-                <div className="flex items-center gap-4 mb-5">
-                  <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg text-white shrink-0"
-                    style={{ background: patient.color === 'blue' ? c.blue : patient.color === 'amber' ? c.amber : c.green }}>
-                    {patient.initials}
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold transition-colors group-hover:text-blue-500" style={{ color: c.txt }}>{patient.name}</h3>
-                    <p className="text-xs font-medium" style={{ color: c.txt3 }}>{patient.age} ans · {patient.condition}</p>
-                  </div>
+        ))}
+      </div>
+
+      {/* 2-column layout */}
+      <div className="flex gap-6 items-start">
+        {/* Left column */}
+        <div className="flex-1 min-w-0 space-y-6">
+          {/* Patients card */}
+          <div className="rounded-2xl border overflow-hidden card-hover" style={{ background: cardBg, borderColor: c.border }}>
+            <div className="flex items-center justify-between px-5 pt-5 pb-3">
+              <span style={labelStyle}>{t('my_patients_title') || "MES PATIENTS"}</span>
+              <button onClick={() => onChangePage("myPatients")} className="text-xs font-bold hover:underline" style={{ color: c.blue }}>
+                {t('view_all_btn') || "Voir tout"}
+              </button>
+            </div>
+            <div className="divide-y" style={{ borderColor: c.border }}>
+              {loading ? (
+                <div className="px-5 py-8 text-center text-sm" style={{ color: c.txt3 }}>Chargement…</div>
+              ) : patients.length === 0 ? (
+                <div className="px-5 py-8 flex flex-col items-center gap-3">
+                  <Users size={28} style={{ color: c.txt3, opacity: 0.4 }} />
+                  <p className="text-sm text-center" style={{ color: c.txt3 }}>{t('no_patients_assigned') || "Aucun patient assigné."}</p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => onChangePage("myPatients")} className="px-5 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all border"
-                    style={{ background: dk ? "rgba(255,255,255,0.05)" : "#fff", borderColor: c.border, color: c.txt2 }}>
-                    {t('patient_profile_btn') || "Profil"}
-                  </button>
-                  <a href={`tel:${patient.emergencyPhone || "+21355500000"}`} className="px-5 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all border border-red-500/50 text-red-500 hover:bg-red-500 hover:text-white">
-                    {t('alert_patient_btn') || "Alerter"}
-                  </a>
+              ) : patients.slice(0, 3).map((p, i) => {
+                const name = p.name || p.full_name || [p.first_name, p.last_name].filter(Boolean).join(" ") || "Patient";
+                const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+                const avatarColor = AVATAR_COLORS[i % AVATAR_COLORS.length];
+                const condition = p.condition || p.medical_condition || p.diagnosis || "—";
+                const age = p.age ? `${p.age} ans` : "";
+                return (
+                  <div key={p.id || i} className="flex items-center gap-4 px-5 py-4 transition-colors duration-150 hover:bg-black/[.03]" style={{}}>
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm text-white shrink-0"
+                      style={{ background: avatarColor }}>
+                      {initials}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold truncate" style={{ color: c.txt }}>{name}</p>
+                      <p className="text-xs truncate" style={{ color: c.txt3 }}>{[age, condition].filter(Boolean).join(" · ")}</p>
+                    </div>
+                    <button
+                      onClick={() => onChangePage("myPatients")}
+                      className="text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors"
+                      style={{ borderColor: c.border, color: c.txt2, background: "transparent" }}
+                    >
+                      {t('patient_profile_btn') || "Profil"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Planning card */}
+          <div className="rounded-2xl border overflow-hidden card-hover" style={{ background: cardBg, borderColor: c.border }}>
+            <div className="flex items-center justify-between px-5 pt-5 pb-3">
+              <span style={labelStyle}>{t('medication_planning') || "PLANNING MÉDICAMENTS"}</span>
+              <button onClick={() => onChangePage("treatments")} className="text-xs font-bold hover:underline" style={{ color: c.blue }}>
+                {t('view_all_btn') || "Voir tout"}
+              </button>
+            </div>
+            <div className="divide-y" style={{ borderColor: c.border }}>
+              {loading ? (
+                <div className="px-5 py-8 text-center text-sm" style={{ color: c.txt3 }}>Chargement…</div>
+              ) : todayMeds.length === 0 ? (
+                <div className="px-5 py-8 text-center text-sm" style={{ color: c.txt3 }}>
+                  Aucun médicament à administrer aujourd'hui.
                 </div>
-              </Card>
-            ))}
+              ) : todayMeds.map((item, i) => (
+                <div key={i} className="flex items-center gap-4 px-5 py-3">
+                  <div className="text-xs font-bold tabular-nums shrink-0" style={{ color: c.blue, minWidth: 40 }}>{item.time}</div>
+                  <Circle size={7} style={{ color: c.txt3 }} className="shrink-0" />
+                  <p className="text-sm truncate" style={{ color: c.txt }}>{item.label}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-        <div className="space-y-8">
-          <Card dk={dk} empty={true}>
-            <h3 className="text-sm font-bold mb-6" style={{ color: c.txt }}>{t('medication_planning') || "Planning Médicaments"}</h3>
-            <div className="space-y-4">
-              {schedule.length === 0 ? (
-                <div className="text-center py-6 text-sm" style={{ color: c.txt3 }}>{t('no_care_planned') || "Aucun soin prévu."}</div>
-              ) : schedule.map((item, i) => (
-                <div key={i} className="flex items-start gap-3 group cursor-pointer card-hover">
-                  <button className="mt-0.5 shrink-0">
-                    {item.status === 'done' ? <CheckCircle2 size={18} style={{ color: c.green }} /> : <Circle size={18} style={{ color: c.border }} className="group-hover:text-blue-500 transition-colors" />}
-                  </button>
-                  <div className="flex-1">
-                    <p className={`text-xs font-bold leading-none ${item.status === 'done' ? 'font-medium opacity-50' : ''}`} style={{ color: c.txt }}>{item.name}</p>
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <span className="text-[10px] font-bold" style={{ color: c.txt3 }}>{item.time}</span>
-                      {item.status === 'done' ? <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: c.green }}>{t('done_status') || "Fait"}</span> : item.in && <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: c.blue }}>{t('in_time_remaining', {time: item.in}) || `dans ${item.in}`}</span>}
+
+        {/* Right column — fixed 300px */}
+        <div className="shrink-0 space-y-6" style={{ width: 300 }}>
+          {/* Offres card */}
+          <div className="rounded-2xl border overflow-hidden card-hover" style={{ background: cardBg, borderColor: c.border }}>
+            <div className="flex items-center justify-between px-5 pt-5 pb-3">
+              <span style={labelStyle}>NOUVELLES OFFRES</span>
+              <button onClick={() => onChangePage("jobRequests")} className="text-xs font-bold hover:underline" style={{ color: c.blue }}>
+                {t('view_all_btn') || "Voir tout"}
+              </button>
+            </div>
+            <div className="divide-y" style={{ borderColor: c.border }}>
+              {loading ? (
+                <div className="px-5 py-6 text-center text-sm" style={{ color: c.txt3 }}>Chargement…</div>
+              ) : requests.length === 0 ? (
+                <div className="px-5 py-6 text-center text-sm" style={{ color: c.txt3 }}>
+                  Aucune nouvelle offre.
+                </div>
+              ) : requests.slice(0, 3).map((req, i) => {
+                const patName = req.patient_name || req.patient?.full_name || [req.patient?.first_name, req.patient?.last_name].filter(Boolean).join(" ") || "Patient";
+                const initials = patName.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+                return (
+                  <div key={req.id || i} className="flex items-center gap-3 px-5 py-3 transition-colors duration-150 hover:bg-black/[.03]">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs text-white shrink-0"
+                      style={{ background: AVATAR_COLORS[(i + 3) % AVATAR_COLORS.length] }}>
+                      {initials}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold truncate" style={{ color: c.txt }}>{patName}</p>
+                      <p className="text-[11px]" style={{ color: c.txt3 }}>{formatNotifDate(req.created_at)}</p>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
-          </Card>
-          <Card dk={dk} empty={true}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold" style={{ color: c.txt }}>{t('my_rating_reviews') || "Ma Note & Avis"}</h3>
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full" style={{ background: c.amber + "18" }}>
-                <Star size={13} style={{ color: c.amber }} />
-                <span className="text-sm font-bold" style={{ color: c.amber }}>4.8</span>
-                <span className="text-xs font-medium" style={{ color: c.txt3 }}>/5</span>
-              </div>
-            </div>
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: c.txt3 }}>{t('patient_reviews_count', {count: 48}) || "48 avis patients"}</p>
-            <div className="space-y-3">
-              {[
-                { author: "Famille Johnson", note: "Très professionnelle, ponctuelle et bienveillante.", stars: 5, date: "Il y a 2 jours" },
-                { author: "Dr. Benali", note: "Bonne exécution des prescriptions, communication claire.", stars: 5, date: "Il y a 5 jours" },
-                { author: "Famille Belaid", note: "Service satisfaisant, quelques retards.", stars: 4, date: "Il y a 1 sem." },
-              ].map((avis, i) => (
-                <div key={i} className="p-3 rounded-xl border cursor-pointer card-hover" style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border }}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold" style={{ color: c.txt }}>{avis.author}</span>
-                    <span className="text-[10px]" style={{ color: c.txt3 }}>{avis.date}</span>
-                  </div>
-                  <div className="flex gap-0.5 mb-1.5">
-                    {Array.from({ length: 5 }).map((_, s) => (
-                      <Star key={s} size={10} style={{ color: s < avis.stars ? c.amber : c.border }} fill={s < avis.stars ? c.amber : "none"} />
-                    ))}
-                  </div>
-                  <p className="text-xs italic" style={{ color: c.txt2 }}>{avis.note}</p>
-                </div>
-              ))}
-            </div>
-          </Card>
+          </div>
 
+          {/* Urgence contacts card */}
+          <div className="rounded-2xl border overflow-hidden"
+            style={{
+              background: dk ? "rgba(224,85,85,0.08)" : "rgba(224,85,85,0.05)",
+              borderColor: dk ? "rgba(224,85,85,0.35)" : "rgba(224,85,85,0.25)",
+              transition: "border-color 120ms cubic-bezier(0.2,0,0,1.2), box-shadow 120ms cubic-bezier(0.2,0,0,1.2), transform 120ms cubic-bezier(0.2,0,0,1.2)",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = c.red; e.currentTarget.style.boxShadow = "0 16px 44px rgba(224,85,85,0.18)"; e.currentTarget.style.transform = "translateY(-6px)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = dk ? "rgba(224,85,85,0.35)" : "rgba(224,85,85,0.25)"; e.currentTarget.style.boxShadow = ""; e.currentTarget.style.transform = ""; }}
+          >
+            <div className="px-5 pt-5 pb-3">
+              <span style={{ ...labelStyle, color: c.red }}>{t('emergency_contacts_title') || "CONTACTS D'URGENCE"}</span>
+            </div>
+            <div className="divide-y" style={{ borderColor: dk ? "rgba(224,85,85,0.2)" : "rgba(224,85,85,0.12)" }}>
+              {/* SAMU Algérie */}
+              <div className="flex items-center gap-3 px-5 py-3">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0"
+                  style={{ background: c.red }}>
+                  <Phone size={13} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold" style={{ color: c.txt }}>SAMU Algérie</p>
+                  <a href="tel:1021" className="text-xs font-bold hover:underline" style={{ color: c.red }}>1021</a>
+                </div>
+              </div>
+              {/* SAMU France */}
+              <div className="flex items-center gap-3 px-5 py-3">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0"
+                  style={{ background: c.red }}>
+                  <Phone size={13} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold" style={{ color: c.txt }}>SAMU France</p>
+                  <a href="tel:15" className="text-xs font-bold hover:underline" style={{ color: c.red }}>15</a>
+                </div>
+              </div>
+              {/* Patient emergency contacts */}
+              {patientEmergencyContacts.map((ec, i) => (
+                <div key={i} className="flex items-center gap-3 px-5 py-3">
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0"
+                    style={{ background: AVATAR_COLORS[i % AVATAR_COLORS.length] }}>
+                    {ec.initials}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold truncate" style={{ color: c.txt }}>{ec.name}</p>
+                    {ec.phone ? (
+                      <a href={`tel:${ec.phone}`} className="text-xs hover:underline" style={{ color: c.txt3 }}>{ec.phone}</a>
+                    ) : (
+                      <span className="text-xs" style={{ color: c.txt3 }}>—</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {patientEmergencyContacts.length === 0 && (
+                <div className="px-5 py-3 text-xs" style={{ color: c.txt3 }}>
+                  Aucun contact patient.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* Emergency Modal */}
+      {showEmergency && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }}
+          onClick={() => setShowEmergency(false)}>
+          <div className="rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" style={{ background: cardBg }}
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: c.border }}>
+              <div className="flex items-center gap-2">
+                <ShieldAlert size={18} style={{ color: c.red }} />
+                <span className="font-bold text-base" style={{ color: c.txt }}>{t('emergency_modal_title') || "Numéros d'urgence"}</span>
+              </div>
+              <button onClick={() => setShowEmergency(false)} className="p-1 rounded-lg hover:opacity-70" style={{ color: c.txt3 }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-6 space-y-3">
+              <a href="tel:1021" className="flex items-center gap-4 p-4 rounded-xl border hover:opacity-80 transition-opacity"
+                style={{ borderColor: c.red + "60", background: c.red + "0F" }}>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold shrink-0"
+                  style={{ background: c.red }}><Phone size={18} /></div>
+                <div>
+                  <p className="font-bold" style={{ color: c.txt }}>SAMU Algérie</p>
+                  <p className="text-lg font-bold" style={{ color: c.red }}>1021</p>
+                </div>
+              </a>
+              <a href="tel:15" className="flex items-center gap-4 p-4 rounded-xl border hover:opacity-80 transition-opacity"
+                style={{ borderColor: c.red + "60", background: c.red + "0F" }}>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold shrink-0"
+                  style={{ background: c.red }}><Phone size={18} /></div>
+                <div>
+                  <p className="font-bold" style={{ color: c.txt }}>SAMU France</p>
+                  <p className="text-lg font-bold" style={{ color: c.red }}>15</p>
+                </div>
+              </a>
+              {patientEmergencyContacts.map((ec, i) => (
+                <a key={i} href={ec.phone ? `tel:${ec.phone}` : undefined}
+                  className="flex items-center gap-4 p-4 rounded-xl border hover:opacity-80 transition-opacity"
+                  style={{ borderColor: c.border, background: dk ? "rgba(255,255,255,0.03)" : "#F8FAFC" }}>
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold shrink-0"
+                    style={{ background: AVATAR_COLORS[i % AVATAR_COLORS.length] }}>{ec.initials}</div>
+                  <div>
+                    <p className="font-bold" style={{ color: c.txt }}>{ec.name}</p>
+                    <p className="text-sm" style={{ color: c.txt3 }}>{ec.phone || "—"}</p>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -363,10 +530,17 @@ function EmergenciesView({ dk, c }) {
   const { gmPatients: patients } = useData();
 
   const emergencyContacts = [
-    { name: "Dr. Benali Karim", role: t('primary_physician_role') || "Médecin Traitant · Cardiologie", initials: "BK", action: t('call_action') || "Appel", color: c.green },
-    { name: "SAMU — 15", role: t('medical_emergency_role') || "Secours Médicaux", initials: "15", action: t('call_action') || "Appel", color: c.red },
-    ...(patients.length > 0 ? [{ name: "Famille Johnson", role: "+213 555 890 123", initials: "FJ", action: t('call_action') || "Appel", color: c.blue }] : []),
-    { name: "CHU Alger Central", role: t('nearby_hospital_role') || "Hôpital plus proche · 2.3 km", initials: "HA", action: t('route_action') || "Itinéraire", color: c.amber },
+    { name: "SAMU — 15", role: t('medical_emergency_role') || "Secours Médicaux", initials: "15", action: t('call_action') || "Appel", color: c.red, tel: "15" },
+    ...patients
+      .filter(p => p.emergencyContact || p.emergency_contact_name || p.emergencyPhone || p.emergency_contact_phone)
+      .map(p => ({
+        name: p.emergencyContact || p.emergency_contact_name || p.name || "Contact d'urgence",
+        role: p.emergencyPhone || p.emergency_contact_phone || "—",
+        initials: (p.emergencyContact || p.emergency_contact_name || p.name || "?").charAt(0).toUpperCase(),
+        action: t('call_action') || "Appel",
+        color: c.blue,
+        tel: p.emergencyPhone || p.emergency_contact_phone || "",
+      })),
   ];
 
   const procedures = [
@@ -396,7 +570,7 @@ function EmergenciesView({ dk, c }) {
          </div>
          <button className="w-full md:w-auto px-10 py-4 text-white font-bold rounded-2xl text-lg shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3"
            style={{ background: c.red, boxShadow: `0 8px 30px ${c.red}33` }}>
-            🚨 {t('activate_now_btn') || "ACTIVER MAINTENANT"}
+            <ShieldAlert size={18} /> {t('activate_now_btn') || "ACTIVER MAINTENANT"}
          </button>
       </div>
 
@@ -454,274 +628,337 @@ function EmergenciesView({ dk, c }) {
 
 function JobRequestsView({ dk, c }) {
   const { t } = useLanguage();
-  const [profileModal, setProfileModal] = useState(null); // req id
-  const [dismissed, setDismissed] = useState([]); // ids refusés
-  const [accepted, setAccepted] = useState([]); // ids acceptés (confirmés après 5 min)
-  const [pendingAccept, setPendingAccept] = useState({}); // id -> secondes restantes
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [responding, setResponding] = useState({});
 
-  // Compte à rebours de 5 minutes par mission acceptée
   useEffect(() => {
-    const ids = Object.keys(pendingAccept).filter(id => pendingAccept[id] > 0);
-    if (ids.length === 0) return;
-    const interval = setInterval(() => {
-      setPendingAccept(prev => {
-        const next = { ...prev };
-        ids.forEach(id => {
-          if (next[id] > 0) {
-            next[id]--;
-            if (next[id] === 0) {
-              // Confirmation définitive après 5 min
-              setAccepted(a => [...a, Number(id)]);
-            }
-          }
-        });
-        return next;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [pendingAccept]);
+    api.getCareRequests()
+      .then(data => {
+        const list = Array.isArray(data) ? data : (data?.results || []);
+        setRequests(list.filter(r => r.status === 'pending'));
+      })
+      .catch(() => setRequests([]))
+      .finally(() => setLoading(false));
+  }, []);
 
-  const handleAccept = (id) => {
-    setPendingAccept(prev => ({ ...prev, [id]: 300 }));
+  const handleAccept = async (id) => {
+    setResponding(prev => ({ ...prev, [id]: true }));
+    try {
+      await api.respondToCareRequest(id, "accepted");
+      setRequests(prev => prev.filter(r => r.id !== id));
+    } catch {
+      // maintenu dans la liste si l'API échoue
+    } finally {
+      setResponding(prev => { const n = { ...prev }; delete n[id]; return n; });
+    }
   };
 
-  const handleRetract = (id) => {
-    setPendingAccept(prev => { const next = { ...prev }; delete next[id]; return next; });
+  const handleDismiss = async (id) => {
+    setResponding(prev => ({ ...prev, [id]: true }));
+    try {
+      await api.respondToCareRequest(id, "rejected");
+    } catch { /* silent */ } finally {
+      setRequests(prev => prev.filter(r => r.id !== id));
+      setResponding(prev => { const n = { ...prev }; delete n[id]; return n; });
+    }
   };
 
-  const active = SAMPLE_REQUESTS.filter(r => !dismissed.includes(r.id) && !accepted.includes(r.id));
-  const profile = profileModal !== null ? PATIENT_PROFILES[profileModal] : null;
+  // ── helpers pour normaliser les champs selon la réponse du backend ──
+  const getPatientName = (req) =>
+    req.patient_name || req.patient?.full_name ||
+    [req.patient?.first_name, req.patient?.last_name].filter(Boolean).join(" ") || "—";
+
+  const getPatientAge = (req) =>
+    req.patient_age ?? req.patient?.age ?? null;
+
+  const getCondition = (req) =>
+    req.condition || req.message || req.description || t('care_request_label') || "Demande de soins";
+
+  const getLocation = (req) =>
+    req.location || req.patient?.city || req.patient?.wilaya || "—";
+
+  const getInitials = (name) =>
+    name !== "—" ? name.split(" ").map(n => n[0]).filter(Boolean).join("").slice(0, 2).toUpperCase() : "?";
+
+  const getPostedAt = (req) =>
+    req.created_at ? new Date(req.created_at).toLocaleDateString("fr-FR") : "—";
+
+  const getConditions = (req) => {
+    if (Array.isArray(req.conditions)) return req.conditions;
+    if (Array.isArray(req.patient?.conditions)) return req.patient.conditions;
+    const c = getCondition(req);
+    return c && c !== (t('care_request_label') || "Demande de soins") ? [c] : [];
+  };
+
+  const getTreatments = (req) =>
+    Array.isArray(req.treatments) ? req.treatments :
+    Array.isArray(req.patient?.treatments) ? req.patient.treatments : [];
+
+  const getNotes = (req) =>
+    req.notes || req.doctor_notes || req.patient?.notes || null;
 
   return (
     <div className="animate-in fade-in duration-500 space-y-8">
 
-      {/* ── Modal Profil Patient ── */}
-      {profile && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}
-          onClick={(e) => { if (e.target === e.currentTarget) setProfileModal(null); }}
-        >
-          <div className="rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl border"
-            style={{ background: c.card, borderColor: c.border }}>
-            {/* Header */}
-            <div className="p-6 border-b flex items-center justify-between" style={{ borderColor: c.border }}>
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-xl"
-                  style={{ background: profile.diffColor }}>
-                  {profile.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+      {/* ── Modal détail demande ── */}
+      {selectedRequest && (() => {
+        const req = selectedRequest;
+        const name = getPatientName(req);
+        const age = getPatientAge(req);
+        const conditions = getConditions(req);
+        const treatments = getTreatments(req);
+        const notes = getNotes(req);
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}
+            onClick={(e) => { if (e.target === e.currentTarget) setSelectedRequest(null); }}
+          >
+            <div className="rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl border"
+              style={{ background: c.card, borderColor: c.border }}>
+              {/* ── Header ── */}
+              <div className="p-5 border-b flex items-center justify-between" style={{ borderColor: c.border }}>
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-xl shrink-0"
+                    style={{ background: c.blue }}>
+                    {getInitials(name)}
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold" style={{ color: c.txt }}>{name}</h2>
+                    <p className="text-sm" style={{ color: c.txt3 }}>
+                      {age ? `${age} ans` : ""}
+                      {req.patient_sex ? ` · ${req.patient_sex === 'female' ? 'Femme' : 'Homme'}` : ""}
+                      {getLocation(req) ? ` · ${getLocation(req)}` : ""}
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>Demande reçue le {getPostedAt(req)}</p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-lg font-bold" style={{ color: c.txt }}>{profile.name}</h2>
-                  <p className="text-sm" style={{ color: c.txt3 }}>{profile.age} ans · {profile.gender === "F" ? (t('female') || "Femme") : (t('male') || "Homme")} · {profile.city}</p>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full mt-1 inline-block"
-                    style={{ background: profile.diffColor + "18", color: profile.diffColor }}>
-                    {t('care_difficulty') || "Difficulté de soins"} : {profile.difficulty}
-                  </span>
-                </div>
-              </div>
-              <button onClick={() => setProfileModal(null)}
-                className="w-8 h-8 rounded-full flex items-center justify-center hover:opacity-70"
-                style={{ background: c.blueLight }}>
-                <X size={15} style={{ color: c.txt3 }} />
-              </button>
-            </div>
-
-            {/* Corps */}
-            <div className="p-6 space-y-5 max-h-[450px] overflow-y-auto">
-              {/* Conditions */}
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>{t('pathologies_label') || "Pathologies"}</p>
-                <div className="flex flex-wrap gap-2">
-                  {profile.conditions.map((cond) => (
-                    <span key={cond} className="text-xs px-3 py-1 rounded-full border font-medium"
-                      style={{ background: c.blueLight, color: c.blue, borderColor: c.blue + "30" }}>{cond}</span>
-                  ))}
-                </div>
+                <button onClick={() => setSelectedRequest(null)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center hover:opacity-70"
+                  style={{ background: c.blueLight }}>
+                  <X size={15} style={{ color: c.txt3 }} />
+                </button>
               </div>
 
-              {/* Traitements */}
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>{t('current_treatments_label') || "Traitements en cours"}</p>
-                <div className="space-y-1.5">
-                  {profile.treatments.map((t) => (
-                    <div key={t} className="flex items-center gap-2 text-sm" style={{ color: c.txt2 }}>
-                      <Pill size={13} style={{ color: c.blue }} /> {t}
+              <div className="p-5 space-y-5 max-h-[500px] overflow-y-auto">
+
+                {/* Infos de contact — toujours visibles */}
+                <div className="grid grid-cols-1 gap-2">
+                  {req.patient_phone && (
+                    <a href={`tel:${req.patient_phone}`}
+                      className="flex items-center justify-between p-3 rounded-xl border transition-all hover:opacity-80"
+                      style={{ background: c.green + "08", borderColor: c.green + "25" }}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: c.green + "20" }}>
+                          <Phone size={13} style={{ color: c.green }} />
+                        </div>
+                        <span className="text-xs font-bold uppercase tracking-wide" style={{ color: c.txt3 }}>Téléphone patient</span>
+                      </div>
+                      <span className="text-sm font-bold" style={{ color: c.green }}>{req.patient_phone}</span>
+                    </a>
+                  )}
+                  {req.patient_address && (
+                    <div className="flex items-center justify-between p-3 rounded-xl border"
+                      style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border }}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: c.blue + "15" }}>
+                          <MapPin size={13} style={{ color: c.blue }} />
+                        </div>
+                        <span className="text-xs font-bold uppercase tracking-wide" style={{ color: c.txt3 }}>Adresse</span>
+                      </div>
+                      <span className="text-sm font-medium text-right max-w-[55%]" style={{ color: c.txt2 }}>{req.patient_address}</span>
                     </div>
-                  ))}
+                  )}
                 </div>
+
+                {/* Pathologies du patient */}
+                {(() => {
+                  const conditions = Array.isArray(req.patient_conditions) ? req.patient_conditions : [];
+                  const dossier = req.patient_medical_dossier;
+                  if (conditions.length === 0 && !dossier?.blood_type) return null;
+                  return (
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>Pathologies connues</p>
+                      <div className="flex flex-wrap gap-2">
+                        {conditions.map((cond, i) => (
+                          <span key={i} className="text-xs px-2.5 py-1 rounded-lg border font-medium"
+                            style={{ background: c.blueLight, color: c.blue, borderColor: c.blue + "30" }}>
+                            {cond}
+                          </span>
+                        ))}
+                        {dossier?.blood_type && (
+                          <span className="text-xs px-2.5 py-1 rounded-lg border font-bold"
+                            style={{ background: c.red + "10", color: c.red, borderColor: c.red + "25" }}>
+                            Groupe {dossier.blood_type}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Message du patient */}
+                {req.patient_message && (
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>Message du patient</p>
+                    <div className="p-3 rounded-xl text-sm leading-relaxed"
+                      style={{ background: dk ? "#1A2333" : "#F8FAFC", color: c.txt2, borderLeft: `3px solid ${c.blue}` }}>
+                      {req.patient_message}
+                    </div>
+                  </div>
+                )}
+
+                {/* Contact d'urgence — si mission acceptée */}
+                {req.patient_medical_dossier?.access_granted && req.patient_medical_dossier?.emergency_contact && (
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>Contact d'urgence</p>
+                    <div className="flex items-center gap-2 p-3 rounded-xl border"
+                      style={{ background: c.red + "08", borderColor: c.red + "25" }}>
+                      <Phone size={13} style={{ color: c.red }} />
+                      <span className="text-sm font-medium" style={{ color: c.txt2 }}>
+                        {req.patient_medical_dossier.emergency_contact}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {!req.patient_message && !req.patient_phone && (
+                  <p className="text-sm text-center py-4" style={{ color: c.txt3 }}>Aucune information disponible.</p>
+                )}
               </div>
 
-              {/* Notes */}
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>{t('doctor_notes_label') || "Notes du médecin"}</p>
-                <p className="text-sm p-3 rounded-xl italic" style={{ background: dk ? "#1A2333" : "#F8FAFC", color: c.txt2 }}>
-                  "{profile.notes}"
-                </p>
+              {/* Footer avec boutons Accept/Refuser directement dans le modal */}
+              <div className="p-5 border-t flex gap-3" style={{ borderColor: c.border }}>
+                <button
+                  onClick={() => { handleAccept(req.id); setSelectedRequest(null); }}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm text-white transition-all hover:opacity-90 active:scale-95"
+                  style={{ background: c.green }}>
+                  <CheckCircle2 size={15} /> Accepter la mission
+                </button>
+                <button
+                  onClick={() => { handleDismiss(req.id); setSelectedRequest(null); }}
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm border transition-all hover:bg-red-500 hover:text-white"
+                  style={{ background: c.red + "10", borderColor: c.red + "30", color: c.red }}>
+                  <X size={15} /> Refuser
+                </button>
               </div>
-            </div>
-
-            {/* Footer — lecture seule, pas d'action ici */}
-            <div className="px-6 pb-5">
-              <p className="text-xs text-center" style={{ color: c.txt3 }}>
-                {t('read_only_view_desc') || "Vue en lecture seule — Acceptez ou refusez depuis la liste des offres."}
-              </p>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── En-tête ── */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold mb-1" style={{ color: c.txt }}>{t('mission_offers_title') || "Offres de Missions"}</h1>
-          <p className="text-sm font-medium" style={{ color: c.txt3 }}>{t('new_opportunities_desc') || "Nouvelles opportunités dans votre zone"}</p>
+          <h1 className="text-2xl font-bold mb-1" style={{ color: c.txt }}>
+            {t('mission_offers_title') || "Offres de Missions"}
+          </h1>
+          <p className="text-sm font-medium" style={{ color: c.txt3 }}>
+            {t('new_opportunities_desc') || "Nouvelles opportunités dans votre zone"}
+          </p>
         </div>
         <div className="flex items-center gap-2 px-4 py-2 rounded-xl border font-bold text-sm"
           style={{ background: c.blue + "10", borderColor: c.blue + "20", color: c.blue }}>
-          <Users size={16} /> {t('missions_available_count', {count: active.length}) || `${active.length} Mission(s) disponible(s)`}
+          <Users size={16} />
+          {t('missions_available_count', { count: requests.length }) || `${requests.length} Mission(s) disponible(s)`}
         </div>
       </div>
 
       {/* ── Liste ── */}
       <div className="space-y-4">
-        {active.length === 0 && (
+        {loading && (
+          <div className="flex items-center justify-center py-16">
+            <span className="w-7 h-7 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+          </div>
+        )}
+        {!loading && requests.length === 0 && (
           <Card dk={dk} className="flex flex-col items-center justify-center py-16 text-center">
             <CheckCircle2 size={40} style={{ color: c.green }} className="mb-4" />
-            <h2 className="text-lg font-bold mb-1" style={{ color: c.txt }}>{t('all_offers_processed') || "Toutes les offres traitées"}</h2>
-            <p className="text-sm" style={{ color: c.txt3 }}>{t('offers_responded_desc') || "Vous avez répondu à toutes les demandes disponibles."}</p>
+            <h2 className="text-lg font-bold mb-1" style={{ color: c.txt }}>
+              {t('all_offers_processed') || "Aucune demande en attente"}
+            </h2>
+            <p className="text-sm" style={{ color: c.txt3 }}>
+              {t('offers_responded_desc') || "Vous avez répondu à toutes les demandes disponibles."}
+            </p>
           </Card>
         )}
-        {active.map((req) => {
-          const isPending = pendingAccept[req.id] !== undefined && pendingAccept[req.id] > 0;
-          const secs = pendingAccept[req.id] || 0;
-          const mins = Math.floor(secs / 60);
-          const ss = String(secs % 60).padStart(2, "0");
+        {requests.map((req) => {
+          const name = getPatientName(req);
+          const age = getPatientAge(req);
+          const condition = getCondition(req);
+          const location = getLocation(req);
+          const isResponding = !!responding[req.id];
+
           return (
-            <Card key={req.id} dk={dk} className={`hover:shadow-md group transition-all ${isPending ? "border-amber-500/40" : ""}`}
-              style={isPending ? { borderColor: c.amber + "60" } : {}}>
-              <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+            <Card key={req.id} dk={dk} className="hover:shadow-md group transition-all">
+              {/* Ligne 1 : avatar + infos + boutons */}
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-lg border shrink-0"
+                  style={{ background: c.blue + "10", color: c.blue, borderColor: c.blue + "20" }}>
+                  {getInitials(name)}
+                </div>
 
-                {/* Identité patient */}
-                <div className="flex items-center gap-4 shrink-0">
-                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-bold text-xl border"
-                    style={{ background: c.blue + "10", color: c.blue, borderColor: c.blue + "20" }}>
-                    {req.initials}
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                    <h3 className="text-base font-bold truncate" style={{ color: c.txt }}>{name}</h3>
+                    {age && <span className="text-xs font-semibold px-2 py-0.5 rounded-full shrink-0"
+                      style={{ background: c.blue + "15", color: c.blue }}>{age} ans</span>}
                   </div>
-                  <div>
-                    <h3 className="text-lg font-bold" style={{ color: c.txt }}>{req.patientName}</h3>
-                    <p className="text-sm font-medium" style={{ color: c.txt3 }}>{req.age} ans · {req.condition}</p>
-                    <p className="text-xs mt-0.5 font-medium" style={{ color: c.txt3 }}>{req.posted}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <MapPin size={12} style={{ color: c.txt3 }} />
+                    <span className="text-xs font-medium truncate" style={{ color: c.txt3 }}>{location}</span>
+                    <span className="text-xs" style={{ color: c.txt3 }}>·</span>
+                    <span className="text-xs" style={{ color: c.txt3 }}>{getPostedAt(req)}</span>
                   </div>
                 </div>
 
-                {/* Adresse */}
-                <div className="flex-1 flex items-center gap-2 text-sm font-medium border-y lg:border-y-0 lg:border-x py-4 lg:py-0 lg:px-8"
-                  style={{ borderColor: c.border, color: c.txt2 }}>
-                  <MapPin size={15} style={{ color: c.blue }} />{req.location}
-                </div>
-
-                {/* Actions */}
-                <div className="flex flex-col sm:flex-row lg:flex-row items-center gap-3 shrink-0">
-                  {/* Bouton Détails du profil */}
+                <div className="flex items-center gap-2 shrink-0">
                   <button
-                    onClick={() => setProfileModal(req.id)}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm border transition-all hover:opacity-80 whitespace-nowrap"
+                    onClick={() => setSelectedRequest(req)}
+                    className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all hover:opacity-80"
                     style={{ background: "transparent", borderColor: c.border, color: c.txt2 }}>
-                    <User size={14} /> {t('view_profile_btn') || "Détails du profil"}
+                    <User size={13} /> {t('view_profile_btn') || "Détails"}
                   </button>
-
-                  {/* Accepter / Refuser */}
-                  {isPending ? (
-                    <div className="flex flex-col items-center gap-1.5">
-                      <div className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm"
-                        style={{ background: c.amber + "15", color: c.amber, border: `1px solid ${c.amber}30` }}>
-                        <Clock size={15} /> {t('pending_tab') || "En attente"} — {mins}:{ss}
-                      </div>
-                      <button
-                        onClick={() => handleRetract(req.id)}
-                        className="text-[11px] font-bold underline transition-opacity hover:opacity-70"
-                        style={{ color: c.red }}>
-                        {t('retract_acceptance_btn') || "Retirer l'acceptation"}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleAccept(req.id)}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-white transition-all shadow-md hover:opacity-90 active:scale-95 whitespace-nowrap"
-                        style={{ background: c.green }}>
-                        <CheckCircle2 size={16} /> {t('accept_btn') || "Accepter"}
-                      </button>
-                      <button
-                        onClick={() => setDismissed(prev => [...prev, req.id])}
-                        className="w-10 h-10 rounded-xl border flex items-center justify-center transition-all hover:bg-red-500 hover:text-white"
-                        style={{ background: c.red + "15", borderColor: c.red + "25", color: c.red }}>
-                        <X size={18} />
-                      </button>
-                    </div>
-                  )}
+                  <button
+                    onClick={() => handleAccept(req.id)}
+                    disabled={isResponding}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-sm text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-60"
+                    style={{ background: c.green }}>
+                    {isResponding
+                      ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                      : <CheckCircle2 size={15} />}
+                    {t('accept_btn') || "Accepter"}
+                  </button>
+                  <button
+                    onClick={() => handleDismiss(req.id)}
+                    disabled={isResponding}
+                    className="w-9 h-9 rounded-xl border flex items-center justify-center transition-all hover:bg-red-500 hover:text-white disabled:opacity-40"
+                    style={{ background: c.red + "15", borderColor: c.red + "25", color: c.red }}>
+                    <X size={16} />
+                  </button>
                 </div>
               </div>
+
+              {/* Ligne 2 : message patient tronqué */}
+              {condition && condition !== "Demande de soins" && (
+                <div className="mt-3 pt-3 border-t" style={{ borderColor: c.border }}>
+                  <p className="text-xs leading-relaxed"
+                    style={{ color: c.txt3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {condition}
+                  </p>
+                  <button onClick={() => setSelectedRequest(req)}
+                    className="text-xs font-semibold mt-1 hover:underline"
+                    style={{ color: c.blue }}>
+                    Voir plus
+                  </button>
+                </div>
+              )}
             </Card>
           );
         })}
       </div>
-
-      {/* ── Historique des missions ── */}
-      {(accepted.length > 0 || dismissed.length > 0) && (
-        <div>
-          <h2 className="text-base font-bold mb-4" style={{ color: c.txt }}>Historique</h2>
-          <div className="space-y-3">
-            {accepted.map(id => {
-              const req = SAMPLE_REQUESTS.find(r => r.id === id);
-              if (!req) return null;
-              return (
-                <div key={`acc-${id}`} className="flex items-center justify-between p-4 rounded-2xl border"
-                  style={{ background: c.green + "08", borderColor: c.green + "30" }}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm border"
-                      style={{ background: c.green + "15", color: c.green, borderColor: c.green + "25" }}>
-                      {req.initials}
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold" style={{ color: c.txt }}>{req.patientName}</p>
-                      <p className="text-xs font-medium" style={{ color: c.txt3 }}>{req.condition} · {req.location}</p>
-                    </div>
-                  </div>
-                  <span className="flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full"
-                    style={{ background: c.green + "15", color: c.green }}>
-                    <CheckCircle2 size={12} /> {t('accepted_status') || "Acceptée"}
-                  </span>
-                </div>
-              );
-            })}
-            {dismissed.map(id => {
-              const req = SAMPLE_REQUESTS.find(r => r.id === id);
-              if (!req) return null;
-              return (
-                <div key={`dis-${id}`} className="flex items-center justify-between p-4 rounded-2xl border"
-                  style={{ background: c.red + "08", borderColor: c.red + "25" }}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm border"
-                      style={{ background: c.red + "15", color: c.red, borderColor: c.red + "25" }}>
-                      {req.initials}
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold" style={{ color: c.txt }}>{req.patientName}</p>
-                      <p className="text-xs font-medium" style={{ color: c.txt3 }}>{req.condition} · {req.location}</p>
-                    </div>
-                  </div>
-                  <span className="flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full"
-                    style={{ background: c.red + "15", color: c.red }}>
-                    <X size={12} /> {t('refused_status') || "Refusée"}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -799,37 +1036,68 @@ function ConfRing({ val, color }) {
   );
 }
 
-function DiagResultPanel({ result, c, setPage }) {
+function DiagResultPanel({ result, c }) {
   if (!result) return null;
   const urg = URGENCY_CONF[result.urgency] || URGENCY_CONF.med;
+  const DANGER_BADGE = {
+    urgent:   { label:"Urgent",  bg:"rgba(248,113,113,.12)", color:"#f87171", border:"rgba(248,113,113,.3)" },
+    high:     { label:"Urgent",  bg:"rgba(248,113,113,.12)", color:"#f87171", border:"rgba(248,113,113,.3)" },
+    modéré:   { label:"Modéré",  bg:"rgba(251,191,36,.12)",  color:"#fbbf24", border:"rgba(251,191,36,.3)"  },
+    moderate: { label:"Modéré",  bg:"rgba(251,191,36,.12)",  color:"#fbbf24", border:"rgba(251,191,36,.3)"  },
+    faible:   { label:"Faible",  bg:"rgba(74,222,128,.12)",  color:"#4ade80", border:"rgba(74,222,128,.3)"  },
+    low:      { label:"Faible",  bg:"rgba(74,222,128,.12)",  color:"#4ade80", border:"rgba(74,222,128,.3)"  },
+  };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* Urgency Card */}
       <div style={{ background: c.card, border: `1px solid ${c.border}`, borderRadius: 18, overflow: "hidden", boxShadow: "0 4px 20px rgba(57,88,134,.08)", animation: "diagSlideUp .4s ease" }}>
-        <div style={{ background: "linear-gradient(135deg,#304B71,#4A6FA5)", padding: "18px 20px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div>
-              <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(255,255,255,.45)", display: "block", marginBottom: 6 }}>Niveau d'urgence</span>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 14px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: urg.bg, color: urg.color, border: `1px solid ${urg.border}` }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: urg.color, display: "inline-block" }}/>
-                {urg.label}
-              </span>
-              {result.diagnosis && (
-                <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", lineHeight: 1.3, marginTop: 10 }}>{result.diagnosis}</p>
-              )}
-            </div>
-            {result.confidence != null && <ConfRing val={result.confidence} color={urg.color}/>}
-          </div>
+        <div style={{ background: "linear-gradient(135deg,#304B71,#4A6FA5)", padding: "14px 18px" }}>
+          <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(255,255,255,.45)", display: "block", marginBottom: 6 }}>Niveau d'urgence</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 14px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: urg.bg, color: urg.color, border: `1px solid ${urg.border}` }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: urg.color, display: "inline-block" }}/>
+            {urg.label}
+          </span>
         </div>
       </div>
+
+      {/* Top 3 hypothèses diagnostiques */}
+      {result.diseases?.length > 0 && (() => {
+        const top3 = [...result.diseases]
+          .sort((a, b) => (b.probability ?? b.confidence ?? 0) - (a.probability ?? a.confidence ?? 0))
+          .slice(0, 3);
+        return (
+          <div style={{ background: c.card, border: `1px solid ${c.border}`, borderRadius: 18, padding: "16px 18px", boxShadow: "0 2px 8px rgba(57,88,134,.05)", animation: "diagSlideUp .45s ease" }}>
+            <h3 style={{ fontSize: 11, fontWeight: 700, color: c.txt3, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Hypothèses diagnostiques</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {top3.map((d, i) => {
+                const name = d.name_fr || d.name_en || "—";
+                const urg = (d.urgency || "").toLowerCase().trim() || "modéré";
+                const badge = DANGER_BADGE[urg] ?? DANGER_BADGE["modéré"] ?? DANGER_BADGE["moderate"];
+                return (
+                  <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 10, background: i === 0 ? badge.bg : "transparent", border: `1px solid ${i === 0 ? badge.border : c.border}` }}>
+                    <span style={{ fontSize: 12, fontWeight: i === 0 ? 700 : 500, color: i === 0 ? c.txt : c.txt2, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 8 }}>
+                      {i + 1}. {name}
+                    </span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: badge.color, background: badge.bg, border: `1px solid ${badge.border}`, borderRadius: 999, padding: "2px 10px", flexShrink: 0 }}>
+                      {badge.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Médecin recommandé (fallback générique) */}
       {result.recommendations?.length > 0 && (
         <div style={{ background: c.card, border: `1px solid ${c.border}`, borderRadius: 18, padding: "18px 20px", boxShadow: "0 2px 8px rgba(57,88,134,.05)" }}>
           <h3 style={{ fontSize: 12, fontWeight: 700, color: c.txt3, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Médecin recommandé</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {result.recommendations.map((r, i) => (
-              <div key={i}
-                style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, background: c.bg, border: `1px solid ${c.border}`, cursor: "pointer", transition: "all 200ms", animation: `diagBubbleIn .35s ease ${i * 80}ms both` }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = c.blue + "88"; e.currentTarget.style.background = c.blueLight; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = c.border; e.currentTarget.style.background = c.bg; }}>
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, background: c.bg, border: `1px solid ${c.border}`, transition: "all 200ms", animation: `diagBubbleIn .35s ease ${i * 80}ms both` }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = c.blue + "88"; e.currentTarget.style.background = c.blueLight; e.currentTarget.style.boxShadow = `0 4px 16px ${c.blue}22`; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = c.border; e.currentTarget.style.background = c.bg; e.currentTarget.style.boxShadow = "none"; }}>
                 <div style={{ width: 44, height: 44, borderRadius: 12, background: `linear-gradient(135deg,${r.color}22,${r.color}11)`, border: `1px solid ${r.color}44`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <Stethoscope size={20} color={r.color}/>
                 </div>
@@ -843,6 +1111,8 @@ function DiagResultPanel({ result, c, setPage }) {
           </div>
         </div>
       )}
+
+      {/* Legal warning */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 16px", background: "rgba(99,142,203,.05)", border: "1px solid rgba(99,142,203,.14)", borderRadius: 14 }}>
         <Shield size={16} color="#638ECB"/>
         <p style={{ fontSize: 11, color: c.txt3, lineHeight: 1.6 }}>
@@ -855,22 +1125,61 @@ function DiagResultPanel({ result, c, setPage }) {
 
 function AIDiagnosisPage({ dk, setPage }) {
   const c = dk ? T.dark : T.light;
+  const WELCOME_MSG = { role: "ai", text: "Nouvelle session. Décrivez les symptômes du patient en détail — localisation, intensité, durée — et je vous fournirai une analyse immédiate." };
+
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState([
-    { role: "ai", text: "Nouvelle session. Décrivez les symptômes du patient en détail — localisation, intensité, durée — et je vous fournirai une analyse immédiate." },
-  ]);
+  const [sessions, setSessions] = useState([]);
+  const [activeSession, setActiveSession] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("gm_aiActiveSession") || "null"); } catch { return null; }
+  });
+  const [chatMessagesMap, setChatMessagesMap] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("gm_chatMessagesMap") || "{}"); } catch { return {}; }
+  });
+  const [messages, setMessages] = useState(() => {
+    try {
+      const key = JSON.parse(localStorage.getItem("gm_aiActiveSession") || "null");
+      const map = JSON.parse(localStorage.getItem("gm_chatMessagesMap") || "{}");
+      const k = key ? String(key) : "_latest";
+      return map[k]?.length ? map[k] : [WELCOME_MSG];
+    } catch { return [WELCOME_MSG]; }
+  });
   const [loading, setLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState([]);
-  const [sessions, setSessions] = useState([]);
-  const [activeSession, setActiveSession] = useState(null);
   const [showSidebar, setShowSidebar] = useState(true);
-  const [diagResult, setDiagResult] = useState(null);
+  const [diagResultsMap, setDiagResultsMap] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("gm_diagResultsMap") || "{}"); } catch { return {}; }
+  });
   const [currentAlert, setCurrentAlert] = useState(null);
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
 
+  const sessionKey = activeSession ? String(activeSession) : "_latest";
+  const diagResult = diagResultsMap[sessionKey] || null;
+
+  function saveDiagResult(val, key) {
+    const k = key ?? sessionKey;
+    setDiagResultsMap(prev => {
+      const next = { ...prev, [k]: val };
+      localStorage.setItem("gm_diagResultsMap", JSON.stringify(next));
+      return next;
+    });
+  }
+
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
+
+  useEffect(() => {
+    const k = activeSession ? String(activeSession) : "_latest";
+    setChatMessagesMap(prev => {
+      const next = { ...prev, [k]: messages };
+      localStorage.setItem("gm_chatMessagesMap", JSON.stringify(next));
+      return next;
+    });
+  }, [messages]);
+
+  useEffect(() => {
+    localStorage.setItem("gm_aiActiveSession", JSON.stringify(activeSession));
+  }, [activeSession]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -888,11 +1197,16 @@ function AIDiagnosisPage({ dk, setPage }) {
   const quickSymptoms = ["Glycémie élevée", "Douleur thoracique", "Hypertension", "Fièvre", "Chute", "Essoufflement", "Prise de médicaments"];
 
   function newSession() {
-    setMessages([{ role: "ai", text: "Nouvelle session. Décrivez les symptômes du patient en détail — localisation, intensité, durée — et je vous fournirai une analyse immédiate." }]);
-    setDiagResult(null);
+    setActiveSession(null);
+    setMessages([WELCOME_MSG]);
     setInput("");
     setAttachedFiles([]);
-    setActiveSession(null);
+    setDiagResultsMap(prev => {
+      const next = { ...prev };
+      delete next["_latest"];
+      localStorage.setItem("gm_diagResultsMap", JSON.stringify(next));
+      return next;
+    });
     setTimeout(() => textareaRef.current?.focus(), 100);
   }
 
@@ -905,13 +1219,14 @@ function AIDiagnosisPage({ dk, setPage }) {
 
   function pickSession(s) {
     setActiveSession(s.id);
-    setDiagResult(null);
-    const history = s.history || s.messages || [];
-    if (history.length) {
-      setMessages(history.map(h => ({ role: h.role === "user" ? "user" : "ai", text: h.content || h.text || "", timestamp: h.timestamp })));
-    } else {
-      setMessages([{ role: "ai", text: "Session chargée. Vous pouvez continuer la conversation." }]);
+    const cached = chatMessagesMap[String(s.id)];
+    if (cached?.length) { setMessages(cached); return; }
+    const fromList = s.history || s.messages || [];
+    if (fromList.length) {
+      setMessages(fromList.map(h => ({ role: h.role === "user" ? "user" : "ai", text: h.content || h.text || "", timestamp: h.timestamp })));
+      return;
     }
+    setMessages([{ role: "ai", text: "Session chargée. Vous pouvez continuer la conversation." }]);
   }
 
   const send = async (text) => {
@@ -920,18 +1235,18 @@ function AIDiagnosisPage({ dk, setPage }) {
     if (!msg && !hasFiles) return;
 
     const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    setMessages(m => [...m, { role: "user", text: msg || `📎 ${attachedFiles.length} fichier(s)`, timestamp: ts }]);
+    setMessages(m => [...m, { role: "user", text: msg || `${attachedFiles.length} fichier(s)`, timestamp: ts }]);
     setInput("");
     const filesToSend = [...attachedFiles];
     setAttachedFiles([]);
     setLoading(true);
-    setDiagResult(null);
     setCurrentAlert(null);
 
     const history = messages
       .filter(m => m.role !== "ai" || !m.text.includes("Nouvelle session"))
       .map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.text }));
 
+    let currentSendKey = activeSession ? String(activeSession) : "_latest";
     setMessages(m => [...m, { role: "ai", text: "", isStreaming: true, timestamp: ts }]);
 
     try {
@@ -950,7 +1265,31 @@ function AIDiagnosisPage({ dk, setPage }) {
             aiText += chunk;
             setMessages(prev => { const last = prev[prev.length - 1]; return [...prev.slice(0, -1), { ...last, text: aiText }]; });
           },
-          (meta) => { if (meta.type === "session_saved") { setActiveSession(meta.session_id); } else { metaData = meta; } },
+          (meta) => {
+            if (meta.type === "session_saved") {
+              const newId = meta.session_id;
+              currentSendKey = String(newId);
+              setActiveSession(newId);
+              setChatMessagesMap(prev => {
+                const latest = prev["_latest"] || [];
+                const next = { ...prev };
+                delete next["_latest"];
+                if (latest.length) next[String(newId)] = latest;
+                localStorage.setItem("gm_chatMessagesMap", JSON.stringify(next));
+                return next;
+              });
+              setDiagResultsMap(prev => {
+                const latestResult = prev["_latest"];
+                if (!latestResult) return prev;
+                const next = { ...prev, [String(newId)]: latestResult };
+                delete next["_latest"];
+                localStorage.setItem("gm_diagResultsMap", JSON.stringify(next));
+                return next;
+              });
+            } else {
+              metaData = meta;
+            }
+          },
           (alert) => setCurrentAlert(alert),
         );
         setMessages(prev => { const last = prev[prev.length - 1]; return [...prev.slice(0, -1), { ...last, isStreaming: false }]; });
@@ -958,15 +1297,19 @@ function AIDiagnosisPage({ dk, setPage }) {
         const rawUrgency = metaData?.urgency || "";
         const urgencyKey = /urgent|high|élevé/i.test(rawUrgency) ? "high" : /modéré|moderate|med|moyen/i.test(rawUrgency) ? "med" : "low";
         const specialtyName = metaData?.specialist?.specialty_fr || metaData?.specialist?.specialty || metaData?.recommended_specialist || null;
-        const topDisease = metaData?.diseases?.length ? [...metaData.diseases].sort((a, b) => (b.probability ?? 0) - (a.probability ?? 0))[0] : null;
-        const confidenceVal = topDisease ? Math.round(topDisease.probability ?? (topDisease.confidence ?? 0) * 100) : null;
-        setDiagResult({
+        const topDisease = metaData?.diseases?.[0] || null;
+        saveDiagResult({
           urgency: urgencyKey,
-          confidence: confidenceVal,
-          diagnosis: topDisease?.name_fr || metaData?.diagnosis || null,
+          diagnosis: topDisease?.name_fr || topDisease?.name_en || metaData?.diagnosis || null,
+          diseases: metaData?.diseases || [],
+          summary: aiText,
           tags: topDisease?.key_symptoms?.split(",").map(s => s.trim()).filter(Boolean) || [],
-          recommendations: specialtyName ? [{ color: c.blue, title: specialtyName, desc: urgencyKey === "high" ? "Consultation urgente recommandée — sous 24h" : urgencyKey === "med" ? "Consultation recommandée cette semaine" : "Consultation de suivi conseillée" }] : [],
-        });
+          recommendations: specialtyName ? [{
+            color: c.blue,
+            title: specialtyName,
+            desc: urgencyKey === "high" ? "Consultation urgente recommandée — sous 24h" : urgencyKey === "med" ? "Consultation recommandée cette semaine" : "Consultation de suivi conseillée",
+          }] : [],
+        }, currentSendKey);
       }
     } catch (err) {
       console.error("AI Error:", err);
@@ -1003,7 +1346,7 @@ function AIDiagnosisPage({ dk, setPage }) {
         .diag-scroll::-webkit-scrollbar { width:4px; }
         .diag-scroll::-webkit-scrollbar-track { background:transparent; }
         .diag-scroll::-webkit-scrollbar-thumb { background:rgba(99,142,203,.22); border-radius:99px; }
-        .diag-chip:hover { opacity: 0.8; }
+        .diag-chip:hover { background: ${dk ? "rgba(99,142,203,.18)" : "#dbe9ff"} !important; }
         .diag-textarea::placeholder { color: ${dk ? "rgba(240,243,250,0.38)" : "rgba(13,27,46,0.38)"} !important; }
         .diag-textarea::-webkit-scrollbar { display: none; }
         .diag-textarea { -ms-overflow-style: none; scrollbar-width: none; }
@@ -1037,7 +1380,7 @@ function AIDiagnosisPage({ dk, setPage }) {
                         <span style={{ fontSize: 9, color: c.txt3, whiteSpace: "nowrap" }}>{dateStr}</span>
                         <button onClick={(e) => deleteSession(e, s.id)} title="Supprimer"
                           style={{ width: 18, height: 18, borderRadius: 4, border: "none", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: c.txt3, opacity: .6, padding: 0 }}
-                          onMouseEnter={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.color = "#E05555"; }}
+                          onMouseEnter={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.color = c.red || "#E05555"; }}
                           onMouseLeave={e => { e.currentTarget.style.opacity = ".6"; e.currentTarget.style.color = c.txt3; }}>
                           <Trash2 size={11}/>
                         </button>
@@ -1066,17 +1409,13 @@ function AIDiagnosisPage({ dk, setPage }) {
           </button>
           <div style={{ flex: 1 }}>
             <p style={{ fontSize: 13, fontWeight: 700, color: c.txt, lineHeight: 1.2 }}>Diagnostic IA</p>
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#4ade80", animation: "diagPulse 2s infinite", display: "inline-block" }}/>
-              <span style={{ fontSize: 10, color: c.txt3 }}>Gemini + ChromaDB · En ligne</span>
-            </div>
           </div>
         </div>
 
         <div className="diag-scroll" style={{ flex: 1, overflowY: "auto", padding: "16px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
           {messages.length === 0 && (
             <div style={{ textAlign: "center", padding: "60px 20px" }}>
-              <div style={{ width: 56, height: 56, borderRadius: 16, background: c.blueLight, border: `1px solid ${c.border}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+              <div style={{ width: 56, height: 56, borderRadius: 16, background: c.blueLight, border: `1px solid ${c.border}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", boxShadow: "0 4px 16px rgba(57,88,134,.08)" }}>
                 <Brain size={26} color={c.blue}/>
               </div>
               <p style={{ fontSize: 15, fontWeight: 700, color: c.txt, marginBottom: 6 }}>Assistant Diagnostic IA</p>
@@ -1096,7 +1435,7 @@ function AIDiagnosisPage({ dk, setPage }) {
                     {i === messages.length - 1 && currentAlert && (
                       <div style={{ background: currentAlert.level === "critical" ? "#FCEBEB" : "#FAEEDA", border: `1.5px solid ${currentAlert.level === "critical" ? "#E24B4A" : "#EF9F27"}`, borderRadius: 12, padding: "14px 16px", display: "flex", alignItems: "flex-start", gap: 12 }}>
                         <div style={{ width: 36, height: 36, borderRadius: "50%", background: currentAlert.level === "critical" ? "#E24B4A" : "#EF9F27", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                          <span style={{ fontSize: 18 }}>{currentAlert.level === "critical" ? "🚨" : "⚠️"}</span>
+                          {currentAlert.level === "critical" ? <ShieldAlert size={18} color="#fff" /> : <AlertTriangle size={18} color="#fff" />}
                         </div>
                         <div>
                           <p style={{ fontSize: 14, fontWeight: 500, margin: "0 0 4px", color: currentAlert.level === "critical" ? "#7A0D0D" : "#854F0B" }}>
@@ -1117,7 +1456,7 @@ function AIDiagnosisPage({ dk, setPage }) {
           ))}
           {loading && !messages[messages.length - 1]?.isStreaming && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", alignSelf: "flex-start", background: "linear-gradient(135deg,rgba(48,75,113,.08),rgba(99,142,203,.08))", border: "1px solid rgba(99,142,203,.15)", borderRadius: 14, animation: "diagBubbleIn .3s ease" }}>
-              <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#638ECB", animation: "diagSpin 1s linear infinite", borderTop: "2px solid transparent", boxShadow: "0 0 0 2px rgba(99,142,203,.3)" }}/>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#638ECB", boxSizing: "border-box", animation: "diagSpin 1s linear infinite", borderTop: "2px solid transparent", boxShadow: "0 0 0 2px rgba(99,142,203,.3)" }}/>
               <span className="diag-wave-text" style={{ fontSize: 12, fontWeight: 600 }}>MedSmart IA analyse les symptômes…</span>
             </div>
           )}
@@ -1159,9 +1498,9 @@ function AIDiagnosisPage({ dk, setPage }) {
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
               {attachedFiles.map((f, i) => (
                 <span key={i} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, padding: "3px 10px", borderRadius: 999, border: `1px solid ${c.border}`, color: c.txt, background: c.bg }}>
-                  📎 {f.name}
+                  {f.name}
                   <button onClick={() => setAttachedFiles(prev => prev.filter((_, idx) => idx !== i))}
-                    style={{ marginLeft: 4, opacity: .5, background: "none", border: "none", cursor: "pointer", color: c.txt, lineHeight: 1 }}>✕</button>
+                    style={{ marginLeft: 4, opacity: .5, background: "none", border: "none", cursor: "pointer", color: c.txt, lineHeight: 1 }}>×</button>
                 </span>
               ))}
             </div>
@@ -1170,25 +1509,20 @@ function AIDiagnosisPage({ dk, setPage }) {
       </div>
 
       {/* RIGHT: RESULTS PANEL */}
-      <div className="diag-scroll" style={{ flex: "0 0 300px", overflowY: "auto", padding: "14px 16px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <div className="diag-scroll" style={{ flex: "0 0 380px", overflowY: "auto", padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2, flexShrink: 0 }}>
           <div>
             <h2 style={{ fontSize: 16, fontWeight: 700, color: c.txt, marginBottom: 2 }}>Résultats & Recommandations</h2>
-            <p style={{ fontSize: 11, color: c.txt3 }}>Basé sur votre dernière interaction</p>
+            <p style={{ fontSize: 11, color: c.txt3 }}>Basé sur la dernière interaction</p>
           </div>
-          {diagResult && (
-            <span style={{ padding: "4px 12px", borderRadius: 999, fontSize: 10, fontWeight: 600, background: c.blueLight, color: c.blue, border: `1px solid ${c.blue}22` }}>
-              Score : {diagResult.confidence}% de confiance
-            </span>
-          )}
         </div>
         {!diagResult && !loading && (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "60px 20px" }}>
-            <div style={{ width: 64, height: 64, borderRadius: 18, background: c.blueLight, border: `1px solid ${c.border}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18 }}>
+            <div style={{ width: 64, height: 64, borderRadius: 18, background: c.blueLight, border: `1px solid ${c.border}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18, boxShadow: "0 4px 20px rgba(57,88,134,.08)" }}>
               <Activity size={28} color={c.blue}/>
             </div>
             <p style={{ fontSize: 15, fontWeight: 700, color: c.txt, marginBottom: 8 }}>Aucun résultat pour l'instant</p>
-            <p style={{ fontSize: 12, color: c.txt3, lineHeight: 1.7, maxWidth: 280 }}>Décrivez les symptômes dans le chat pour obtenir un diagnostic provisoire et des recommandations.</p>
+            <p style={{ fontSize: 12, color: c.txt3, lineHeight: 1.7, maxWidth: 280 }}>Décrivez les symptômes du patient dans le chat pour obtenir un diagnostic provisoire et des recommandations.</p>
           </div>
         )}
         {loading && !diagResult && (
@@ -1200,7 +1534,7 @@ function AIDiagnosisPage({ dk, setPage }) {
             <p style={{ fontSize: 11, color: c.txt3 }}>Gemini RAG traite les données médicales</p>
           </div>
         )}
-        <DiagResultPanel result={diagResult} c={c} setPage={() => {}} />
+        <DiagResultPanel result={diagResult} c={c} />
       </div>
     </div>
   );
@@ -1208,8 +1542,10 @@ function AIDiagnosisPage({ dk, setPage }) {
 
 function MyPatientsView({ onChangePage, dk, c }) {
   const { t } = useLanguage();
-  const { gmPatients: patients, loadGMDemoData } = useData();
+  const { gmPatients: patients, refreshGmPatients } = useData();
   const [profilePatient, setProfilePatient] = useState(null);
+
+  useEffect(() => { refreshGmPatients(); }, []);
 
   return (
     <div className="space-y-12 animate-in fade-in duration-500">
@@ -1232,7 +1568,7 @@ function MyPatientsView({ onChangePage, dk, c }) {
                 <div>
                   <h2 className="text-lg font-bold" style={{ color: c.txt }}>{profilePatient.name}</h2>
                   <p className="text-sm" style={{ color: c.txt3 }}>
-                    {profilePatient.age} ans · {profilePatient.gender === 'Male' ? (t('male') || 'Homme') : (t('female') || 'Femme')} · {profilePatient.city}
+                    {profilePatient.age} ans · {(profilePatient.gender === 'male' || profilePatient.gender === 'Male') ? 'Homme' : 'Femme'} · {profilePatient.city}
                   </p>
                 </div>
               </div>
@@ -1249,7 +1585,7 @@ function MyPatientsView({ onChangePage, dk, c }) {
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>{t('pathologies_label') || "Pathologies"}</p>
                 <div className="flex flex-wrap gap-2">
-                  {profilePatient.conditions.map((cond, i) => (
+                  {(profilePatient.conditions || []).map((cond, i) => (
                     <span key={i} className="text-xs px-3 py-1 rounded-full border font-medium"
                       style={{ background: c.blueLight, color: c.blue, borderColor: c.blue + "30" }}>{cond}</span>
                   ))}
@@ -1311,7 +1647,7 @@ function MyPatientsView({ onChangePage, dk, c }) {
             <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
               style={{ background: c.blue + "15", color: c.blue }}><UserPlus size={32} /></div>
             <h2 className="text-2xl font-bold mb-2" style={{ color: c.txt }}>{t('no_patient_assigned_title') || "Aucun Patient Assigné"}</h2>
-            <p className="text-sm max-w-md mb-8" style={{ color: c.txt3 }}>{t('no_patient_assigned_desc_prod') || "Vous n'avez pas encore été assigné à des patients. Les patients apparaitront ici lorsqu'une demande de soins sera acceptée."}</p>
+            <p className="text-sm max-w-md mb-8" style={{ color: c.txt3 }}>Vous n'avez pas encore été assigné à des patients. Les patients apparaîtront ici lorsqu'une demande de soins sera acceptée.</p>
           </Card>
         ) : patients.map((p) => (
           <Card key={p.id} dk={dk} className="p-8 group relative overflow-hidden hover:shadow-xl hover:border-blue-500/20">
@@ -1324,10 +1660,10 @@ function MyPatientsView({ onChangePage, dk, c }) {
               </div>
               <div>
                 <h2 className="text-xl font-bold group-hover:text-blue-500 transition-colors" style={{ color: c.txt }}>{p.name}</h2>
-                <p className="text-xs font-bold uppercase tracking-widest mt-1" style={{ color: c.txt3 }}>{p.age} ans · {p.gender === 'Male' ? 'Homme' : 'Femme'} · {p.city}</p>
+                <p className="text-xs font-bold uppercase tracking-widest mt-1" style={{ color: c.txt3 }}>{p.age} ans · {(p.gender === 'male' || p.gender === 'Male') ? 'Homme' : 'Femme'} · {p.city}</p>
               </div>
               <div className="flex flex-wrap items-center justify-center gap-2">
-                {p.conditions.map((cond, i) => (
+                {(p.conditions || []).map((cond, i) => (
                   <span key={i} className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border"
                     style={{ background: dk ? "rgba(255,255,255,0.05)" : "#fff", borderColor: c.border, color: c.txt2 }}>
                     {cond}
@@ -1341,9 +1677,15 @@ function MyPatientsView({ onChangePage, dk, c }) {
                   style={{ background: dk ? "rgba(255,255,255,0.05)" : "#fff", borderColor: c.border, color: c.txt2 }}>
                   <User size={13} /> {t('view_profile_btn') || "Voir profil"}
                 </button>
-                <a href={`tel:${p.emergencyPhone || "+21300000000"}`}
+                <button
+                  onClick={() => onChangePage("treatments")}
+                  className="w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border flex items-center justify-center gap-2"
+                  style={{ background: dk ? "rgba(255,255,255,0.05)" : "#fff", borderColor: c.border, color: c.txt2 }}>
+                  <Pill size={13} /> Traitements
+                </button>
+                <a href={`tel:${p.emergencyPhone || p.emergency_contact_phone || ""}`}
                   className="w-full py-2.5 border border-red-500/30 text-red-500 hover:bg-red-500 hover:text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2">
-                  <Phone size={13} /> Alerter
+                  <Phone size={13} /> {t('alert_patient_btn') || "Alerter"}
                 </a>
               </div>
             </div>
@@ -1357,15 +1699,21 @@ function MyPatientsView({ onChangePage, dk, c }) {
 function TreatmentsView({ dk, c }) {
   const { t } = useLanguage();
   const {
-    gmPatients: patients, gmTreatments: treatments, loadGMDemoData,
+    gmPatients: patients, gmTreatments: treatments,
     addMedicationToTreatment, removeMedicationFromTreatment,
     addPatientToTreatments, removePatientFromTreatments,
+    refreshGmPatients, refreshGmTreatments,
   } = useData();
 
   const [editId, setEditId] = useState(null);
   const [newMed, setNewMed] = useState({ name: "", dosage: "", slot: "morning" });
-  const [showAddPatient, setShowAddPatient] = useState(null); // patient id to confirm add
-  const [removedHistory, setRemovedHistory] = useState([]); // {id, initials, patientName, condition, removedAt}
+  const [showAddPatient, setShowAddPatient] = useState(null);
+  const [removedHistory, setRemovedHistory] = useState([]);
+
+  useEffect(() => {
+    refreshGmPatients();
+    refreshGmTreatments();
+  }, []);
 
   const editTreatment = treatments.find(t => t.id === editId) || null;
   const slots = [
@@ -1380,7 +1728,7 @@ function TreatmentsView({ dk, c }) {
     setNewMed({ name: "", dosage: "", slot: newMed.slot });
   };
 
-  const patientsNotInPlan = patients.filter(p => !treatments.find(t => t.id === p.id));
+  const patientsNotInPlan = patients.filter(p => !treatments.find(tr => tr.patient_id === p.user_id));
 
   const inputCls = "px-3 py-2 rounded-xl text-sm outline-none border";
   const inputStyle = { background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border, color: c.txt };
@@ -1516,35 +1864,35 @@ function TreatmentsView({ dk, c }) {
           <h2 className="text-lg font-bold mb-2" style={{ color: c.txt }}>{t('no_treatment_plan_title') || "Aucun plan de traitement"}</h2>
           <p className="text-sm max-w-sm" style={{ color: c.txt3 }}>
             {patients.length === 0
-              ? (t('load_demo_first_desc') || "Chargez d'abord les données démo pour voir les patients.")
+              ? "Vos patients assignés apparaîtront ici après acceptation d'une demande de soins."
               : (t('add_patient_to_planning_desc') || "Utilisez le bouton ci-dessus pour ajouter un patient au planning.")}
           </p>
         </Card>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {treatments.map(t => (
-            <Card key={t.id} dk={dk} className="hover:shadow-md transition-all">
+          {treatments.map(tr => (
+            <Card key={tr.id} dk={dk} className="hover:shadow-md transition-all">
               {/* Header carte */}
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">
                   <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold"
                     style={{ background: c.blue }}>
-                    {t.initials}
+                    {tr.initials}
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold" style={{ color: c.txt }}>{t.patientName}</h3>
-                    <p className="text-[11px] font-medium" style={{ color: c.txt3 }}>{t.condition}</p>
+                    <h3 className="text-sm font-bold" style={{ color: c.txt }}>{tr.patientName}</h3>
+                    <p className="text-[11px] font-medium" style={{ color: c.txt3 }}>{tr.condition}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => { setEditId(t.id); setNewMed({ name: "", dosage: "", slot: "morning" }); }}
+                  <button onClick={() => { setEditId(tr.id); setNewMed({ name: "", dosage: "", slot: "morning" }); }}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold border transition-all hover:opacity-80"
                     style={{ borderColor: c.blue + "40", color: c.blue, background: c.blue + "10" }}>
-                    <Plus size={12} /> {t('modify_btn') || "Modifier"}
+                    <Plus size={12} /> Modifier
                   </button>
                   <button onClick={() => {
-                    setRemovedHistory(h => [...h, { id: t.id, initials: t.initials, patientName: t.patientName, condition: t.condition, removedAt: new Date().toLocaleDateString("fr-FR") }]);
-                    removePatientFromTreatments(t.id);
+                    setRemovedHistory(h => [...h, { id: tr.id, initials: tr.initials, patientName: tr.patientName, condition: tr.condition, removedAt: new Date().toLocaleDateString("fr-FR") }]);
+                    removePatientFromTreatments(tr.id);
                   }}
                     className="w-8 h-8 rounded-xl flex items-center justify-center border transition-all hover:bg-red-500 hover:text-white"
                     style={{ borderColor: c.red + "30", color: c.red, background: c.red + "10" }}>
@@ -1556,7 +1904,7 @@ function TreatmentsView({ dk, c }) {
               {/* Créneaux médicaments */}
               <div className="space-y-3">
                 {slots.map(({ key, label }) => {
-                  const meds = t[key] || [];
+                  const meds = tr[key] || [];
                   if (meds.length === 0) return null;
                   return (
                     <div key={key} className="rounded-xl p-3 border" style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border }}>
@@ -1569,7 +1917,7 @@ function TreatmentsView({ dk, c }) {
                               <span style={{ color: c.txt }}>{med.name}</span>
                               {med.dosage && <span className="text-xs font-medium" style={{ color: c.txt3 }}>{med.dosage}</span>}
                             </div>
-                            <button onClick={() => removeMedicationFromTreatment(t.id, key, idx)}
+                            <button onClick={() => removeMedicationFromTreatment(tr.id, key, idx)}
                               className="w-6 h-6 rounded-lg flex items-center justify-center transition-all hover:bg-red-500 hover:text-white shrink-0"
                               style={{ color: c.red, background: c.red + "12" }}>
                               <Trash2 size={11} />
@@ -1580,17 +1928,17 @@ function TreatmentsView({ dk, c }) {
                     </div>
                   );
                 })}
-                {slots.every(({ key }) => (t[key] || []).length === 0) && (
+                {slots.every(({ key }) => (tr[key] || []).length === 0) && (
                   <p className="text-xs text-center py-2 italic" style={{ color: c.txt3 }}>
                     {t('no_medications_added') || "Aucun médicament — cliquez sur Modifier pour en ajouter."}
                   </p>
                 )}
               </div>
 
-              {t.specialInstructions && (
+              {tr.specialInstructions && (
                 <div className="mt-4 p-3 rounded-xl border text-xs italic"
                   style={{ background: c.amber + "08", borderColor: c.amber + "25", color: c.txt2 }}>
-                  {t.specialInstructions}
+                  {tr.specialInstructions}
                 </div>
               )}
             </Card>
@@ -1700,13 +2048,13 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
         type: "success",
         msg: nameChanged
           ? "Profil mis à jour. La demande de changement de nom a été envoyée à l'administrateur."
-          : "Profil mis à jour avec succès ✅",
+          : "Profil mis à jour avec succès",
       });
       setIdentityReason("");
       setEmailReason("");
       setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
     } catch {
-      setStatus({ type: "error", msg: t('update_error') || "Erreur lors de la mise à jour ❌" });
+      setStatus({ type: "error", msg: t('update_error') || "Erreur lors de la mise à jour" });
       setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
     } finally {
       setIsSaving(false);
@@ -1718,11 +2066,11 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
       setIsSavingPwd(true);
       setPwdStatus({ type: "", msg: "" });
       await api.changePassword(pwdForm);
-      setPwdStatus({ type: "success", msg: t('password_changed_success') || "Mot de passe modifié ✅" });
+      setPwdStatus({ type: "success", msg: t('password_changed_success') || "Mot de passe modifié" });
       setPwdForm({ currentPassword: "", newPassword: "" });
       setTimeout(() => setPwdStatus({ type: "", msg: "" }), 4000);
     } catch {
-      setPwdStatus({ type: "error", msg: t('password_change_error') || "Erreur lors du changement ❌" });
+      setPwdStatus({ type: "error", msg: t('password_change_error') || "Erreur lors du changement" });
       setTimeout(() => setPwdStatus({ type: "", msg: "" }), 4000);
     } finally {
       setIsSavingPwd(false);
@@ -1734,10 +2082,27 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
     setTimeout(() => setLocSaved(false), 3000);
   };
 
-  const handleSaveTarifs = () => {
-    setTarifSaved(true);
-    if (onTarifSaved) onTarifSaved(tarifForm.tarifMensuel);
-    setTimeout(() => setTarifSaved(false), 3000);
+  const [tarifSaving, setTarifSaving] = useState(false);
+  const [tarifError, setTarifError] = useState("");
+
+  const handleSaveTarifs = async () => {
+    setTarifSaving(true);
+    setTarifError("");
+    try {
+      await api.updateMe({
+        tarif_de_base: tarifForm.tarifSoin || undefined,
+        tarif_nuit:    tarifForm.tarifNuit  || undefined,
+        tarif_mensuel: tarifForm.tarifMensuel || undefined,
+      });
+      setTarifSaved(true);
+      if (onTarifSaved) onTarifSaved(tarifForm.tarifMensuel);
+      setTimeout(() => setTarifSaved(false), 3000);
+    } catch (err) {
+      setTarifError(err?.message || "Erreur lors de l'enregistrement des tarifs.");
+      setTimeout(() => setTarifError(""), 4000);
+    } finally {
+      setTarifSaving(false);
+    }
   };
 
   const inputCls = "w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition-all focus:ring-2";
@@ -1891,7 +2256,7 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
           <div className="mb-5 p-3 rounded-xl text-xs font-semibold flex items-center gap-2" style={{
             background: "#2D8C6F12", color: "#2D8C6F", border: "1px solid #2D8C6F44",
           }}>
-            <Check size={14} /> Localisation mise à jour avec succès ✅
+            <Check size={14} /> Localisation mise à jour avec succès
           </div>
         )}
 
@@ -2047,7 +2412,13 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
         {tarifSaved && (
           <div className="mb-5 p-3 rounded-xl text-xs font-semibold flex items-center gap-2"
             style={{ background: "#2D8C6F12", color: "#2D8C6F", border: "1px solid #2D8C6F44" }}>
-            <Check size={14} /> Tarifs mis à jour avec succès ✅
+            <Check size={14} /> {t('tariffs_saved_success') || "Tarifs mis à jour avec succès"}
+          </div>
+        )}
+        {tarifError && (
+          <div className="mb-5 p-3 rounded-xl text-xs font-semibold"
+            style={{ background: "#E0555512", color: "#E05555", border: "1px solid #E0555544" }}>
+            {tarifError}
           </div>
         )}
 
@@ -2081,10 +2452,14 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
         </div>
         <button
           onClick={handleSaveTarifs}
-          className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
+          disabled={tarifSaving}
+          className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-60"
           style={{ background: `linear-gradient(135deg, #1F6B50, ${c.green})` }}
         >
-          <Shield size={15} /> {t('save_tariffs_btn') || "Enregistrer les tarifs"}
+          {tarifSaving
+            ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+            : <Shield size={15} />}
+          {t('save_tariffs_btn') || "Enregistrer les tarifs"}
         </button>
       </Card>
 
@@ -2093,7 +2468,7 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
         <Card dk={dk}>
           <p className="font-semibold mb-4" style={{ color: c.txt }}>Language</p>
           <div className="flex gap-2 flex-wrap">
-            {["🇫🇷 Français", "🇬🇧 English"].map((langName, i) => {
+            {["Français", "English"].map((langName, i) => {
               const targetLang = i === 0 ? 'fr' : 'en';
               const active = lang === targetLang;
               return (
@@ -2115,7 +2490,7 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
         </Card>
         <Card dk={dk}>
           <p className="font-semibold mb-2" style={{ color: c.txt }}>About</p>
-          <p className="text-sm" style={{ color: c.txt2 }}>MedSmart v2.1.0 · Connected Healthcare Platform</p>
+          <p className="text-sm" style={{ color: c.txt2 }}>MedSmart · Connected Healthcare Platform</p>
           <p className="text-xs mt-1" style={{ color: c.txt3 }}>CNAS Certified · RGPD Compliant · Hosted in Algeria</p>
         </Card>
       </div>
@@ -2134,7 +2509,6 @@ export default function GardeMaladeDashboard({ onLogout }) {
   const [page, setPage] = useState("dashboard");
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [emergency, setEmergency] = useState(false);
   const { globalNotifications, markAllNotificationsRead } = useData();
   const [tarifMensuel, setTarifMensuel] = useState("");
   const unreadCount = globalNotifications.filter(n => !n.read).length;
@@ -2156,16 +2530,16 @@ export default function GardeMaladeDashboard({ onLogout }) {
   const { unreadChatCount, setUnreadChatCount } = useData();
 
   const NAV = [
-    { id: "dashboard", label: t('nav_home') || "Accueil" },
-    { id: "jobRequests", label: t('nav_missions') || "Offres & Missions" },
-    { id: "myPatients", label: t('nav_patients') || "Mes Patients" },
-    { id: "treatments", label: t('nav_treatments') || "Traitements" },
-    { id: "ai-diagnosis", label: t('nav_ai_diagnosis') || "IA Diagnostic" },
+    { id: "dashboard",    label: t('nav_home')       || "Accueil" },
+    { id: "jobRequests",  label: "Offres & Missions" },
+    { id: "myPatients",   label: t('nav_patients')   || "Mes Patients" },
+    { id: "treatments",   label: t('nav_treatments') || "Traitements" },
+    { id: "ai-diagnosis", label: "IA Diagnostic" },
   ];
 
   const renderPage = () => {
     switch (page) {
-      case "dashboard": return <HomeView onChangePage={setPage} dk={dk} c={c} setEmergency={setEmergency} />;
+      case "dashboard": return <HomeView onChangePage={setPage} dk={dk} c={c} />;
       case "emergencies": return <EmergenciesView dk={dk} c={c} />;
       case "jobRequests": return <JobRequestsView dk={dk} c={c} />;
       case "myPatients": return <MyPatientsView onChangePage={setPage} dk={dk} c={c} />;
@@ -2224,7 +2598,7 @@ export default function GardeMaladeDashboard({ onLogout }) {
             </div>
           </div>
         );
-      default: return <HomeView onChangePage={setPage} dk={dk} c={c} setEmergency={setEmergency} />;
+      default: return <HomeView onChangePage={setPage} dk={dk} c={c} />;
     }
   };
 
@@ -2248,10 +2622,6 @@ export default function GardeMaladeDashboard({ onLogout }) {
         a { cursor: pointer !important; }
         .nav-link:not(.active-nav):hover { background: rgba(100,146,201,0.15) !important; color: #6492C9 !important; }
       `}</style>
-
-      {emergency && (
-        <EmergencyModal onClose={() => setEmergency(false)} dk={dk} />
-      )}
 
       {/* ═══ NAVBAR (copie exacte du Patient Dashboard) ═══ */}
       <nav
@@ -2412,7 +2782,7 @@ export default function GardeMaladeDashboard({ onLogout }) {
                       className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer"
                     >
                       <Settings size={16} className="hover:rotate-45 transition-transform" />
-                      {t('settings_label') || "Paramètres"}
+                      Paramètres
                     </button>
 
                     {/* Toggle jour/nuit */}
@@ -2446,7 +2816,7 @@ export default function GardeMaladeDashboard({ onLogout }) {
                       className="pd-item-danger w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-xl cursor-pointer"
                     >
                       <LogOut size={16} className="hover:translate-x-1 transition-transform" />
-                      {t('logout_label') || "Déconnexion"}
+                      Déconnexion
                     </button>
                   </div>
                 </div>

@@ -2890,7 +2890,7 @@ function SettingsView() {
         <Card dk={dk}>
           <p className="font-semibold mb-4" style={{ color: c.txt }}>{t('dashboard.doctor.settings.language')}</p>
           <div className="flex gap-2 flex-wrap">
-            {["🇫🇷 Français", "🇬🇧 English"].map((langName, i) => {
+            {["Français", "English"].map((langName, i) => {
               const targetLang = i === 0 ? 'fr' : 'en';
               const active = lang === targetLang;
               return (

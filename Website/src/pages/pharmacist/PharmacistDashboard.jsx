@@ -280,7 +280,7 @@ function OrderDetailModal({ order, onClose, dk }) {
           <div>
             <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>{t('prescribed_meds_label') || "Médicaments prescrits"}</p>
             <div className="space-y-2">
-              {order.items.map((item, i) => (
+              {(order.items || []).map((item, i) => (
                 <div key={i} className="flex items-center gap-3 p-3 rounded-xl"
                   style={{ background: dk ? "#1A2333" : "#F8FAFC" }}>
                   <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
@@ -482,7 +482,7 @@ function AddItemModal({ onClose, onAdd, dk }) {
             )}
             {selectedMed && (
               <p className="mt-1 text-xs font-semibold" style={{ color: "#0F6E56" }}>
-                ✓ {selectedMed.name || selectedMed.commercial_name} sélectionné
+                {selectedMed.name || selectedMed.commercial_name} sélectionné
               </p>
             )}
           </div>
@@ -749,7 +749,7 @@ function HomePage({ dk, onNav }) {
               </button>
             </div>
             {stock.length === 0 ? (
-              <p className="text-sm" style={{ color: "#0F6E56", padding: "8px 0" }}>✓ Aucune alerte de stock</p>
+              <p className="text-sm" style={{ color: "#0F6E56", padding: "8px 0" }}>Aucune alerte de stock</p>
             ) : stock.map(item => {
               const isRupture = Number(item.quantity) === 0;
               return (
@@ -1038,11 +1038,11 @@ function StockPage({ dk }) {
                             disabled={updatingId === item.id}
                             className="w-6 h-6 rounded flex items-center justify-center text-xs disabled:opacity-50"
                             style={{ background: c.green, color: "#fff" }}>
-                            {updatingId === item.id ? "…" : "✓"}
+                            {updatingId === item.id ? "…" : "OK"}
                           </button>
                           <button onClick={() => { setEditQty(null); setEditValue(""); }}
                             className="w-6 h-6 rounded flex items-center justify-center text-xs"
-                            style={{ background: c.red, color: "#fff" }}>✕</button>
+                            style={{ background: c.red, color: "#fff" }}>X</button>
                           <input
                             type="number"
                             min={0}
@@ -1400,11 +1400,11 @@ function CommandesPage({ dk }) {
                     )}
                   </div>
                   <p className="text-sm font-semibold mb-0.5" style={{ color: c.txt }}>
-                    👤 {o.patient}
+                    {o.patient}
                     <span className="font-normal ml-2" style={{ color: c.txt2 }}>— {t('doctor_role_prefix') || "Dr."} {o.doctor}</span>
                   </p>
                   <div className="space-y-0.5 mt-2">
-                    {o.items.map(item => (
+                    {(o.items || []).map(item => (
                       <p key={item} className="text-sm" style={{ color: c.txt2 }}>• {item}</p>
                     ))}
                   </div>

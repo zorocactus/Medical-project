@@ -1,4 +1,4 @@
-import PersonalInfoForm from "./PersonalInfoForm";
+﻿import PersonalInfoForm from "./PersonalInfoForm";
 
 export const PATIENT_STEPS = [
   { key: "auth.register.steps.profile" },
@@ -24,3 +24,4 @@ export default function PatientForm({ onComplete, onBack, savedData }) {
     />
   );
 }
+

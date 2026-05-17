@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Sun, Moon } from "lucide-react";
+import { ArrowLeft, Sun, Moon, X } from "lucide-react";
 
 const AUTH_IMAGES = [
   {
@@ -227,7 +227,7 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
           }
 
           // ── DIAGNOSTIC LOG ──
-          console.group("🩺 [registerDoctor] FormData");
+          console.group("[registerDoctor] FormData");
           for (let [key, value] of fd.entries()) {
             console.log(key, value instanceof File ? `File(${value.name})` : value);
           }
@@ -380,7 +380,7 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] max-w-lg w-[90%] px-5 py-3 rounded-2xl text-sm font-semibold shadow-2xl flex items-center justify-between animate-in slide-in-from-top-3 duration-300"
           style={{ background: isDark ? '#2A1215' : '#FFF0F0', color: '#E05555', border: '1px solid #E0555530' }}>
           <span>{regError}</span>
-          <button onClick={() => setRegError(null)} className="ml-3 opacity-60 hover:opacity-100 transition-opacity">✕</button>
+          <button onClick={() => setRegError(null)} className="ml-3 opacity-60 hover:opacity-100 transition-opacity"><X size={14} /></button>
         </div>
       )}
 
@@ -412,7 +412,7 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
             }}
           >
             <ArrowLeft size={13} />
-            {t('auth.transition.home')}
+            Accueil
           </button>
 
           {/* Toggle dark / light */}

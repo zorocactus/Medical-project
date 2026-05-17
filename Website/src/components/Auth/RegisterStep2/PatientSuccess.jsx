@@ -1,4 +1,4 @@
-import { Clock } from "lucide-react";
+﻿import { Clock } from "lucide-react";
 import StepBar from "./StepBar";
 import { PATIENT_STEPS } from "./PatientForm";
 import { useTheme } from "../../../context/ThemeContext";
@@ -113,3 +113,4 @@ export default function PatientSuccess({ onComplete }) {
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Check, Stethoscope, Users, Pill } from "lucide-react";
 import StepBar from "./StepBar";
 import { MEDICAL_STEPS } from "./MedicalForm";
@@ -166,9 +166,10 @@ export default function MedicalRoleForm({ onComplete, onBack, savedData }) {
           onClick={() => onComplete({ medicalRole })}
           className="fixed bottom-4 left-4 z-50 bg-black/80 text-[#8AAEE0] text-[10px] px-3 py-1.5 rounded border border-[#2A4A7F] hover:bg-[#173253] font-mono cursor-pointer"
         >
-          ⚡ DEV: Auto-Fill ({medicalRole})
+          DEV: Auto-Fill ({medicalRole})
         </button>
       )}
     </div>
   );
 }
+

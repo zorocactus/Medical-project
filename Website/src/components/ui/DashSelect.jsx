@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Check } from "lucide-react";
 
 /**
  * DashSelect — dropdown thémé cohérent avec le système T de l'app.
@@ -123,7 +123,7 @@ export default function DashSelect({
                   >
                     <span className="flex-1">{l}</span>
                     {isSelected && (
-                      <span className="text-sm font-bold" style={{ color: c.blue }}>✓</span>
+                      <Check size={14} style={{ color: c.blue }} />
                     )}
                   </button>
                 );

@@ -1,4 +1,4 @@
-import { Check } from "lucide-react";
+﻿import { Check } from "lucide-react";
 import StepBar from "./StepBar";
 import { MEDICAL_STEPS } from "./MedicalForm";
 import { useTheme } from "../../../context/ThemeContext";
@@ -96,3 +96,4 @@ export default function MedicalSuccess({ onComplete }) {
     </div>
   );
 }
+

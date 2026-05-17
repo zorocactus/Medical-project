@@ -25,6 +25,7 @@ import {
   ChevronRight,
   Search,
   AlertTriangle,
+  ShieldAlert,
   CheckCircle,
   Circle,
   Shield,
@@ -510,11 +511,11 @@ function DashboardPage({
       {/* ── SECTION 1 : HEADER ── */}
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"20px" }}>
         <div>
-          <h1 style={{ fontSize:"22px", fontWeight:"500", color: dk ? "#F0F3FA" : "#0D2644", margin:"0 0 4px" }}>
-            Bonjour, {userData?.first_name || "—"}
+          <h1 style={{ fontSize:"30px", fontWeight:"700", color: dk ? "#F0F3FA" : "#0D1B2E", margin:"0 0 4px" }}>
+            Bonjour, <span style={{ color: dk ? "#ffffff" : "#0D2644" }}>{userData?.first_name || "—"}</span>
           </h1>
-          <p style={{ fontSize:"13px", color: dk ? "#8AAEE0" : "#5C738A", margin:0 }}>
-            {new Date().toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long", year:"numeric" })}
+          <p style={{ fontSize:"14px", color: dk ? "#8AAEE0" : "#5C738A", margin:0 }}>
+            {(()=>{ const s = new Date().toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long", year:"numeric" }); return s.charAt(0).toUpperCase()+s.slice(1); })()}
           </p>
         </div>
         <button
@@ -1092,7 +1093,7 @@ function MedicalProfilePage({ dk }) {
           emergency_contact_phone: editForm.emergencyPhone,
         }).catch(() => {}),
       ]);
-      setSaveStatus({ type: "success", msg: "Profil mis à jour ✓" });
+      setSaveStatus({ type: "success", msg: "Profil mis à jour" });
       const [me, med] = await Promise.all([
         api.getMe().catch(() => null),
         api.getMedicalProfile().catch(() => null),
@@ -2019,34 +2020,162 @@ function ConfRing({ val, color }) {
 
 function DiagResultPanel({ result, c, setPage }) {
   if (!result) return null;
+
+  function openBooking(doc) {
+    // Convert AI doc format → appointments selectedDoctor format
+    const specLower = (doc.specialty || "").toLowerCase();
+    const color = specLower.includes("cardio") ? "#E05555"
+      : specLower.includes("neuro") ? "#7B5EA7"
+      : specLower.includes("derm") ? "#E8A838"
+      : specLower.includes("ortho") ? "#638ECB"
+      : specLower.includes("pedia") || specLower.includes("pédia") ? "#4CAF82"
+      : specLower.includes("gynéco") || specLower.includes("gyneco") ? "#E87CC8"
+      : specLower.includes("ophthalm") || specLower.includes("ophtalm") ? "#4A9FA5"
+      : "#4A6FA5";
+    const pending = {
+      id:       doc.id,
+      name:     doc.full_name,
+      spec:     doc.specialty,
+      loc:      doc.city || "Alger",
+      initials: doc.full_name.split(" ").map(n => n[0]).join("").toUpperCase().substring(0, 2),
+      color,
+      phone:    doc.phone || "",
+      rating:   doc.rating || 0,
+      reviews:  0,
+      bio:      "",
+      edu:      "",
+      lang:     ["Arabe", "Français"],
+      clinic_address: doc.address || "",
+    };
+    localStorage.setItem("pendingBookDoctor", JSON.stringify(pending));
+    setPage("appointments");
+  }
   const urg = URGENCY_CONF[result.urgency] || URGENCY_CONF.med;
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-      {/* Urgency + Confidence Card */}
+      {/* Urgency Card */}
       <div style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:18, overflow:"hidden",
         boxShadow:"0 4px 20px rgba(57,88,134,.08)", animation:"diagSlideUp .4s ease" }}>
-        <div style={{ background:"linear-gradient(135deg,#304B71,#4A6FA5)", padding:"18px 20px" }}>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-            <div>
-              <span style={{ fontSize:9, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.12em",
-                color:"rgba(255,255,255,.45)", display:"block", marginBottom:6 }}>Niveau d'urgence</span>
-              <span style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"4px 14px", borderRadius:999,
-                fontSize:11, fontWeight:700, background:urg.bg, color:urg.color, border:`1px solid ${urg.border}` }}>
-                <span style={{ width:6, height:6, borderRadius:"50%", background:urg.color, display:"inline-block" }}/>
-                {urg.label}
-              </span>
-              {result.diagnosis && (
-                <p style={{ fontSize:13, fontWeight:700, color:"#fff", lineHeight:1.3, marginTop:10 }}>{result.diagnosis}</p>
-              )}
-            </div>
-            {result.confidence != null && <ConfRing val={result.confidence} color={urg.color}/>}
-          </div>
+        <div style={{ background:"linear-gradient(135deg,#304B71,#4A6FA5)", padding:"14px 18px" }}>
+          <span style={{ fontSize:9, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.12em",
+            color:"rgba(255,255,255,.45)", display:"block", marginBottom:6 }}>Niveau d'urgence</span>
+          <span style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"4px 14px", borderRadius:999,
+            fontSize:11, fontWeight:700, background:urg.bg, color:urg.color, border:`1px solid ${urg.border}` }}>
+            <span style={{ width:6, height:6, borderRadius:"50%", background:urg.color, display:"inline-block" }}/>
+            {urg.label}
+          </span>
         </div>
       </div>
 
-      {/* Recommended Doctor */}
-      {result.recommendations?.length > 0 && (
+      {/* Top 3 Hypothèses diagnostiques */}
+      {result.diseases?.length > 0 && (() => {
+        const URGENCY_RANK = { faible: 0, low: 0, modéré: 1, moderate: 1, urgent: 2, high: 2 };
+        const top3 = [...result.diseases]
+          .sort((a, b) => (b.probability ?? b.confidence ?? 0) - (a.probability ?? a.confidence ?? 0))
+          .slice(0, 3)
+          .sort((a, b) => {
+            const ua = URGENCY_RANK[a.urgency?.toLowerCase()] ?? 1;
+            const ub = URGENCY_RANK[b.urgency?.toLowerCase()] ?? 1;
+            return ua - ub; // ascending: faible → modéré → urgent
+          });
+        const DANGER_BADGE = {
+          urgent:   { label:"Urgent",  bg:"rgba(248,113,113,.12)", color:"#f87171", border:"rgba(248,113,113,.3)" },
+          high:     { label:"Urgent",  bg:"rgba(248,113,113,.12)", color:"#f87171", border:"rgba(248,113,113,.3)" },
+          modéré:   { label:"Modéré",  bg:"rgba(251,191,36,.12)",  color:"#fbbf24", border:"rgba(251,191,36,.3)"  },
+          moderate: { label:"Modéré",  bg:"rgba(251,191,36,.12)",  color:"#fbbf24", border:"rgba(251,191,36,.3)"  },
+          faible:   { label:"Faible",  bg:"rgba(74,222,128,.12)",  color:"#4ade80", border:"rgba(74,222,128,.3)"  },
+          low:      { label:"Faible",  bg:"rgba(74,222,128,.12)",  color:"#4ade80", border:"rgba(74,222,128,.3)"  },
+        };
+        return (
+          <div style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:18, padding:"16px 18px",
+            boxShadow:"0 2px 8px rgba(57,88,134,.05)", animation:"diagSlideUp .45s ease" }}>
+            <h3 style={{ fontSize:11, fontWeight:700, color:c.txt3, textTransform:"uppercase",
+              letterSpacing:"0.08em", marginBottom:12 }}>Hypothèses diagnostiques</h3>
+            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              {top3.map((d, i) => {
+                const name  = d.name_fr || d.name_en || "—";
+                const urg   = (d.urgency || "").toLowerCase().trim() || "modéré";
+                const badge = DANGER_BADGE[urg] ?? DANGER_BADGE["modéré"] ?? DANGER_BADGE["moderate"];
+                return (
+                  <div key={i} style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+                    padding:"10px 12px", borderRadius:10, background:i===0 ? badge.bg : "transparent",
+                    border:`1px solid ${i===0 ? badge.border : c.border}` }}>
+                    <span style={{ fontSize:12, fontWeight: i === 0 ? 700 : 500,
+                      color: i === 0 ? c.txt : c.txt2, flex:1, minWidth:0,
+                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", paddingRight:8 }}>
+                      {i + 1}. {name}
+                    </span>
+                    <span style={{ fontSize:10, fontWeight:700, color:badge.color,
+                      background:badge.bg, border:`1px solid ${badge.border}`,
+                      borderRadius:999, padding:"2px 10px", flexShrink:0 }}>
+                      {badge.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Vrais médecins recommandés par l'IA */}
+      {result.doctors?.length > 0 && (
+        <div style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:18, padding:"18px 20px",
+          boxShadow:"0 2px 8px rgba(57,88,134,.05)" }}>
+          <h3 style={{ fontSize:12, fontWeight:700, color:c.txt3, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12 }}>
+            Médecins disponibles
+          </h3>
+          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            {result.doctors.map((doc, i) => (
+              <div key={doc.id}
+                style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 16px",
+                  borderRadius:14, background:c.bg, border:`1px solid ${c.border}`,
+                  cursor:"pointer", transition:"all 200ms",
+                  animation:`diagBubbleIn .35s ease ${i * 80}ms both` }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = c.blue + "88";
+                  e.currentTarget.style.background = c.blueLight;
+                  e.currentTarget.style.boxShadow = `0 4px 16px ${c.blue}22`;
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = c.border;
+                  e.currentTarget.style.background = c.bg;
+                  e.currentTarget.style.boxShadow = "none";
+                }}
+                onClick={() => openBooking(doc)}>
+                <div style={{ width:44, height:44, borderRadius:12,
+                  background:`linear-gradient(135deg,${c.blue}22,${c.blue}11)`,
+                  border:`1px solid ${c.blue}44`, display:"flex", alignItems:"center",
+                  justifyContent:"center", flexShrink:0 }}>
+                  <Stethoscope size={20} color={c.blue}/>
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <p style={{ fontSize:13, fontWeight:700, color:c.txt, marginBottom:2 }}>{doc.full_name}</p>
+                  <p style={{ fontSize:11, color:c.txt2, marginBottom:3 }}>{doc.specialty}{doc.city ? ` · ${doc.city}` : ""}</p>
+                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    {doc.rating > 0 && (
+                      <span style={{ fontSize:10, color:c.amber }}>★ {doc.rating.toFixed(1)}</span>
+                    )}
+                    {doc.consultation_fee > 0 && (
+                      <span style={{ fontSize:10, color:c.txt3 }}>{doc.consultation_fee.toLocaleString()} DA</span>
+                    )}
+                    {doc.cnas_coverage && (
+                      <span style={{ fontSize:9, fontWeight:700, color:c.green,
+                        background:c.green+"18", border:`1px solid ${c.green}44`,
+                        borderRadius:4, padding:"1px 6px" }}>CNAS</span>
+                    )}
+                  </div>
+                </div>
+                <ChevronRight size={16} color={c.txt3}/>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Fallback spécialité générique si aucun médecin trouvé */}
+      {!result.doctors?.length && result.recommendations?.length > 0 && (
         <div style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:18, padding:"18px 20px",
           boxShadow:"0 2px 8px rgba(57,88,134,.05)" }}>
           <h3 style={{ fontSize:12, fontWeight:700, color:c.txt3, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12 }}>
@@ -2103,16 +2232,30 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
   const c = dk ? T.dark : T.light;
 
   const [input, setInput]               = useState("");
-  const [messages, setMessages]         = useState([
-    { role:"ai", text:"Nouvelle session. Décrivez vos symptômes en détail — localisation, intensité, durée — et je vous fournirai une analyse immédiate." },
-  ]);
+  const WELCOME_MSG = { role:"ai", text:"Nouvelle session. Décrivez vos symptômes en détail — localisation, intensité, durée — et je vous fournirai une analyse immédiate." };
+  const [sessions, setSessions]         = useState([]);
+  const [activeSession, setActiveSession] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("aiActiveSession") || "null"); } catch { return null; }
+  });
+  const [chatMessagesMap, setChatMessagesMap] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("chatMessagesMap") || "{}"); } catch { return {}; }
+  });
+  const [messages, setMessages]         = useState(() => {
+    try {
+      const key = JSON.parse(localStorage.getItem("aiActiveSession") || "null");
+      const map = JSON.parse(localStorage.getItem("chatMessagesMap") || "{}");
+      const k   = key ? String(key) : "_latest";
+      return map[k]?.length ? map[k] : [{ role:"ai", text:"Nouvelle session. Décrivez vos symptômes en détail — localisation, intensité, durée — et je vous fournirai une analyse immédiate." }];
+    } catch { return [{ role:"ai", text:"Nouvelle session. Décrivez vos symptômes en détail — localisation, intensité, durée — et je vous fournirai une analyse immédiate." }]; }
+  });
   const [loading, setLoading]           = useState(false);
   const [isRecording, setIsRecording]   = useState(false);
   const [attachedFiles, setAttachedFiles] = useState([]);
-  const [sessions, setSessions]         = useState([]);
-  const [activeSession, setActiveSession] = useState(null);
   const [showSidebar, setShowSidebar]   = useState(true);
-  const [diagResult, setDiagResult]     = useState(null);
+  // Map sessionId → diagResult so every session keeps its own result
+  const [diagResultsMap, setDiagResultsMap] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("diagResultsMap") || "{}"); } catch { return {}; }
+  });
   const [medTerms, setMedTerms]         = useState([]);
   const [currentAlert, setCurrentAlert] = useState(null);
   const messagesEndRef = useRef(null);
@@ -2121,6 +2264,34 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior:"smooth" });
   }, [messages, loading]);
+
+  // Persist diagResultsMap
+  useEffect(() => {
+    localStorage.setItem("diagResultsMap", JSON.stringify(diagResultsMap));
+  }, [diagResultsMap]);
+
+  // Persist messages and active session
+  useEffect(() => {
+    const k = activeSession ? String(activeSession) : "_latest";
+    setChatMessagesMap(prev => {
+      const next = { ...prev, [k]: messages };
+      localStorage.setItem("chatMessagesMap", JSON.stringify(next));
+      return next;
+    });
+  }, [messages]);
+
+  useEffect(() => {
+    localStorage.setItem("aiActiveSession", JSON.stringify(activeSession));
+  }, [activeSession]);
+
+  // Current result: keyed by session id, or "_latest" for a new (unsaved) session
+  const sessionKey = activeSession ? String(activeSession) : "_latest";
+  const diagResult = diagResultsMap[sessionKey] || null;
+
+  function saveDiagResult(val, key) {
+    const k = key ?? sessionKey;
+    setDiagResultsMap(prev => ({ ...prev, [k]: val }));
+  }
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -2149,11 +2320,16 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
   const quickSymptoms = ["Maux de tête", "Fièvre", "Fatigue", "Douleur thoracique", "Nausées", "Toux", "Essoufflement"];
 
   function newSession() {
-    setMessages([{ role:"ai", text:"Nouvelle session. Décrivez vos symptômes en détail — localisation, intensité, durée — et je vous fournirai une analyse immédiate." }]);
-    setDiagResult(null);
+    setActiveSession(null);
+    setMessages([WELCOME_MSG]);
     setInput("");
     setAttachedFiles([]);
-    setActiveSession(null);
+    setDiagResultsMap(prev => {
+      const next = { ...prev };
+      delete next["_latest"];
+      localStorage.setItem("diagResultsMap", JSON.stringify(next));
+      return next;
+    });
     setTimeout(() => textareaRef.current?.focus(), 100);
   }
 
@@ -2166,17 +2342,38 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
 
   function pickSession(s) {
     setActiveSession(s.id);
-    setDiagResult(null);
-    const history = s.history || s.messages || [];
-    if (history.length) {
-      setMessages(history.map(h => ({
+    const cached = chatMessagesMap[String(s.id)];
+    if (cached?.length) {
+      setMessages(cached);
+      return;
+    }
+    const fromList = s.history || s.messages || [];
+    if (fromList.length) {
+      setMessages(fromList.map(h => ({
         role: h.role === "user" ? "user" : "ai",
         text: h.content || h.text || "",
         timestamp: h.timestamp,
       })));
-    } else {
-      setMessages([{ role:"ai", text:"Session chargée. Vous pouvez continuer la conversation." }]);
+      return;
     }
+    // No cache, no inline history — fetch from backend
+    setMessages([{ role:"ai", text:"Chargement de la conversation…", isStreaming: true }]);
+    api.getAISession(s.id)
+      .then(data => {
+        const hist = data?.history || [];
+        if (hist.length) {
+          setMessages(hist.map(h => ({
+            role: h.role === "user" ? "user" : "ai",
+            text: h.content || h.text || "",
+            timestamp: h.timestamp,
+          })));
+        } else {
+          setMessages([{ role:"ai", text:"Session chargée. Vous pouvez continuer la conversation." }]);
+        }
+      })
+      .catch(() => {
+        setMessages([{ role:"ai", text:"Session chargée. Vous pouvez continuer la conversation." }]);
+      });
   }
 
   const send = async (text) => {
@@ -2187,19 +2384,21 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
     const ts = new Date().toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" });
     setMessages(m => [...m, {
       role:"user",
-      text: msg || `📎 ${attachedFiles.length} fichier(s)`,
+      text: msg || `${attachedFiles.length} fichier(s)`,
       timestamp: ts,
     }]);
     setInput("");
     const filesToSend = [...attachedFiles];
     setAttachedFiles([]);
     setLoading(true);
-    setDiagResult(null);
     setCurrentAlert(null);
 
     const history = messages
       .filter(m => m.role !== "ai" || !m.text.includes("Nouvelle session"))
       .map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.text }));
+
+    // Track the real session key even when session_saved fires mid-stream
+    let currentSendKey = activeSession ? String(activeSession) : "_latest";
 
     setMessages(m => [...m, { role:"ai", text:"", isStreaming:true, timestamp: ts }]);
 
@@ -2232,7 +2431,27 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
           },
           (meta) => {
             if (meta.type === "session_saved") {
-              setActiveSession(meta.session_id);
+              const newId = meta.session_id;
+              currentSendKey = String(newId);
+              setActiveSession(newId);
+              // Migrate messages from _latest to real session key
+              setChatMessagesMap(prev => {
+                const latest = prev["_latest"] || [];
+                const next   = { ...prev };
+                delete next["_latest"];
+                if (latest.length) next[String(newId)] = latest;
+                localStorage.setItem("chatMessagesMap", JSON.stringify(next));
+                return next;
+              });
+              // Migrate diagResult from _latest to real session key
+              setDiagResultsMap(prev => {
+                const latestResult = prev["_latest"];
+                if (!latestResult) return prev;
+                const next = { ...prev, [String(newId)]: latestResult };
+                delete next["_latest"];
+                localStorage.setItem("diagResultsMap", JSON.stringify(next));
+                return next;
+              });
             } else {
               metaData = meta;
             }
@@ -2254,20 +2473,15 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
           || metaData?.recommended_specialist
           || null;
 
-        // Pick the disease with the highest probability for the confidence ring
-        const topDisease = metaData?.diseases?.length
-          ? [...metaData.diseases].sort((a, b) => (b.probability ?? 0) - (a.probability ?? 0))[0]
-          : null;
-        const confidenceVal = topDisease
-          ? Math.round(topDisease.probability ?? (topDisease.confidence ?? 0) * 100)
-          : null;
+        const topDisease = metaData?.diseases?.[0] || null;
 
-        setDiagResult({
+        saveDiagResult({
           urgency: urgencyKey,
-          confidence: confidenceVal,
-          diagnosis: topDisease?.name_fr || metaData?.diagnosis || null,
+          diagnosis: topDisease?.name_fr || topDisease?.name_en || metaData?.diagnosis || null,
+          diseases: metaData?.diseases || [],
           summary: aiText,
           tags: topDisease?.key_symptoms?.split(",").map(s => s.trim()).filter(Boolean) || [],
+          doctors: metaData?.recommended_doctors || [],
           recommendations: specialtyName ? [
             {
               color:c.blue,
@@ -2280,17 +2494,39 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
               action:"rdv",
             },
           ] : [],
-        });
+        }, currentSendKey);
       }
 
     } catch (err) {
       console.error("AI Error:", err);
-      // Clean up any stuck streaming message
       setMessages(m => {
         const last = m[m.length - 1];
         const base = last?.isStreaming ? m.slice(0, -1) : m;
         return [...base, { role:"ai", text:"Désolé, une erreur est survenue lors de l'analyse. Vérifiez votre connexion et réessayez." }];
       });
+      // Save partial result if meta was received before the error
+      if (metaData?.diseases?.length > 0) {
+        const rawUrgency = metaData?.urgency || "";
+        const urgencyKey = /urgent|high|élevé/i.test(rawUrgency) ? "high"
+          : /modéré|moderate|med|moyen/i.test(rawUrgency) ? "med" : "low";
+        const topDisease = metaData.diseases[0];
+        const specialtyName = metaData?.specialist?.specialty_fr || metaData?.specialist?.specialty_en || null;
+        saveDiagResult({
+          urgency: urgencyKey,
+          diagnosis: topDisease?.name_fr || topDisease?.name_en || null,
+          diseases: metaData.diseases,
+          summary: aiText || "",
+          tags: topDisease?.key_symptoms?.split(",").map(s => s.trim()).filter(Boolean) || [],
+          doctors: metaData.recommended_doctors || [],
+          recommendations: specialtyName ? [{
+            color: c.blue, title: specialtyName,
+            desc: urgencyKey === "high" ? "Consultation urgente recommandée — sous 24h"
+              : urgencyKey === "med" ? "Consultation recommandée cette semaine"
+              : "Consultation de suivi conseillée",
+            action: "rdv",
+          }] : [],
+        }, currentSendKey);
+      }
     } finally {
       setLoading(false);
       // Refresh sidebar sessions after each exchange
@@ -2466,7 +2702,7 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
                         <div style={{ width:36, height:36, borderRadius:"50%",
                           background: currentAlert.level === "critical" ? "#E24B4A" : "#EF9F27",
                           display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                          <span style={{ fontSize:18 }}>{currentAlert.level === "critical" ? "🚨" : "⚠️"}</span>
+                          {currentAlert.level === "critical" ? <ShieldAlert size={18} color="#fff" /> : <AlertTriangle size={18} color="#fff" />}
                         </div>
                         <div>
                           <p style={{ fontSize:14, fontWeight:500, margin:"0 0 4px",
@@ -2566,10 +2802,10 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
                 <span key={i} style={{ display:"flex", alignItems:"center", gap:4, fontSize:11,
                   padding:"3px 10px", borderRadius:999, border:`1px solid ${c.border}`,
                   color:c.txt, background:c.bg }}>
-                  📎 {f.name}
+                  {f.name}
                   <button onClick={() => setAttachedFiles(prev => prev.filter((_, idx) => idx !== i))}
                     style={{ marginLeft:4, opacity:.5, background:"none", border:"none",
-                      cursor:"pointer", color:c.txt, lineHeight:1 }}>✕</button>
+                      cursor:"pointer", color:c.txt, lineHeight:1 }}>×</button>
                 </span>
               ))}
             </div>
@@ -2578,7 +2814,7 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
       </div>
 
       {/* ── RIGHT: RESULTS PANEL ── */}
-      <div className="diag-scroll" style={{ flex:"0 0 300px", overflowY:"auto", padding:"14px 16px",
+      <div className="diag-scroll" style={{ flex:"0 0 380px", overflowY:"auto", padding:"16px 20px",
         display:"flex", flexDirection:"column", gap:14 }}>
 
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:2, flexShrink:0 }}>
@@ -2586,12 +2822,6 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
             <h2 style={{ fontSize:16, fontWeight:700, color:c.txt, marginBottom:2 }}>Résultats & Recommandations</h2>
             <p style={{ fontSize:11, color:c.txt3 }}>Basé sur votre dernière interaction</p>
           </div>
-          {diagResult && (
-            <span style={{ padding:"4px 12px", borderRadius:999, fontSize:10, fontWeight:600,
-              background:c.blueLight, color:c.blue, border:`1px solid ${c.blue}22` }}>
-              Score : {diagResult.confidence}% de confiance
-            </span>
-          )}
         </div>
 
         {!diagResult && !loading && (
@@ -2696,6 +2926,18 @@ function AppointmentsPage({
       appointmentRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, [selectedDoctor]);
+
+  // Pre-select doctor from AI diagnosis click
+  useEffect(() => {
+    const raw = localStorage.getItem("pendingBookDoctor");
+    if (!raw) return;
+    try {
+      const doc = JSON.parse(raw);
+      localStorage.removeItem("pendingBookDoctor");
+      setSelectedDoctor(doc);
+      setTab("finddoctor");
+    } catch { localStorage.removeItem("pendingBookDoctor"); }
+  }, []);
 
   // Removed auto-scroll downward block as requested.
 
@@ -3706,7 +3948,7 @@ function AppointmentsPage({
                     className="text-xs font-bold px-3 py-1.5 rounded-full border transition-all hover:opacity-70"
                     style={{ borderColor: c.border, color: c.txt2 }}
                   >
-                    ✕
+                    ×
                   </button>
                 )}
               </div>
@@ -3928,7 +4170,6 @@ function AppointmentsPage({
                               className="w-full px-4 py-2 text-xs text-left transition-all hover:opacity-80 flex items-center justify-between"
                               style={{ background: specFilter === s ? c.blue + "18" : "transparent", color: specFilter === s ? c.blue : c.txt, fontWeight: specFilter === s ? 700 : 400 }}>
                               {s}
-                              {specFilter === s && <span>✓</span>}
                             </button>
                           ))}
                         </div>
@@ -3950,7 +4191,7 @@ function AppointmentsPage({
                       </span>
                       {selectedDate && (
                         <button onClick={(e) => { e.stopPropagation(); setSelectedDate(""); }}
-                          className="text-[10px] hover:opacity-70 relative z-10" style={{ color: c.txt3 }}>✕</button>
+                          className="text-[10px] hover:opacity-70 relative z-10" style={{ color: c.txt3 }}>×</button>
                       )}
                       <input ref={dateInputRef} type="date" value={selectedDate}
                         onChange={(e) => setSelectedDate(e.target.value)}
@@ -5116,7 +5357,7 @@ function PharmacyPage({ dk }) {
                         )}
                         {ph.cnas_coverage && (
                           <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full" style={{ background: c.blueLight, color: c.blue }}>
-                            Chifa ✓
+                            Chifa
                           </span>
                         )}
                       </div>
@@ -5397,6 +5638,9 @@ function CareTakerPage({ dk }) {
   const [emergencyContactFilled, setEmergencyContactFilled] = useState(false);
   const [emergencyPhone, setEmergencyPhone]       = useState("");
   const [homeAddress, setHomeAddress]             = useState("");
+  const [requestModal, setRequestModal]           = useState(null);   // ct object en attente de confirmation
+  const [requestMessage, setRequestMessage]       = useState("");
+  const [sendingRequest, setSendingRequest]       = useState(false);
 
   // ── Recherche & filtres ──
   const searchTerm = globalSearch;
@@ -5524,18 +5768,29 @@ function CareTakerPage({ dk }) {
     setReviewModal(null); setReviewStars(0); setReviewHover(0); setReviewComment("");
   };
 
-  const handleAssign = async (ct) => {
+  const openRequestModal = (ct) => {
+    setRequestModal(ct);
+    setRequestMessage("");
+  };
+
+  const handleAssign = async () => {
+    if (!requestModal) return;
+    setSendingRequest(true);
     try {
       await api.createCareRequest({
-        caretaker: ct.id,
-        patient_message: "",
+        caretaker: requestModal.id,
+        patient_message: requestMessage.trim(),
       });
-      setPendingRequest(ct);
+      setPendingRequest(requestModal);
       setIsAccepted(false);
       setEmergencyContactFilled(false);
+      setRequestModal(null);
+      setRequestMessage("");
       setTab("assigned");
     } catch (err) {
       setCtError(err.message || "Erreur lors de l'envoi de la demande.");
+    } finally {
+      setSendingRequest(false);
     }
   };
 
@@ -5561,6 +5816,80 @@ function CareTakerPage({ dk }) {
 
   return (
     <>
+      {/* ── Modal Envoi de demande avec message ── */}
+      {requestModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}
+          onClick={(e) => { if (e.target === e.currentTarget) { setRequestModal(null); setRequestMessage(""); } }}>
+          <div className="rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl border"
+            style={{ background: c.card, borderColor: c.border }}>
+
+            {/* Header */}
+            <div className="p-5 border-b flex items-center justify-between" style={{ borderColor: c.border }}>
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-base text-white"
+                  style={{ background: requestModal.color || c.blue }}>
+                  {requestModal.initials}
+                </div>
+                <div>
+                  <h2 className="text-base font-bold" style={{ color: c.txt }}>{requestModal.name}</h2>
+                  <p className="text-xs font-medium" style={{ color: c.txt3 }}>{requestModal.role} · {requestModal.exp}</p>
+                </div>
+              </div>
+              <button onClick={() => { setRequestModal(null); setRequestMessage(""); }}
+                className="w-8 h-8 rounded-full flex items-center justify-center hover:opacity-70"
+                style={{ background: c.blueLight }}>
+                <X size={15} style={{ color: c.txt3 }} />
+              </button>
+            </div>
+
+            {/* Corps */}
+            <div className="p-5 space-y-4">
+              <div className="p-3 rounded-xl text-xs leading-relaxed"
+                style={{ background: c.blue + "10", color: c.blue, border: `1px solid ${c.blue}20` }}>
+                Décrivez vos besoins en détail pour aider le garde-malade à évaluer votre demande.
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt3 }}>
+                  Vos besoins / Message *
+                </label>
+                <textarea
+                  rows={5}
+                  value={requestMessage}
+                  onChange={(e) => setRequestMessage(e.target.value)}
+                  placeholder={"Décrivez votre situation : âge du patient, pathologies, type d'aide nécessaire, disponibilité souhaitée, durée de la mission...\n\nEx : Ma mère, 75 ans, souffre d'arthrose et d'hypertension. Elle a besoin d'aide quotidienne pour la toilette, la prise de médicaments et les déplacements médicaux. Présence souhaitée de 8h à 14h du lundi au samedi."}
+                  className="w-full px-4 py-3 rounded-xl text-sm outline-none border transition-all resize-none leading-relaxed"
+                  style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: requestMessage.trim().length >= 20 ? c.green : requestMessage.length > 0 ? c.amber : c.border, color: c.txt }}
+                />
+                <p className="text-xs mt-1 text-right" style={{ color: requestMessage.trim().length < 20 ? c.amber : c.green }}>
+                  {requestMessage.trim().length} caractères {requestMessage.trim().length < 20 ? `(minimum 20)` : "✓"}
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 pb-5 flex gap-3">
+              <button
+                onClick={handleAssign}
+                disabled={requestMessage.trim().length < 20 || sendingRequest}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ background: c.blue }}>
+                {sendingRequest
+                  ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  : <Send size={15} />}
+                Envoyer la demande
+              </button>
+              <button onClick={() => { setRequestModal(null); setRequestMessage(""); }}
+                className="px-5 py-3 rounded-xl text-sm font-semibold border hover:opacity-80"
+                style={{ borderColor: c.border, color: c.txt2 }}>
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Modal Avis Garde-Malade ── */}
       {reviewModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"
@@ -5724,7 +6053,7 @@ function CareTakerPage({ dk }) {
               </div>
             </div>
             <div className="px-6 pb-5 flex gap-3">
-              <button onClick={() => { handleAssign(profileModal); setProfileModal(null); }}
+              <button onClick={() => { openRequestModal(profileModal); setProfileModal(null); }}
                 className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white hover:opacity-90"
                 style={{ background: c.blue }}>
                 Envoyer une demande
@@ -5836,7 +6165,7 @@ function CareTakerPage({ dk }) {
                   <p className="text-white/80 text-sm">{pendingRequest.role} · ⭐ {pendingRequest.rating}</p>
                 </div>
                 <span className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.25)", color: "#fff" }}>
-                  ✓ Offre Acceptée
+                  Offre Acceptée
                 </span>
               </div>
 
@@ -5950,7 +6279,7 @@ function CareTakerPage({ dk }) {
                     </button>
                   </div>
                 </div>
-                <span className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.25)", color: "#fff" }}>✓ Assigné</span>
+                <span className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.25)", color: "#fff" }}>Assigné</span>
               </div>
 
               {/* Info urgence + adresse */}
@@ -6149,9 +6478,9 @@ function CareTakerPage({ dk }) {
                         style={{ color: c.txt2, borderColor: c.border }}>
                         {t('view_profile')}
                       </button>
-                      <button onClick={() => handleAssign(ct)}
+                      <button onClick={() => !isPending && openRequestModal(ct)}
                         className="text-xs font-bold px-4 py-2 rounded-xl text-white shadow-md active:scale-95 hover:opacity-90"
-                        style={{ background: isPending ? c.amber : c.blue }}>
+                        style={{ background: isPending ? c.amber : c.blue, opacity: isPending ? 0.8 : 1, cursor: isPending ? 'default' : 'pointer' }}>
                         {isPending ? `⏳ ${t('pending')}` : t('assign')}
                       </button>
                     </div>
@@ -6460,7 +6789,7 @@ function SettingsPage(props) {
         type: "success",
         msg: nameChanged
           ? "Profil mis à jour. Demande de changement de nom envoyée à l'administrateur."
-          : "Profil mis à jour avec succès ✅",
+          : "Profil mis à jour avec succès",
       });
 
       setIdentityReason("");
@@ -6471,7 +6800,7 @@ function SettingsPage(props) {
         if (nameChanged || emailChanged) window.location.reload();
       }, 4000);
     } catch (err) {
-      setStatus({ type: "error", msg: err?.message || "Erreur lors de la mise à jour ❌" });
+      setStatus({ type: "error", msg: err?.message || "Erreur lors de la mise à jour" });
       setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
     } finally {
       setIsSaving(false);
@@ -6483,11 +6812,11 @@ function SettingsPage(props) {
       setIsSavingPwd(true);
       setPwdStatus({ type: "", msg: "" });
       await api.changePassword(pwdForm);
-      setPwdStatus({ type: "success", msg: "Mot de passe modifié ✅" });
+      setPwdStatus({ type: "success", msg: "Mot de passe modifié" });
       setPwdForm({ currentPassword: "", newPassword: "" });
       setTimeout(() => setPwdStatus({ type: "", msg: "" }), 4000);
     } catch (err) {
-      setPwdStatus({ type: "error", msg: "Erreur lors du changement ❌" });
+      setPwdStatus({ type: "error", msg: "Erreur lors du changement" });
       setTimeout(() => setPwdStatus({ type: "", msg: "" }), 4000);
     } finally {
       setIsSavingPwd(false);
@@ -6774,8 +7103,8 @@ function SettingsPage(props) {
             </p>
             <div className="flex gap-2 flex-wrap">
               {[
-                { id: "fr", label: "Français", flag: "🇫🇷" },
-                { id: "en", label: "English", flag: "🇬🇧" }
+                { id: "fr", label: "Français" },
+                { id: "en", label: "English" }
               ].map((l) => (
                 <button
                   key={l.id}
@@ -6787,7 +7116,7 @@ function SettingsPage(props) {
                     borderColor: lang === l.id ? c.blue : c.border,
                   }}
                 >
-                  {l.flag} {l.label}
+                  {l.label}
                 </button>
               ))}
             </div>
@@ -6882,7 +7211,7 @@ export default function PatientDashboard({ onLogout }) {
         const notifsArray = Array.isArray(freshNotifs) ? freshNotifs : (freshNotifs?.results || []);
         setNotifications(notifsArray);
       } catch {}
-    }, 15_000);
+    }, 60_000);
     return () => clearInterval(poll);
   }, []);
 

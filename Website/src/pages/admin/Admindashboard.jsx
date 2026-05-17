@@ -2821,13 +2821,13 @@ function AuditPage({ dk }) {
                     </p>
                     <div className="flex items-center gap-3 mt-1 flex-wrap">
                       <p className="text-xs" style={{ color: c.txt2 }}>
-                        👤 {log.user}
+                        {log.user}
                       </p>
                       <p className="text-xs" style={{ color: c.txt3 }}>
-                        🌐 {log.ip}
+                        {log.ip}
                       </p>
                       <p className="text-xs" style={{ color: c.txt3 }}>
-                        ⏱ {log.time}
+                        {log.time}
                       </p>
                     </div>
                   </div>
@@ -2933,8 +2933,8 @@ function AdminSettingsPage({ dk, onToggleDark }) {
               </p>
               <div className="flex gap-2">
                 {[
-                  { id: 'fr', label: "Français", flag: "🇫🇷" },
-                  { id: 'en', label: "English", flag: "🇬🇧" }
+                  { id: 'fr', label: "Français" },
+                  { id: 'en', label: "English" }
                 ].map(l => (
                   <button
                     key={l.id}
@@ -2946,7 +2946,6 @@ function AdminSettingsPage({ dk, onToggleDark }) {
                       borderColor: lang === l.id ? c.blue : c.border
                     }}
                   >
-                    <span>{l.flag}</span>
                     <span>{l.label}</span>
                   </button>
                 ))}

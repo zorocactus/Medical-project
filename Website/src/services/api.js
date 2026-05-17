@@ -22,11 +22,16 @@ const saveTokens = ({ access, refresh, role }) => {
   if (role) localStorage.setItem("mock_role", role); // Stockage temporaire pour le mock
 };
 
-/** Supprime les tokens (logout) */
+/** Supprime les tokens et l'historique de chat (logout) */
 const clearTokens = () => {
   localStorage.removeItem("access_token");
   localStorage.removeItem("refresh_token");
   localStorage.removeItem("mock_role");
+  // Isolation des données patient : vider l'historique IA au logout
+  // pour empêcher qu'un autre compte voie les conversations du précédent
+  localStorage.removeItem("aiActiveSession");
+  localStorage.removeItem("chatMessagesMap");
+  localStorage.removeItem("diagResultsMap");
 };
 
 /**

@@ -79,7 +79,7 @@ export function DataProvider({ children }) {
       } catch { /* silencieux */ }
     };
     fetchUnread();
-    chatPollRef.current = setInterval(fetchUnread, 10_000);
+    chatPollRef.current = setInterval(fetchUnread, 60_000);
     return () => clearInterval(chatPollRef.current);
   }, [userData?.role]);
 
@@ -142,7 +142,8 @@ export function DataProvider({ children }) {
   const refreshGmTreatments = useCallback(async () => {
     try {
       const data = await api.getMedicationSchedules();
-      setGmTreatments(Array.isArray(data) ? data.map(normalizeSchedule) : []);
+      const list = Array.isArray(data) ? data : (data?.results || []);
+      setGmTreatments(list.map(normalizeSchedule));
     } catch (e) {
       setGmTreatments([]);
       addErrorNotification("Impossible de charger les plans médicamenteux : " + e.message);
@@ -243,7 +244,7 @@ export function DataProvider({ children }) {
 
   async function addPatientToTreatments(patient) {
     // patient doit avoir care_request_id (depuis gmPatients)
-    if (gmTreatments.find(t => t.patient_id === patient.id)) return;
+    if (gmTreatments.find(t => t.patient_id === (patient.user_id || patient.id))) return;
 
     try {
       const created = await api.createMedicationSchedule({

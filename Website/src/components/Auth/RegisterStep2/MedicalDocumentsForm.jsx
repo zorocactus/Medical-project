@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import {
   Stethoscope,
   Pill,
@@ -696,9 +696,10 @@ export default function MedicalDocumentsForm({
           }}
           className="fixed bottom-4 left-4 z-50 bg-black/80 text-[#8AAEE0] text-[10px] px-3 py-1.5 rounded border border-[#2A4A7F] hover:bg-[#173253] font-mono cursor-pointer"
         >
-          ⚡ DEV: Add Dummy Diploma
+          DEV: Add Dummy Diploma
         </button>
       )}
     </div>
   );
 }
+

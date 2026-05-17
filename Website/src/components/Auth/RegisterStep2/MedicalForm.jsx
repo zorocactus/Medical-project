@@ -1,4 +1,4 @@
-import PersonalInfoForm from "./PersonalInfoForm";
+﻿import PersonalInfoForm from "./PersonalInfoForm";
 
 export const MEDICAL_STEPS = [
   { key: "auth.register.steps.profile" },
@@ -27,3 +27,4 @@ export default function MedicalForm({ onComplete, onBack, savedData }) {
     />
   );
 }
+

@@ -403,7 +403,7 @@ function RoleRouter() {
 
 // ─── Main Router ──────────────────────────────────────────────────────────────
 export default function AppRouter() {
-  // ⚠️ Tous les hooks DOIVENT être appelés inconditionnellement, avant tout return.
+  // Tous les hooks DOIVENT être appelés inconditionnellement, avant tout return.
   // (rules-of-hooks) — sinon l'ordre des hooks change selon le hash et React crashe.
   const { isAuthenticated, loginWithData } = useAuth();
   const [authMode, setAuthMode] = useState(null); // null = landing, "login" | "register"
@@ -415,7 +415,7 @@ export default function AppRouter() {
   }
 
   // =========================================================================
-  // ⚡ BYPASS RAPIDE POUR TESTS (Décommenter pour utiliser) ⚡
+  // BYPASS RAPIDE POUR TESTS (Décommenter pour utiliser)
   // =========================================================================
 
   const FORCE_TEST = false; // Mettre à true pour activer le bypass
@@ -480,7 +480,7 @@ export default function AppRouter() {
     return (
       <>
         {ROLE_MAP[forcedRole]}
-        {/* ⚡ Dev Menu Flottant */}
+        {/* Dev Menu Flottant */}
         <div className="fixed bottom-4 right-4 z-[9999] flex gap-2 p-2 bg-[#0D2644] rounded-2xl shadow-2xl border border-white/10">
           {devRoles.map((role) => (
             <button

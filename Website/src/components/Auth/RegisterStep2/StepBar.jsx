@@ -1,4 +1,4 @@
-import { Check } from "lucide-react";
+﻿import { Check } from "lucide-react";
 import { useTheme } from "../../../context/ThemeContext";
 import { useLanguage } from "../../../context/LanguageContext";
 
@@ -70,3 +70,4 @@ export default function StepBar({ steps, current }) {
     </div>
   );
 }
+
