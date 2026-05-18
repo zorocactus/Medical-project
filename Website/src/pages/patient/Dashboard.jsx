@@ -5661,8 +5661,12 @@ function CareTakerPage({ dk }) {
   const [ctLoading, setCtLoading] = useState(true);
   const [ctError, setCtError] = useState("");
 
+  // ── Plan médicamenteux + tâches (mission acceptée) ──
+  const [medicationSchedules, setMedicationSchedules] = useState([]);
+  const [patientTasks, setPatientTasks] = useState([]);
+  const [missionDataLoading, setMissionDataLoading] = useState(false);
+
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const { userData } = useData();
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -5704,11 +5708,12 @@ function CareTakerPage({ dk }) {
     Promise.all([
       api.getCareRequests().catch(() => []),
       api.getMedicalProfile().catch(() => null),
-    ]).then(([reqData, medData]) => {
-      const existingPhone = medData?.emergency_contact_phone || "";
-      const existingAddress = userData?.address || "";
+      api.getMe().catch(() => null),
+    ]).then(([reqData, medData, meData]) => {
+      const existingPhone   = medData?.emergency_contact_phone || "";
+      const existingAddress = meData?.address || "";
 
-      if (existingPhone) setEmergencyPhone(existingPhone);
+      if (existingPhone)   setEmergencyPhone(existingPhone);
       if (existingAddress) setHomeAddress(existingAddress);
 
       const results = Array.isArray(reqData) ? reqData : (reqData?.results || []);
@@ -5716,6 +5721,7 @@ function CareTakerPage({ dk }) {
         const req = results[0];
         setPendingRequest({
           id: req.caretaker,
+          care_request_id: req.id,
           name: req.caretaker_name,
           initials: (req.caretaker_name?.[0] || "C").toUpperCase(),
           color: "#4A6FA5",
@@ -5742,6 +5748,19 @@ function CareTakerPage({ dk }) {
     });
   }, []);
 
+  // ── Charge plan médicamenteux + tâches quand mission finalisée ──
+  useEffect(() => {
+    if (!isAccepted || !emergencyContactFilled) return;
+    setMissionDataLoading(true);
+    Promise.all([
+      api.getMedicationSchedules().catch(() => []),
+      api.getCaretakerTasks().catch(() => []),
+    ]).then(([schedData, tasksData]) => {
+      setMedicationSchedules(Array.isArray(schedData) ? schedData : (schedData?.results || []));
+      setPatientTasks(Array.isArray(tasksData) ? tasksData : (tasksData?.results || []));
+    }).finally(() => setMissionDataLoading(false));
+  }, [isAccepted, emergencyContactFilled]);
+
   // ── Filtre des gardes-malades ──
   const filteredCT = caretakers.filter((ct) => {
     const q = searchTerm.toLowerCase();
@@ -5765,6 +5784,13 @@ function CareTakerPage({ dk }) {
       ...prev,
       [reviewModal.id]: [{ stars: reviewStars, comment: reviewComment.trim() || null, date: new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }) }, ...(prev[reviewModal.id] || [])],
     }));
+    if (reviewModal.care_request_id) {
+      api.submitCaretakerReview({
+        care_request: reviewModal.care_request_id,
+        rating: reviewStars,
+        comment: reviewComment.trim() || "",
+      }).catch(() => {});
+    }
     setReviewModal(null); setReviewStars(0); setReviewHover(0); setReviewComment("");
   };
 
@@ -6347,6 +6373,114 @@ function CareTakerPage({ dk }) {
                   </div>
                 </div>
               </Card>
+
+              {/* ── Plan médicamenteux ── */}
+              <Card dk={dk}>
+                <p className="text-xs font-bold uppercase tracking-wide mb-4" style={{ color: c.txt3 }}>Plan Médicamenteux</p>
+                {missionDataLoading ? (
+                  <div className="flex items-center justify-center py-6">
+                    <span className="w-5 h-5 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                  </div>
+                ) : medicationSchedules.length === 0 ? (
+                  <p className="text-sm text-center py-4 italic" style={{ color: c.txt3 }}>
+                    Aucun plan médicamenteux configuré par votre garde-malade.
+                  </p>
+                ) : medicationSchedules.map((sch, si) => {
+                  const slots = [
+                    { key: "morning",   label: "Matin",      color: c.amber },
+                    { key: "afternoon", label: "Après-midi", color: c.blue  },
+                    { key: "evening",   label: "Soir",       color: c.green },
+                  ];
+                  const hasMeds = slots.some(s => (sch.medications?.[s.key] || []).length > 0);
+                  if (!hasMeds) return null;
+                  return (
+                    <div key={si} className={si > 0 ? "mt-5 pt-5 border-t" : ""} style={{ borderColor: c.border }}>
+                      {sch.condition && (
+                        <p className="text-xs font-semibold mb-3" style={{ color: c.txt2 }}>
+                          Pathologie : <span style={{ color: c.blue }}>{sch.condition}</span>
+                        </p>
+                      )}
+                      <div className="space-y-3">
+                        {slots.map(({ key, label, color }) => {
+                          const meds = sch.medications?.[key] || [];
+                          if (meds.length === 0) return null;
+                          return (
+                            <div key={key} className="rounded-xl p-3 border" style={{ background: color + "08", borderColor: color + "25" }}>
+                              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color }}>{label}</p>
+                              <div className="space-y-1.5">
+                                {meds.map((med, idx) => (
+                                  <div key={idx} className="flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
+                                    <span className="text-sm font-medium" style={{ color: c.txt }}>{med.name}</span>
+                                    {med.dosage && <span className="text-xs" style={{ color: c.txt3 }}>{med.dosage}</span>}
+                                    {med.time && (
+                                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md ml-auto" style={{ background: color + "20", color }}>
+                                        {med.time}
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </Card>
+
+              {/* ── Tâches planifiées ── */}
+              <Card dk={dk}>
+                <p className="text-xs font-bold uppercase tracking-wide mb-4" style={{ color: c.txt3 }}>Tâches Planifiées</p>
+                {missionDataLoading ? (
+                  <div className="flex items-center justify-center py-6">
+                    <span className="w-5 h-5 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                  </div>
+                ) : patientTasks.length === 0 ? (
+                  <p className="text-sm text-center py-4 italic" style={{ color: c.txt3 }}>
+                    Aucune tâche planifiée par votre garde-malade.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {patientTasks.map((task, i) => {
+                      const isDone = task.status === 'done';
+                      return (
+                        <div key={task.id || i}
+                          className="flex items-center gap-3 px-4 py-3 rounded-xl border"
+                          style={{ background: isDone ? c.green + "08" : (dk ? "#1A2333" : "#F8FAFC"), borderColor: isDone ? c.green + "30" : c.border }}>
+                          <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0"
+                            style={{ borderColor: isDone ? c.green : c.txt3, background: isDone ? c.green : "transparent" }}>
+                            {isDone && (
+                              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                                <path d="M2 5l2.5 2.5L8 3" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate"
+                              style={{ color: c.txt, textDecoration: isDone ? "line-through" : "none", opacity: isDone ? 0.6 : 1 }}>
+                              {task.title}
+                            </p>
+                            {task.due_date && (
+                              <p className="text-[10px] mt-0.5" style={{ color: c.txt3 }}>
+                                Échéance : {task.due_date}
+                              </p>
+                            )}
+                          </div>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
+                            style={isDone
+                              ? { background: c.green + "15", color: c.green }
+                              : { background: c.amber + "15", color: c.amber }}>
+                            {isDone ? "Fait" : "En cours"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </Card>
+
             </div>
           )}
         </>

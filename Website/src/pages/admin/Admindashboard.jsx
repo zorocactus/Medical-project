@@ -55,7 +55,6 @@ import {
   Copy,
   Eye,
   Pencil,
-  Pin,
 } from "lucide-react";
 
 // ─── Shared theme & primitives ────────────────────────────────────────────────
@@ -70,10 +69,10 @@ import { Card, Badge } from "./AdminPrimitives.jsx";
 // ─── New modular views ────────────────────────────────────────────────────────
 import AdminSidebar from "./views/AdminSidebar";
 import OverviewPage from "./views/Overview";
-import PatientsView from "./views/users/PatientsView";
-import DoctorsView from "./views/users/DoctorsView";
-import CaretakersView from "./views/users/CaretakersView";
-import PharmacistsView from "./views/users/PharmacistsView";
+import PatientsView, { PatientDrawer, EditPatientModal } from "./views/users/PatientsView";
+import DoctorsView, { DoctorDrawer, EditDoctorModal } from "./views/users/DoctorsView";
+import CaretakersView, { CaretakerDrawer, EditCaretakerModal } from "./views/users/CaretakersView";
+import PharmacistsView, { PharmacistDrawer, EditPharmacistModal } from "./views/users/PharmacistsView";
 import ScheduleView from "./views/ScheduleView";
 import VisitQueueView from "./views/VisitQueueView";
 import ReportsView from "./views/ReportsView";
@@ -793,8 +792,141 @@ const HMS_USER_STATUS = {
   },
 };
 
+// ─── User detail modal ────────────────────────────────────────────────────────
+function UserDetailModal({ user, dk, onClose, onEdit, onSuspend }) {
+  const { t } = useLanguage();
+  const c = getAdminTheme(dk);
+  const sm = HMS_USER_STATUS[user.status] ?? HMS_USER_STATUS.active;
+  const initials = user.name.split(" ").map(n => n[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "??";
+  const isSuspended = user.status === "suspended";
+
+  const row = (label, value, custom) => (
+    <div key={label} className="flex items-center justify-between py-2.5 border-b last:border-0" style={{ borderColor: c.border }}>
+      <span className="text-xs font-semibold opacity-50" style={{ color: c.txt }}>{label}</span>
+      {custom || <span className="text-xs font-medium" style={{ color: c.txt2 }}>{value || "—"}</span>}
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="rounded-2xl border w-full max-w-md flex flex-col shadow-2xl overflow-hidden"
+        style={{ background: c.card, borderColor: c.border }} onClick={e => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b flex justify-between items-center" style={{ borderColor: c.border }}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
+              style={{ background: hmsAvatarColor(user.name) }}>
+              {initials}
+            </div>
+            <div>
+              <h3 className="font-black text-sm" style={{ color: c.txt }}>{user.name}</h3>
+              <p className="text-[10px] font-bold opacity-40 uppercase">{t(`role_${user.role}`) || user.role} · #{user.id}</p>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ color: c.txt3 }} className="p-2 hover:bg-black/5 rounded-full transition-all"><X size={18} /></button>
+        </div>
+        <div className="px-6 py-2">
+          {row("Email", user.email)}
+          {row(t('table_phone') || "Téléphone", user.phone)}
+          {row(t('wilaya_label') || "Wilaya", user.wilaya)}
+          {row(t('table_status') || "Statut", null,
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold"
+              style={{ background: sm.bg, color: sm.color }}>
+              {t(`status_${user.status}`) || sm.label}
+            </span>
+          )}
+          {row(t('joined') || "Membre depuis", user.joined)}
+        </div>
+        <div className="px-6 pb-6 pt-4 flex gap-3">
+          <button onClick={() => { onEdit(user); onClose(); }}
+            className="flex-1 py-2.5 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-2 hover:opacity-90 transition-all"
+            style={{ background: c.blue }}>
+            <Pencil size={13} /> {t('edit_btn') || "Modifier"}
+          </button>
+          <button onClick={() => { onSuspend(user.id); onClose(); }}
+            className="flex-1 py-2.5 rounded-xl text-xs font-bold border flex items-center justify-center gap-2 hover:opacity-80 transition-all"
+            style={{ borderColor: isSuspended ? c.green : c.red, color: isSuspended ? c.green : c.red }}>
+            <Lock size={13} />
+            {isSuspended ? (t('unban_btn') || "Réactiver") : (t('ban_btn') || "Suspendre")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── User edit modal ──────────────────────────────────────────────────────────
+function UserEditModal({ user, dk, onClose, onSaved }) {
+  const { t } = useLanguage();
+  const c = getAdminTheme(dk);
+  const parts = user.name.trim().split(" ");
+  const [form, setForm] = useState({
+    first_name: parts[0] || "",
+    last_name: parts.slice(1).join(" ") || "",
+    phone: user.phone === "—" ? "" : (user.phone || ""),
+    wilaya: user.wilaya === "—" ? "" : (user.wilaya || ""),
+  });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const field = (label, key) => (
+    <div className="space-y-1">
+      <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1" style={{ color: c.txt }}>{label}</label>
+      <input value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
+        className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition-all"
+        style={{ background: dk ? "rgba(255,255,255,0.03)" : "#F8FAFC", borderColor: c.border, color: c.txt }} />
+    </div>
+  );
+
+  const handleSave = async () => {
+    setSaving(true); setErr(null);
+    try {
+      await api.updateAdminUser(user.id, {
+        first_name: form.first_name.trim(),
+        last_name: form.last_name.trim(),
+        phone: form.phone.trim(),
+        wilaya: form.wilaya.trim(),
+      });
+      onSaved({ ...user, name: `${form.first_name} ${form.last_name}`.trim() || user.name, phone: form.phone || "—", wilaya: form.wilaya || "—" });
+      onClose();
+    } catch (e) {
+      setErr(e.message || "Erreur lors de la sauvegarde.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="rounded-2xl border w-full max-w-md flex flex-col shadow-2xl overflow-hidden"
+        style={{ background: c.card, borderColor: c.border }} onClick={e => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b flex justify-between items-center" style={{ borderColor: c.border }}>
+          <h3 className="font-black text-sm" style={{ color: c.txt }}>Modifier · {user.name}</h3>
+          <button onClick={onClose} style={{ color: c.txt3 }} className="p-2 hover:bg-black/5 rounded-full transition-all"><X size={18} /></button>
+        </div>
+        <div className="p-6 grid grid-cols-2 gap-4">
+          {field(t('first_name_label') || "Prénom", "first_name")}
+          {field(t('last_name_label') || "Nom", "last_name")}
+          <div className="col-span-2">{field(t('phone_number') || "Téléphone", "phone")}</div>
+          <div className="col-span-2">{field(t('wilaya_label') || "Wilaya", "wilaya")}</div>
+        </div>
+        {err && <p className="px-6 pb-2 text-xs font-semibold" style={{ color: c.red }}>{err}</p>}
+        <div className="px-6 pb-6 flex gap-3">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-xs font-bold border hover:opacity-80 transition-all"
+            style={{ borderColor: c.border, color: c.txt2 }}>{t('cancel_appointment') || "Annuler"}</button>
+          <button onClick={handleSave} disabled={saving}
+            className="flex-1 py-2.5 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60 hover:opacity-90 transition-all"
+            style={{ background: c.blue }}>
+            {saving && <RefreshCw size={12} className="animate-spin" />}
+            {t('save_changes_btn') || "Enregistrer"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Row action dropdown
-function UserRowMenu({ user, onSuspend, dk }) {
+function UserRowMenu({ user, onSuspend, onView, onEdit, dk }) {
   const { t } = useLanguage();
   const c = getAdminTheme(dk);
   const [open, setOpen] = useState(false);
@@ -812,20 +944,11 @@ function UserRowMenu({ user, onSuspend, dk }) {
   const isSuspended = user.status === "suspended";
 
   const actions = [
-    {
-      label: t('copy_id') || "Copy ID",
-      icon: Copy,
-      action: () => navigator.clipboard?.writeText(String(user.id)),
-    },
-    { label: t('view_btn') || "View", icon: Eye, action: () => {} },
-    { label: t('edit_btn') || "Edit", icon: Pencil, action: () => {} },
-    {
-      label: isSuspended ? (t('unban_btn') || "Unban") : (t('ban_btn') || "Ban"),
-      icon: Lock,
-      danger: true,
-      action: () => onSuspend(user.id),
-    },
-    { label: t('pin_note') || "Pin Note", icon: Pin, action: () => {} },
+    { label: t('copy_id') || "Copier ID",  icon: Copy,   action: () => navigator.clipboard?.writeText(String(user.id)) },
+    { label: t('view_btn') || "Voir",       icon: Eye,    action: () => onView(user) },
+    { label: t('edit_btn') || "Modifier",   icon: Pencil, action: () => onEdit(user) },
+    { label: isSuspended ? (t('unban_btn') || "Réactiver") : (t('ban_btn') || "Suspendre"),
+      icon: Lock, danger: true, action: () => onSuspend(user.id) },
   ];
 
   return (
@@ -844,7 +967,7 @@ function UserRowMenu({ user, onSuspend, dk }) {
         <div
           className="absolute right-0 top-8 z-50 rounded-lg border shadow-2xl py-1 w-44 overflow-hidden"
           style={{
-            background: c.surface,
+            background: c.card,
             borderColor: c.border,
             boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
           }}
@@ -871,6 +994,78 @@ function UserRowMenu({ user, onSuspend, dk }) {
 
 const HMS_PAGE_SIZE = 10;
 
+// ─── Role helpers for UtilisateursPage ───────────────────────────────────────
+const ROLE_AVATAR_GRADIENT = {
+  patient:    "from-blue-500 to-blue-700",
+  doctor:     "from-green-500 to-green-700",
+  caretaker:  "from-indigo-500 to-indigo-700",
+  pharmacist: "from-pink-500 to-rose-700",
+  admin:      "from-amber-500 to-orange-600",
+};
+
+function roleBadgeStyle(role, c) {
+  const map = {
+    patient:    { bg: c.blueFaint, color: c.blue },
+    doctor:     { bg: c.greenBg,   color: c.green },
+    caretaker:  { bg: c.purpleBg, color: c.purple },
+    pharmacist: { bg: c.amberBg,   color: c.amber },
+    admin:      { bg: c.redBg,     color: c.red },
+  };
+  return map[role] ?? { bg: c.header, color: c.txt3 };
+}
+
+function roleDetail(u) {
+  if (u.role === "doctor")     return u.specialty || null;
+  if (u.role === "caretaker")  return u.specialty || null;
+  if (u.role === "pharmacist") return u.pharmacy_name || null;
+  if (u.role === "patient")    return u.blood_type ? `Groupe ${u.blood_type}` : null;
+  return null;
+}
+
+// ─── Role-aware drawer (dispatches to the right full-featured drawer) ──────────
+function RoleDrawer({ user, dk, onClose, onEdit, onRefresh }) {
+  const toggle = async () => { try { await api.toggleSuspendUser(user.id); } catch (_) {} onRefresh(); onClose(); };
+  const verify = async () => { try { await api.verifyUser(user.id); } catch (_) {} onRefresh(); onClose(); };
+  const sharedProps = { dk, onClose, onEdit, onToggleStatus: toggle };
+
+  if (user.role === "patient")
+    return <PatientDrawer patient={user} {...sharedProps} />;
+  if (user.role === "doctor")
+    return <DoctorDrawer doctor={user} {...sharedProps} onVerify={verify} />;
+  if (user.role === "caretaker")
+    return <CaretakerDrawer user={user} {...sharedProps} onVerify={verify} />;
+  if (user.role === "pharmacist")
+    return <PharmacistDrawer user={user} {...sharedProps} onVerify={verify} />;
+  // fallback: generic modal
+  return (
+    <UserDetailModal user={user} dk={dk} onClose={onClose}
+      onEdit={onEdit} onSuspend={() => { toggle(); }} />
+  );
+}
+
+// ─── Role-aware edit modal ────────────────────────────────────────────────────
+function RoleEditModal({ user, dk, onClose, onRefresh }) {
+  const save = async (form) => {
+    try { await api.updateAdminUser(user.id, form); } catch (_) {}
+    onRefresh();
+    onClose();
+  };
+
+  if (user.role === "patient")
+    return <EditPatientModal patient={user} dk={dk} onClose={onClose} onSave={save} />;
+  if (user.role === "doctor")
+    return <EditDoctorModal doctor={user} dk={dk} onClose={onClose} onSave={save} />;
+  if (user.role === "caretaker")
+    return <EditCaretakerModal user={user} dk={dk} onClose={onClose} onSave={save} />;
+  if (user.role === "pharmacist")
+    return <EditPharmacistModal user={user} dk={dk} onClose={onClose} onSave={save} />;
+  // fallback: generic edit
+  return (
+    <UserEditModal user={user} dk={dk} onClose={onClose}
+      onSaved={() => { onRefresh(); onClose(); }} />
+  );
+}
+
 function UtilisateursPage({ dk }) {
   const { t } = useLanguage();
   const c = getAdminTheme(dk);
@@ -880,42 +1075,66 @@ function UtilisateursPage({ dk }) {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [selected, setSelected] = useState([]);
   const [page, setPage] = useState(1);
+  const [detailUser, setDetailUser] = useState(null);
+  const [editUser, setEditUser] = useState(null);
 
-  useEffect(() => {
-    api
-      .getUsers()
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setUsers(
-            data.map((u) => ({
-              id: u.id,
-              name:
-                `${u.first_name || ""} ${u.last_name || ""}`.trim() ||
-                u.email ||
-                "—",
-              email: u.email || "—",
-              role: u.role || "patient",
-              wilaya: u.wilaya || u.city || "—",
-              phone: u.phone || u.phone_number || "—",
-              status:
-                u.is_active === false
-                  ? "suspended"
-                  : u.verification_status === "pending"
-                    ? "pending"
-                    : "active",
-              joined: u.date_joined?.slice(0, 10) || "—",
-              verified: u.verification_status === "verified",
-            })),
-          );
-        }
-      })
-      .catch((err) =>
-        setError(err.message || t('error_loading_users') || "Impossible de charger les utilisateurs."),
-      )
-      .finally(() => setLoading(false));
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await api.getUsers();
+      const raw = Array.isArray(data) ? data : (data?.results ?? []);
+      if (raw.length > 0) {
+        setUsers(raw.map((u) => {
+          const fullName = `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || "—";
+          return {
+            // ── table display fields ──
+            id: u.id,
+            name: fullName,
+            email: u.email || "—",
+            role: u.role || "patient",
+            wilaya: u.wilaya || u.city || "—",
+            phone: u.phone || u.phone_number || "—",
+            status: u.is_active === false ? "suspended" : u.verification_status === "pending" ? "pending" : "active",
+            joined: u.date_joined?.slice(0, 10) || "—",
+            verified: u.verification_status === "verified",
+            // ── fields needed by role-specific drawers/modals ──
+            full_name: fullName,
+            first_name: u.first_name || "",
+            last_name: u.last_name || "",
+            is_active: u.is_active !== false,
+            verification_status: u.verification_status || "verified",
+            // patient fields
+            blood_type: u.patient_detail?.medical_profile?.blood_group || "",
+            height: u.patient_detail?.medical_profile?.height || "",
+            weight: u.patient_detail?.medical_profile?.weight || "",
+            chronic_diseases: u.patient_detail?.medical_profile?.chronic_diseases || "",
+            current_medications: u.patient_detail?.medical_profile?.current_medications || "",
+            allergies: u.patient_detail?.medical_profile?.allergies || "",
+            // doctor fields
+            specialty: u.specialty || u.doctor_detail?.specialty || "",
+            clinic_name: u.doctor_detail?.clinic_name || "",
+            consultation_fee: u.doctor_detail?.consultation_fee || 0,
+            experience_years: u.doctor_detail?.experience_years || u.caretaker_detail?.experience_years || 0,
+            license_number: u.doctor_detail?.license_number || u.pharmacist_detail?.license_number || "",
+            bio: u.doctor_detail?.bio || u.caretaker_detail?.bio || "",
+            // caretaker fields
+            services: u.caretaker_detail?.services || "",
+            // pharmacist fields
+            pharmacy_name: u.pharmacist_detail?.pharmacy_name || "",
+            address: u.pharmacist_detail?.address || "",
+            business_hours: u.pharmacist_detail?.business_hours || "",
+          };
+        }));
+      }
+    } catch (err) {
+      setError(err.message || t('error_loading_users') || "Impossible de charger les utilisateurs.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
   const filtered = users.filter((u) => {
     const q = search.toLowerCase();
@@ -933,34 +1152,13 @@ function UtilisateursPage({ dk }) {
     (page - 1) * HMS_PAGE_SIZE,
     page * HMS_PAGE_SIZE,
   );
-  const allSelected =
-    paginated.length > 0 && paginated.every((u) => selected.includes(u.id));
-
   const suspend = async (id) => {
-    try {
-      await api.toggleSuspendUser(id);
-    } catch {}
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === id
-          ? { ...u, status: u.status === "suspended" ? "active" : "suspended" }
-          : u,
-      ),
-    );
+    try { await api.toggleSuspendUser(id); } catch {}
+    setUsers(prev => prev.map(u =>
+      u.id === id ? { ...u, status: u.status === "suspended" ? "active" : "suspended", is_active: u.status === "suspended" } : u
+    ));
   };
 
-  if (loading)
-    return (
-      <div className="flex items-center justify-center py-32">
-        <RefreshCw
-          size={28}
-          className="animate-spin"
-          style={{ color: c.blue }}
-        />
-      </div>
-    );
-
-  // Pagination range (show max 7 pages, centered on current)
   const paginationPages = (() => {
     const delta = 3;
     const start = Math.max(1, Math.min(page - delta, totalPages - delta * 2));
@@ -969,346 +1167,222 @@ function UtilisateursPage({ dk }) {
   })();
 
   return (
-    <div style={{ minHeight: "100%" }}>
-      {/* ── Header ── */}
-      <div className="flex items-start justify-between mb-5 gap-4 flex-wrap">
+    <div className="animate-in fade-in duration-300" style={{ minHeight: "100%" }}>
+
+      {/* ── Toolbar ── */}
+      <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
         <div>
-          <h1
-            className="text-2xl font-bold tracking-tight"
-            style={{ color: c.txt }}
-          >
-            {t('utilisateurs')}
-          </h1>
-          <p className="text-sm mt-0.5" style={{ color: c.txt3 }}>
-            {t('total_users_count', { count: filtered.length })}
+          <h2 className="text-base font-bold" style={{ color: c.txt }}>
+            {t('utilisateurs') || "Utilisateurs"}
+          </h2>
+          <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>
+            {filtered.length} utilisateur{filtered.length !== 1 ? "s" : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Search */}
-          <div
-            className="flex items-center gap-2 px-3 py-2 rounded-lg border"
-            style={{ background: c.surface, borderColor: c.border, width: 240 }}
-          >
-            <Search size={14} style={{ color: c.txt3, flexShrink: 0 }} />
+          <div className="relative">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: c.txt3 }} />
             <input
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              placeholder={t('search')}
-              className="outline-none text-sm bg-transparent flex-1 min-w-0"
-              style={{ color: c.txt }}
+              onChange={e => { setSearch(e.target.value); setPage(1); }}
+              placeholder={t('search') || "Nom, email..."}
+              className="pl-8 pr-4 py-2 rounded-lg text-xs outline-none border w-52"
+              style={{ background: c.card, borderColor: c.border, color: c.txt }}
             />
           </div>
-          {/* Status filter */}
-          <div
-            className="flex items-center gap-2 px-3 py-2 rounded-lg border"
-            style={{ background: c.surface, borderColor: c.border }}
-          >
-            <span className="text-xs" style={{ color: c.txt3 }}>
-              {t('table_status')}:
-            </span>
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setPage(1);
-              }}
-              className="outline-none text-xs bg-transparent"
-              style={{ color: c.txt2, cursor: "pointer" }}
-            >
-              <option value="all" style={{ background: c.surface }}>
-                {t('all_tab')}
-              </option>
-              <option value="active" style={{ background: c.surface }}>
-                {t('active_tab')}
-              </option>
-              <option value="pending" style={{ background: c.surface }}>
-                {t('pending_tab')}
-              </option>
-              <option value="suspended" style={{ background: c.surface }}>
-                {t('suspended_tab')}
-              </option>
-            </select>
-          </div>
-          {/* + New User */}
-          <button
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors hover:opacity-90"
-            style={{ background: c.blue }}
-          >
-            <Plus size={15} /> {t('add_btn') || "New User"}
+          <button onClick={fetchUsers} className="p-2 rounded-lg border transition-colors"
+            style={{ borderColor: c.border, color: c.txt3 }}
+            onMouseEnter={e => e.currentTarget.style.background = c.row}
+            onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           </button>
         </div>
       </div>
 
       {error && (
-        <div
-          className="flex items-center gap-3 px-4 py-3 rounded-lg border mb-4 text-sm"
-          style={{
-            background: c.redBg,
-            borderColor: c.red + "30",
-            color: c.red,
-          }}
-        >
-          <AlertTriangle size={15} />
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border mb-4 text-xs font-medium"
+          style={{ background: c.redBg, borderColor: c.red + "30", color: c.red }}>
+          <AlertTriangle size={14} />
           {error}
-          <button
-            onClick={() => setError(null)}
-            className="ml-auto"
-            style={{ color: c.red }}
-          >
-            <X size={15} />
-          </button>
+          <button onClick={() => setError(null)} className="ml-auto"><X size={13} /></button>
         </div>
       )}
 
-      {/* ── Role filter tabs ── */}
-      <div
-        className="flex items-end gap-0 border-b overflow-x-auto"
-        style={{ borderColor: c.border }}
-      >
-        {USER_ROLE_PILLS.map((pill) => {
-          const count =
-            pill.value === "all"
-              ? users.length
-              : users.filter((u) => u.role === pill.value).length;
-          const isActive = roleFilter === pill.value;
+      {/* ── Role tabs ── */}
+      <div className="flex items-center gap-1 border-b overflow-x-auto" style={{ borderColor: c.border }}>
+        {USER_ROLE_PILLS.map(pill => {
+          const count = pill.value === "all" ? users.length : users.filter(u => u.role === pill.value).length;
           return (
-            <button
-              key={pill.value}
-              onClick={() => {
-                setRoleFilter(pill.value);
-                setPage(1);
-              }}
-              className="relative flex items-center gap-1.5 px-4 py-3 text-sm whitespace-nowrap transition-colors shrink-0"
-              style={{ color: isActive ? c.blue : c.txt3 }}
-            >
-              {t(`role_${pill.value}`)}
-              <span
-                className="text-xs px-1.5 py-0.5 rounded-full"
-                style={{
-                  background: isActive ? c.blueFaint : "rgba(255,255,255,0.05)",
-                  color: isActive ? c.blue : c.txt3,
-                }}
-              >
-                {count}
-              </span>
-              {isActive && (
-                <span
-                  className="absolute bottom-0 left-0 right-0 h-0.5"
-                  style={{ background: c.blue }}
-                />
-              )}
+            <button key={pill.value} onClick={() => { setRoleFilter(pill.value); setPage(1); }}
+              className="px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors whitespace-nowrap shrink-0"
+              style={{ borderColor: roleFilter === pill.value ? c.blue : "transparent", color: roleFilter === pill.value ? c.blue : c.txt3 }}>
+              {t(`role_${pill.value}`) || pill.label}
+              <span className="ml-1.5 text-[10px] opacity-60">({count})</span>
             </button>
           );
         })}
       </div>
 
+      {/* ── Status sub-tabs ── */}
+      <div className="flex items-center gap-1 mb-4 border-b" style={{ borderColor: c.border }}>
+        {[
+          { value: "all",       label: t('all_tab')       || "Tous" },
+          { value: "active",    label: t('active_tab')    || "Actifs" },
+          { value: "pending",   label: t('pending_tab')   || "En attente" },
+          { value: "suspended", label: t('suspended_tab') || "Suspendus" },
+        ].map(opt => (
+          <button key={opt.value} onClick={() => { setStatusFilter(opt.value); setPage(1); }}
+            className="px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors"
+            style={{ borderColor: statusFilter === opt.value ? c.blue : "transparent", color: statusFilter === opt.value ? c.blue : c.txt3 }}>
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
       {/* ── Table ── */}
-      <div
-        className="rounded-b-lg border overflow-hidden"
-        style={{ borderColor: c.border, borderTop: "none", background: c.card }}
-      >
+      <div className="rounded-xl border overflow-hidden" style={{ borderColor: c.border, background: c.card }}>
         <div className="overflow-x-auto">
-          <table className="w-full" style={{ borderCollapse: "collapse" }}>
+          <table className="w-full text-left text-xs">
             <thead>
-              <tr
-                style={{
-                  background: c.header,
-                  borderBottom: `1px solid ${c.border}`,
-                }}
-              >
-                <th className="px-4 py-3 w-10">
-                  <input
-                    type="checkbox"
-                    checked={allSelected}
-                    onChange={() =>
-                      allSelected
-                        ? setSelected([])
-                        : setSelected(paginated.map((u) => u.id))
-                    }
-                    className="w-4 h-4"
-                    style={{ accentColor: c.blue }}
-                  />
-                </th>
+              <tr style={{ background: c.header, borderBottom: `1px solid ${c.border}` }}>
                 {[
-                  { key: "name", label: t('table_name') },
-                  { key: "phone", label: t('table_phone') },
-                  { key: "email", label: t('table_email') },
-                  { key: "role", label: t('table_role') },
-                  { key: "wilaya", label: t('wilaya_label') },
-                  { key: "status", label: t('table_status') },
-                ].map((col) => (
-                  <th
-                    key={col.key}
-                    className="text-left text-xs font-semibold uppercase tracking-wider px-4 py-3"
-                    style={{ color: c.txt3 }}
-                  >
-                    {col.label}
-                  </th>
+                  t('table_name')   || "Utilisateur",
+                  t('table_email')  || "Email",
+                  t('table_role')   || "Rôle",
+                  t('wilaya_label') || "Wilaya",
+                  t('table_status') || "Statut",
+                  "",
+                ].map((h, i) => (
+                  <th key={i} className="px-4 py-3 font-semibold uppercase tracking-wider"
+                    style={{ color: c.txt3, fontSize: "10px" }}>{h}</th>
                 ))}
-                <th className="w-12" />
               </tr>
             </thead>
             <tbody>
-              {paginated.map((u) => {
-                const aColor = hmsAvatarColor(u.name);
-                const initials =
-                  u.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .filter(Boolean)
-                    .slice(0, 2)
-                    .join("")
-                    .toUpperCase() || "??";
+              {loading ? (
+                <tr><td colSpan="6" className="py-16 text-center text-xs" style={{ color: c.txt3 }}>
+                  <RefreshCw size={16} className="animate-spin mx-auto mb-2" style={{ color: c.txt3 }} />
+                  {t('loading_data') || "Chargement..."}
+                </td></tr>
+              ) : paginated.length === 0 ? (
+                <tr><td colSpan="6" className="py-16 text-center text-xs" style={{ color: c.txt3 }}>
+                  {t('no_results_found') || "Aucun résultat."}
+                </td></tr>
+              ) : paginated.map(u => {
+                const initials = u.full_name.split(" ").map(n => n[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?";
+                const detail = roleDetail(u);
+                const rb = roleBadgeStyle(u.role, c);
                 const sm = HMS_USER_STATUS[u.status] ?? HMS_USER_STATUS.active;
-                const isSelected = selected.includes(u.id);
+                const gradient = ROLE_AVATAR_GRADIENT[u.role] || "from-gray-500 to-gray-700";
                 return (
-                  <tr
-                    key={u.id}
-                    className="group transition-colors"
-                    style={{
-                      borderBottom: `1px solid ${c.border}`,
-                      background: isSelected ? c.blueFaint : "transparent",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isSelected) e.currentTarget.style.background = c.row;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = isSelected
-                        ? c.blueFaint
-                        : "transparent";
-                    }}
-                  >
-                    <td className="px-4 py-3 w-10">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() =>
-                          setSelected((prev) =>
-                            prev.includes(u.id)
-                              ? prev.filter((x) => x !== u.id)
-                              : [...prev, u.id],
-                          )
-                        }
-                        className="w-4 h-4"
-                        style={{ accentColor: c.blue }}
-                      />
-                    </td>
-                    {/* Name + Avatar */}
+                  <tr key={u.id} onClick={() => setDetailUser(u)}
+                    className="group cursor-pointer border-t transition-colors"
+                    style={{ borderColor: c.border }}
+                    onMouseEnter={e => e.currentTarget.style.background = c.row}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+
+                    {/* Avatar + Name + ID */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-                          style={{ background: aColor }}
-                        >
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0 bg-gradient-to-br ${gradient}`}>
                           {initials}
                         </div>
-                        <span
-                          className="text-sm font-medium whitespace-nowrap"
-                          style={{ color: c.txt }}
-                        >
-                          {u.name}
-                        </span>
+                        <div>
+                          <p className="font-semibold" style={{ color: c.txt }}>{u.full_name}</p>
+                          <p className="text-[10px]" style={{ color: c.txt3 }}>#{u.id}</p>
+                        </div>
                       </div>
                     </td>
-                    <td
-                      className="px-4 py-3 text-sm whitespace-nowrap"
-                      style={{ color: c.txt2 }}
-                    >
-                      {u.phone || "—"}
-                    </td>
-                    <td
-                      className="px-4 py-3 text-sm max-w-[200px] truncate"
-                      style={{ color: c.txt2 }}
-                    >
-                      {u.email}
-                    </td>
-                    <td
-                      className="px-4 py-3 text-sm capitalize whitespace-nowrap"
-                      style={{ color: c.txt2 }}
-                    >
-                      {t(`role_${u.role}`)}
-                    </td>
-                    <td
-                      className="px-4 py-3 text-sm whitespace-nowrap"
-                      style={{ color: c.txt2 }}
-                    >
-                      {u.wilaya}
-                    </td>
+
+                    {/* Email */}
+                    <td className="px-4 py-3 max-w-[200px] truncate" style={{ color: c.txt2 }}>{u.email}</td>
+
+                    {/* Role badge + role-specific detail */}
                     <td className="px-4 py-3">
-                      <span
-                        className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap"
-                        style={{ background: sm.bg, color: sm.color }}
-                      >
-                        {t(`status_${u.status}`)}
+                      <div className="flex flex-col gap-1">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold w-fit"
+                          style={{ background: rb.bg, color: rb.color }}>
+                          {t(`role_${u.role}`) || u.role}
+                        </span>
+                        {detail && (
+                          <span className="text-[10px]" style={{ color: c.txt3 }}>{detail}</span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Wilaya */}
+                    <td className="px-4 py-3" style={{ color: c.txt2 }}>{u.wilaya || "—"}</td>
+
+                    {/* Status */}
+                    <td className="px-4 py-3">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold w-fit flex items-center gap-1"
+                        style={{ background: sm.bg, color: sm.color }}>
+                        {t(`status_${u.status}`) || sm.label}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <UserRowMenu user={u} onSuspend={suspend} dk={dk} />
+
+                    {/* Actions */}
+                    <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
+                      <UserRowMenu user={u} onSuspend={suspend} onView={setDetailUser} onEdit={setEditUser} dk={dk} />
                     </td>
                   </tr>
                 );
               })}
-              {paginated.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="px-4 py-16 text-center text-sm"
-                    style={{ color: c.txt3 }}
-                  >
-                    {t('no_results') || "Aucun résultat."}
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
 
         {/* ── Pagination ── */}
-        <div
-          className="flex items-center justify-between px-4 py-3 border-t"
-          style={{ borderColor: c.border, background: c.header }}
-        >
-          <p className="text-xs" style={{ color: c.txt3 }}>
-            {filtered.length === 0
-              ? "No results."
-              : `${(page - 1) * HMS_PAGE_SIZE + 1}–${Math.min(page * HMS_PAGE_SIZE, filtered.length)} of ${filtered.length}`}
-          </p>
-          <div className="flex items-center gap-0.5">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="w-8 h-8 rounded-md flex items-center justify-center disabled:opacity-30 hover:bg-white/5 transition-colors"
-              style={{ color: c.txt3 }}
-            >
-              <ChevronLeft size={15} />
-            </button>
-            {paginationPages.map((p) => (
-              <button
-                key={p}
-                onClick={() => setPage(p)}
-                className="w-8 h-8 rounded-md text-xs font-semibold transition-colors"
-                style={{
-                  background: p === page ? c.blue : "transparent",
-                  color: p === page ? "#fff" : c.txt3,
-                }}
-              >
-                {p}
+        {!loading && filtered.length > HMS_PAGE_SIZE && (
+          <div className="flex items-center justify-between px-4 py-3 border-t"
+            style={{ borderColor: c.border, background: c.header }}>
+            <p className="text-xs" style={{ color: c.txt3 }}>
+              {t('pagination', {
+                from: (page - 1) * HMS_PAGE_SIZE + 1,
+                to: Math.min(page * HMS_PAGE_SIZE, filtered.length),
+                total: filtered.length,
+              }) || `${(page - 1) * HMS_PAGE_SIZE + 1}–${Math.min(page * HMS_PAGE_SIZE, filtered.length)} sur ${filtered.length}`}
+            </p>
+            <div className="flex items-center gap-0.5">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                className="w-8 h-8 rounded-md flex items-center justify-center disabled:opacity-30 transition-colors"
+                style={{ color: c.txt3 }}
+                onMouseEnter={e => { if (page > 1) e.currentTarget.style.background = c.row; }}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                <ChevronLeft size={15} />
               </button>
-            ))}
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="w-8 h-8 rounded-md flex items-center justify-center disabled:opacity-30 hover:bg-white/5 transition-colors"
-              style={{ color: c.txt3 }}
-            >
-              <ChevronRight size={15} />
-            </button>
+              {paginationPages.map(p => (
+                <button key={p} onClick={() => setPage(p)}
+                  className="w-8 h-8 rounded-md text-xs font-semibold transition-colors"
+                  style={{ background: p === page ? c.blue : "transparent", color: p === page ? "#fff" : c.txt3 }}>
+                  {p}
+                </button>
+              ))}
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                className="w-8 h-8 rounded-md flex items-center justify-center disabled:opacity-30 transition-colors"
+                style={{ color: c.txt3 }}
+                onMouseEnter={e => { if (page < totalPages) e.currentTarget.style.background = c.row; }}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                <ChevronRight size={15} />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
+
+      {detailUser && (
+        <RoleDrawer user={detailUser} dk={dk}
+          onClose={() => setDetailUser(null)}
+          onEdit={() => { setEditUser(detailUser); setDetailUser(null); }}
+          onRefresh={fetchUsers}
+        />
+      )}
+      {editUser && (
+        <RoleEditModal user={editUser} dk={dk}
+          onClose={() => setEditUser(null)}
+          onRefresh={fetchUsers}
+        />
+      )}
     </div>
   );
 }
@@ -1342,12 +1416,15 @@ function RendezVousPage({ dk }) {
       });
   }, []);
 
+  const getStr = (v) => (typeof v === "string" ? v : typeof v === "object" && v !== null ? (v.full_name || v.name || v.email || "") : "");
+
   const filtered = appointments.filter((a) => {
     const q = search.toLowerCase();
     return (
-      (a.patient?.toLowerCase().includes(q) ||
-        a.doctor?.toLowerCase().includes(q) ||
-        a.motif?.toLowerCase().includes(q)) &&
+      (!q ||
+        getStr(a.patient).toLowerCase().includes(q) ||
+        getStr(a.doctor).toLowerCase().includes(q) ||
+        (a.motif || "").toLowerCase().includes(q)) &&
       (statusFilter === "all" || a.status === statusFilter)
     );
   });
@@ -1529,29 +1606,19 @@ function RendezVousPage({ dk }) {
                           className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"
                           style={{ background: "#4A6FA5" }}
                         >
-                          {a.patient
-                            ?.split(" ")
-                            .map((n) => n[0])
-                            .slice(0, 2)
-                            .join("") || "??"}
+                          {getStr(a.patient).split(" ").map((n) => n[0]).slice(0, 2).join("") || "??"}
                         </div>
-                        <span
-                          className="text-sm font-semibold"
-                          style={{ color: c.txt }}
-                        >
-                          {a.patient}
+                        <span className="text-sm font-semibold" style={{ color: c.txt }}>
+                          {getStr(a.patient) || "—"}
                         </span>
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <p
-                        className="text-sm font-semibold"
-                        style={{ color: c.txt }}
-                      >
-                        {a.doctor}
+                      <p className="text-sm font-semibold" style={{ color: c.txt }}>
+                        {getStr(a.doctor) || "—"}
                       </p>
                       <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>
-                        {a.specialty}
+                        {a.specialty || "—"}
                       </p>
                     </td>
                     <td className="px-4 py-3">
@@ -1720,8 +1787,8 @@ function MedicamentsPage({ dk }) {
             {t('medications_catalogue')}
           </h1>
           <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
-            {meds.filter((m) => m.is_active !== false).length} {t('references_count')} ·{" "}
-            {meds.filter((m) => m.cnas_covered).length} {t('cnas_covered_count')}
+            {t('references_count', { count: meds.filter((m) => m.is_active !== false).length }) || `${meds.filter((m) => m.is_active !== false).length} références`} ·{" "}
+            {meds.filter((m) => m.cnas_covered).length} {t('cnas_covered_tag') || "couvertes CNAS"}
           </p>
         </div>
         <button
@@ -2180,6 +2247,12 @@ function PharmaciesPage({ dk }) {
               />
             </div>
           </Card>
+          {filteredPharmacies.length === 0 && (
+            <Card dk={dk} empty={true} style={{ padding: 48, textAlign: "center" }}>
+              <Building2 size={36} className="mx-auto mb-3" style={{ color: c.txt3, opacity: 0.4 }} />
+              <p style={{ color: c.txt3 }}>Aucune pharmacie trouvée</p>
+            </Card>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredPharmacies.map((p) => (
               <Card key={p.id} dk={dk} style={{ padding: 20 }}>
@@ -2228,7 +2301,7 @@ function PharmaciesPage({ dk }) {
                   className="mt-3 pt-3 border-t text-xs"
                   style={{ borderColor: c.border, color: c.txt3 }}
                 >
-                  Pharmacien : {p.pharmacist}
+                  Pharmacien : {p.pharmacist?.full_name || p.pharmacist?.name || p.pharmacist || "—"}
                 </div>
               </Card>
             ))}
@@ -2357,6 +2430,14 @@ function PharmaciesPage({ dk }) {
                     </tr>
                   );
                 })}
+                {filteredOrders.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="py-14 text-center">
+                      <Package size={32} className="mx-auto mb-3" style={{ color: c.txt3, opacity: 0.3 }} />
+                      <p className="text-sm" style={{ color: c.txt3 }}>Aucune commande trouvée</p>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </Card>
@@ -2454,6 +2535,12 @@ function GardeMaladesPage({ dk }) {
               />
             </div>
           </Card>
+          {filteredCaretakers.length === 0 && (
+            <Card dk={dk} empty={true} style={{ padding: 48, textAlign: "center" }}>
+              <Heart size={36} className="mx-auto mb-3" style={{ color: c.txt3, opacity: 0.4 }} />
+              <p style={{ color: c.txt3 }}>Aucun garde-malade trouvé</p>
+            </Card>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredCaretakers.map((ct) => (
               <Card key={ct.id} dk={dk} style={{ padding: 20 }}>
@@ -2655,6 +2742,14 @@ function GardeMaladesPage({ dk }) {
                     </tr>
                   );
                 })}
+                {filteredRequests.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="py-14 text-center">
+                      <ClipboardList size={32} className="mx-auto mb-3" style={{ color: c.txt3, opacity: 0.3 }} />
+                      <p className="text-sm" style={{ color: c.txt3 }}>Aucune demande trouvée</p>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </Card>
@@ -2672,6 +2767,7 @@ function AuditPage({ dk }) {
   const c = getAdminTheme(dk);
   const [logs, setLogs] = useState(AUDIT_LOGS);
   const [typeFilter, setTypeFilter] = useState("all");
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [usingFallback, setUsingFallback] = useState(false);
 
@@ -2702,8 +2798,12 @@ function AuditPage({ dk }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered =
-    typeFilter === "all" ? logs : logs.filter((l) => l.type === typeFilter);
+  const filtered = logs.filter(l => {
+    const matchType = typeFilter === "all" || l.type === typeFilter;
+    const q = search.toLowerCase();
+    const matchSearch = !q || l.action?.toLowerCase().includes(q) || l.user?.toLowerCase().includes(q) || l.ip?.toLowerCase().includes(q);
+    return matchType && matchSearch;
+  });
 
   return (
     <>
@@ -2749,6 +2849,22 @@ function AuditPage({ dk }) {
           </p>
         </div>
       )}
+      {/* Search */}
+      <div className="relative mb-4">
+        <Search
+          size={14}
+          className="absolute left-3 top-1/2 -translate-y-1/2"
+          style={{ color: c.txt3 }}
+        />
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Rechercher action, utilisateur, IP…"
+          className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm outline-none border"
+          style={{ background: dk ? "#0A1220" : "#F8FAFC", borderColor: c.border, color: c.txt }}
+        />
+      </div>
+
       <div className="flex gap-2 mb-5 flex-wrap">
         {[
           ["all", t('all_tab'), c.txt2, c.blueLight],
@@ -2898,15 +3014,15 @@ function AdminSettingsPage({ dk, onToggleDark }) {
           </p>
           <div className="space-y-4">
             {[
-              { label: t('open_registration'), on: true },
-              { label: t('mandatory_verification'), on: true },
-              { label: t('two_fa_doctors'), on: true },
-              { label: t('maintenance_mode'), on: false },
-              { label: t('detailed_logs'), on: true },
-              { label: t('dark_mode'), on: dk, toggle: true },
+              { id: "open_reg",    label: t('open_registration')      || "Inscription ouverte",        on: true },
+              { id: "verif",       label: t('mandatory_verification')  || "Vérification obligatoire",   on: true },
+              { id: "two_fa",      label: t('two_fa_doctors')          || "2FA pour médecins",           on: true },
+              { id: "maintenance", label: t('maintenance_mode')        || "Mode maintenance",            on: false },
+              { id: "logs",        label: t('detailed_logs')           || "Logs détaillés",              on: true },
+              { id: "dark",        label: t('dark_mode')               || "Mode sombre",                 on: dk, toggle: true },
             ].map((item) => (
               <div
-                key={item.label}
+                key={item.id}
                 className="flex items-center justify-between py-2 border-b last:border-0"
                 style={{ borderColor: c.border }}
               >
@@ -3029,6 +3145,67 @@ function AdminSettingsPage({ dk, onToggleDark }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// NOTIFICATION PANEL
+// ─────────────────────────────────────────────────────────────────────────────
+function NotifPanel({ notifs, dk, c, onRead, onMarkAllRead }) {
+  const unreadCount = notifs.filter(n => !n.is_read).length;
+  return (
+    <div
+      className="absolute right-0 top-10 w-80 rounded-2xl border shadow-2xl z-50 overflow-hidden"
+      style={{ background: c.card, borderColor: c.border }}
+    >
+      <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: c.border }}>
+        <div>
+          <p className="text-sm font-bold" style={{ color: c.txt }}>Notifications</p>
+          {unreadCount > 0 && (
+            <p className="text-xs" style={{ color: c.txt3 }}>{unreadCount} non lue{unreadCount > 1 ? "s" : ""}</p>
+          )}
+        </div>
+        {unreadCount > 0 && (
+          <button onClick={onMarkAllRead} className="text-xs font-semibold hover:underline" style={{ color: c.blue }}>
+            Tout marquer lu
+          </button>
+        )}
+      </div>
+      <div className="overflow-y-auto max-h-72" style={{ scrollbarWidth: "none" }}>
+        {notifs.length === 0 ? (
+          <div className="py-10 text-center">
+            <Bell size={24} className="mx-auto mb-2" style={{ color: c.txt3 }} />
+            <p className="text-xs" style={{ color: c.txt3 }}>Aucune notification</p>
+          </div>
+        ) : (
+          notifs.slice(0, 15).map(n => (
+            <button
+              key={n.id}
+              onClick={() => !n.is_read && onRead(n.id)}
+              className="w-full text-left flex items-start gap-3 px-4 py-3 border-b last:border-0 transition-colors"
+              style={{
+                borderColor: c.border,
+                background: n.is_read ? "transparent" : (dk ? "rgba(74,111,165,0.08)" : "#EEF3FB"),
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = dk ? "rgba(255,255,255,0.03)" : "#FAFBFD"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = n.is_read ? "transparent" : (dk ? "rgba(74,111,165,0.08)" : "#EEF3FB"); }}
+            >
+              <div className="w-2 h-2 rounded-full shrink-0 mt-1.5" style={{ background: n.is_read ? "transparent" : c.blue }} />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold leading-tight" style={{ color: c.txt }}>
+                  {n.message || n.title || "Notification"}
+                </p>
+                {n.created_at && (
+                  <p className="text-[10px] mt-0.5" style={{ color: c.txt3 }}>
+                    {new Date(n.created_at).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                )}
+              </div>
+            </button>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MAIN ADMIN SHELL  ──  Layout : Sidebar + Main content
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AdminDashboard({ onLogout }) {
@@ -3038,8 +3215,33 @@ export default function AdminDashboard({ onLogout }) {
   const dk = theme === "dark";
   const [activePage, setActivePage] = useState("overview");
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [pendingCount, setPendingCount] = useState(0);
+  const [badgeCounts, setBadgeCounts] = useState({ validation: 0, profile_updates: 0, reports: 0 });
+  const [notifs, setNotifs] = useState([]);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef(null);
   const c = getAdminTheme(dk);
+
+  useEffect(() => {
+    api.getPendingDoctors()
+      .then(d => { const n = Array.isArray(d) ? d.length : (d?.results?.length ?? 0); setBadgeCounts(p => ({ ...p, validation: n })); })
+      .catch(() => {});
+    api.getAdminProfileUpdates()
+      .then(d => { const arr = Array.isArray(d) ? d : (d?.results ?? []); setBadgeCounts(p => ({ ...p, profile_updates: arr.filter(r => r.status === "pending").length })); })
+      .catch(() => {});
+    api.getReports()
+      .then(d => { const arr = Array.isArray(d) ? d : (d?.results ?? []); setBadgeCounts(p => ({ ...p, reports: arr.filter(r => r.status === "pending").length })); })
+      .catch(() => {});
+    api.getNotifications()
+      .then(d => setNotifs(Array.isArray(d) ? d : (d?.results ?? [])))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!notifOpen) return;
+    const h = e => { if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [notifOpen]);
 
   const handleNav = useCallback((page) => {
     setActivePage(page);
@@ -3051,7 +3253,7 @@ export default function AdminDashboard({ onLogout }) {
       case "overview":
         return <OverviewPage dk={dk} onNav={handleNav} />;
       case "validation":
-        return <ValidationPage dk={dk} onCountChange={setPendingCount} />;
+        return <ValidationPage dk={dk} onCountChange={n => setBadgeCounts(p => ({ ...p, validation: n }))} />;
       case "utilisateurs":
         return <UtilisateursPage dk={dk} />;
       case "rendezvous":
@@ -3127,7 +3329,7 @@ export default function AdminDashboard({ onLogout }) {
         onNav={handleNav}
         onLogout={onLogout}
         userData={userData}
-        pendingCount={pendingCount}
+        badgeCounts={badgeCounts}
         mobileOpen={mobileMenu}
         onCloseMobile={() => setMobileMenu(false)}
       />
@@ -3186,6 +3388,42 @@ export default function AdminDashboard({ onLogout }) {
                 profile_updates: t('profile_updates'),
               }[activePage] ?? activePage}
             </span>
+          </div>
+
+          {/* Notification Bell */}
+          <div className="relative" ref={notifRef}>
+            <button
+              onClick={() => setNotifOpen(o => !o)}
+              className="w-8 h-8 flex items-center justify-center rounded-xl border transition-all hover:opacity-80 relative"
+              title="Notifications"
+              style={{ borderColor: c.border, color: c.txt2 }}
+            >
+              <Bell size={15} />
+              {notifs.some(n => !n.is_read) && (
+                <span
+                  className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full text-white text-[9px] font-black flex items-center justify-center px-1"
+                  style={{ background: c.red }}
+                >
+                  {notifs.filter(n => !n.is_read).length}
+                </span>
+              )}
+            </button>
+            {notifOpen && (
+              <NotifPanel
+                notifs={notifs}
+                dk={dk}
+                c={c}
+                onRead={async id => {
+                  try { await api.markNotificationRead(id); } catch (_) {}
+                  setNotifs(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+                }}
+                onMarkAllRead={async () => {
+                  const unread = notifs.filter(n => !n.is_read);
+                  await Promise.allSettled(unread.map(n => api.markNotificationRead(n.id)));
+                  setNotifs(prev => prev.map(n => ({ ...n, is_read: true })));
+                }}
+              />
+            )}
           </div>
 
           {/* Dark mode toggle */}

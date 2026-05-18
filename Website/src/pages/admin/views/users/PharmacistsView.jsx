@@ -3,7 +3,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import {
   X, User, Edit3,
   Search, RefreshCw,
-  Store, ShieldCheck, CheckCircle2, MoreVertical, Building
+  Store, ShieldCheck, CheckCircle2, MoreVertical, Building,
+  Lock, Unlock
 } from "lucide-react";
 import { T, HMS, getAdminTheme } from "../../adminTheme.js";
 import { Card } from "../../AdminPrimitives.jsx";
@@ -12,7 +13,7 @@ import * as api from "../../../../services/api";
 
 // ─── SUB-COMPONENTS (kept exactly as original) ────────────────────────────────
 
-function EditPharmacistModal({ user, dk, onSave, onClose }) {
+export function EditPharmacistModal({ user, dk, onSave, onClose }) {
   const { t } = useLanguage();
   const c = getAdminTheme(dk ?? true);
   const [activeTab, setActiveTab] = useState("account");
@@ -89,54 +90,109 @@ function EditPharmacistModal({ user, dk, onSave, onClose }) {
   );
 }
 
-function PharmacistDrawer({ user, dk, onClose, onEdit, onToggleStatus, onVerify }) {
+export function PharmacistDrawer({ user, dk, onClose, onEdit, onToggleStatus, onVerify }) {
   const { t } = useLanguage();
   const c = getAdminTheme(dk ?? true);
+  const [activeTab, setActiveTab] = useState("account");
+
+  const field = (label, value) => (
+    <div className="space-y-1">
+      <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1" style={{ color: c.txt }}>{label}</label>
+      <div className="w-full px-4 py-2.5 rounded-xl text-sm border"
+        style={{ background: dk ? "rgba(255,255,255,0.03)" : "#F8FAFC", borderColor: c.border, color: value ? c.txt : c.txt3 }}>
+        {value || <span className="italic opacity-50">{t('not_specified')}</span>}
+      </div>
+    </div>
+  );
+
   return (
-    <>
-      <div className="fixed inset-0 z-[80] bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <aside className="fixed right-0 top-0 h-screen z-[90] w-full max-w-md bg-white border-l shadow-2xl flex flex-col" style={{ background: c.card, borderColor: c.border }}>
-        <div className="p-6 border-b flex items-center justify-between" style={{ borderColor: c.border }}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="rounded-2xl border w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden"
+        style={{ background: c.card, borderColor: c.border }} onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="px-6 py-4 border-b flex justify-between items-center" style={{ borderColor: c.border }}>
           <div className="flex items-center gap-3">
-             <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white text-lg font-black bg-gradient-to-br from-pink-500 to-rose-700 shadow-lg shadow-rose-500/20">
-                {user.full_name?.split(" ").map(n => n[0]).join("")}
-             </div>
-             <div>
-               <p className="font-bold text-base" style={{ color: c.txt }}>{user.full_name}</p>
-               <p className="text-[10px] font-bold opacity-40 uppercase tracking-[0.2em]">{t('pharmacist') || "Pharmacien"} · #{user.id}</p>
-             </div>
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-white text-base font-black bg-gradient-to-br from-pink-500 to-rose-700 shadow-lg shadow-rose-500/20">
+              {user.full_name?.split(" ").map(n => n[0]).slice(0, 2).join("") || "?"}
+            </div>
+            <div>
+              <h3 className="font-black text-sm uppercase tracking-wide" style={{ color: c.txt }}>{user.full_name}</h3>
+              <p className="text-[10px] font-bold opacity-40 uppercase">{t('pharmacist') || "Pharmacien"} · #{user.id}</p>
+            </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl border hover:bg-black/5" style={{ borderColor: c.border, color: c.txt3 }}><X size={18} /></button>
+          <button onClick={onClose} style={{ color: c.txt3 }} className="p-2 hover:bg-black/5 rounded-full transition-all"><X size={20} /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-8">
-           <section className="space-y-4">
-              <h4 className="text-[10px] font-black uppercase tracking-widest opacity-30" style={{ color: c.txt }}>{t('pharmacy_info')}</h4>
-              <div className="space-y-3">
-                 <Card dk={dk} className="p-4 border shadow-none bg-rose-500/[0.02]">
-                    <div className="flex items-center gap-3 mb-2 text-rose-500">
-                       <Store size={18} />
-                       <p className="text-sm font-black">{user.pharmacy_name || t('anonymous_pharmacy')}</p>
-                    </div>
-                    <p className="text-xs opacity-60 leading-relaxed font-medium">{user.address || t('address_not_specified')}</p>
-                 </Card>
-                 <div className="p-4 rounded-xl border"><p className="text-[10px] uppercase font-black opacity-40 mb-1">{t('license_number_label')}</p><p className="text-xs font-bold">{user.license_number || t('in_progress')}</p></div>
-                 <div className="p-4 rounded-xl border"><p className="text-[10px] uppercase font-black opacity-40 mb-1">{t('business_hours_label')}</p><p className="text-xs font-bold">{user.business_hours || "08h - 20h"}</p></div>
+        {/* Tabs */}
+        <div className="flex px-2 border-b" style={{ borderColor: c.border, background: dk ? "rgba(0,0,0,0.1)" : "#fcfcfc" }}>
+          {[
+            { id: "account",  label: t('account_contact') || "Compte",    icon: User },
+            { id: "pharmacy", label: t('pharmacy_info') || "Pharmacie",    icon: Store },
+          ].map(tab => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              className="px-4 py-3 text-xs font-bold flex items-center gap-2 transition-all border-b-2"
+              style={{ color: activeTab === tab.id ? c.blue : c.txt3, borderColor: activeTab === tab.id ? c.blue : "transparent" }}>
+              <tab.icon size={14} />{tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {activeTab === "account" && (
+            <div className="grid grid-cols-1 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="grid grid-cols-2 gap-4">
+                {field(t('first_name_label'), user.first_name)}
+                {field(t('last_name_label'), user.last_name)}
               </div>
-           </section>
+              {field(t('email_address'), user.email)}
+              {field(t('phone_number'), user.phone)}
+              {field(t('wilaya_residence'), user.wilaya)}
+              <div className="pt-3 border-t" style={{ borderColor: c.border }}>
+                <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border"
+                  style={{ background: dk ? "rgba(255,255,255,0.03)" : "#F8FAFC", borderColor: c.border }}>
+                  <span className="w-2 h-2 rounded-full" style={{ background: user.is_active ? c.green : c.red }} />
+                  <span className="text-sm font-semibold" style={{ color: user.is_active ? c.green : c.red }}>
+                    {user.is_active ? (t('active_status') || "Actif") : (t('suspended_status') || "Suspendu")}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+          {activeTab === "pharmacy" && (
+            <div className="grid grid-cols-1 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex items-center gap-3 p-4 rounded-xl border"
+                style={{ background: dk ? "rgba(255,100,100,0.04)" : "rgba(255,100,100,0.02)", borderColor: c.border }}>
+                <Store size={20} style={{ color: "#F43F5E", flexShrink: 0 }} />
+                <div>
+                  <p className="text-sm font-black" style={{ color: c.txt }}>{user.pharmacy_name || t('anonymous_pharmacy') || "Pharmacie"}</p>
+                  <p className="text-xs opacity-60" style={{ color: c.txt2 }}>{user.address || t('address_not_specified') || "—"}</p>
+                </div>
+              </div>
+              {field(t('license_number_label') || "N° Agrément", user.license_number)}
+              {field(t('business_hours_label') || "Horaires d'ouverture", user.business_hours)}
+            </div>
+          )}
         </div>
 
-        <div className="p-6 border-t flex flex-col gap-2" style={{ borderColor: c.border }}>
-           <button onClick={onEdit} className="w-full py-4 rounded-2xl bg-black text-white font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3" style={{ background: c.blue }}>
-             <Edit3 size={16} /> {t('update_pharmacy')}
-           </button>
-           <button onClick={onToggleStatus} className="w-full py-3 rounded-2xl border font-black text-[10px] uppercase tracking-widest"
-             style={{ borderColor: user.is_active ? c.red : c.green, color: user.is_active ? c.red : c.green }}>
-             {user.is_active ? t('suspend_license') : t('activate_pharmacy')}
-           </button>
+        {/* Footer */}
+        <div className="p-6 border-t flex gap-3" style={{ borderColor: c.border }}>
+          <button onClick={onEdit}
+            className="flex-1 py-3 rounded-xl text-xs font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:scale-[1.02] flex items-center justify-center gap-2"
+            style={{ background: c.blue }}>
+            <Edit3 size={14} /> {t('modify')}
+          </button>
+          <button onClick={onToggleStatus}
+            className="flex-1 py-3 rounded-xl text-xs font-bold border transition-all hover:opacity-80 flex items-center justify-center gap-2"
+            style={{ borderColor: user.is_active ? c.red : c.green, color: user.is_active ? c.red : c.green }}>
+            {user.is_active
+              ? <><Lock size={14} /> {t('suspend_btn') || "Suspendre"}</>
+              : <><Unlock size={14} /> {t('reactivate_btn') || "Réactiver"}</>}
+          </button>
         </div>
-      </aside>
-    </>
+      </div>
+    </div>
   );
 }
 

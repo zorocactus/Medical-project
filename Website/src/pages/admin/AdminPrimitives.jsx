@@ -3,7 +3,7 @@
 import { getAdminTheme } from "./adminTheme.js";
 
 /** Shared card component */
-export function Card({ children, className = "", style = {}, dk, empty = false }) {
+export function Card({ children, className = "", style = {}, dk, empty = false, ...rest }) {
   const c = getAdminTheme(dk);
   const hoverClasses = empty ? "" : "card-hover";
   return (
@@ -17,6 +17,7 @@ export function Card({ children, className = "", style = {}, dk, empty = false }
           : "0 1px 4px rgba(74,111,165,0.06)",
         ...style,
       }}
+      {...rest}
     >
       {children}
     </div>

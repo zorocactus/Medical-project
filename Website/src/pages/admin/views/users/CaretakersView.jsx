@@ -4,7 +4,8 @@ import {
   X, User,
   Edit3, AlertTriangle,
   Search, RefreshCw,
-  Briefcase, HeartPulse, CheckCircle2, MoreVertical
+  Briefcase, HeartPulse, CheckCircle2, MoreVertical,
+  Lock, Unlock
 } from "lucide-react";
 import { T, HMS, getAdminTheme } from "../../adminTheme.js";
 import { Card } from "../../AdminPrimitives.jsx";
@@ -13,7 +14,7 @@ import * as api from "../../../../services/api";
 
 // ─── SUB-COMPONENTS (kept exactly as original) ────────────────────────────────
 
-function EditCaretakerModal({ user, dk, onSave, onClose }) {
+export function EditCaretakerModal({ user, dk, onSave, onClose }) {
   const { t } = useLanguage();
   const c = getAdminTheme(dk ?? true);
   const [activeTab, setActiveTab] = useState("account");
@@ -90,64 +91,118 @@ function EditCaretakerModal({ user, dk, onSave, onClose }) {
   );
 }
 
-function CaretakerDrawer({ user, dk, onClose, onEdit, onToggleStatus, onVerify }) {
+export function CaretakerDrawer({ user, dk, onClose, onEdit, onToggleStatus, onVerify }) {
   const { t } = useLanguage();
   const c = getAdminTheme(dk ?? true);
+  const [activeTab, setActiveTab] = useState("account");
+
+  const field = (label, value) => (
+    <div className="space-y-1">
+      <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1" style={{ color: c.txt }}>{label}</label>
+      <div className="w-full px-4 py-2.5 rounded-xl text-sm border"
+        style={{ background: dk ? "rgba(255,255,255,0.03)" : "#F8FAFC", borderColor: c.border, color: value ? c.txt : c.txt3 }}>
+        {value || <span className="italic opacity-50">{t('not_specified')}</span>}
+      </div>
+    </div>
+  );
+
   return (
-    <>
-      <div className="fixed inset-0 z-[80] bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <aside className="fixed right-0 top-0 h-screen z-[90] w-full max-w-md bg-white border-l shadow-2xl flex flex-col" style={{ background: c.card, borderColor: c.border }}>
-        <div className="p-6 border-b flex items-center justify-between" style={{ borderColor: c.border }}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="rounded-2xl border w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden"
+        style={{ background: c.card, borderColor: c.border }} onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="px-6 py-4 border-b flex justify-between items-center" style={{ borderColor: c.border }}>
           <div className="flex items-center gap-3">
-             <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white text-lg font-black bg-gradient-to-br from-indigo-500 to-indigo-700 shadow-lg shadow-indigo-500/20">
-                {user.full_name?.split(" ").map(n => n[0]).join("")}
-             </div>
-             <div>
-               <p className="font-bold text-base" style={{ color: c.txt }}>{user.full_name}</p>
-               <p className="text-[10px] font-bold opacity-40 uppercase tracking-[0.2em]">{user.specialty || "Garde-malade"}</p>
-             </div>
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-white text-base font-black bg-gradient-to-br from-indigo-500 to-indigo-700 shadow-lg shadow-indigo-500/20">
+              {user.full_name?.split(" ").map(n => n[0]).slice(0, 2).join("") || "?"}
+            </div>
+            <div>
+              <h3 className="font-black text-sm uppercase tracking-wide" style={{ color: c.txt }}>{user.full_name}</h3>
+              <p className="text-[10px] font-bold opacity-40 uppercase">{user.specialty || t('caretakers') || "Garde-malade"} · #{user.id}</p>
+            </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl border hover:bg-black/5" style={{ borderColor: c.border, color: c.txt3 }}><X size={18} /></button>
+          <button onClick={onClose} style={{ color: c.txt3 }} className="p-2 hover:bg-black/5 rounded-full transition-all"><X size={20} /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-8">
-           {user.verification_status === "pending" && (
-             <div className="p-4 rounded-2xl border-2 border-dashed border-indigo-500/20 bg-indigo-500/5 flex flex-col items-center text-center gap-3">
-                <AlertTriangle className="text-indigo-500" size={24} />
-                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-600">{t('verification_required')}</p>
-                <button onClick={onVerify} className="w-full py-2.5 rounded-xl bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest">{t('approve_profile')}</button>
-             </div>
-           )}
-           <section className="space-y-4">
-              <h4 className="text-[10px] font-black uppercase tracking-widest opacity-30" style={{ color: c.txt }}>{t('professional_profile_tab') || "Profil Professionnel"}</h4>
-              <div className="space-y-3">
-                 <div className="p-4 rounded-xl border">
-                    <p className="text-[10px] uppercase font-black opacity-40 mb-1">{t('experience_label') || "Expérience"}</p>
-                    <p className="text-sm font-bold">{user.experience_years || 0} {t('years_count') || "ans"}</p>
-                 </div>
-                 <div className="p-4 rounded-xl border">
-                    <p className="text-[10px] uppercase font-black opacity-40 mb-1">{t('services_label') || "Services"}</p>
-                    <p className="text-xs font-semibold leading-relaxed">{user.services || t('general_care') || "Soins généraux"}</p>
-                 </div>
-                 <div className="p-4 rounded-xl border">
-                    <p className="text-[10px] uppercase font-black opacity-40 mb-1">{t('presentation_label') || "Présentation"}</p>
-                    <p className="text-xs leading-relaxed opacity-70 italic">"{user.bio || t('no_bio_available') || "Pas de bio disponible."}"</p>
-                 </div>
+        {/* Tabs */}
+        <div className="flex px-2 border-b" style={{ borderColor: c.border, background: dk ? "rgba(0,0,0,0.1)" : "#fcfcfc" }}>
+          {[
+            { id: "account",  label: t('account_contact') || "Compte",   icon: User },
+            { id: "services", label: t('service_experience_tab') || "Services", icon: Briefcase },
+          ].map(tab => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              className="px-4 py-3 text-xs font-bold flex items-center gap-2 transition-all border-b-2"
+              style={{ color: activeTab === tab.id ? c.blue : c.txt3, borderColor: activeTab === tab.id ? c.blue : "transparent" }}>
+              <tab.icon size={14} />{tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {activeTab === "account" && (
+            <div className="grid grid-cols-1 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              {user.verification_status === "pending" && (
+                <div className="p-4 rounded-xl border-2 border-dashed border-amber-500/30 bg-amber-500/5 flex flex-col items-center text-center gap-3">
+                  <AlertTriangle className="text-amber-500" size={24} />
+                  <p className="text-xs font-black uppercase tracking-widest text-amber-600">{t('verification_required') || "Vérification requise"}</p>
+                  <button onClick={onVerify} className="px-6 py-2 rounded-xl bg-amber-500 text-white text-xs font-black uppercase tracking-wide active:scale-95 transition-all">
+                    {t('approve_profile') || "Approuver"}
+                  </button>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                {field(t('first_name_label'), user.first_name)}
+                {field(t('last_name_label'), user.last_name)}
               </div>
-           </section>
+              {field(t('email_address'), user.email)}
+              {field(t('phone_number'), user.phone)}
+              {field(t('wilaya_residence'), user.wilaya)}
+              <div className="pt-3 border-t" style={{ borderColor: c.border }}>
+                <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border"
+                  style={{ background: dk ? "rgba(255,255,255,0.03)" : "#F8FAFC", borderColor: c.border }}>
+                  <span className="w-2 h-2 rounded-full" style={{ background: user.is_active ? c.green : c.red }} />
+                  <span className="text-sm font-semibold" style={{ color: user.is_active ? c.green : c.red }}>
+                    {user.is_active ? (t('active_status') || "Actif") : (t('suspended_status') || "Suspendu")}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+          {activeTab === "services" && (
+            <div className="grid grid-cols-1 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              {field(t('specialty_title_label') || "Spécialité", user.specialty)}
+              {field(t('experience_years_label') || "Expérience", user.experience_years ? `${user.experience_years} ans` : null)}
+              {field(t('services_offered_label') || "Services proposés", user.services)}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1" style={{ color: c.txt }}>{t('bio_label') || "Présentation"}</label>
+                <div className="px-4 py-3 rounded-xl border text-sm italic leading-relaxed"
+                  style={{ background: dk ? "rgba(255,255,255,0.03)" : "#F8FAFC", borderColor: c.border, color: user.bio ? c.txt : c.txt3 }}>
+                  {user.bio || <span className="opacity-50">{t('not_specified')}</span>}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="p-6 border-t flex flex-col gap-2" style={{ borderColor: c.border }}>
-           <button onClick={onEdit} className="w-full py-4 rounded-2xl text-white font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3" style={{ background: c.blue }}>
-             <Edit3 size={16} /> {t('edit_record_btn') || "Éditer le dossier"}
-           </button>
-           <button onClick={onToggleStatus} className="w-full py-3 rounded-2xl border font-black text-[10px] uppercase tracking-widest"
-             style={{ borderColor: user.is_active ? c.red : c.green, color: user.is_active ? c.red : c.green }}>
-             {user.is_active ? t('deactivate_btn') || "Désactiver" : t('activate_btn') || "Activer"}
-           </button>
+        {/* Footer */}
+        <div className="p-6 border-t flex gap-3" style={{ borderColor: c.border }}>
+          <button onClick={onEdit}
+            className="flex-1 py-3 rounded-xl text-xs font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:scale-[1.02] flex items-center justify-center gap-2"
+            style={{ background: c.blue }}>
+            <Edit3 size={14} /> {t('modify')}
+          </button>
+          <button onClick={onToggleStatus}
+            className="flex-1 py-3 rounded-xl text-xs font-bold border transition-all hover:opacity-80 flex items-center justify-center gap-2"
+            style={{ borderColor: user.is_active ? c.red : c.green, color: user.is_active ? c.red : c.green }}>
+            {user.is_active
+              ? <><Lock size={14} /> {t('suspend_btn') || "Suspendre"}</>
+              : <><Unlock size={14} /> {t('reactivate_btn') || "Réactiver"}</>}
+          </button>
         </div>
-      </aside>
-    </>
+      </div>
+    </div>
   );
 }
 

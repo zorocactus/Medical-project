@@ -25,9 +25,8 @@ export default function ReportsView({ dk }) {
     const fetchReports = async () => {
       try {
         const data = await api.getReports();
-        if (data && data.length > 0) {
-          setReports(data);
-        }
+        const list = Array.isArray(data) ? data : (data?.results ?? []);
+        if (list.length > 0) setReports(list);
       } catch (err) {
         console.error("Erreur lors de la récupération des signalements:", err);
       } finally {
@@ -50,10 +49,11 @@ export default function ReportsView({ dk }) {
 
   const filteredReports = reports.filter(r => {
     const matchesFilter = filter === "all" || r.status === filter;
-    const matchesSearch = 
-      r.reporter_name.toLowerCase().includes(search.toLowerCase()) || 
-      r.reported_name.toLowerCase().includes(search.toLowerCase()) ||
-      r.reason.toLowerCase().includes(search.toLowerCase());
+    const q = search.toLowerCase();
+    const matchesSearch = !q ||
+      (r.reporter_name || "").toLowerCase().includes(q) ||
+      (r.reported_name || "").toLowerCase().includes(q) ||
+      (r.reason || "").toLowerCase().includes(q);
     return matchesFilter && matchesSearch;
   });
 
@@ -79,6 +79,15 @@ export default function ReportsView({ dk }) {
       default: return null;
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <RefreshCw size={32} className="animate-spin" style={{ color: c.blue }} />
+        <p className="text-sm font-semibold" style={{ color: c.txt3 }}>Chargement des signalements…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-in fade-in duration-300">
@@ -176,8 +185,8 @@ export default function ReportsView({ dk }) {
                       <button 
                         onClick={() => setSelectedReport(report)}
                         title="Voir les détails"
-                        className="w-8 h-8 rounded-lg flex items-center justify-center border transition-all hover:bg-gray-50 active:scale-95"
-                        style={{ borderColor: c.border, color: c.blue, background: c.surface }}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center border transition-all hover:opacity-80 active:scale-95"
+                        style={{ borderColor: c.border, color: c.blue, background: c.card }}
                       >
                         <Eye size={16} />
                       </button>
@@ -195,7 +204,7 @@ export default function ReportsView({ dk }) {
                             onClick={() => handleAction(report.id, "dismiss")}
                             title="Ignorer"
                             className="w-8 h-8 rounded-lg flex items-center justify-center border transition-transform hover:scale-110 active:scale-95"
-                            style={{ borderColor: c.border, color: c.txt3, background: c.surface }}
+                            style={{ borderColor: c.border, color: c.txt3, background: c.card }}
                           >
                             <XCircle size={16} />
                           </button>

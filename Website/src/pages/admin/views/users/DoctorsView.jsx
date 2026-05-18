@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import {
   X, User, Mail, Phone, MapPin,
   Lock, Unlock, Trash2, Edit3, AlertTriangle,
-  Search, RefreshCw, Activity,
+  Search, RefreshCw, Activity, Download,
   Stethoscope, ShieldCheck, Star, Briefcase, FileText,
   Clock, CheckCircle2, AlertCircle, MoreVertical
 } from "lucide-react";
@@ -14,7 +14,7 @@ import * as api from "../../../../services/api";
 
 // ─── SUB-COMPONENTS (modals / drawer — kept exactly as original) ─────────────
 
-function EditDoctorModal({ doctor, dk, onSave, onClose }) {
+export function EditDoctorModal({ doctor, dk, onSave, onClose }) {
   const { t } = useLanguage();
   const c = getAdminTheme(dk ?? true);
   const [activeTab, setActiveTab] = useState("account");
@@ -138,82 +138,137 @@ function EditDoctorModal({ doctor, dk, onSave, onClose }) {
   );
 }
 
-function DoctorDrawer({ doctor, dk, onClose, onEdit, onVerify, onToggleStatus }) {
+export function DoctorDrawer({ doctor, dk, onClose, onEdit, onVerify, onToggleStatus }) {
   const { t } = useLanguage();
   const c = getAdminTheme(dk ?? true);
+  const [activeTab, setActiveTab] = useState("account");
+
+  const field = (label, value) => (
+    <div className="space-y-1">
+      <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1" style={{ color: c.txt }}>{label}</label>
+      <div className="w-full px-4 py-2.5 rounded-xl text-sm border"
+        style={{ background: dk ? "rgba(255,255,255,0.03)" : "#F8FAFC", borderColor: c.border, color: value ? c.txt : c.txt3 }}>
+        {value || <span className="italic opacity-50">{t('not_specified')}</span>}
+      </div>
+    </div>
+  );
+
   return (
-    <>
-      <div className="fixed inset-0 z-[80] bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <aside className="fixed right-0 top-0 h-screen z-[90] w-full max-w-md bg-white border-l shadow-2xl flex flex-col" style={{ background: c.card, borderColor: c.border }}>
-        <div className="p-6 border-b flex items-center justify-between shadow-sm" style={{ borderColor: c.border }}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="rounded-2xl border w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden"
+        style={{ background: c.card, borderColor: c.border }} onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="px-6 py-4 border-b flex justify-between items-center" style={{ borderColor: c.border }}>
           <div className="flex items-center gap-3">
-             <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white text-lg font-black bg-gradient-to-br from-green-500 to-green-700 shadow-lg shadow-green-500/20">
-                {doctor.full_name?.split(" ").map(n => n[0]).join("")}
-             </div>
-             <div>
-               <p className="font-bold text-base" style={{ color: c.txt }}>DR. {doctor.full_name}</p>
-               <p className="text-[10px] font-bold opacity-40 uppercase tracking-[0.2em]">{doctor.specialty} · #{doctor.id}</p>
-             </div>
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-white text-base font-black bg-gradient-to-br from-green-500 to-green-700 shadow-lg shadow-green-500/20">
+              {doctor.full_name?.split(" ").map(n => n[0]).slice(0, 2).join("") || "?"}
+            </div>
+            <div>
+              <h3 className="font-black text-sm uppercase tracking-wide" style={{ color: c.txt }}>DR. {doctor.full_name}</h3>
+              <p className="text-[10px] font-bold opacity-40 uppercase">{doctor.specialty} · #{doctor.id}</p>
+            </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl border hover:bg-black/5" style={{ borderColor: c.border, color: c.txt3 }}><X size={18} /></button>
+          <button onClick={onClose} style={{ color: c.txt3 }} className="p-2 hover:bg-black/5 rounded-full transition-all"><X size={20} /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-8">
-           {doctor.verification_status === "pending" && (
-             <div className="p-4 rounded-2xl border-2 border-dashed border-amber-500/30 bg-amber-500/5 flex flex-col items-center text-center gap-4">
-                <AlertCircle className="text-amber-500" size={32} />
-                <div>
+        {/* Tabs */}
+        <div className="flex px-2 border-b" style={{ borderColor: c.border, background: dk ? "rgba(0,0,0,0.1)" : "#fcfcfc" }}>
+          {[
+            { id: "account",      label: t('account_contact') || "Compte",         icon: User },
+            { id: "professional", label: t('professional_tab') || "Professionnel",  icon: Briefcase },
+            { id: "activity",     label: t('activity_performance') || "Activité",   icon: Activity },
+          ].map(tab => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              className="px-4 py-3 text-xs font-bold flex items-center gap-2 transition-all border-b-2"
+              style={{ color: activeTab === tab.id ? c.blue : c.txt3, borderColor: activeTab === tab.id ? c.blue : "transparent" }}>
+              <tab.icon size={14} />{tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {activeTab === "account" && (
+            <div className="grid grid-cols-1 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              {doctor.verification_status === "pending" && (
+                <div className="p-4 rounded-xl border-2 border-dashed border-amber-500/30 bg-amber-500/5 flex flex-col items-center text-center gap-3">
+                  <AlertCircle className="text-amber-500" size={24} />
                   <p className="text-xs font-black uppercase tracking-widest text-amber-600">{t('pending_approval') || "En attente d'approbation"}</p>
-                  <p className="text-[10px] opacity-70 mt-1">{t('approval_desc') || "Veuillez vérifier les documents fournis par le praticien avant de valider son compte."}</p>
+                  <button onClick={onVerify} className="px-6 py-2 rounded-xl bg-amber-500 text-white text-xs font-black uppercase tracking-wide active:scale-95 transition-all">
+                    {t('approve_now') || "Approuver maintenant"}
+                  </button>
                 </div>
-                <button onClick={onVerify} className="w-full py-2.5 rounded-xl bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-amber-500/20 active:scale-95 transition-all">{t('approve_now') || "Approuver maintenant"}</button>
-             </div>
-           )}
-
-           <section className="space-y-4">
-              <h4 className="text-[10px] font-black uppercase tracking-widest opacity-30" style={{ color: c.txt }}>{t('activity_performance')}</h4>
-              <div className="grid grid-cols-2 gap-3">
-                 <div className="p-4 rounded-xl border bg-black/[0.01]">
-                    <p className="text-2xl font-black">{doctor.patients_count || 0}</p>
-                    <p className="text-[10px] uppercase font-black opacity-40">{t('consultations')}</p>
-                 </div>
-                 <div className="p-4 rounded-xl border bg-black/[0.01]">
-                    <p className="text-2xl font-black text-amber-500">{doctor.rating || "—"}</p>
-                    <p className="text-[10px] uppercase font-black opacity-40 text-amber-500 flex items-center gap-1"><Star size={10} fill="currentColor" /> {t('rating')}</p>
-                 </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                {field(t('first_name_label'), doctor.first_name)}
+                {field(t('last_name_label'), doctor.last_name)}
               </div>
-           </section>
-
-           <section className="space-y-4">
-              <h4 className="text-[10px] font-black uppercase tracking-widest opacity-30" style={{ color: c.txt }}>{t('clinic_pricing')}</h4>
-              <div className="space-y-3">
-                 <div className="p-4 rounded-xl border bg-blue-500/5 border-blue-500/10">
-                    <p className="text-[10px] uppercase font-black opacity-40 flex items-center gap-2"><Briefcase size={12} /> {t('establishment')}</p>
-                    <p className="text-sm font-bold mt-1">{doctor.clinic_name || "Cabinet Principal"}</p>
-                 </div>
-                 <div className="p-4 rounded-xl border">
-                    <p className="text-[10px] uppercase font-black opacity-40">{t('session_fee')}</p>
-                    <p className="text-xl font-black text-green-600">{doctor.consultation_fee} <span className="text-[10px] opacity-40">DZD</span></p>
-                 </div>
-                 <div className="p-4 rounded-xl border">
-                    <p className="text-[10px] uppercase font-black opacity-40 mb-1">{t('bio_summary')}</p>
-                    <p className="text-xs leading-relaxed opacity-70">{doctor.bio || t('no_bio')}</p>
-                 </div>
+              {field(t('email_address'), doctor.email)}
+              {field(t('phone_number'), doctor.phone)}
+              {field(t('wilaya_residence'), doctor.wilaya)}
+              <div className="pt-3 border-t" style={{ borderColor: c.border }}>
+                <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border"
+                  style={{ background: dk ? "rgba(255,255,255,0.03)" : "#F8FAFC", borderColor: c.border }}>
+                  <span className="w-2 h-2 rounded-full" style={{ background: doctor.is_active ? c.green : c.red }} />
+                  <span className="text-sm font-semibold" style={{ color: doctor.is_active ? c.green : c.red }}>
+                    {doctor.is_active ? (t('active_status') || "Actif") : (t('suspended_status') || "Suspendu")}
+                  </span>
+                </div>
               </div>
-           </section>
+            </div>
+          )}
+          {activeTab === "professional" && (
+            <div className="grid grid-cols-1 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="grid grid-cols-2 gap-4">
+                {field(t('all_specialties') || "Spécialité", doctor.specialty)}
+                {field(t('experience_years_label') || "Expérience", doctor.experience_years ? `${doctor.experience_years} ans` : null)}
+              </div>
+              {field(t('clinic_name_label') || "Établissement", doctor.clinic_name)}
+              {field(t('consultation_fee_label') || "Tarif consultation", doctor.consultation_fee ? `${doctor.consultation_fee} DZD` : null)}
+              {field(t('license_number_label') || "N° Ordre", doctor.license_number)}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1" style={{ color: c.txt }}>{t('bio_label') || "Biographie"}</label>
+                <div className="px-4 py-3 rounded-xl border text-sm italic leading-relaxed"
+                  style={{ background: dk ? "rgba(255,255,255,0.03)" : "#F8FAFC", borderColor: c.border, color: doctor.bio ? c.txt : c.txt3 }}>
+                  {doctor.bio || <span className="opacity-50">{t('not_specified')}</span>}
+                </div>
+              </div>
+            </div>
+          )}
+          {activeTab === "activity" && (
+            <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="p-6 rounded-xl border text-center" style={{ borderColor: c.border, background: dk ? "rgba(255,255,255,0.02)" : "#FAFBFD" }}>
+                <p className="text-3xl font-black" style={{ color: c.blue }}>{doctor.patients_count || 0}</p>
+                <p className="text-[10px] uppercase font-black opacity-40 mt-1" style={{ color: c.txt }}>{t('consultations')}</p>
+              </div>
+              <div className="p-6 rounded-xl border text-center" style={{ borderColor: c.border, background: dk ? "rgba(255,255,255,0.02)" : "#FAFBFD" }}>
+                <p className="text-3xl font-black" style={{ color: c.amber }}>{doctor.rating || "—"}</p>
+                <p className="text-[10px] uppercase font-black opacity-40 mt-1 flex items-center justify-center gap-1" style={{ color: c.txt }}>
+                  <Star size={10} fill="currentColor" style={{ color: c.amber }} /> {t('rating')}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="p-6 border-t flex flex-col gap-2" style={{ borderColor: c.border }}>
-           <button onClick={onEdit} className="w-full py-4 rounded-2xl bg-black text-white font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-3 active:scale-95 transition-all" style={{ background: c.blue }}>
-             <Edit3 size={16} /> {t('administrative_edition')}
-           </button>
-           <button onClick={onToggleStatus} className="w-full py-3 rounded-2xl border font-black text-[10px] uppercase tracking-widest transition-all active:scale-95"
-             style={{ borderColor: doctor.is_active ? c.red : c.green, color: doctor.is_active ? c.red : c.green }}>
-             {doctor.is_active ? t('deactivate_practitioner') : t('reactivate_practitioner')}
-           </button>
+        {/* Footer */}
+        <div className="p-6 border-t flex gap-3" style={{ borderColor: c.border }}>
+          <button onClick={onEdit}
+            className="flex-1 py-3 rounded-xl text-xs font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:scale-[1.02] flex items-center justify-center gap-2"
+            style={{ background: c.blue }}>
+            <Edit3 size={14} /> {t('modify')}
+          </button>
+          <button onClick={onToggleStatus}
+            className="flex-1 py-3 rounded-xl text-xs font-bold border transition-all hover:opacity-80 flex items-center justify-center gap-2"
+            style={{ borderColor: doctor.is_active ? c.red : c.green, color: doctor.is_active ? c.red : c.green }}>
+            {doctor.is_active
+              ? <><Lock size={14} /> {t('suspend_btn') || "Suspendre"}</>
+              : <><Unlock size={14} /> {t('reactivate_btn') || "Réactiver"}</>}
+          </button>
         </div>
-      </aside>
-    </>
+      </div>
+    </div>
   );
 }
 
@@ -326,6 +381,24 @@ export default function DoctorsView({ dk }) {
     { id: "pending",  label: t('pending_tab') },
   ];
 
+  const exportCSV = () => {
+    const rows = [
+      ["ID", "Nom", "Email", "Téléphone", "Wilaya", "Spécialité", "Statut vérification", "Actif"],
+      ...filtered.map(d => [
+        d.id, d.full_name, d.email, d.phone || "—", d.wilaya || "—",
+        d.specialty || "—", d.verification_status || "—", d.is_active ? "Oui" : "Non",
+      ]),
+    ];
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(";")).join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `medecins_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="animate-in fade-in duration-300" style={{ minHeight: "100%" }}>
 
@@ -357,6 +430,17 @@ export default function DoctorsView({ dk }) {
             onMouseLeave={e => e.currentTarget.style.background = "transparent"}
           >
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+          </button>
+          {/* Export CSV */}
+          <button
+            onClick={exportCSV}
+            disabled={filtered.length === 0}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ borderColor: c.border, color: c.txt2 }}
+            onMouseEnter={e => { if (filtered.length > 0) e.currentTarget.style.background = c.row; }}
+            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+          >
+            <Download size={13} /> CSV
           </button>
         </div>
       </div>

@@ -4,7 +4,7 @@ import {
   X, User,
   Lock, Unlock, Edit3,
   Search, RefreshCw, Activity,
-  Heart, Clock, CheckCircle2, MoreVertical
+  Heart, Clock, CheckCircle2, MoreVertical, Download
 } from "lucide-react";
 import { getAdminTheme } from "../../adminTheme.js";
 import { Card } from "../../AdminPrimitives.jsx";
@@ -13,7 +13,7 @@ import * as api from "../../../../services/api";
 
 // ─── SUB-COMPONENTS ──────────────────────────────────────────────────────────
 
-function EditPatientModal({ patient, dk, onSave, onClose }) {
+export function EditPatientModal({ patient, dk, onSave, onClose }) {
   const { t } = useLanguage();
   const c = getAdminTheme(dk);
   const [activeTab, setActiveTab] = useState("account");
@@ -121,7 +121,7 @@ function EditPatientModal({ patient, dk, onSave, onClose }) {
   );
 }
 
-function PatientDrawer({ patient, dk, onClose, onEdit, onToggleStatus }) {
+export function PatientDrawer({ patient, dk, onClose, onEdit, onToggleStatus }) {
   const { t } = useLanguage();
   const c = getAdminTheme(dk);
   const [activeTab, setActiveTab] = useState("account");
@@ -373,6 +373,24 @@ export default function PatientsView({ dk }) {
     { id: "suspended", label: t('suspended_tab') },
   ];
 
+  const exportCSV = () => {
+    const rows = [
+      ["ID", "Nom", "Email", "Téléphone", "Wilaya", "Statut", "Groupe sanguin"],
+      ...filtered.map(p => [
+        p.id, p.full_name, p.email, p.phone || "—", p.wilaya || "—",
+        p.is_active ? "Actif" : "Suspendu", p.blood_type || "—",
+      ]),
+    ];
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(";")).join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `patients_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="animate-in fade-in duration-300" style={{ minHeight: "100%" }}>
 
@@ -399,6 +417,16 @@ export default function PatientsView({ dk }) {
             onMouseEnter={e => e.currentTarget.style.background = c.row}
             onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+          </button>
+          <button
+            onClick={exportCSV}
+            disabled={filtered.length === 0}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ borderColor: c.border, color: c.txt2 }}
+            onMouseEnter={e => { if (filtered.length > 0) e.currentTarget.style.background = c.row; }}
+            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+          >
+            <Download size={13} /> CSV
           </button>
         </div>
       </div>

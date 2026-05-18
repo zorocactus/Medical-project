@@ -205,8 +205,16 @@ function HomeView({ onChangePage, dk, c }) {
   const [schedules, setSchedules]     = useState([]);
   const [loading, setLoading]         = useState(true);
   const [showEmergency, setShowEmergency] = useState(false);
-  const [doneMeds, setDoneMeds]       = useState(new Set());
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const [checkedMeds, setCheckedMeds] = useState(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("gm_checkedMeds") || "{}");
+      return stored.date === todayKey ? stored.keys : {};
+    } catch { return {}; }
+  });
   const [responding, setResponding]   = useState({});
+  const [myRating, setMyRating]       = useState(null);
+  const [totalReviews, setTotalReviews] = useState(null);
 
   useEffect(() => {
     Promise.all([
@@ -214,12 +222,17 @@ function HomeView({ onChangePage, dk, c }) {
       api.getCareRequests().catch(() => null),
       api.getMedicationSchedules().catch(() => null),
       api.getNotifications().catch(() => null),
-    ]).then(([dashboard, reqs, scheds]) => {
+      api.getCaretakerProfile().catch(() => null),
+    ]).then(([dashboard, reqs, scheds, , profile]) => {
       setPatients(Array.isArray(dashboard?.my_patients) ? dashboard.my_patients : []);
       const reqList = Array.isArray(reqs) ? reqs : (reqs?.results || []);
       setRequests(reqList.filter(r => r.status === "pending" || !r.status));
       const schedList = Array.isArray(scheds) ? scheds : (scheds?.results || []);
       setSchedules(schedList);
+      if (profile) {
+        setMyRating(profile.rating ?? null);
+        setTotalReviews(profile.total_reviews ?? null);
+      }
     }).finally(() => setLoading(false));
   }, []);
 
@@ -230,7 +243,7 @@ function HomeView({ onChangePage, dk, c }) {
     return ["morning", "afternoon", "evening"].flatMap(slot => {
       const meds = (sch.medications || {})[slot] || [];
       return meds.map((med, idx) => ({
-        key: `${slot}-${sch.id}-${idx}`,
+        key: `${patientName}__${slot}__${med.name || ""}__${idx}`,
         time: med.time || SLOT_TIMES[slot],
         label: `${patientName} — ${med.name || ""}${med.dosage ? ` ${med.dosage}` : ""}`.trim(),
       }));
@@ -243,7 +256,7 @@ function HomeView({ onChangePage, dk, c }) {
   const medsWithStatus = todayMeds.map(item => {
     const [h, m] = item.time.split(":").map(Number);
     const itemMinutes = h * 60 + m;
-    const isDone   = doneMeds.has(item.key);
+    const isDone   = !!checkedMeds[item.key];
     const isMissed = !isDone && itemMinutes < currentMinutes;
     return { ...item, isDone, isMissed };
   });
@@ -262,10 +275,11 @@ function HomeView({ onChangePage, dk, c }) {
   const hiddenCount = medsWithStatus.filter(it => !it.isDone).length - upcomingMeds.length;
 
   function toggleDone(key) {
-    setDoneMeds(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
+    setCheckedMeds(prev => {
+      const n = { ...prev };
+      if (n[key]) delete n[key]; else n[key] = true;
+      localStorage.setItem("gm_checkedMeds", JSON.stringify({ date: todayKey, keys: n }));
+      return n;
     });
   }
 
@@ -289,10 +303,7 @@ function HomeView({ onChangePage, dk, c }) {
   }
 
   // ── Derived values ───────────────────────────────────────────────────────────
-  const pendingCount    = requests.length;
-  const nextPatientName = patients[0]
-    ? (patients[0].name || [patients[0].first_name, patients[0].last_name].filter(Boolean).join(" ") || "—")
-    : "—";
+  const pendingCount = requests.length;
 
   const patientEmergencyContacts = patients
     .filter(p => p.emergencyContact || p.emergency_contact_name || p.emergencyPhone || p.emergency_contact_phone)
@@ -306,11 +317,18 @@ function HomeView({ onChangePage, dk, c }) {
   const labelStyle = { color: dk ? "#A0B5CD" : "#5C738A", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em" };
   const cardBg     = dk ? "#172133" : "#ffffff";
 
+  const ratingDisplay = loading ? "—" : (myRating != null ? Number(myRating).toFixed(1) : "—");
   const kpis = [
-    { label: "Patients assignés",       value: loading ? "—" : patients.length,   color: c.blue },
-    { label: "Médicaments aujourd'hui", value: loading ? "—" : todayMeds.length,  color: c.green },
-    { label: "Nouvelles offres",        value: loading ? "—" : pendingCount,      color: c.amber },
-    { label: "Prochain patient",        value: loading ? "—" : nextPatientName,   color: c.purple || "#7B5EA7", small: true },
+    { label: "Patients assignés",       value: loading ? "—" : patients.length,  color: c.blue },
+    { label: "Médicaments aujourd'hui", value: loading ? "—" : todayMeds.length, color: c.green },
+    { label: "Nouvelles offres",        value: loading ? "—" : pendingCount,     color: c.amber },
+    {
+      label: "Mes Avis",
+      value: ratingDisplay,
+      sub: loading ? "" : (totalReviews != null ? `${totalReviews} avis` : "0 avis"),
+      color: c.purple || "#7B5EA7",
+      onClick: () => onChangePage("reviews"),
+    },
   ];
 
   // ── SAMU base styles ─────────────────────────────────────────────────────────
@@ -329,25 +347,26 @@ function HomeView({ onChangePage, dk, c }) {
           </h1>
           <p className="mt-1" style={labelStyle}>{formatDate(new Date())}</p>
         </div>
-        <button
-          onClick={() => setShowEmergency(true)}
-          className="flex items-center gap-2 font-semibold text-sm transition-all hover:opacity-90 active:scale-95 shrink-0"
-          style={{ background: "#DC2626", color: "#fff", padding: "10px 20px", borderRadius: 12, letterSpacing: "0.3px", border: "none" }}
-        >
-          <AlertTriangle size={15} /> {t('emergency_btn') || "URGENCE"}
-        </button>
       </div>
 
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {kpis.map((kpi, i) => (
-          <div key={i} className="rounded-2xl p-5 border card-hover" style={{ background: cardBg, borderColor: c.border }}>
-            <div style={{ fontSize: kpi.small ? 18 : 32, fontWeight: 600, lineHeight: 1, color: c.txt, marginBottom: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div
+            key={i}
+            className="rounded-2xl p-5 border card-hover"
+            style={{ background: cardBg, borderColor: c.border, cursor: kpi.onClick ? "pointer" : "default" }}
+            onClick={kpi.onClick}
+          >
+            <div style={{ fontSize: 32, fontWeight: 600, lineHeight: 1, color: c.txt, marginBottom: 6 }}>
               {kpi.value}
             </div>
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "#A0B5CD" }}>
               {kpi.label}
             </div>
+            {kpi.sub && (
+              <div style={{ fontSize: 10, fontWeight: 600, color: kpi.color, marginTop: 3 }}>{kpi.sub}</div>
+            )}
           </div>
         ))}
       </div>
@@ -1883,9 +1902,13 @@ function TreatmentsView({ dk, c }) {
     localStorage.setItem("gm_checkedMeds", JSON.stringify({ date: todayKey, keys: checkedMeds }));
   }, [checkedMeds]);
 
-  function toggleMedCheck(trId, slot, idx) {
-    const k = `${trId}-${slot}-${idx}`;
-    setCheckedMeds(prev => { const n = { ...prev }; if (n[k]) delete n[k]; else n[k] = true; return n; });
+  function toggleMedCheck(key) {
+    setCheckedMeds(prev => {
+      const n = { ...prev };
+      if (n[key]) delete n[key]; else n[key] = true;
+      localStorage.setItem("gm_checkedMeds", JSON.stringify({ date: todayKey, keys: n }));
+      return n;
+    });
   }
 
   // ── Tâches ──────────────────────────────────────────────────────────────────
@@ -2160,12 +2183,12 @@ function TreatmentsView({ dk, c }) {
                       <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: c.txt3 }}>{label}</p>
                       <div className="space-y-1.5">
                         {meds.map((med, idx) => {
-                          const ck = `${tr.id}-${key}-${idx}`;
+                          const ck = `${tr.patientName}__${key}__${med.name}__${idx}`;
                           const isChecked = !!checkedMeds[ck];
                           return (
                             <div key={idx} className="flex items-center justify-between gap-2">
                               <button
-                                onClick={() => toggleMedCheck(tr.id, key, idx)}
+                                onClick={() => toggleMedCheck(ck)}
                                 className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all"
                                 style={{
                                   borderColor: isChecked ? c.green : c.txt3,
@@ -2927,6 +2950,101 @@ function NotificationsView({ dk, c }) {
   );
 }
 
+// ─── ReviewsView ─────────────────────────────────────────────────────────────
+function ReviewsView({ dk, c }) {
+  const [reviews, setReviews]   = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [profile, setProfile]   = useState(null);
+
+  useEffect(() => {
+    Promise.all([
+      api.getCaretakerReviews().catch(() => []),
+      api.getCaretakerProfile().catch(() => null),
+    ]).then(([revData, profileData]) => {
+      setReviews(Array.isArray(revData) ? revData : (revData?.results || []));
+      setProfile(profileData);
+    }).finally(() => setLoading(false));
+  }, []);
+
+  const cardBg    = dk ? "#172133" : "#ffffff";
+  const labelStyle = { color: dk ? "#A0B5CD" : "#5C738A", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em" };
+  const rating    = profile?.rating ? Number(profile.rating) : 0;
+  const total     = profile?.total_reviews ?? reviews.length;
+
+  function StarRow({ value }) {
+    return (
+      <span className="flex gap-0.5">
+        {[1,2,3,4,5].map(n => (
+          <Star key={n} size={14} fill={n <= Math.round(value) ? "#F0A500" : "none"} stroke={n <= Math.round(value) ? "#F0A500" : "#A0B5CD"} />
+        ))}
+      </span>
+    );
+  }
+
+  return (
+    <div className="pb-12 animate-in fade-in duration-500">
+      <h2 className="text-2xl font-bold mb-6" style={{ color: c.txt }}>Mes Avis &amp; Notes</h2>
+
+      {/* Summary card */}
+      <div className="rounded-2xl p-6 border mb-6 flex items-center gap-6" style={{ background: cardBg, borderColor: c.border }}>
+        <div className="flex flex-col items-center justify-center w-28 shrink-0">
+          <span className="text-5xl font-bold" style={{ color: c.txt }}>{loading ? "—" : rating.toFixed(1)}</span>
+          <StarRow value={rating} />
+          <span className="text-xs mt-1" style={{ color: c.txt3 }}>{loading ? "—" : total} avis</span>
+        </div>
+        <div className="flex-1 space-y-1.5">
+          {[5,4,3,2,1].map(star => {
+            const count = reviews.filter(r => r.rating === star).length;
+            const pct   = total > 0 ? Math.round((count / total) * 100) : 0;
+            return (
+              <div key={star} className="flex items-center gap-2 text-xs">
+                <span style={{ color: c.txt3, width: 8 }}>{star}</span>
+                <Star size={11} fill="#F0A500" stroke="#F0A500" />
+                <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: c.border }}>
+                  <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: "#F0A500" }} />
+                </div>
+                <span style={{ color: c.txt3, width: 28, textAlign: "right" }}>{count}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Reviews list */}
+      <div className="rounded-2xl border overflow-hidden" style={{ background: cardBg, borderColor: c.border }}>
+        <div className="px-5 pt-5 pb-3">
+          <span style={labelStyle}>AVIS DES PATIENTS</span>
+        </div>
+        {loading ? (
+          <div className="px-5 py-10 text-center text-sm" style={{ color: c.txt3 }}>Chargement…</div>
+        ) : reviews.length === 0 ? (
+          <div className="px-5 py-10 flex flex-col items-center gap-3">
+            <Star size={28} style={{ color: c.txt3, opacity: 0.4 }} />
+            <p className="text-sm" style={{ color: c.txt3 }}>Aucun avis reçu pour le moment.</p>
+          </div>
+        ) : reviews.map((rev, i) => (
+          <div key={rev.id || i} className="px-5 py-4 border-b" style={{ borderColor: c.border }}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold truncate" style={{ color: c.txt }}>{rev.patient_name || "Patient"}</p>
+                {rev.comment && (
+                  <p className="text-sm mt-1" style={{ color: c.txt2 }}>{rev.comment}</p>
+                )}
+              </div>
+              <div className="flex flex-col items-end gap-1 shrink-0">
+                <StarRow value={rev.rating} />
+                <span className="text-[10px]" style={{ color: c.txt3 }}>
+                  {rev.created_at ? new Date(rev.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : ""}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ============================================================================
 // COMPOSANT PRINCIPAL
 // ============================================================================
@@ -2976,6 +3094,7 @@ export default function GardeMaladeDashboard({ onLogout }) {
       case "myPatients": return <MyPatientsView onChangePage={setPage} dk={dk} c={c} />;
       case "treatments": return <TreatmentsView dk={dk} c={c} />;
       case "ai-diagnosis": return <AIDiagnosisPage dk={dk} setPage={setPage} />;
+      case "reviews":  return <ReviewsView dk={dk} c={c} />;
       case "settings": return <SettingsView onTarifSaved={setTarifMensuel} dk={dk} c={c} user={user} />;
       case "messages":
         return (

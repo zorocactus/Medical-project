@@ -1629,6 +1629,7 @@ export default {
     reports_breadcrumb: "Signalements",
     platform_info: "À propos",
     all_users: "Tous les utilisateurs",
+    profile_updates: "Modifications profil",
     // Medications Page
     medications_catalog: "Catalogue Médicaments",
     new_medication: "Nouveau médicament",

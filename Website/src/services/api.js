@@ -312,6 +312,21 @@ export async function getDoctorReviews(doctorId) {
   return apiFetch(`/doctors/${doctorId}/reviews/`);
 }
 
+export async function getMyDoctorReviews() {
+  return apiFetch("/doctors/my-reviews/");
+}
+
+export async function getCaretakerReviews() {
+  return apiFetch("/caretaker/reviews/");
+}
+
+export async function submitCaretakerReview(data) {
+  return apiFetch("/caretaker/reviews/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
 // ─── Médecin : gestion de son propre profil ───────────────────────────────────
 
 /**
@@ -1619,10 +1634,11 @@ export async function getAdminProfileUpdates() {
  * (Admin) Approuve ou rejette une demande de changement de profil
  * @param {number} requestId
  * @param {string} action — "approve" | "reject"
+ * @param {string} notes — motif du rejet (optionnel)
  */
-export async function actionProfileUpdate(requestId, action) {
+export async function actionProfileUpdate(requestId, action, notes = "") {
   return apiFetch(`/admin/profile-updates/${requestId}/action/`, {
     method: "POST",
-    body: JSON.stringify({ action }),
+    body: JSON.stringify({ action, ...(notes ? { notes } : {}) }),
   });
 }

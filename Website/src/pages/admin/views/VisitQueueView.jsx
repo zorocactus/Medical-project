@@ -30,9 +30,14 @@ export default function VisitQueueView({ dk }) {
     setError(null);
     try {
       const data = await api.getAdminQueue();
-      setQueue(Array.isArray(data) ? data : data.results || []);
+      setQueue(Array.isArray(data) ? data : data?.results || []);
     } catch (err) {
-      setError(t('loading_queue_error'));
+      const msg = err?.message || "";
+      if (msg.includes("404") || msg.includes("403")) {
+        setQueue([]);
+      } else {
+        setError(t('loading_queue_error'));
+      }
     } finally {
       setLoading(false);
     }
@@ -109,24 +114,89 @@ export default function VisitQueueView({ dk }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Waiting Column */}
-        <QueueColumn title={t('waiting_room')} items={columns.waiting} c={c} dk={dk} 
-          icon={Users} borderColor={c.amber} 
-          nextAction={{ label: t('start_btn'), status: "in_progress" }} 
-          onAction={handleStatusUpdate} t={t} />
+      {viewMode === "kanban" ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <QueueColumn title={t('waiting_room')} items={columns.waiting} c={c} dk={dk}
+            icon={Users} borderColor={c.amber}
+            nextAction={{ label: t('start_btn'), status: "in_progress" }}
+            onAction={handleStatusUpdate} t={t} />
+          <QueueColumn title={t('consultations_tab')} items={columns.active} c={c} dk={dk}
+            icon={Play} borderColor={c.blue}
+            nextAction={{ label: t('finish_btn'), status: "completed" }}
+            onAction={handleStatusUpdate} t={t} />
+          <QueueColumn title={t('finished_visits')} items={columns.done} c={c} dk={dk}
+            icon={CheckCircle2} borderColor={c.green}
+            onAction={handleStatusUpdate} t={t} />
+        </div>
+      ) : (
+        <QueueListView queue={queue} c={c} dk={dk} onAction={handleStatusUpdate} t={t} />
+      )}
+    </div>
+  );
+}
 
-        {/* Consulting Column */}
-        <QueueColumn title={t('consultations_tab')} items={columns.active} c={c} dk={dk} 
-          icon={Play} borderColor={c.blue} 
-          nextAction={{ label: t('finish_btn'), status: "completed" }}
-          onAction={handleStatusUpdate} t={t} />
-
-        {/* Done Column */}
-        <QueueColumn title={t('finished_visits')} items={columns.done} c={c} dk={dk} 
-          icon={CheckCircle2} borderColor={c.green} 
-          onAction={handleStatusUpdate} t={t} />
+function QueueListView({ queue, c, dk, onAction, t }) {
+  const STATUS_CFG = getStatusConfig(t);
+  if (queue.length === 0) {
+    return (
+      <div className="py-20 text-center" style={{ color: c.txt3 }}>
+        <Users size={36} className="mx-auto mb-3 opacity-30" />
+        <p className="text-sm font-semibold opacity-50">{t('empty_column') || "Aucune consultation en cours"}</p>
       </div>
+    );
+  }
+  return (
+    <div className="rounded-2xl border overflow-hidden" style={{ borderColor: c.border, background: c.card }}>
+      <table className="w-full text-sm">
+        <thead>
+          <tr style={{ background: dk ? "rgba(255,255,255,0.02)" : "#FAFBFD", borderBottom: `1px solid ${c.border}` }}>
+            {["Patient", "Médecin", "Heure", "Statut", "Action"].map(h => (
+              <th key={h} className="text-left px-4 py-3 text-[11px] font-black uppercase tracking-wider" style={{ color: c.txt3 }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y" style={{ borderColor: c.border }}>
+          {queue.map(item => {
+            const cfg = STATUS_CFG[item.status] || STATUS_CFG.scheduled;
+            const StatusIcon = cfg.icon;
+            const nextStatus = item.status === "scheduled" ? "in_progress" : item.status === "in_progress" ? "completed" : null;
+            const nextLabel  = item.status === "scheduled" ? t('start_btn') : item.status === "in_progress" ? t('finish_btn') : null;
+            return (
+              <tr key={item.id}
+                onMouseEnter={e => e.currentTarget.style.background = dk ? "rgba(255,255,255,0.02)" : "#FAFBFD"}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                <td className="px-4 py-3 font-semibold" style={{ color: c.txt }}>
+                  {item.patient_name || item.patient?.full_name || item.patient?.name || "Patient"}
+                </td>
+                <td className="px-4 py-3" style={{ color: c.txt2 }}>
+                  Dr. {item.doctor_name || item.doctor?.last_name || item.doctor?.user?.last_name || t('unknown')}
+                </td>
+                <td className="px-4 py-3">
+                  <span className="flex items-center gap-1.5 text-xs" style={{ color: c.txt3 }}>
+                    <Clock size={12} />{item.consulted_at?.slice(11, 16) || "—"}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <span className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full w-fit" style={{ background: cfg.color + "18", color: cfg.color }}>
+                    <StatusIcon size={11} />{cfg.label}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  {nextStatus ? (
+                    <button onClick={() => onAction(item.id, nextStatus)}
+                      className="px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-tight text-white transition-all active:scale-95 hover:brightness-110"
+                      style={{ background: nextStatus === "in_progress" ? c.amber : c.green }}>
+                      {nextLabel}
+                    </button>
+                  ) : (
+                    <span className="text-xs opacity-40" style={{ color: c.txt3 }}>—</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

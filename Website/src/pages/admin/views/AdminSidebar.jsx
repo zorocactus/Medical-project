@@ -1,8 +1,8 @@
 // src/pages/admin/views/AdminSidebar.jsx
 import {
-  LayoutDashboard, Users, Pill, Heart, Shield, Settings,
-  UserCheck, Calendar, ShoppingBag, X,
-  LogOut, Stethoscope, User, Activity, ListFilter,
+  LayoutDashboard, Users, Pill, Shield, Settings,
+  UserCheck, Calendar, X,
+  LogOut, User, Activity, ListFilter,
   Building2, ClipboardList, ShieldAlert
 } from "lucide-react";
 import { getAdminTheme } from "../adminTheme.js";
@@ -15,7 +15,7 @@ export default function AdminSidebar({
   onNav,
   onLogout,
   userData,
-  pendingCount = 0,
+  badgeCounts = {},
   mobileOpen,
   onCloseMobile,
 }) {
@@ -32,11 +32,7 @@ export default function AdminSidebar({
     {
       title: t('people_group'),
       items: [
-        { id: "utilisateurs", label: t('all_users'),  icon: Users },
-        { id: "patients",     label: t('patients'),         icon: User },
-        { id: "doctors",      label: t('doctors'),         icon: Stethoscope },
-        { id: "caretakers",   label: t('caretakers'),    icon: Heart },
-        { id: "pharmacists",  label: t('pharmacists'),      icon: ShoppingBag },
+        { id: "utilisateurs", label: t('all_users'), icon: Users },
       ],
     },
     {
@@ -75,7 +71,7 @@ export default function AdminSidebar({
 
   const NavItem = ({ item }) => {
     const isActive = activePage === item.id;
-    const badgeCount = item.badge ? pendingCount : 0;
+    const badgeCount = item.badge ? (badgeCounts[item.id] ?? 0) : 0;
 
     return (
       <button

@@ -2325,6 +2325,103 @@ function PatientDetailView({ patient, onBack, dk, onStartConsultation }) {
   );
 }
 
+function DoctorReviewsView() {
+  const { theme } = useTheme();
+  const dk = theme === "dark";
+  const c  = dk ? T.dark : T.light;
+
+  const [reviews, setReviews]   = useState([]);
+  const [summary, setSummary]   = useState(null);
+  const [loading, setLoading]   = useState(true);
+
+  useEffect(() => {
+    import("../../services/api").then(api =>
+      api.getMyDoctorReviews().catch(() => null)
+    ).then(data => {
+      if (data) {
+        setSummary({ rating: data.rating, total_reviews: data.total_reviews });
+        setReviews(Array.isArray(data.reviews) ? data.reviews : []);
+      }
+    }).finally(() => setLoading(false));
+  }, []);
+
+  const cardBg    = dk ? "#172133" : "#ffffff";
+  const labelStyle = { color: dk ? "#A0B5CD" : "#5C738A", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em" };
+  const rating    = summary?.rating ? Number(summary.rating) : 0;
+  const total     = summary?.total_reviews ?? reviews.length;
+
+  function StarRow({ value }) {
+    return (
+      <span className="flex gap-0.5">
+        {[1,2,3,4,5].map(n => (
+          <Star key={n} size={14} fill={n <= Math.round(value) ? "#F0A500" : "none"} stroke={n <= Math.round(value) ? "#F0A500" : "#A0B5CD"} />
+        ))}
+      </span>
+    );
+  }
+
+  return (
+    <div className="pb-12 animate-in fade-in duration-500">
+      <h2 className="text-2xl font-bold mb-6" style={{ color: c.txt }}>Mes Avis &amp; Notes</h2>
+
+      <div className="rounded-2xl p-6 border mb-6 flex items-center gap-6" style={{ background: cardBg, borderColor: c.border }}>
+        <div className="flex flex-col items-center justify-center w-28 shrink-0">
+          <span className="text-5xl font-bold" style={{ color: c.txt }}>{loading ? "—" : rating.toFixed(1)}</span>
+          <StarRow value={rating} />
+          <span className="text-xs mt-1" style={{ color: c.txt3 }}>{loading ? "—" : total} avis</span>
+        </div>
+        <div className="flex-1 space-y-1.5">
+          {[5,4,3,2,1].map(star => {
+            const count = reviews.filter(r => r.rating === star).length;
+            const pct   = total > 0 ? Math.round((count / total) * 100) : 0;
+            return (
+              <div key={star} className="flex items-center gap-2 text-xs">
+                <span style={{ color: c.txt3, width: 8 }}>{star}</span>
+                <Star size={11} fill="#F0A500" stroke="#F0A500" />
+                <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: c.border }}>
+                  <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: "#F0A500" }} />
+                </div>
+                <span style={{ color: c.txt3, width: 28, textAlign: "right" }}>{count}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border overflow-hidden" style={{ background: cardBg, borderColor: c.border }}>
+        <div className="px-5 pt-5 pb-3">
+          <span style={labelStyle}>AVIS DES PATIENTS</span>
+        </div>
+        {loading ? (
+          <div className="px-5 py-10 text-center text-sm" style={{ color: c.txt3 }}>Chargement…</div>
+        ) : reviews.length === 0 ? (
+          <div className="px-5 py-10 flex flex-col items-center gap-3">
+            <Star size={28} style={{ color: c.txt3, opacity: 0.4 }} />
+            <p className="text-sm" style={{ color: c.txt3 }}>Aucun avis reçu pour le moment.</p>
+          </div>
+        ) : reviews.map((rev, i) => (
+          <div key={rev.id || i} className="px-5 py-4 border-b" style={{ borderColor: c.border }}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold truncate" style={{ color: c.txt }}>{rev.patient_name || "Patient"}</p>
+                {rev.comment && (
+                  <p className="text-sm mt-1" style={{ color: c.txt2 }}>{rev.comment}</p>
+                )}
+              </div>
+              <div className="flex flex-col items-end gap-1 shrink-0">
+                <StarRow value={rev.rating} />
+                <span className="text-[10px]" style={{ color: c.txt3 }}>
+                  {rev.created_at ? new Date(rev.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : ""}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function StatisticsView() {
   const { theme } = useTheme();
   const dk = theme === "dark";
@@ -3856,6 +3953,7 @@ export default function DoctorDashboard({ onLogout }) {
     { id: "patients",      label: t('dashboard.doctor.nav.patients') },
     { id: "prescriptions", label: t('dashboard.doctor.nav.prescriptions') },
     { id: "statistics",    label: t('dashboard.doctor.nav.statistics') },
+    { id: "my-reviews",   label: "Mes Avis" },
   ];
 
   const isInConsultation = currentPage === "consultation-session";
@@ -3901,6 +3999,8 @@ export default function DoctorDashboard({ onLogout }) {
         return <PrescriptionsView />;
       case "statistics":
         return <StatisticsView />;
+      case "my-reviews":
+        return <DoctorReviewsView />;
       case "settings":
         return <SettingsView onLogout={onLogout} />;
       case "patient-detail":
@@ -4157,7 +4257,7 @@ export default function DoctorDashboard({ onLogout }) {
                       className="pd-item w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-xl"
                     >
                       <Settings size={16} />
-                      {t('dashboard.doctor.nav.settings')}
+                      {t('dashboard.doctor.nav.settings') || "Paramètres"}
                     </button>
 
                     {/* Dark mode */}
@@ -4194,7 +4294,7 @@ export default function DoctorDashboard({ onLogout }) {
                       onClick={onLogout}
                       className="pd-item-danger w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold rounded-xl"
                     >
-                      <LogOut size={16} /> {t('dashboard.doctor.nav.logout')}
+                      <LogOut size={16} /> {t('dashboard.doctor.nav.logout') || "Déconnexion"}
                     </button>
                   </div>
                 </div>
