@@ -883,6 +883,25 @@ export async function getCaretakerDashboard() {
 }
 
 /**
+ * (Garde-malade) Lire son propre profil professionnel
+ * GET /api/caretaker/profile/
+ */
+export async function getCaretakerProfile() {
+  return apiFetch("/caretaker/profile/");
+}
+
+/**
+ * (Garde-malade) Mettre à jour son profil professionnel
+ * PATCH /api/caretaker/profile/
+ */
+export async function updateCaretakerProfile(data) {
+  return apiFetch("/caretaker/profile/", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
  * (Garde-malade ou Patient) Liste des demandes de soins
  * GET /api/caretaker/requests/
  */

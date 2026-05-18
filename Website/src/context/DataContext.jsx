@@ -243,8 +243,8 @@ export function DataProvider({ children }) {
   }
 
   async function addPatientToTreatments(patient) {
-    // patient doit avoir care_request_id (depuis gmPatients)
-    if (gmTreatments.find(t => t.patient_id === (patient.user_id || patient.id))) return;
+    // Vérifie par care_request (clé unique) pour éviter les doublons même si l'état est désynchronisé
+    if (gmTreatments.find(t => String(t.care_request) === String(patient.care_request_id))) return;
 
     try {
       const created = await api.createMedicationSchedule({

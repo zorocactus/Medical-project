@@ -200,12 +200,13 @@ function HomeView({ onChangePage, dk, c }) {
   const { userData } = useAuth();
   const userName = userData?.first_name || userData?.firstName || "—";
 
-  const [patients, setPatients] = useState([]);
-  const [requests, setRequests] = useState([]);
-  const [schedules, setSchedules] = useState([]);
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [patients, setPatients]       = useState([]);
+  const [requests, setRequests]       = useState([]);
+  const [schedules, setSchedules]     = useState([]);
+  const [loading, setLoading]         = useState(true);
   const [showEmergency, setShowEmergency] = useState(false);
+  const [doneMeds, setDoneMeds]       = useState(new Set());
+  const [responding, setResponding]   = useState({});
 
   useEffect(() => {
     Promise.all([
@@ -213,57 +214,114 @@ function HomeView({ onChangePage, dk, c }) {
       api.getCareRequests().catch(() => null),
       api.getMedicationSchedules().catch(() => null),
       api.getNotifications().catch(() => null),
-    ]).then(([dashboard, reqs, scheds, notifs]) => {
+    ]).then(([dashboard, reqs, scheds]) => {
       setPatients(Array.isArray(dashboard?.my_patients) ? dashboard.my_patients : []);
       const reqList = Array.isArray(reqs) ? reqs : (reqs?.results || []);
       setRequests(reqList.filter(r => r.status === "pending" || !r.status));
       const schedList = Array.isArray(scheds) ? scheds : (scheds?.results || []);
       setSchedules(schedList);
-      const notifList = Array.isArray(notifs) ? notifs : (notifs?.results || []);
-      setNotifications(notifList.slice(0, 5));
     }).finally(() => setLoading(false));
   }, []);
 
+  // ── Medication planning ──────────────────────────────────────────────────────
   const SLOT_TIMES = { morning: "08:00", afternoon: "14:00", evening: "20:00" };
   const todayMeds = schedules.flatMap(sch => {
     const patientName = sch.patient_name || sch.patientName || "Patient";
     return ["morning", "afternoon", "evening"].flatMap(slot => {
       const meds = (sch.medications || {})[slot] || [];
-      return meds.map(med => ({
-        time: SLOT_TIMES[slot],
+      return meds.map((med, idx) => ({
+        key: `${slot}-${sch.id}-${idx}`,
+        time: med.time || SLOT_TIMES[slot],
         label: `${patientName} — ${med.name || ""}${med.dosage ? ` ${med.dosage}` : ""}`.trim(),
       }));
     });
   }).sort((a, b) => a.time.localeCompare(b.time));
 
-  const pendingCount = requests.length;
-  const nextPatient = patients[0];
-  const nextPatientName = nextPatient
-    ? (nextPatient.name || nextPatient.full_name || [nextPatient.first_name, nextPatient.last_name].filter(Boolean).join(" ") || "—")
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const medsWithStatus = todayMeds.map(item => {
+    const [h, m] = item.time.split(":").map(Number);
+    const itemMinutes = h * 60 + m;
+    const isDone   = doneMeds.has(item.key);
+    const isMissed = !isDone && itemMinutes < currentMinutes;
+    return { ...item, isDone, isMissed };
+  });
+
+  const allDone = medsWithStatus.length > 0 && medsWithStatus.every(it => it.isDone);
+
+  const upcomingMeds = medsWithStatus
+    .filter(item => !item.isDone)
+    .sort((a, b) => {
+      const [ah, am] = a.time.split(":").map(Number);
+      const [bh, bm] = b.time.split(":").map(Number);
+      return (ah * 60 + am) - (bh * 60 + bm);
+    })
+    .slice(0, 4);
+
+  const hiddenCount = medsWithStatus.filter(it => !it.isDone).length - upcomingMeds.length;
+
+  function toggleDone(key) {
+    setDoneMeds(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  // ── Quick accept / dismiss from HomeView ────────────────────────────────────
+  async function handleQuickAccept(id) {
+    setResponding(prev => ({ ...prev, [id]: true }));
+    try {
+      await api.respondToCareRequest(id, "accepted");
+      setRequests(prev => prev.filter(r => r.id !== id));
+    } catch { /* silencieux */ }
+    finally { setResponding(prev => ({ ...prev, [id]: false })); }
+  }
+
+  async function handleQuickDismiss(id) {
+    setResponding(prev => ({ ...prev, [id]: true }));
+    try {
+      await api.respondToCareRequest(id, "rejected");
+      setRequests(prev => prev.filter(r => r.id !== id));
+    } catch { /* silencieux */ }
+    finally { setResponding(prev => ({ ...prev, [id]: false })); }
+  }
+
+  // ── Derived values ───────────────────────────────────────────────────────────
+  const pendingCount    = requests.length;
+  const nextPatientName = patients[0]
+    ? (patients[0].name || [patients[0].first_name, patients[0].last_name].filter(Boolean).join(" ") || "—")
     : "—";
 
   const patientEmergencyContacts = patients
     .filter(p => p.emergencyContact || p.emergency_contact_name || p.emergencyPhone || p.emergency_contact_phone)
     .map(p => ({
-      name: p.emergencyContact || p.emergency_contact_name || "Contact",
-      phone: p.emergencyPhone || p.emergency_contact_phone || "",
-      initials: (p.emergencyContact || p.emergency_contact_name || "?").charAt(0).toUpperCase(),
+      name:        p.emergencyContact || p.emergency_contact_name || "Contact",
+      patientName: p.name || [p.first_name, p.last_name].filter(Boolean).join(" ") || "Patient",
+      phone:       p.emergencyPhone   || p.emergency_contact_phone || "",
+      initials:    (p.emergencyContact || p.emergency_contact_name || "?").charAt(0).toUpperCase(),
     }));
 
   const labelStyle = { color: dk ? "#A0B5CD" : "#5C738A", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em" };
-  const cardBg = dk ? "#172133" : "#ffffff";
-  const pageBg = dk ? "#0B1120" : "#F8FAFC";
+  const cardBg     = dk ? "#172133" : "#ffffff";
 
   const kpis = [
-    { label: "Patients assignés", value: loading ? "—" : patients.length, icon: Users, color: c.blue },
-    { label: "Médicaments aujourd'hui", value: loading ? "—" : todayMeds.length, icon: Pill, color: c.green },
-    { label: "Nouvelles offres", value: loading ? "—" : pendingCount, icon: Bell, color: c.amber },
-    { label: "Prochain patient", value: loading ? "—" : nextPatientName, icon: Heart, color: c.purple || "#7B5EA7", small: true },
+    { label: "Patients assignés",       value: loading ? "—" : patients.length,   color: c.blue },
+    { label: "Médicaments aujourd'hui", value: loading ? "—" : todayMeds.length,  color: c.green },
+    { label: "Nouvelles offres",        value: loading ? "—" : pendingCount,      color: c.amber },
+    { label: "Prochain patient",        value: loading ? "—" : nextPatientName,   color: c.purple || "#7B5EA7", small: true },
   ];
+
+  // ── SAMU base styles ─────────────────────────────────────────────────────────
+  const samuBg     = "#FCEBEB";
+  const samuBorder = "#F09595";
+  const samuText   = "#A32D2D";
+  const samuBtn    = "#E24B4A";
 
   return (
     <div className="pb-12 animate-in fade-in duration-500">
-      {/* Header */}
+      {/* ── Header ── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold" style={{ color: c.txt }}>
@@ -273,205 +331,281 @@ function HomeView({ onChangePage, dk, c }) {
         </div>
         <button
           onClick={() => setShowEmergency(true)}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all hover:opacity-90 active:scale-95 shadow-lg shrink-0"
-          style={{ background: "linear-gradient(135deg, #E05555, #c93535)", color: "#fff" }}
+          className="flex items-center gap-2 font-semibold text-sm transition-all hover:opacity-90 active:scale-95 shrink-0"
+          style={{ background: "#DC2626", color: "#fff", padding: "10px 20px", borderRadius: 12, letterSpacing: "0.3px", border: "none" }}
         >
-          <ShieldAlert size={15} /> {t('emergency_btn') || "URGENCE"}
+          <AlertTriangle size={15} /> {t('emergency_btn') || "URGENCE"}
         </button>
       </div>
 
-      {/* KPI Cards */}
+      {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {kpis.map((kpi, i) => (
-          <div key={i} className="rounded-2xl p-4 border card-hover"
-            style={{ background: cardBg, borderColor: c.border }}>
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3"
-              style={{ background: kpi.color + "18" }}>
-              <kpi.icon size={18} style={{ color: kpi.color }} />
-            </div>
-            <div className={`font-bold leading-tight mb-1 ${kpi.small ? "text-base truncate" : "text-2xl"}`} style={{ color: c.txt }}>
+          <div key={i} className="rounded-2xl p-5 border card-hover" style={{ background: cardBg, borderColor: c.border }}>
+            <div style={{ fontSize: kpi.small ? 18 : 32, fontWeight: 600, lineHeight: 1, color: c.txt, marginBottom: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {kpi.value}
             </div>
-            <div style={labelStyle}>{kpi.label}</div>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "#A0B5CD" }}>
+              {kpi.label}
+            </div>
           </div>
         ))}
       </div>
 
-      {/* 2-column layout */}
+      {/* ── 2-column layout ── */}
       <div className="flex gap-6 items-start">
+
         {/* Left column */}
         <div className="flex-1 min-w-0 space-y-6">
+
           {/* Patients card */}
           <div className="rounded-2xl border overflow-hidden card-hover" style={{ background: cardBg, borderColor: c.border }}>
             <div className="flex items-center justify-between px-5 pt-5 pb-3">
-              <span style={labelStyle}>{t('my_patients_title') || "MES PATIENTS"}</span>
+              <span style={labelStyle}>MES PATIENTS</span>
               <button onClick={() => onChangePage("myPatients")} className="text-xs font-bold hover:underline" style={{ color: c.blue }}>
-                {t('view_all_btn') || "Voir tout"}
+                Voir tout
               </button>
             </div>
-            <div className="divide-y" style={{ borderColor: c.border }}>
+            <div>
               {loading ? (
                 <div className="px-5 py-8 text-center text-sm" style={{ color: c.txt3 }}>Chargement…</div>
               ) : patients.length === 0 ? (
                 <div className="px-5 py-8 flex flex-col items-center gap-3">
                   <Users size={28} style={{ color: c.txt3, opacity: 0.4 }} />
-                  <p className="text-sm text-center" style={{ color: c.txt3 }}>{t('no_patients_assigned') || "Aucun patient assigné."}</p>
+                  <p className="text-sm text-center" style={{ color: c.txt3 }}>Aucun patient assigné.</p>
                 </div>
               ) : patients.slice(0, 3).map((p, i) => {
-                const name = p.name || p.full_name || [p.first_name, p.last_name].filter(Boolean).join(" ") || "Patient";
-                const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-                const avatarColor = AVATAR_COLORS[i % AVATAR_COLORS.length];
-                const condition = p.condition || p.medical_condition || p.diagnosis || "—";
-                const age = p.age ? `${p.age} ans` : "";
+                const name      = p.name || [p.first_name, p.last_name].filter(Boolean).join(" ") || "Patient";
+                const initials  = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+                const condition = p.condition || p.medical_condition || "—";
+                const age       = p.age ? `${p.age} ans` : "";
                 return (
-                  <div key={p.id || i} className="flex items-center gap-4 px-5 py-4 transition-colors duration-150 hover:bg-black/[.03]" style={{}}>
+                  <div key={p.id || i} className="flex items-center gap-4 px-5 py-4 border-b transition-colors hover:bg-black/[.02]"
+                    style={{ borderColor: c.border }}>
                     <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm text-white shrink-0"
-                      style={{ background: avatarColor }}>
+                      style={{ background: AVATAR_COLORS[i % AVATAR_COLORS.length] }}>
                       {initials}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold truncate" style={{ color: c.txt }}>{name}</p>
                       <p className="text-xs truncate" style={{ color: c.txt3 }}>{[age, condition].filter(Boolean).join(" · ")}</p>
                     </div>
-                    <button
-                      onClick={() => onChangePage("myPatients")}
-                      className="text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors"
-                      style={{ borderColor: c.border, color: c.txt2, background: "transparent" }}
-                    >
-                      {t('patient_profile_btn') || "Profil"}
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => onChangePage("myPatients")}
+                        className="text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors"
+                        style={{ borderColor: c.border, color: c.txt2, background: "transparent" }}>
+                        Profil
+                      </button>
+                      {(p.phone || p.emergencyPhone) && (
+                        <a href={`tel:${p.phone || p.emergencyPhone}`}
+                          className="text-xs font-bold px-3 py-1.5 rounded-lg border flex items-center gap-1 transition-colors hover:opacity-80"
+                          style={{ borderColor: c.red + "40", color: c.red, background: c.red + "0A" }}>
+                          <Phone size={11} /> Alerter
+                        </a>
+                      )}
+                    </div>
                   </div>
                 );
               })}
             </div>
           </div>
 
-          {/* Planning card */}
+          {/* Planning médicaments card */}
           <div className="rounded-2xl border overflow-hidden card-hover" style={{ background: cardBg, borderColor: c.border }}>
             <div className="flex items-center justify-between px-5 pt-5 pb-3">
-              <span style={labelStyle}>{t('medication_planning') || "PLANNING MÉDICAMENTS"}</span>
+              <span style={labelStyle}>PLANNING MÉDICAMENTS</span>
               <button onClick={() => onChangePage("treatments")} className="text-xs font-bold hover:underline" style={{ color: c.blue }}>
-                {t('view_all_btn') || "Voir tout"}
+                Voir tout
               </button>
             </div>
-            <div className="divide-y" style={{ borderColor: c.border }}>
-              {loading ? (
-                <div className="px-5 py-8 text-center text-sm" style={{ color: c.txt3 }}>Chargement…</div>
-              ) : todayMeds.length === 0 ? (
-                <div className="px-5 py-8 text-center text-sm" style={{ color: c.txt3 }}>
-                  Aucun médicament à administrer aujourd'hui.
-                </div>
-              ) : todayMeds.map((item, i) => (
-                <div key={i} className="flex items-center gap-4 px-5 py-3">
-                  <div className="text-xs font-bold tabular-nums shrink-0" style={{ color: c.blue, minWidth: 40 }}>{item.time}</div>
-                  <Circle size={7} style={{ color: c.txt3 }} className="shrink-0" />
-                  <p className="text-sm truncate" style={{ color: c.txt }}>{item.label}</p>
-                </div>
-              ))}
-            </div>
+
+            {loading ? (
+              <div className="px-5 py-8 text-center text-sm" style={{ color: c.txt3 }}>Chargement…</div>
+            ) : todayMeds.length === 0 ? (
+              <div className="px-5 py-8 text-center text-sm" style={{ color: c.txt3 }}>
+                Aucun médicament à administrer aujourd'hui.
+              </div>
+            ) : allDone ? (
+              <div className="px-5 py-6 flex items-center gap-2 text-sm font-medium" style={{ color: c.green }}>
+                <CheckCircle2 size={16} /> Tous les médicaments ont été administrés aujourd'hui.
+              </div>
+            ) : (
+              <>
+                {upcomingMeds.map(item => (
+                  <div key={item.key}
+                    className="flex items-center gap-4 px-5 border-b"
+                    style={{ borderColor: dk ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", minHeight: 48, padding: "10px 20px" }}>
+                    <div className="text-xs font-bold tabular-nums shrink-0" style={{ color: c.blue, minWidth: 40 }}>{item.time}</div>
+                    <button
+                      onClick={() => toggleDone(item.key)}
+                      className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-all"
+                      style={
+                        item.isDone
+                          ? { background: c.green, border: `1.5px solid ${c.green}` }
+                          : item.isMissed
+                            ? { background: c.red, border: `1.5px solid ${c.red}` }
+                            : { background: "transparent", border: "1.5px solid #A0B5CD" }
+                      }>
+                      {item.isDone   && <Check size={9} color="#fff" />}
+                      {item.isMissed && <X size={9} color="#fff" />}
+                    </button>
+                    <p className="text-sm truncate" style={{
+                      color: item.isDone ? c.txt3 : c.txt,
+                      textDecoration: item.isDone ? "line-through" : "none",
+                      opacity: item.isDone ? 0.55 : 1,
+                    }}>
+                      {item.label}
+                    </p>
+                  </div>
+                ))}
+                {hiddenCount > 0 && (
+                  <button
+                    onClick={() => onChangePage("treatments")}
+                    className="w-full px-5 py-3 text-xs font-bold text-left transition-colors hover:opacity-80"
+                    style={{ color: c.blue }}>
+                    Voir les {hiddenCount} autre{hiddenCount > 1 ? "s" : ""} médicament{hiddenCount > 1 ? "s" : ""} →
+                  </button>
+                )}
+              </>
+            )}
           </div>
         </div>
 
-        {/* Right column — fixed 300px */}
+        {/* Right column */}
         <div className="shrink-0 space-y-6" style={{ width: 300 }}>
-          {/* Offres card */}
+
+          {/* Nouvelles offres card */}
           <div className="rounded-2xl border overflow-hidden card-hover" style={{ background: cardBg, borderColor: c.border }}>
             <div className="flex items-center justify-between px-5 pt-5 pb-3">
               <span style={labelStyle}>NOUVELLES OFFRES</span>
               <button onClick={() => onChangePage("jobRequests")} className="text-xs font-bold hover:underline" style={{ color: c.blue }}>
-                {t('view_all_btn') || "Voir tout"}
+                Voir tout
               </button>
             </div>
-            <div className="divide-y" style={{ borderColor: c.border }}>
-              {loading ? (
-                <div className="px-5 py-6 text-center text-sm" style={{ color: c.txt3 }}>Chargement…</div>
-              ) : requests.length === 0 ? (
-                <div className="px-5 py-6 text-center text-sm" style={{ color: c.txt3 }}>
-                  Aucune nouvelle offre.
-                </div>
-              ) : requests.slice(0, 3).map((req, i) => {
-                const patName = req.patient_name || req.patient?.full_name || [req.patient?.first_name, req.patient?.last_name].filter(Boolean).join(" ") || "Patient";
-                const initials = patName.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-                return (
-                  <div key={req.id || i} className="flex items-center gap-3 px-5 py-3 transition-colors duration-150 hover:bg-black/[.03]">
+            {loading ? (
+              <div className="px-5 py-6 text-center text-sm" style={{ color: c.txt3 }}>Chargement…</div>
+            ) : requests.length === 0 ? (
+              <div className="px-5 py-6 text-center text-sm" style={{ color: c.txt3 }}>Aucune nouvelle offre.</div>
+            ) : requests.slice(0, 3).map((req, i) => {
+              const patName  = req.patient_name || [req.patient?.first_name, req.patient?.last_name].filter(Boolean).join(" ") || "Patient";
+              const initials = patName.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+              const careType = req.care_type || (req.patient_message?.substring(0, 40)?.trimEnd()) || "Soins";
+              const wilaya   = req.patient_city || req.location || "";
+              return (
+                <div key={req.id || i} className="px-5 py-4 border-b" style={{ borderColor: c.border }}>
+                  <div className="flex items-center gap-3 mb-3">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs text-white shrink-0"
                       style={{ background: AVATAR_COLORS[(i + 3) % AVATAR_COLORS.length] }}>
                       {initials}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold truncate" style={{ color: c.txt }}>{patName}</p>
-                      <p className="text-[11px]" style={{ color: c.txt3 }}>{formatNotifDate(req.created_at)}</p>
+                      <p className="text-[11px] truncate" style={{ color: c.txt3 }}>
+                        {careType}{wilaya ? ` · ${wilaya}` : ""}
+                      </p>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleQuickAccept(req.id)}
+                      disabled={!!responding[req.id]}
+                      className="flex-1 text-xs font-bold py-1.5 rounded-lg text-white transition-all active:scale-95 disabled:opacity-50"
+                      style={{ background: c.green }}>
+                      {responding[req.id]
+                        ? <span className="inline-block w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />
+                        : "Accepter"}
+                    </button>
+                    <button
+                      onClick={() => handleQuickDismiss(req.id)}
+                      disabled={!!responding[req.id]}
+                      className="flex-1 text-xs font-bold py-1.5 rounded-lg border transition-all hover:bg-red-500 hover:text-white disabled:opacity-50"
+                      style={{ borderColor: c.red + "50", color: c.red, background: "transparent" }}>
+                      Refuser
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
-          {/* Urgence contacts card */}
+          {/* Contacts d'urgence card */}
           <div className="rounded-2xl border overflow-hidden"
-            style={{
-              background: dk ? "rgba(224,85,85,0.08)" : "rgba(224,85,85,0.05)",
-              borderColor: dk ? "rgba(224,85,85,0.35)" : "rgba(224,85,85,0.25)",
-              transition: "border-color 120ms cubic-bezier(0.2,0,0,1.2), box-shadow 120ms cubic-bezier(0.2,0,0,1.2), transform 120ms cubic-bezier(0.2,0,0,1.2)",
-            }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = c.red; e.currentTarget.style.boxShadow = "0 16px 44px rgba(224,85,85,0.18)"; e.currentTarget.style.transform = "translateY(-6px)"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = dk ? "rgba(224,85,85,0.35)" : "rgba(224,85,85,0.25)"; e.currentTarget.style.boxShadow = ""; e.currentTarget.style.transform = ""; }}
+            style={{ background: dk ? "rgba(252,235,235,0.04)" : "#FFF8F8", borderColor: dk ? "rgba(240,149,149,0.3)" : samuBorder }}
           >
-            <div className="px-5 pt-5 pb-3">
-              <span style={{ ...labelStyle, color: c.red }}>{t('emergency_contacts_title') || "CONTACTS D'URGENCE"}</span>
+            <div className="flex items-center justify-between px-5 pt-5 pb-3">
+              <span style={{ ...labelStyle, color: samuText }}>CONTACTS D'URGENCE</span>
+              <button onClick={() => onChangePage("emergencies")} className="text-xs font-bold hover:underline" style={{ color: c.blue }}>
+                Voir tout
+              </button>
             </div>
-            <div className="divide-y" style={{ borderColor: dk ? "rgba(224,85,85,0.2)" : "rgba(224,85,85,0.12)" }}>
+            <div>
               {/* SAMU Algérie */}
-              <div className="flex items-center gap-3 px-5 py-3">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0"
-                  style={{ background: c.red }}>
+              <div className="flex items-center gap-3 px-5 py-3 border-b"
+                style={{ borderColor: dk ? "rgba(240,149,149,0.15)" : "rgba(240,149,149,0.2)" }}>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ background: samuBg, color: samuText, border: `1px solid ${samuBorder}` }}>
                   <Phone size={13} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold" style={{ color: c.txt }}>SAMU Algérie</p>
-                  <a href="tel:1021" className="text-xs font-bold hover:underline" style={{ color: c.red }}>1021</a>
+                  <p className="text-xs font-bold" style={{ color: samuText }}>1021</p>
                 </div>
+                <a href="tel:1021"
+                  className="text-xs font-bold px-3 py-1.5 text-white shrink-0 transition-opacity hover:opacity-80"
+                  style={{ background: samuBtn, borderRadius: 8 }}>
+                  Appeler
+                </a>
               </div>
               {/* SAMU France */}
-              <div className="flex items-center gap-3 px-5 py-3">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0"
-                  style={{ background: c.red }}>
+              <div className="flex items-center gap-3 px-5 py-3 border-b"
+                style={{ borderColor: dk ? "rgba(240,149,149,0.15)" : "rgba(240,149,149,0.2)" }}>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ background: samuBg, color: samuText, border: `1px solid ${samuBorder}` }}>
                   <Phone size={13} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold" style={{ color: c.txt }}>SAMU France</p>
-                  <a href="tel:15" className="text-xs font-bold hover:underline" style={{ color: c.red }}>15</a>
+                  <p className="text-xs font-bold" style={{ color: samuText }}>15</p>
                 </div>
+                <a href="tel:15"
+                  className="text-xs font-bold px-3 py-1.5 text-white shrink-0 transition-opacity hover:opacity-80"
+                  style={{ background: samuBtn, borderRadius: 8 }}>
+                  Appeler
+                </a>
               </div>
-              {/* Patient emergency contacts */}
+              {/* Contacts famille patients */}
               {patientEmergencyContacts.map((ec, i) => (
-                <div key={i} className="flex items-center gap-3 px-5 py-3">
+                <div key={i} className="flex items-center gap-3 px-5 py-3 border-b" style={{ borderColor: c.border }}>
                   <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0"
                     style={{ background: AVATAR_COLORS[i % AVATAR_COLORS.length] }}>
                     {ec.initials}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold truncate" style={{ color: c.txt }}>{ec.name}</p>
-                    {ec.phone ? (
-                      <a href={`tel:${ec.phone}`} className="text-xs hover:underline" style={{ color: c.txt3 }}>{ec.phone}</a>
-                    ) : (
-                      <span className="text-xs" style={{ color: c.txt3 }}>—</span>
-                    )}
+                    <p className="text-xs truncate" style={{ color: c.txt3 }}>
+                      Contact de <span style={{ color: c.blue, fontWeight: 600 }}>{ec.patientName}</span>
+                      {ec.phone ? ` · ${ec.phone}` : ""}
+                    </p>
                   </div>
+                  {ec.phone && (
+                    <a href={`tel:${ec.phone}`}
+                      className="text-xs font-bold px-3 py-1.5 rounded-lg border shrink-0 transition-opacity hover:opacity-80"
+                      style={{ borderColor: c.border, color: c.txt2 }}>
+                      Appeler
+                    </a>
+                  )}
                 </div>
               ))}
               {patientEmergencyContacts.length === 0 && (
-                <div className="px-5 py-3 text-xs" style={{ color: c.txt3 }}>
-                  Aucun contact patient.
-                </div>
+                <div className="px-5 py-3 text-xs" style={{ color: c.txt3 }}>Aucun contact patient.</div>
               )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Emergency Modal */}
+      {/* ── Emergency Modal ── */}
       {showEmergency && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }}
           onClick={() => setShowEmergency(false)}>
@@ -479,32 +613,26 @@ function HomeView({ onChangePage, dk, c }) {
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: c.border }}>
               <div className="flex items-center gap-2">
-                <ShieldAlert size={18} style={{ color: c.red }} />
-                <span className="font-bold text-base" style={{ color: c.txt }}>{t('emergency_modal_title') || "Numéros d'urgence"}</span>
+                <AlertTriangle size={18} style={{ color: "#DC2626" }} />
+                <span className="font-bold text-base" style={{ color: c.txt }}>Numéros d'urgence</span>
               </div>
               <button onClick={() => setShowEmergency(false)} className="p-1 rounded-lg hover:opacity-70" style={{ color: c.txt3 }}>
                 <X size={18} />
               </button>
             </div>
             <div className="p-6 space-y-3">
-              <a href="tel:1021" className="flex items-center gap-4 p-4 rounded-xl border hover:opacity-80 transition-opacity"
-                style={{ borderColor: c.red + "60", background: c.red + "0F" }}>
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold shrink-0"
-                  style={{ background: c.red }}><Phone size={18} /></div>
-                <div>
-                  <p className="font-bold" style={{ color: c.txt }}>SAMU Algérie</p>
-                  <p className="text-lg font-bold" style={{ color: c.red }}>1021</p>
-                </div>
-              </a>
-              <a href="tel:15" className="flex items-center gap-4 p-4 rounded-xl border hover:opacity-80 transition-opacity"
-                style={{ borderColor: c.red + "60", background: c.red + "0F" }}>
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold shrink-0"
-                  style={{ background: c.red }}><Phone size={18} /></div>
-                <div>
-                  <p className="font-bold" style={{ color: c.txt }}>SAMU France</p>
-                  <p className="text-lg font-bold" style={{ color: c.red }}>15</p>
-                </div>
-              </a>
+              {[{ name: "SAMU Algérie", num: "1021" }, { name: "SAMU France", num: "15" }].map(s => (
+                <a key={s.num} href={`tel:${s.num}`}
+                  className="flex items-center gap-4 p-4 rounded-xl border hover:opacity-80 transition-opacity"
+                  style={{ borderColor: samuBorder, background: samuBg }}>
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: samuBtn }}><Phone size={18} color="#fff" /></div>
+                  <div>
+                    <p className="font-bold" style={{ color: samuText }}>{s.name}</p>
+                    <p className="text-lg font-bold" style={{ color: samuText }}>{s.num}</p>
+                  </div>
+                </a>
+              ))}
               {patientEmergencyContacts.map((ec, i) => (
                 <a key={i} href={ec.phone ? `tel:${ec.phone}` : undefined}
                   className="flex items-center gap-4 p-4 rounded-xl border hover:opacity-80 transition-opacity"
@@ -529,19 +657,23 @@ function EmergenciesView({ dk, c }) {
   const { t } = useLanguage();
   const { gmPatients: patients } = useData();
 
-  const emergencyContacts = [
-    { name: "SAMU — 15", role: t('medical_emergency_role') || "Secours Médicaux", initials: "15", action: t('call_action') || "Appel", color: c.red, tel: "15" },
-    ...patients
-      .filter(p => p.emergencyContact || p.emergency_contact_name || p.emergencyPhone || p.emergency_contact_phone)
-      .map(p => ({
-        name: p.emergencyContact || p.emergency_contact_name || p.name || "Contact d'urgence",
-        role: p.emergencyPhone || p.emergency_contact_phone || "—",
-        initials: (p.emergencyContact || p.emergency_contact_name || p.name || "?").charAt(0).toUpperCase(),
-        action: t('call_action') || "Appel",
-        color: c.blue,
-        tel: p.emergencyPhone || p.emergency_contact_phone || "",
-      })),
+  const samuContacts = [
+    { name: "SAMU Algérie", number: "1021", tel: "1021" },
+    { name: "SAMU France",  number: "15",   tel: "15"   },
   ];
+
+  const familyContacts = patients
+    .filter(p => p.emergencyContact || p.emergency_contact_name || p.emergencyPhone || p.emergency_contact_phone)
+    .map(p => {
+      const patientName = p.name || [p.first_name, p.last_name].filter(Boolean).join(" ") || "Patient";
+      const contactName = p.emergencyContact || p.emergency_contact_name || "Contact d'urgence";
+      return {
+        contactName,
+        patientName,
+        phone: p.emergencyPhone || p.emergency_contact_phone || "",
+        initials: contactName.charAt(0).toUpperCase(),
+      };
+    });
 
   const procedures = [
     { title: t('thoracic_pain_proc') || "Douleur Thoracique / Crise Cardiaque", steps: [t('call_samu_step') || "Appeler le SAMU 15 immédiatement", t('keep_calm_step') || "Garder le patient calme et immobile", t('no_meds_step') || "Ne PAS donner de médicaments", t('share_gps_step') || "Partager la position GPS via l'app"], color: c.red },
@@ -549,79 +681,108 @@ function EmergenciesView({ dk, c }) {
     { title: t('hypertension_proc') || "Crise d'Hypertension", steps: [t('sit_patient_step') || "Faire asseoir le patient", t('remeasure_step') || "Remesurer après 5 min", t('systolic_high_step') || "Systolique >180 → SAMU immédiat"], color: c.blue }
   ];
 
+  const samuBg     = dk ? "rgba(252,235,235,0.06)" : "#FFF8F8";
+  const samuBorder = dk ? "rgba(240,149,149,0.25)"  : "#F09595";
+  const samuText   = "#A32D2D";
+  const samuBtn    = "#E24B4A";
+
   return (
-    <div className="space-y-12 animate-in fade-in duration-500">
-      <header>
-        <h1 className="text-3xl font-bold mb-2" style={{ color: c.txt }}>{t('emergency_protocols') || "Protocoles d'Urgence"}</h1>
-        <p className="text-sm font-medium tracking-tight" style={{ color: c.txt3 }}>{t('emergency_desc') || "Contacts et procédures pour les situations critiques"}</p>
+    <div className="animate-in fade-in duration-500">
+      <header className="mb-8">
+        <h1 className="text-3xl font-bold mb-2" style={{ color: c.txt }}>Contacts d'Urgence</h1>
+        <p className="text-sm font-medium tracking-tight" style={{ color: c.txt3 }}>Numéros de secours, contacts famille et protocoles d'intervention</p>
       </header>
 
-      <div className="rounded-3xl p-8 flex flex-col md:flex-row items-center justify-between gap-8 group border-2"
-        style={{ background: dk ? "rgba(224,85,85,0.05)" : "#FFF5F5", borderColor: c.red + "33" }}>
-         <div className="flex items-center gap-6">
-            <div className="w-16 h-16 text-white rounded-full flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform duration-500"
-              style={{ background: c.red }}>
-              <ShieldAlert size={32} />
-            </div>
-            <div>
-               <h2 className="text-xl font-bold mb-2" style={{ color: c.red }}>{t('activate_emergency_btn') || "Activer l'Alerte d'Urgence"}</h2>
-               <p className="text-sm font-medium" style={{ color: c.txt2 }}>{t('activate_emergency_desc') || "Notifie médecins et famille avec position GPS"}</p>
-            </div>
-         </div>
-         <button className="w-full md:w-auto px-10 py-4 text-white font-bold rounded-2xl text-lg shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3"
-           style={{ background: c.red, boxShadow: `0 8px 30px ${c.red}33` }}>
-            <ShieldAlert size={18} /> {t('activate_now_btn') || "ACTIVER MAINTENANT"}
-         </button>
-      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
 
-      {patients.length === 0 ? (
-        <Card dk={dk} empty={true} className="flex flex-col items-center justify-center min-h-[40vh] text-center p-8">
-          <ShieldAlert size={48} style={{ color: c.border }} className="mb-4" />
-          <h2 className="text-xl font-bold mb-2" style={{ color: c.txt }}>{t('no_emergency_profile') || "Aucun Profil d'Urgence"}</h2>
-          <p className="text-sm" style={{ color: c.txt3 }}>{t('add_patients_emergency_desc') || "Ajoutez des patients pour voir leurs contacts et procédures spécifiques."}</p>
-        </Card>
-      ) : (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        {/* ── Colonne gauche : contacts ── */}
         <div className="space-y-6">
-          <h2 className="text-base font-bold mb-4" style={{ color: c.txt }}>{t('emergency_contacts_title') || "Contacts d'Urgence"}</h2>
-          <div className="space-y-4">
-             {emergencyContacts.map((contact, i) => (
-               <Card key={i} dk={dk} className="flex items-center justify-between hover:border-blue-500/20">
-                  <div className="flex items-center gap-4">
-                     <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-sm"
-                       style={{ background: contact.color }}>{contact.initials}</div>
-                     <div>
-                        <p className="text-sm font-bold leading-none mb-1.5" style={{ color: c.txt }}>{contact.name}</p>
-                        <p className="text-[11px] font-medium" style={{ color: c.txt3 }}>{contact.role}</p>
-                     </div>
+
+          {/* SAMU */}
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: c.txt3 }}>SAMU — Secours Médicaux</p>
+            <div className="rounded-2xl border overflow-hidden" style={{ background: samuBg, borderColor: samuBorder }}>
+              {samuContacts.map(s => (
+                <div key={s.tel} className="flex items-center gap-4 px-5 py-4 border-b last:border-b-0"
+                  style={{ borderColor: dk ? "rgba(240,149,149,0.15)" : "rgba(240,149,149,0.2)" }}>
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: "#FCEBEB", border: `1px solid ${samuBorder}` }}>
+                    <Phone size={16} style={{ color: samuText }} />
                   </div>
-                  <button className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all border ${contact.action === 'Appel' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20 hover:bg-blue-500 hover:text-white' : 'hover:bg-gray-700 hover:text-white'}`}
-                    style={{ borderColor: c.border, color: contact.action === 'Appel' ? c.blue : c.txt3 }}>{contact.action}</button>
-               </Card>
-             ))}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold" style={{ color: c.txt }}>{s.name}</p>
+                    <p className="text-base font-bold tabular-nums" style={{ color: samuText }}>{s.number}</p>
+                  </div>
+                  <a href={`tel:${s.tel}`}
+                    className="text-xs font-bold px-4 py-2 rounded-xl text-white transition-opacity hover:opacity-80 shrink-0"
+                    style={{ background: samuBtn }}>
+                    Appeler
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Famille patients */}
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: c.txt3 }}>Contacts Famille Patients</p>
+            {familyContacts.length === 0 ? (
+              <div className="rounded-2xl border px-5 py-8 text-center text-sm"
+                style={{ background: c.card, borderColor: c.border, color: c.txt3 }}>
+                Aucun contact d'urgence enregistré pour vos patients.
+              </div>
+            ) : (
+              <div className="rounded-2xl border overflow-hidden" style={{ background: c.card, borderColor: c.border }}>
+                {familyContacts.map((ec, i) => (
+                  <div key={i} className="flex items-center gap-4 px-5 py-4 border-b last:border-b-0"
+                    style={{ borderColor: c.border }}>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold shrink-0"
+                      style={{ background: AVATAR_COLORS[i % AVATAR_COLORS.length] }}>
+                      {ec.initials}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold" style={{ color: c.txt }}>{ec.contactName}</p>
+                      <p className="text-xs" style={{ color: c.txt3 }}>
+                        Contact de <span style={{ color: c.blue, fontWeight: 600 }}>{ec.patientName}</span>
+                        {ec.phone ? ` · ${ec.phone}` : ""}
+                      </p>
+                    </div>
+                    {ec.phone && (
+                      <a href={`tel:${ec.phone}`}
+                        className="text-xs font-bold px-4 py-2 rounded-xl border shrink-0 transition-opacity hover:opacity-80"
+                        style={{ borderColor: c.border, color: c.txt2, background: "transparent" }}>
+                        Appeler
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
-        <div className="space-y-6">
-          <h2 className="text-base font-bold mb-4" style={{ color: c.txt }}>{t('procedures_title') || "Procédures"}</h2>
+
+        {/* ── Colonne droite : protocoles ── */}
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: c.txt3 }}>Protocoles d'Urgence</p>
           <div className="space-y-4">
-             {procedures.map((proc, i) => (
-               <div key={i} className="p-6 rounded-2xl border transition-all"
-                 style={{ background: proc.color + "08", borderColor: proc.color + "22" }}>
-                  <h3 className="text-sm font-bold mb-3" style={{ color: proc.color }}>{proc.title}</h3>
-                  <div className="space-y-2">
-                    {proc.steps.map((step, idx) => (
-                      <div key={idx} className="flex items-start gap-2 text-xs font-medium" style={{ color: c.txt2 }}>
-                         <span className="font-bold shrink-0" style={{ color: proc.color }}>{idx + 1}.</span>
-                         <span>{step}</span>
-                      </div>
-                    ))}
-                  </div>
-               </div>
-             ))}
+            {procedures.map((proc, i) => (
+              <div key={i} className="p-5 rounded-2xl border"
+                style={{ background: proc.color + "08", borderColor: proc.color + "22" }}>
+                <h3 className="text-sm font-bold mb-3" style={{ color: proc.color }}>{proc.title}</h3>
+                <div className="space-y-2">
+                  {proc.steps.map((step, idx) => (
+                    <div key={idx} className="flex items-start gap-2 text-xs font-medium" style={{ color: c.txt2 }}>
+                      <span className="font-bold shrink-0" style={{ color: proc.color }}>{idx + 1}.</span>
+                      <span>{step}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
+
       </div>
-      )}
     </div>
   );
 }
@@ -1706,9 +1867,93 @@ function TreatmentsView({ dk, c }) {
   } = useData();
 
   const [editId, setEditId] = useState(null);
-  const [newMed, setNewMed] = useState({ name: "", dosage: "", slot: "morning" });
+  const [newMed, setNewMed] = useState({ name: "", dosage: "", slot: "morning", time: "" });
   const [showAddPatient, setShowAddPatient] = useState(null);
   const [removedHistory, setRemovedHistory] = useState([]);
+
+  // ── Cases à cocher journalières (reset auto chaque jour) ────────────────────
+  const todayKey = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+  const [checkedMeds, setCheckedMeds] = useState(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("gm_checkedMeds") || "{}");
+      return stored.date === todayKey ? stored.keys : {};
+    } catch { return {}; }
+  });
+  useEffect(() => {
+    localStorage.setItem("gm_checkedMeds", JSON.stringify({ date: todayKey, keys: checkedMeds }));
+  }, [checkedMeds]);
+
+  function toggleMedCheck(trId, slot, idx) {
+    const k = `${trId}-${slot}-${idx}`;
+    setCheckedMeds(prev => { const n = { ...prev }; if (n[k]) delete n[k]; else n[k] = true; return n; });
+  }
+
+  // ── Tâches ──────────────────────────────────────────────────────────────────
+  const [tasks, setTasks] = useState({});      // { [care_request_id]: [...tasks] }
+  const [newTask, setNewTask] = useState({});  // { [care_request_id]: { title, due_date } }
+  const [addingTask, setAddingTask] = useState({});
+  const [expandedTasks, setExpandedTasks] = useState({});
+
+  useEffect(() => {
+    api.getCaretakerTasks()
+      .then(data => {
+        const list = Array.isArray(data) ? data : (data?.results || []);
+        const grouped = {};
+        list.forEach(task => {
+          const cid = String(task.care_request);
+          if (!grouped[cid]) grouped[cid] = [];
+          grouped[cid].push(task);
+        });
+        setTasks(grouped);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handleAddTask(careRequestId) {
+    const form = newTask[careRequestId] || {};
+    if (!form.title?.trim()) return;
+    setAddingTask(prev => ({ ...prev, [careRequestId]: true }));
+    try {
+      const created = await api.createCaretakerTask({
+        care_request: careRequestId,
+        title: form.title.trim(),
+        due_date: form.due_date || undefined,
+      });
+      setTasks(prev => ({
+        ...prev,
+        [String(careRequestId)]: [created, ...(prev[String(careRequestId)] || [])],
+      }));
+      setNewTask(prev => ({ ...prev, [careRequestId]: { title: "", due_date: "" } }));
+    } catch (e) {
+      // silencieux — erreur déjà visible dans la console
+    } finally {
+      setAddingTask(prev => ({ ...prev, [careRequestId]: false }));
+    }
+  }
+
+  async function handleToggleTask(task) {
+    const newStatus = task.status === 'done' ? 'pending' : 'done';
+    try {
+      const updated = await api.updateCaretakerTask(task.id, { status: newStatus });
+      setTasks(prev => {
+        const cid = String(task.care_request);
+        return {
+          ...prev,
+          [cid]: (prev[cid] || []).map(tk => tk.id === task.id ? updated : tk),
+        };
+      });
+    } catch { /* silencieux */ }
+  }
+
+  async function handleDeleteTask(task) {
+    try {
+      await api.deleteCaretakerTask(task.id);
+      setTasks(prev => {
+        const cid = String(task.care_request);
+        return { ...prev, [cid]: (prev[cid] || []).filter(tk => tk.id !== task.id) };
+      });
+    } catch { /* silencieux */ }
+  }
 
   useEffect(() => {
     refreshGmPatients();
@@ -1724,8 +1969,8 @@ function TreatmentsView({ dk, c }) {
 
   const handleAddMed = () => {
     if (!newMed.name.trim() || !editTreatment) return;
-    addMedicationToTreatment(editId, newMed.slot, { name: newMed.name.trim(), dosage: newMed.dosage.trim() });
-    setNewMed({ name: "", dosage: "", slot: newMed.slot });
+    addMedicationToTreatment(editId, newMed.slot, { name: newMed.name.trim(), dosage: newMed.dosage.trim(), time: newMed.time || undefined });
+    setNewMed({ name: "", dosage: "", slot: newMed.slot, time: "" });
   };
 
   const patientsNotInPlan = patients.filter(p => !treatments.find(tr => tr.patient_id === p.user_id));
@@ -1767,6 +2012,7 @@ function TreatmentsView({ dk, c }) {
                           <Pill size={14} style={{ color: c.blue }} />
                           <span className="text-sm font-semibold" style={{ color: c.txt }}>{med.name}</span>
                           {med.dosage && <span className="text-xs" style={{ color: c.txt3 }}>{med.dosage}</span>}
+                          {med.time && <span className="text-xs font-bold tabular-nums px-1.5 py-0.5 rounded-md" style={{ background: c.blue + "15", color: c.blue }}>{med.time}</span>}
                         </div>
                         <button onClick={() => removeMedicationFromTreatment(editId, key, idx)}
                           className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-red-500 hover:text-white"
@@ -1787,8 +2033,11 @@ function TreatmentsView({ dk, c }) {
                   className={`flex-1 min-w-[120px] ${inputCls}`} style={inputStyle} />
                 <input type="text" placeholder={t('dosage_placeholder') || "Dosage"} value={newMed.dosage}
                   onChange={e => setNewMed(m => ({ ...m, dosage: e.target.value }))}
+                  className={`w-24 ${inputCls}`} style={inputStyle} />
+                <input type="time" value={newMed.time}
+                  onChange={e => setNewMed(m => ({ ...m, time: e.target.value }))}
                   className={`w-28 ${inputCls}`} style={inputStyle} />
-                <div className="w-36">
+                <div className="w-32">
                   <DashSelect
                     value={newMed.slot}
                     options={[
@@ -1885,7 +2134,7 @@ function TreatmentsView({ dk, c }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => { setEditId(tr.id); setNewMed({ name: "", dosage: "", slot: "morning" }); }}
+                  <button onClick={() => { setEditId(tr.id); setNewMed({ name: "", dosage: "", slot: "morning", time: "" }); }}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold border transition-all hover:opacity-80"
                     style={{ borderColor: c.blue + "40", color: c.blue, background: c.blue + "10" }}>
                     <Plus size={12} /> Modifier
@@ -1910,20 +2159,34 @@ function TreatmentsView({ dk, c }) {
                     <div key={key} className="rounded-xl p-3 border" style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border }}>
                       <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: c.txt3 }}>{label}</p>
                       <div className="space-y-1.5">
-                        {meds.map((med, idx) => (
-                          <div key={idx} className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-sm">
-                              <Pill size={13} style={{ color: c.blue }} />
-                              <span style={{ color: c.txt }}>{med.name}</span>
-                              {med.dosage && <span className="text-xs font-medium" style={{ color: c.txt3 }}>{med.dosage}</span>}
+                        {meds.map((med, idx) => {
+                          const ck = `${tr.id}-${key}-${idx}`;
+                          const isChecked = !!checkedMeds[ck];
+                          return (
+                            <div key={idx} className="flex items-center justify-between gap-2">
+                              <button
+                                onClick={() => toggleMedCheck(tr.id, key, idx)}
+                                className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all"
+                                style={{
+                                  borderColor: isChecked ? c.green : c.txt3,
+                                  background: isChecked ? c.green : "transparent",
+                                }}>
+                                {isChecked && <Check size={10} color="#fff" />}
+                              </button>
+                              <div className="flex items-center gap-2 text-sm flex-1 min-w-0">
+                                <Pill size={13} style={{ color: isChecked ? c.txt3 : c.blue, opacity: isChecked ? 0.5 : 1 }} />
+                                <span style={{ color: c.txt, textDecoration: isChecked ? "line-through" : "none", opacity: isChecked ? 0.5 : 1 }}>{med.name}</span>
+                                {med.dosage && <span className="text-xs font-medium" style={{ color: c.txt3, opacity: isChecked ? 0.5 : 1 }}>{med.dosage}</span>}
+                                {med.time && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md" style={{ background: c.blue + "15", color: c.blue, opacity: isChecked ? 0.5 : 1 }}>{med.time}</span>}
+                              </div>
+                              <button onClick={() => removeMedicationFromTreatment(tr.id, key, idx)}
+                                className="w-6 h-6 rounded-lg flex items-center justify-center transition-all hover:bg-red-500 hover:text-white shrink-0"
+                                style={{ color: c.red, background: c.red + "12" }}>
+                                <Trash2 size={11} />
+                              </button>
                             </div>
-                            <button onClick={() => removeMedicationFromTreatment(tr.id, key, idx)}
-                              className="w-6 h-6 rounded-lg flex items-center justify-center transition-all hover:bg-red-500 hover:text-white shrink-0"
-                              style={{ color: c.red, background: c.red + "12" }}>
-                              <Trash2 size={11} />
-                            </button>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   );
@@ -1935,12 +2198,98 @@ function TreatmentsView({ dk, c }) {
                 )}
               </div>
 
-              {tr.specialInstructions && (
-                <div className="mt-4 p-3 rounded-xl border text-xs italic"
-                  style={{ background: c.amber + "08", borderColor: c.amber + "25", color: c.txt2 }}>
-                  {tr.specialInstructions}
-                </div>
-              )}
+              {/* ── Tâches ── */}
+              {(() => {
+                const cid = String(tr.care_request);
+                const cardTasks = tasks[cid] || [];
+                const isExpanded = expandedTasks[cid];
+                const form = newTask[cid] || { title: "", due_date: "" };
+                return (
+                  <div className="mt-4 pt-4 border-t" style={{ borderColor: c.border }}>
+                    <button
+                      onClick={() => setExpandedTasks(prev => ({ ...prev, [cid]: !prev[cid] }))}
+                      className="flex items-center justify-between w-full text-xs font-bold uppercase tracking-widest mb-3"
+                      style={{ color: c.txt3 }}>
+                      <span className="flex items-center gap-1.5">
+                        <ClipboardList size={13} /> Tâches
+                        {cardTasks.length > 0 && (
+                          <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold"
+                            style={{ background: c.blue + "20", color: c.blue }}>
+                            {cardTasks.filter(tk => tk.status !== 'done').length}/{cardTasks.length}
+                          </span>
+                        )}
+                      </span>
+                      <ChevronDown size={13} style={{ transform: isExpanded ? "rotate(180deg)" : "none", transition: "transform 200ms" }} />
+                    </button>
+
+                    {isExpanded && (
+                      <div className="space-y-2">
+                        {cardTasks.length === 0 && (
+                          <p className="text-xs italic py-1" style={{ color: c.txt3 }}>Aucune tâche planifiée.</p>
+                        )}
+                        {cardTasks.map(task => (
+                          <div key={task.id} className="flex items-center gap-2 p-2 rounded-xl border"
+                            style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: task.status === 'done' ? c.green + "30" : c.border }}>
+                            <button onClick={() => handleToggleTask(task)}
+                              className="shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all"
+                              style={{
+                                borderColor: task.status === 'done' ? c.green : c.txt3,
+                                background: task.status === 'done' ? c.green : "transparent",
+                              }}>
+                              {task.status === 'done' && <Check size={10} color="#fff" />}
+                            </button>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium truncate"
+                                style={{ color: c.txt, textDecoration: task.status === 'done' ? "line-through" : "none", opacity: task.status === 'done' ? 0.6 : 1 }}>
+                                {task.title}
+                              </p>
+                              {task.due_date && (
+                                <p className="text-[10px]" style={{ color: c.txt3 }}>
+                                  <Clock size={9} style={{ display: "inline", marginRight: 2 }} />{task.due_date}
+                                </p>
+                              )}
+                            </div>
+                            <button onClick={() => handleDeleteTask(task)}
+                              className="w-5 h-5 rounded-lg flex items-center justify-center transition-all hover:bg-red-500 hover:text-white shrink-0"
+                              style={{ color: c.red, background: c.red + "12" }}>
+                              <X size={10} />
+                            </button>
+                          </div>
+                        ))}
+
+                        {/* Ajouter une tâche */}
+                        <div className="flex items-center gap-2 mt-2">
+                          <input
+                            type="text"
+                            placeholder="Nouvelle tâche..."
+                            value={form.title}
+                            onChange={e => setNewTask(prev => ({ ...prev, [cid]: { ...form, title: e.target.value } }))}
+                            onKeyDown={e => e.key === 'Enter' && handleAddTask(cid)}
+                            className="flex-1 px-2.5 py-1.5 rounded-xl text-xs outline-none border"
+                            style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border, color: c.txt }}
+                          />
+                          <input
+                            type="date"
+                            value={form.due_date}
+                            onChange={e => setNewTask(prev => ({ ...prev, [cid]: { ...form, due_date: e.target.value } }))}
+                            className="px-2 py-1.5 rounded-xl text-xs outline-none border"
+                            style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border, color: c.txt3, width: 120 }}
+                          />
+                          <button
+                            onClick={() => handleAddTask(cid)}
+                            disabled={!form.title?.trim() || addingTask[cid]}
+                            className="w-7 h-7 rounded-xl flex items-center justify-center text-white transition-all active:scale-95 disabled:opacity-40"
+                            style={{ background: c.blue }}>
+                            {addingTask[cid]
+                              ? <span className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />
+                              : <Plus size={13} />}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </Card>
           ))}
         </div>
@@ -2077,9 +2426,23 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
     }
   };
 
-  const handleSaveLocation = () => {
-    setLocSaved(true);
-    setTimeout(() => setLocSaved(false), 3000);
+  const [locSaving, setLocSaving] = useState(false);
+  const [locError, setLocError] = useState("");
+
+  const handleSaveLocation = async () => {
+    setLocSaving(true);
+    setLocError("");
+    try {
+      const area = [locForm.commune, locForm.wilaya].filter(Boolean).join(", ");
+      await api.updateCaretakerProfile({ availability_area: area });
+      setLocSaved(true);
+      setTimeout(() => setLocSaved(false), 3000);
+    } catch (err) {
+      setLocError(err?.message || "Erreur lors de la mise à jour.");
+      setTimeout(() => setLocError(""), 4000);
+    } finally {
+      setLocSaving(false);
+    }
   };
 
   const [tarifSaving, setTarifSaving] = useState(false);
@@ -2253,10 +2616,15 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
         </div>
 
         {locSaved && (
-          <div className="mb-5 p-3 rounded-xl text-xs font-semibold flex items-center gap-2" style={{
-            background: "#2D8C6F12", color: "#2D8C6F", border: "1px solid #2D8C6F44",
-          }}>
+          <div className="mb-5 p-3 rounded-xl text-xs font-semibold flex items-center gap-2"
+            style={{ background: "#2D8C6F12", color: "#2D8C6F", border: "1px solid #2D8C6F44" }}>
             <Check size={14} /> Localisation mise à jour avec succès
+          </div>
+        )}
+        {locError && (
+          <div className="mb-5 p-3 rounded-xl text-xs font-semibold"
+            style={{ background: "#E0555512", color: "#E05555", border: "1px solid #E0555544" }}>
+            {locError}
           </div>
         )}
 
@@ -2312,10 +2680,14 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
             </div>
             <button
               onClick={handleSaveLocation}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
+              disabled={locSaving}
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-60"
               style={{ background: `linear-gradient(135deg, #304B71, ${c.blue})` }}
             >
-              <MapPin size={15} /> {t('update_map_btn') || "Mettre à jour la carte"}
+              {locSaving
+                ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                : <MapPin size={15} />}
+              {t('update_map_btn') || "Mettre à jour la carte"}
             </button>
           </div>
 
@@ -2498,6 +2870,63 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
   );
 }
 
+function NotificationsView({ dk, c }) {
+  const { globalNotifications, markNotificationRead, markAllNotificationsRead } = useData();
+
+  const typeColor = { error: "#E05555", warning: "#E8A838", success: "#2D8C6F", info: "#4A6FA5" };
+  const typeLabel = { error: "Erreur", warning: "Attention", success: "Succès", info: "Info" };
+
+  useEffect(() => { markAllNotificationsRead(); }, []);
+
+  return (
+    <div className="animate-in fade-in duration-500 space-y-6">
+      <header>
+        <h1 className="text-3xl font-bold mb-1" style={{ color: c.txt }}>Notifications</h1>
+        <p className="text-sm font-medium" style={{ color: c.txt3 }}>Historique de vos alertes et messages système</p>
+      </header>
+
+      {globalNotifications.length === 0 ? (
+        <Card dk={dk} empty className="flex flex-col items-center justify-center py-20 text-center">
+          <Bell size={40} style={{ color: c.txt3, opacity: 0.3 }} className="mb-4" />
+          <p className="text-base font-bold mb-1" style={{ color: c.txt }}>Aucune notification</p>
+          <p className="text-sm" style={{ color: c.txt3 }}>Vous serez notifié ici lors d'événements importants.</p>
+        </Card>
+      ) : (
+        <div className="rounded-2xl border overflow-hidden" style={{ background: c.card, borderColor: c.border }}>
+          {globalNotifications.map((n, i) => {
+            const color = typeColor[n.type] || typeColor.info;
+            const label = typeLabel[n.type] || "Info";
+            return (
+              <div key={n.id}
+                onClick={() => markNotificationRead(n.id)}
+                className="flex items-start gap-4 px-5 py-4 border-b last:border-b-0 cursor-pointer transition-colors hover:bg-black/[.02]"
+                style={{ borderColor: c.border, background: n.read ? "transparent" : (color + "08") }}>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                  style={{ background: color + "15", border: `1px solid ${color}30` }}>
+                  <Bell size={14} style={{ color }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-sm font-bold" style={{ color: c.txt }}>{n.title}</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: color + "15", color }}>
+                      {label}
+                    </span>
+                    {!n.read && <span className="w-1.5 h-1.5 rounded-full ml-auto shrink-0" style={{ background: color }} />}
+                  </div>
+                  <p className="text-xs leading-relaxed" style={{ color: c.txt2 }}>{n.message}</p>
+                  {n.createdAt && (
+                    <p className="text-[10px] mt-1" style={{ color: c.txt3 }}>{formatNotifDate(n.createdAt)}</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ============================================================================
 // COMPOSANT PRINCIPAL
 // ============================================================================
@@ -2534,12 +2963,14 @@ export default function GardeMaladeDashboard({ onLogout }) {
     { id: "jobRequests",  label: "Offres & Missions" },
     { id: "myPatients",   label: t('nav_patients')   || "Mes Patients" },
     { id: "treatments",   label: t('nav_treatments') || "Traitements" },
+    { id: "emergencies",  label: "Urgences" },
     { id: "ai-diagnosis", label: "IA Diagnostic" },
   ];
 
   const renderPage = () => {
     switch (page) {
       case "dashboard": return <HomeView onChangePage={setPage} dk={dk} c={c} />;
+      case "notifications": return <NotificationsView dk={dk} c={c} />;
       case "emergencies": return <EmergenciesView dk={dk} c={c} />;
       case "jobRequests": return <JobRequestsView dk={dk} c={c} />;
       case "myPatients": return <MyPatientsView onChangePage={setPage} dk={dk} c={c} />;
@@ -2765,7 +3196,7 @@ export default function GardeMaladeDashboard({ onLogout }) {
                   <div className="p-2 flex flex-col gap-1 group">
                     {/* Notifications */}
                     <button
-                      onClick={() => { markAllNotificationsRead(); setPage("emergencies"); setProfileOpen(false); }}
+                      onClick={() => { setPage("notifications"); setProfileOpen(false); }}
                       className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer"
                     >
                       <Bell size={16} className="hover:rotate-45 transition-transform" />

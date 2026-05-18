@@ -30,17 +30,18 @@ export const LanguageProvider = ({ children }) => {
 
     if (key.includes('.')) {
       // Dot-notation lookup: e.g. t('dashboard.doctor.nav.schedule')
-      text = get(locale, key) ?? get(fallback, key) ?? key;
+      text = get(locale, key) ?? get(fallback, key) ?? null;
     } else {
       // Legacy flat key lookup via the `_` section
-      text = locale._?.[key] ?? fallback._?.[key] ?? key;
+      text = locale._?.[key] ?? fallback._?.[key] ?? null;
     }
 
     if (typeof text !== 'string') {
-      if (import.meta.env.DEV) {
-        console.warn(`t("${key}") resolved to a non-string value — returning key.`, text);
+      if (import.meta.env.DEV && text !== null) {
+        console.warn(`t("${key}") resolved to a non-string value.`, text);
       }
-      return key;
+      // Retourne null pour que `t('key') || "Fallback"` utilise le fallback
+      return null;
     }
 
     // {{param}} interpolation
