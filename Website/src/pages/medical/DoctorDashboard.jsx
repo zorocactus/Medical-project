@@ -86,13 +86,14 @@ function getInitials(a = "", b = "") {
 }
 
 // ─── Reusable components ──────────────────────────────────────────────────────
-function Card({ children, className = "", style = {}, dk, empty = false }) {
+function Card({ children, className = "", style = {}, dk, empty = false, onClick }) {
   const c = dk ? T.dark : T.light;
   const hoverClasses = empty ? "" : "card-hover";
   return (
     <div
       className={`rounded-2xl p-5 shadow-sm border ${hoverClasses} ${className}`}
       style={{ background: c.card, borderColor: c.border, ...style }}
+      onClick={onClick}
     >
       {children}
     </div>
@@ -110,10 +111,10 @@ function Badge({ color, bg, children, className = "" }) {
   );
 }
 
-function StatCard({ label, value, sub, icon: Icon, color, trend, dk }) {
+function StatCard({ label, value, sub, icon: Icon, color, trend, dk, onClick }) {
   const c = dk ? T.dark : T.light;
   return (
-    <Card dk={dk} style={{ padding: 18 }}>
+    <Card dk={dk} style={{ padding: 18, cursor: onClick ? "pointer" : "default" }} onClick={onClick}>
       <div className="flex items-start justify-between mb-3">
         <div
           className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
@@ -636,9 +637,11 @@ function DashboardHome({
             dk={dk}
             label={k.label}
             value={k.value}
+            sub={k.sub}
             icon={k.icon}
             color={k.color}
             trend={k.trend}
+            onClick={i === 3 ? () => onNavigate("my-reviews") : undefined}
           />
         ))}
       </div>
@@ -3953,7 +3956,6 @@ export default function DoctorDashboard({ onLogout }) {
     { id: "patients",      label: t('dashboard.doctor.nav.patients') },
     { id: "prescriptions", label: t('dashboard.doctor.nav.prescriptions') },
     { id: "statistics",    label: t('dashboard.doctor.nav.statistics') },
-    { id: "my-reviews",   label: "Mes Avis" },
   ];
 
   const isInConsultation = currentPage === "consultation-session";

@@ -67,6 +67,7 @@ import {
   Trash2,
   Edit3,
   Camera,
+  RefreshCw,
 } from "lucide-react";
 
 
@@ -6161,8 +6162,8 @@ function CareTakerPage({ dk }) {
                       En attente de réponse du garde-malade
                     </span>
                   </div>
-                  <p className="text-sm" style={{ color: c.txt2 }}>{pendingRequest.role} · {pendingRequest.exp} · ⭐ {pendingRequest.rating}</p>
-                  <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>📍 {pendingRequest.zone} · {pendingRequest.tarifSoin}</p>
+                  <p className="text-sm" style={{ color: c.txt2 }}>{pendingRequest.role} · {pendingRequest.exp} · <Star size={11} className="inline mb-0.5" /> {pendingRequest.rating}</p>
+                  <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: c.txt3 }}><MapPin size={11} /> {pendingRequest.zone} · {pendingRequest.tarifSoin}</p>
                   <p className="text-xs mt-3 italic" style={{ color: c.txt3 }}>
                     Votre demande a bien été envoyée. Le garde-malade examinera votre profil médical avant d'accepter ou de refuser.
                   </p>
@@ -6188,7 +6189,7 @@ function CareTakerPage({ dk }) {
                 </div>
                 <div className="flex-1">
                   <p className="text-white font-bold text-lg">{pendingRequest.name}</p>
-                  <p className="text-white/80 text-sm">{pendingRequest.role} · ⭐ {pendingRequest.rating}</p>
+                  <p className="text-white/80 text-sm flex items-center gap-1">{pendingRequest.role} · <Star size={11} /> {pendingRequest.rating}</p>
                 </div>
                 <span className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.25)", color: "#fff" }}>
                   Offre Acceptée
@@ -6284,24 +6285,24 @@ function CareTakerPage({ dk }) {
                 </div>
                 <div className="flex-1">
                   <p className="text-white font-bold text-lg">{pendingRequest.name}</p>
-                  <p className="text-white/80 text-sm">{pendingRequest.role} · ⭐ {pendingRequest.rating} · {pendingRequest.exp} d'expérience</p>
-                  <p className="text-white/70 text-xs mt-0.5">📍 {pendingRequest.zone} · {pendingRequest.tarifSoin} · Nuit : {pendingRequest.tarifNuit}</p>
+                  <p className="text-white/80 text-sm">{pendingRequest.role} · <Star size={11} className="inline mb-0.5" /> {pendingRequest.rating} · {pendingRequest.exp} d'expérience</p>
+                  <p className="text-white/70 text-xs mt-0.5"><MapPin size={11} className="inline mb-0.5" /> {pendingRequest.zone} · {pendingRequest.tarifSoin} · Nuit : {pendingRequest.tarifNuit}</p>
                   <div className="flex gap-2 mt-3 flex-wrap">
                     <button onClick={() => setReviewModal(pendingRequest)}
                       className="text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-white/20 transition-colors"
                       style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff" }}>
-                      ⭐ Laisser un avis
+                      <Star size={11} className="inline mb-0.5" /> Laisser un avis
                     </button>
                     <a
                       href={`tel:${pendingRequest.phone}`}
                       className="text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-white/20 transition-colors flex items-center gap-1"
                       style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff" }}>
-                      📞 {pendingRequest.phone}
+                      <Phone size={11} /> {pendingRequest.phone}
                     </a>
                     <button onClick={handleReassign}
-                      className="text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-white/20 transition-colors"
+                      className="text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-white/20 transition-colors flex items-center gap-1"
                       style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.7)" }}>
-                      🔄 Réassigner
+                      <RefreshCw size={11} /> Réassigner
                     </button>
                   </div>
                 </div>
@@ -6368,7 +6369,7 @@ function CareTakerPage({ dk }) {
                     <button onClick={() => setReviewModal(pendingRequest)}
                       className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl"
                       style={{ background: "#E8A83818", color: "#E8A838" }}>
-                      ⭐ Laisser un avis
+                      <Star size={11} /> Laisser un avis
                     </button>
                   </div>
                 </div>

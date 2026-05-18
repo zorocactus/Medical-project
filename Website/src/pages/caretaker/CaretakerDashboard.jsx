@@ -1728,8 +1728,7 @@ function MyPatientsView({ onChangePage, dk, c }) {
   useEffect(() => { refreshGmPatients(); }, []);
 
   return (
-    <div className="space-y-12 animate-in fade-in duration-500">
-
+    <>
       {/* ── Modal Profil Patient ── */}
       {profilePatient && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -1816,6 +1815,7 @@ function MyPatientsView({ onChangePage, dk, c }) {
         </div>
       )}
 
+      <div className="space-y-12 animate-in fade-in duration-500">
       <header>
         <h1 className="text-3xl font-bold mb-2" style={{ color: c.txt }}>{t('my_patients_title') || "Mes Patients"}</h1>
         <p className="font-medium" style={{ color: c.txt3 }}>{t('patients_assigned_count', {count: patients.length}) || `${patients.length} patients assignés à votre charge`}</p>
@@ -1873,6 +1873,7 @@ function MyPatientsView({ onChangePage, dk, c }) {
         ))}
       </div>
     </div>
+    </>
   );
 }
 

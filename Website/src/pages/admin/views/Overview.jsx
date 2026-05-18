@@ -1,9 +1,5 @@
 import { useState, useEffect } from "react";
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend,
-} from "recharts";
-import {
   Users, Stethoscope, Pill, Calendar, TrendingUp, TrendingDown,
   RefreshCw, Download, Activity, CheckCircle, AlertTriangle,
 } from "lucide-react";
@@ -54,70 +50,6 @@ function KpiCard({ label, value, sub, icon: Icon, color, trend, dk }) {
 }
 
 // ─── Custom Tooltip ────────────────────────────────────────────────────────────
-function CustomTooltip({ active, payload, label, dk }) {
-  const c = getAdminTheme(dk);
-  if (!active || !payload?.length) return null;
-  return (
-    <div
-      className="rounded-xl border px-4 py-3 shadow-lg"
-      style={{ background: c.card, borderColor: c.border }}
-    >
-      <p className="text-xs font-bold mb-1" style={{ color: c.txt3 }}>
-        {label}
-      </p>
-      {payload.map((p, i) => (
-        <p key={i} className="text-sm font-bold" style={{ color: p.color }}>
-          {p.name}: {p.value?.toLocaleString()}
-        </p>
-      ))}
-    </div>
-  );
-}
-
-// ─── Months for mock trend (fallback) ─────────────────────────────────────────
-const MONTHS = {
-  fr: ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"],
-  en: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
-};
-
-function buildFallbackTrend(lang) {
-  const now = new Date();
-  return Array.from({ length: 8 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - 7 + i, 1);
-    const mDict = MONTHS[lang] || MONTHS['fr'];
-    return {
-      month: mDict[d.getMonth()],
-      rdv: Math.floor(80 + Math.random() * 120),
-      users: Math.floor(40 + Math.random() * 80),
-    };
-  });
-}
-
-// ─── ROLE COLORS for Pie ───────────────────────────────────────────────────────
-const ROLE_PIE_COLORS = {
-  patient:    "#4A6FA5",
-  doctor:     "#2D8C6F",
-  pharmacist: "#E8A838",
-  caretaker:  "#7B5EA7",
-  admin:      "#E05555",
-};
-
-const ROLE_LABELS = {
-  fr: {
-    patient:    "Patients",
-    doctor:     "Médecins",
-    pharmacist: "Pharmaciens",
-    caretaker:  "Garde-malades",
-    admin:      "Admins",
-  },
-  en: {
-    patient:    "Patients",
-    doctor:     "Doctors",
-    pharmacist: "Pharmacists",
-    caretaker:  "Caretakers",
-    admin:      "Admins",
-  }
-};
 
 // ─── OVERVIEW PAGE ─────────────────────────────────────────────────────────────
 export default function OverviewPage({ dk, onNav }) {
@@ -125,9 +57,7 @@ export default function OverviewPage({ dk, onNav }) {
   const c = getAdminTheme(dk);
 
   const [kpis, setKpis] = useState(null);
-  const [roleDistrib, setRoleDistrib] = useState([]);
   const [recentRegs, setRecentRegs] = useState([]);
-  const [trend, setTrend] = useState(buildFallbackTrend(lang));
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
@@ -140,12 +70,6 @@ export default function OverviewPage({ dk, onNav }) {
       [t('medecins_verifies'), kpis?.verified_doctors ?? "—"],
       [t('pharmacies_actives'), kpis?.active_pharmacies ?? "—"],
       [t('total_rdv'), kpis?.total_appointments ?? "—"],
-      [],
-      [t('role'), t('number_label')],
-      ...roleDistrib.map(r => [r.name, r.value]),
-      [],
-      [t('month'), t('appointments'), t('registrations')],
-      ...trend.map(tItem => [tItem.month, tItem.rdv, tItem.users]),
     ];
     const csv = rows.map(r => r.join(";")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
@@ -163,14 +87,6 @@ export default function OverviewPage({ dk, onNav }) {
       const data = await api.getAdminDashboard();
       setUsingFallback(false);
       if (data?.kpis) setKpis(data.kpis);
-      if (data?.role_distribution) {
-        const dist = Object.entries(data.role_distribution).map(([role, count]) => ({
-          name: ROLE_LABELS[lang]?.[role] ?? role,
-          value: count,
-          color: ROLE_PIE_COLORS[role] ?? "#9AACBE",
-        }));
-        setRoleDistrib(dist);
-      }
       if (Array.isArray(data?.recent_registrations)) {
         setRecentRegs(data.recent_registrations);
       }
@@ -300,183 +216,6 @@ export default function OverviewPage({ dk, onNav }) {
         {kpiCards.map((k, i) => (
           <KpiCard key={i} {...k} dk={dk} />
         ))}
-      </div>
-
-      {/* ── Charts Row ── */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 mb-5">
-        {/* Appointment & User trends */}
-        <Card dk={dk} style={{ padding: 24, gridColumn: "span 2" }}>
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h3 className="font-bold" style={{ color: c.txt }}>
-                {t('trends')} — {t('appointments')} & {t('registrations')}
-              </h3>
-              <p className="text-xs mt-0.5" style={{ color: c.txt2 }}>
-                {t('last_8_months')}
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: c.blue }}>
-                <span className="w-3 h-3 rounded-full" style={{ background: c.blue }} />
-                {t('appointments')}
-              </span>
-              <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: c.green }}>
-                <span className="w-3 h-3 rounded-full" style={{ background: c.green }} />
-                {t('registrations')}
-              </span>
-            </div>
-          </div>
-          <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={trend} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="gradRdv" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={c.blue} stopOpacity={0.3} />
-                  <stop offset="95%" stopColor={c.blue} stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="gradUsers" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={c.green} stopOpacity={0.3} />
-                  <stop offset="95%" stopColor={c.green} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke={c.border} />
-              <XAxis
-                dataKey="month"
-                tick={{ fill: c.txt3, fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fill: c.txt3, fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip content={<CustomTooltip dk={dk} />} />
-              <Area
-                type="monotone"
-                dataKey="rdv"
-                name={t('appointments')}
-                stroke={c.blue}
-                strokeWidth={2.5}
-                fill="url(#gradRdv)"
-                dot={false}
-                activeDot={{ r: 5, fill: c.blue }}
-              />
-              <Area
-                type="monotone"
-                dataKey="users"
-                name={t('registrations')}
-                stroke={c.green}
-                strokeWidth={2.5}
-                fill="url(#gradUsers)"
-                dot={false}
-                activeDot={{ r: 5, fill: c.green }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </Card>
-
-        {/* Role distribution Pie */}
-        <Card dk={dk} style={{ padding: 24 }}>
-          <h3 className="font-bold mb-4" style={{ color: c.txt }}>
-            {t('role_distribution')}
-          </h3>
-          {roleDistrib.length > 0 ? (
-            <>
-              <ResponsiveContainer width="100%" height={140}>
-                <PieChart>
-                  <Pie
-                    data={roleDistrib}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={40}
-                    outerRadius={65}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {roleDistrib.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(v) => [v.toLocaleString(), ""]}
-                    contentStyle={{
-                      background: c.card,
-                      border: `1px solid ${c.border}`,
-                      borderRadius: 12,
-                      color: c.txt,
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="space-y-2 mt-2">
-                {roleDistrib.map((r, i) => {
-                  const pct = totalUsers > 0 ? Math.round((r.value / totalUsers) * 100) : 0;
-                  return (
-                    <div key={i} className="flex items-center gap-2">
-                      <div
-                        className="w-2.5 h-2.5 rounded-full shrink-0"
-                        style={{ background: r.color }}
-                      />
-                      <span className="text-xs flex-1" style={{ color: c.txt2 }}>
-                        {r.name}
-                      </span>
-                      <span
-                        className="text-xs font-bold"
-                        style={{ color: r.color }}
-                      >
-                        {r.value.toLocaleString()}
-                      </span>
-                      <span className="text-xs" style={{ color: c.txt3 }}>
-                        {pct}%
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          ) : (
-            /* Fallback bars when no API data */
-            <div className="space-y-3">
-              {[
-                { role: ROLE_LABELS[lang]?.patient || "Patients", pct: 81, color: "#4A6FA5" },
-                { role: ROLE_LABELS[lang]?.doctor || "Médecins", pct: 5, color: "#2D8C6F" },
-                { role: ROLE_LABELS[lang]?.pharmacist || "Pharmaciens", pct: 2, color: "#E8A838" },
-                { role: ROLE_LABELS[lang]?.caretaker || "Garde-malades", pct: 12, color: "#7B5EA7" },
-              ].map((r) => (
-                <div key={r.role}>
-                  <div className="flex justify-between mb-1">
-                    <span className="text-xs" style={{ color: c.txt2 }}>
-                      {r.role}
-                    </span>
-                    <span className="text-xs font-bold" style={{ color: r.color }}>
-                      {r.pct}%
-                    </span>
-                  </div>
-                  <div
-                    className="w-full h-2 rounded-full overflow-hidden"
-                    style={{ background: c.blueLight }}
-                  >
-                    <div
-                      className="h-full rounded-full"
-                      style={{ width: `${r.pct}%`, background: r.color }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          <div
-            className="mt-4 p-3 rounded-xl text-center"
-            style={{ background: c.blueLight }}
-          >
-            <p className="text-2xl font-black" style={{ color: c.txt }}>
-              {totalUsers > 0 ? totalUsers.toLocaleString() : "—"}
-            </p>
-            <p className="text-xs" style={{ color: c.txt2 }}>
-              {t('utilisateurs_totaux')}
-            </p>
-          </div>
-        </Card>
       </div>
 
       {/* ── Bottom Row : Recent registrations + Audit mini ── */}
