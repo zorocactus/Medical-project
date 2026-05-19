@@ -372,15 +372,9 @@ export default function ConversationList({
   // ── Empty state ──
   const EmptyState = () => (
     <div className="flex flex-col items-center justify-center flex-1 gap-4 py-8 px-4">
-      <div className="relative">
-        <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
-          style={{ background: c.blueLight }}>
-          <MessageSquare size={28} style={{ color: c.blue }} />
-        </div>
-        <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center"
-          style={{ background: c.card, border: `2px solid ${c.border}` }}>
-          <MessageSquare size={12} style={{ color: c.blue }} />
-        </div>
+      <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
+        style={{ background: c.blueLight }}>
+        <MessageSquare size={28} style={{ color: c.blue }} />
       </div>
       <div className="text-center">
         <p className="text-sm font-semibold mb-1" style={{ color: c.txt }}>
