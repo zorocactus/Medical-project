@@ -1,4 +1,4 @@
-// src/pages/admin/views/AdminSidebar.jsx
+﻿// src/pages/admin/views/AdminSidebar.jsx
 import {
   LayoutDashboard, Users, Pill, Shield, Settings,
   UserCheck, Calendar, X,
@@ -153,7 +153,7 @@ export default function AdminSidebar({
             </svg>
           </div>
           <div>
-            <p className="text-sm font-bold leading-tight" style={{ color: c.txt }}>MedSmart</p>
+            <p className="text-sm font-bold leading-tight" style={{ color: c.txt }}>Healy</p>
             <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: c.txt3 }}>
               Admin Console
             </p>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { getNotifications } from "../services/api";
@@ -268,7 +268,7 @@ function RejectedPage({ logout }) {
         </div>
 
         <a
-          href="mailto:support@medsmart.dz?subject=Demande%20d'information%20-%20Dossier%20rejeté"
+          href="mailto:support@Healy.dz?subject=Demande%20d'information%20-%20Dossier%20rejeté"
           style={{
             display: "block",
             width: "100%",

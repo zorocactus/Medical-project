@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 
 const DAYS = ["Lu", "Ma", "Me", "Je", "Ve", "Sa", "Di"];
 const CALENDAR = [
@@ -75,7 +75,7 @@ export default function Booking() {
             Réservez un RDV<br />aujourd'hui, en ligne.
           </h2>
           <p className="text-[.95rem] text-[#5A6E8A] leading-relaxed mb-8 max-w-[420px]">
-            MedSmart accepte la plupart des assurances. Que vous soyez assuré CNAS ou non, trouvez un spécialiste qui vous convient.
+            Healy accepte la plupart des assurances. Que vous soyez assuré CNAS ou non, trouvez un spécialiste qui vous convient.
           </p>
           <div className="flex flex-col gap-3 mb-8">
             {["Médecins disponibles en temps réel", "Spécialités les plus recherchées", "Ordonnance numérique après consultation"].map((item) => (

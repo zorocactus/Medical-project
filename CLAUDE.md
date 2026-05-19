@@ -1,8 +1,8 @@
-# MedSmart — Frontend
+﻿# Healy — Frontend
 
 ## Section 1 — STACK & OVERVIEW
 
-**MedSmart** is a medical platform (Algerian context) built as a pure state-driven SPA.
+**Healy** is a medical platform (Algerian context) built as a pure state-driven SPA.
 
 | Layer | Technology |
 |---|---|

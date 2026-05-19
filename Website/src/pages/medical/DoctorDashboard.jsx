@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+﻿import { useState, useEffect, useRef, useMemo } from "react";
 import ErrorBoundary from "../../components/ErrorBoundary";
 import DashSelect from "../../components/ui/DashSelect";
 import { ParticlesHero } from '../../components/backgrounds/MedParticles';
@@ -4133,7 +4133,7 @@ export default function DoctorDashboard({ onLogout }) {
             </div>
             <div className="hidden sm:block">
               <span className="font-bold text-base" style={{ color: c.txt }}>
-                MedSmart
+                Healy
               </span>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Mail, Lock, EyeOff, Eye, ArrowRight, Activity } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
@@ -108,7 +108,7 @@ function LoginInner({ onLogin, onSwitchToRegister, onForgotPassword }) {
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: c.blue }}>
             <Activity size={18} color="white" strokeWidth={2.5} />
           </div>
-          <span className="font-bold text-lg tracking-tight" style={{ color: c.title }}>MedSmart</span>
+          <span className="font-bold text-lg tracking-tight" style={{ color: c.title }}>Healy</span>
         </div>
 
         {/* ── Titre ────────────────────────────────────── */}

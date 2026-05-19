@@ -1,4 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
+﻿// ─────────────────────────────────────────────────────────────────────────────
 // src/locales/en.js — Single source of truth for English
 //
 // ARCHITECTURE:
@@ -80,7 +80,7 @@ export default {
     pagination:  "{{from}}–{{to}} of {{total}}",
     noResults:   "No results.",
     selectWilaya:"Select a wilaya...",
-    versionFull: "MedSmart v2.1.0 · Connected Health Platform",
+    versionFull: "Healy v2.1.0 · Connected Health Platform",
     cnasFull:    "CNAS Certified · GDPR Compliant · Hosted in Algeria",
     languageFr:  "Français",
     languageEn:  "English",
@@ -128,7 +128,7 @@ export default {
   // ══════════════════════════════════════════════════════════════════════════
   auth: {
     login: {
-      title:             "Sign in to MedSmart",
+      title:             "Sign in to Healy",
       subtitle:          "Your health, simplified.",
       email:             "Email Address",
       emailPlaceholder:  "your@email.com",
@@ -147,7 +147,7 @@ export default {
     },
     register: {
       title:          "Create your account",
-      subtitle:       "Join MedSmart today.",
+      subtitle:       "Join Healy today.",
       firstName:      "First name",
       firstNameHint:  "Your first name",
       lastName:       "Last name",
@@ -371,7 +371,7 @@ export default {
         openInMaps:     "Open in Maps",
         language:       "Language",
         about:          "About",
-        aboutDesc:      "MedSmart · Connected Healthcare Platform",
+        aboutDesc:      "Healy · Connected Healthcare Platform",
       },
       statuses: {
         done:     "Done",
@@ -422,7 +422,7 @@ export default {
         updatePassword:"Update",
         updating:      "Updating...",
         about:         "About",
-        version:       "MedSmart v2.1.0 · Connected Health Platform",
+        version:       "Healy v2.1.0 · Connected Health Platform",
         cnas:          "CNAS Certified · GDPR Compliant · Hosted in Algeria",
         language:      "Language",
         profileUpdated:"Profile updated successfully ",
@@ -642,7 +642,7 @@ export default {
         fullName:           "Full name",
         save:               "Save",
         about:              "About",
-        version:            "MedSmart v2.1.0 · Connected Health Platform",
+        version:            "Healy v2.1.0 · Connected Health Platform",
         cnas:               "CNAS Certified · GDPR Compliant · Hosted in Algeria",
         language:           "Language",
       },
@@ -659,7 +659,7 @@ export default {
         settings: "Settings",
       },
       home: {
-        pharmacyName: "MedSmart Pharmacy",
+        pharmacyName: "Healy Pharmacy",
         ordersToday:  "Orders today",
         dailyRevenue: "Daily revenue",
         stockMeds:    "Medications in stock",
@@ -774,7 +774,7 @@ export default {
         lastSync:      "Last sync:",
         preferences:   "Preferences",
         about:         "About",
-        version:       "MedSmart Pharmacy v2.1.0",
+        version:       "Healy Pharmacy v2.1.0",
         cnas:          "CNAS Certified · Hosted in Algeria",
         save:          "Save",
         close:         "Close",
@@ -1025,7 +1025,7 @@ export default {
       },
       settings: {
         title:            "Admin Settings",
-        desc:             "Global MedSmart platform configuration",
+        desc:             "Global Healy platform configuration",
         platform:         "Platform settings",
         security:         "Security & Access",
         openRegistration: "Open registration",
@@ -1045,7 +1045,7 @@ export default {
         environmentLabel: "Environment",
         dbLabel:          "Database",
         conformityLabel:  "Conformity",
-        versionValue:     "MedSmart Admin v2.2.0",
+        versionValue:     "Healy Admin v2.2.0",
         buildValue:       "#20260328-stable",
         environmentValue: "Production · Algeria",
         dbValue:          "PostgreSQL 16.2",
@@ -1146,7 +1146,7 @@ export default {
     password: "Password",
     // Admin Settings
     admin_settings_title: "Admin Settings",
-    admin_settings_desc: "Global MedSmart platform configuration",
+    admin_settings_desc: "Global Healy platform configuration",
     platform_settings: "Platform settings",
     security_access: "Security & Access",
     open_registration: "Open registration",
@@ -1322,7 +1322,7 @@ export default {
     suspend_license: "Suspend licence",
     activate_pharmacy: "Activate pharmacy",
     no_pharmacy_listed: "No pharmacy listed",
-    anonymous_pharmacy: "MedSmart Pharmacy",
+    anonymous_pharmacy: "Healy Pharmacy",
     address_not_specified: "Address not specified",
     business_hours_label: "Opening hours",
     license_id_short: "Licence No.",

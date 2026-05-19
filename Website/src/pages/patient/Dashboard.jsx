@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+﻿import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import Cropper from "react-easy-crop";
 import { useTheme } from "../../context/ThemeContext";
 import ErrorBoundary from "../../components/ErrorBoundary";
@@ -2736,7 +2736,7 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
                 animation:"diagSpin 1s linear infinite", borderTop:"2px solid transparent",
                 boxShadow:"0 0 0 2px rgba(99,142,203,.3)" }}/>
               <span className="diag-wave-text" style={{ fontSize:12, fontWeight:600 }}>
-                MedSmart IA analyse vos symptômes…
+                Healy IA analyse vos symptômes…
               </span>
             </div>
           )}
@@ -5232,7 +5232,7 @@ function PharmacyPage({ dk }) {
 
   // État du Panier (Global à la page pharmacie)
   const [cart, setCart] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("medsmart_pharmacy_cart") || "{}"); } catch { return {}; }
+    try { return JSON.parse(localStorage.getItem("Healy_pharmacy_cart") || "{}"); } catch { return {}; }
   });
 
   // Chargement initial des pharmacies
@@ -5275,7 +5275,7 @@ function PharmacyPage({ dk }) {
   }, [viewMode, selectedPharmacy]);
 
   useEffect(() => {
-    localStorage.setItem("medsmart_pharmacy_cart", JSON.stringify(cart));
+    localStorage.setItem("Healy_pharmacy_cart", JSON.stringify(cart));
   }, [cart]);
 
   const addToCart = (id) => setCart((c) => ({ ...c, [id]: (c[id] || 0) + 1 }));
@@ -6843,7 +6843,7 @@ function SettingsPage(props) {
 
   // Load preferences from localStorage or default
   const [prefs, setPrefs] = useState(() => {
-    const saved = localStorage.getItem("medsmart_prefs");
+    const saved = localStorage.getItem("Healy_prefs");
     if (saved) return JSON.parse(saved);
     return {
       medicationReminders: true,
@@ -6961,7 +6961,7 @@ function SettingsPage(props) {
   const togglePref = (key) => {
     const newPrefs = { ...prefs, [key]: !prefs[key] };
     setPrefs(newPrefs);
-    localStorage.setItem("medsmart_prefs", JSON.stringify(newPrefs));
+    localStorage.setItem("Healy_prefs", JSON.stringify(newPrefs));
   };
 
   return (
@@ -7261,7 +7261,7 @@ function SettingsPage(props) {
               About
             </p>
             <p className="text-sm" style={{ color: c.txt2 }}>
-              MedSmart v2.1.0 · Connected Healthcare Platform
+              Healy v2.1.0 · Connected Healthcare Platform
             </p>
             <p className="text-xs mt-1" style={{ color: c.txt3 }}>
               CNAS Certified · RGPD Compliant · Hosted in Algeria
@@ -7559,7 +7559,7 @@ export default function PatientDashboard({ onLogout }) {
               </svg>
             </div>
             <span className="font-bold text-base" style={{ color: c.txt }}>
-              MedSmart
+              Healy
             </span>
           </div>
 

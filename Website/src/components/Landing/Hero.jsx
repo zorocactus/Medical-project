@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+﻿import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Paperclip, History } from "lucide-react";
 import { ParticlesHero } from "../backgrounds/MedParticles";
 
@@ -287,7 +287,7 @@ export default function Hero({ onStart }) {
             &amp; instantané.
           </h1>
           <p className="text-[1rem] text-[#5A6E8A] leading-relaxed mb-8 max-w-[480px]">
-            Décrivez vos symptômes en langage naturel. MedSmart analyse, évalue le niveau d'urgence et vous oriente vers le bon spécialiste.
+            Décrivez vos symptômes en langage naturel. Healy analyse, évalue le niveau d'urgence et vous oriente vers le bon spécialiste.
           </p>
           <div className="flex flex-wrap gap-3">
             <button onClick={onStart}
@@ -335,7 +335,7 @@ export default function Hero({ onStart }) {
                       <rect x="1" y="6" width="14" height="4" rx="1.5" fill="white" />
                     </svg>
                   </div>
-                  <span className="text-[.82rem] font-semibold text-white/80">MedSmart IA — Diagnostic</span>
+                  <span className="text-[.82rem] font-semibold text-white/80">Healy IA — Diagnostic</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-[.68rem] text-white/35">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80] animate-pulse" />

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import {
   Users, Stethoscope, Pill, Calendar, TrendingUp, TrendingDown,
   RefreshCw, Download, Activity, CheckCircle, AlertTriangle,
@@ -76,7 +76,7 @@ export default function OverviewPage({ dk, onNav }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `medsmart_report_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `Healy_report_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -156,7 +156,7 @@ export default function OverviewPage({ dk, onNav }) {
           </div>
           <h1 className="text-3xl font-black tracking-tight" style={{ color: c.txt }}>
             {t('control_center')}{" "}
-            <span style={{ color: c.blue }}>MedSmart</span>
+            <span style={{ color: c.blue }}>Healy</span>
           </h1>
           <p className="text-sm mt-1" style={{ color: c.txt2 }}>
             {new Date().toLocaleDateString(lang === "fr" ? "fr-FR" : "en-US", {

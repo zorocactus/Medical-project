@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import { User, EyeOff, Eye, Mail, Lock, ArrowRight, UserCircle, ShieldCheck } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
 import { useLanguage } from "../../context/LanguageContext";
@@ -242,7 +242,7 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchT
             <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: c.blue }}>
               <ShieldCheck size={18} color="white" strokeWidth={2.5} />
             </div>
-            <span className="font-bold text-lg tracking-tight" style={{ color: c.title }}>MedSmart</span>
+            <span className="font-bold text-lg tracking-tight" style={{ color: c.title }}>Healy</span>
           </div>
 
           <div className="mb-5">
@@ -330,7 +330,7 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchT
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: c.blue }}>
             <UserCircle size={18} color="white" strokeWidth={2.5} />
           </div>
-          <span className="font-bold text-lg tracking-tight" style={{ color: c.title }}>MedSmart</span>
+          <span className="font-bold text-lg tracking-tight" style={{ color: c.title }}>Healy</span>
         </div>
 
         <div className="mb-3">

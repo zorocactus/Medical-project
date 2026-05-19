@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import { Languages, ChevronDown } from "lucide-react";
 
@@ -43,7 +43,7 @@ export default function Navbar({ onLogin, onRegister }) {
             <path d="M6 0h2v14H6V0zM0 6h14v2H0V6z" fill="white" />
           </svg>
         </div>
-        MedSmart
+        Healy
       </a>
 
       {/* Nav links */}

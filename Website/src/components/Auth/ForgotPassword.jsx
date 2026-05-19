@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import { Mail, Lock, EyeOff, Eye, ArrowLeft, ArrowRight, Activity } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
 import {
@@ -196,7 +196,7 @@ export default function ForgotPassword({ onBack }) {
             <Activity size={18} color="white" strokeWidth={2.5} />
           </div>
           <span className="font-bold text-lg tracking-tight" style={{ color: c.title }}>
-            MedSmart
+            Healy
           </span>
         </div>
 

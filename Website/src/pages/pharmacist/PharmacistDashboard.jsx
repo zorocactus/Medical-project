@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+﻿import { useState, useRef, useEffect } from "react";
 import { useTheme } from "../../context/ThemeContext";
 import ErrorBoundary from "../../components/ErrorBoundary";
 import DashSelect from "../../components/ui/DashSelect";
@@ -2050,7 +2050,7 @@ function ParametresPage({ dk, onToggleDark }) {
       {/* ── À propos ── */}
       <Card dk={dk}>
         <p className="font-semibold mb-2" style={{ color: c.txt }}>{t('about_label') || "À propos"}</p>
-        <p className="text-sm" style={{ color: c.txt2 }}>MedSmart {t('pharmacy_view_label', {context: 'dash'}) || "Pharmacie"} v2.1.0</p>
+        <p className="text-sm" style={{ color: c.txt2 }}>Healy {t('pharmacy_view_label', {context: 'dash'}) || "Pharmacie"} v2.1.0</p>
         <p className="text-xs mt-1" style={{ color: c.txt3 }}>{t('hosted_in_algeria') || "CNAS Certifié · Hébergé en Algérie"}</p>
       </Card>
     </>
@@ -2212,7 +2212,7 @@ export default function PharmacistDashboard({ onLogout }) {
               </svg>
             </div>
             <div>
-              <span className="font-bold text-sm" style={{ color: c.txt }}>MedSmart</span>
+              <span className="font-bold text-sm" style={{ color: c.txt }}>Healy</span>
             </div>
           </div>
 

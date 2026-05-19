@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import ErrorBoundary from "../../components/ErrorBoundary";
 import DashSelect from "../../components/ui/DashSelect";
 import { ParticlesHero } from '../../components/backgrounds/MedParticles';
@@ -1637,7 +1637,7 @@ function AIDiagnosisPage({ dk, setPage }) {
           {loading && !messages[messages.length - 1]?.isStreaming && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", alignSelf: "flex-start", background: "linear-gradient(135deg,rgba(48,75,113,.08),rgba(99,142,203,.08))", border: "1px solid rgba(99,142,203,.15)", borderRadius: 14, animation: "diagBubbleIn .3s ease" }}>
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#638ECB", boxSizing: "border-box", animation: "diagSpin 1s linear infinite", borderTop: "2px solid transparent", boxShadow: "0 0 0 2px rgba(99,142,203,.3)" }}/>
-              <span className="diag-wave-text" style={{ fontSize: 12, fontWeight: 600 }}>MedSmart IA analyse les symptômes…</span>
+              <span className="diag-wave-text" style={{ fontSize: 12, fontWeight: 600 }}>Healy IA analyse les symptômes…</span>
             </div>
           )}
           <div ref={messagesEndRef}/>
@@ -2886,7 +2886,7 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
         </Card>
         <Card dk={dk}>
           <p className="font-semibold mb-2" style={{ color: c.txt }}>About</p>
-          <p className="text-sm" style={{ color: c.txt2 }}>MedSmart · Connected Healthcare Platform</p>
+          <p className="text-sm" style={{ color: c.txt2 }}>Healy · Connected Healthcare Platform</p>
           <p className="text-xs mt-1" style={{ color: c.txt3 }}>CNAS Certified · RGPD Compliant · Hosted in Algeria</p>
         </Card>
       </div>
@@ -3180,7 +3180,7 @@ export default function GardeMaladeDashboard({ onLogout }) {
         style={{ background: c.nav, borderColor: c.border }}
       >
         <div className="w-full px-6 h-[60px] flex items-center gap-3">
-          {/* Logo SVG MedSmart */}
+          {/* Logo SVG Healy */}
           <div className="flex items-center gap-2 shrink-0 mr-2">
             <div
               className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
@@ -3199,7 +3199,7 @@ export default function GardeMaladeDashboard({ onLogout }) {
                 />
               </svg>
             </div>
-            <span className="font-bold text-base" style={{ color: c.txt }}>MedSmart</span>
+            <span className="font-bold text-base" style={{ color: c.txt }}>Healy</span>
           </div>
 
           {/* Liens Nav centrés */}

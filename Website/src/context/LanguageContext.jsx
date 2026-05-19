@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+﻿import React, { createContext, useContext, useState, useEffect } from 'react';
 import fr from '../locales/fr.js';
 import en from '../locales/en.js';
 
@@ -14,11 +14,11 @@ function get(obj, path) {
 
 export const LanguageProvider = ({ children }) => {
   const [lang, setLang] = useState(() => {
-    return localStorage.getItem('medsmart_lang') || 'fr';
+    return localStorage.getItem('Healy_lang') || 'fr';
   });
 
   useEffect(() => {
-    localStorage.setItem('medsmart_lang', lang);
+    localStorage.setItem('Healy_lang', lang);
     document.documentElement.lang = lang;
   }, [lang]);
 

@@ -1,4 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
+﻿// ─────────────────────────────────────────────────────────────────────────────
 // AdminDashboard.jsx  —  Shell principal (Layout only)
 // Les vues individuelles sont dans ./views/
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3115,7 +3115,7 @@ function AdminSettingsPage({ dk, onToggleDark }) {
           </p>
           <div className="space-y-3">
             {[
-              [t('version') || "Version", "MedSmart Admin v2.2.0"],
+              [t('version') || "Version", "Healy Admin v2.2.0"],
               [t('build') || "Build", "#20260328-stable"],
               [t('environment') || "Environnement", t('production_alg') || "Production · Algérie"],
               [t('db_label') || "Base de données", "PostgreSQL 16.2"],

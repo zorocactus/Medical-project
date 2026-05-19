@@ -1,6 +1,6 @@
-// ─────────────────────────────────────────────────────────────────────────────
+﻿// ─────────────────────────────────────────────────────────────────────────────
 // src/services/api.js
-// Fichier central de communication avec le backend MedSmart
+// Fichier central de communication avec le backend Healy
 // Tous les appels API passent par ici — NE PAS faire de fetch directement
 // dans les composants React.
 // ─────────────────────────────────────────────────────────────────────────────
