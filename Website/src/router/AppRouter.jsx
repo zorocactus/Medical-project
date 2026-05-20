@@ -306,7 +306,7 @@ function RejectedPage({ logout }) {
   );
 }
 
-function RoleRouter() {
+function RoleRouter({ pendingToken }) {
   const { accountType, userData, logout, isApproved } = useAuth();
   const { t } = useLanguage();
 
@@ -338,7 +338,7 @@ function RoleRouter() {
     const isDoctor = role === "doctor" || role === "médecin";
     const isCaretaker = role === "caretaker" || role === "garde-malade";
 
-    if (isPharmacist) return <PharmacistDashboard onLogout={logout} />;
+    if (isPharmacist) return <PharmacistDashboard onLogout={logout} initialScanToken={pendingToken} />;
     if (isDoctor)
       return <DoctorDashboard role={userData?.role} onLogout={logout} />;
     if (isCaretaker) return <CaretakerDashboard onLogout={logout} />;
@@ -408,6 +408,14 @@ export default function AppRouter() {
   const { isAuthenticated, loginWithData } = useAuth();
   const [authMode, setAuthMode] = useState(null); // null = landing, "login" | "register"
   const [forcedRole, setForcedRole] = useState("patient"); // Choix: "patient", "doctor", "pharmacist", "admin", "caretaker"
+
+  // Détecte ?token= dans l'URL (ouvert par l'appli caméra native après scan QR)
+  // useState garantit une seule capture, même avec les re-renders React StrictMode
+  const [pendingToken] = useState(() => {
+    const tok = new URLSearchParams(window.location.search).get('token') || null;
+    if (tok) window.history.replaceState({}, '', window.location.pathname);
+    return tok;
+  });
 
   // Early return après les hooks — page de test des backgrounds (dev only)
   if (window.location.hash === "#/test-bg") {
@@ -523,5 +531,5 @@ export default function AppRouter() {
   }
 
   // Connecté → dashboard selon le rôle
-  return <RoleRouter />;
+  return <RoleRouter pendingToken={pendingToken} />;
 }

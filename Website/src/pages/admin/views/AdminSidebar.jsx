@@ -209,12 +209,9 @@ export default function AdminSidebar({
             <p className="text-sm font-bold truncate leading-none mb-1" style={{ color: c.txt }}>
               {userData?.full_name || "Admin"}
             </p>
-            <div className="flex items-center gap-1.5 opacity-60">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: c.txt }}>
-                {t('online_status')}
-              </p>
-            </div>
+            <p className="text-[10px] font-black uppercase tracking-widest opacity-50" style={{ color: c.txt }}>
+              Administrateur
+            </p>
           </div>
         </div>
         

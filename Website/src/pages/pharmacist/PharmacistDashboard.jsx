@@ -18,6 +18,7 @@ import ChatButton from "../../components/chat/ChatButton";
 import ConversationList from "../../components/chat/ConversationList";
 import ChatWindow from "../../components/chat/ChatWindow";
 import { useLanguage } from "../../context/LanguageContext";
+import { Html5Qrcode } from "html5-qrcode";
 import { T } from "../_shared/theme";
 
 // ─── Données de démonstration ─────────────────────────────────────────────────
@@ -118,113 +119,234 @@ function KpiCard({ label, value, sub, subColor, dk }) {
 }
 
 // ─── QR SCAN MODAL ────────────────────────────────────────────────────────────
-function QrModal({ onClose, dk, onScan }) {
+const QR_SCANNER_ID = "healy-qr-scanner";
+
+function QrModal({ onClose, dk, onScan, initialToken }) {
   const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
+  const [mode, setMode] = useState(initialToken ? "manual" : "camera");
   const [scanned, setScanned] = useState(false);
-  const [token, setToken] = useState("");
+  const [token, setToken] = useState(initialToken || "");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [camError, setCamError] = useState("");
+  const [camReady, setCamReady] = useState(false);
+  const scannerRef = useRef(null);
+  const processedRef = useRef(false);
 
-  const submitToken = async () => {
+  const processToken = async (rawToken) => {
+    const key = `qr_processed_${rawToken}`;
+    if (processedRef.current || sessionStorage.getItem(key)) return;
+    processedRef.current = true;
+    sessionStorage.setItem(key, '1');
     setError("");
-    if (!token.trim()) {
-      setError(t('qr_token_required') || "Saisissez le contenu du QR code.");
-      return;
-    }
     setLoading(true);
     try {
-      const result = await api.scanPrescriptionQr(token.trim());
+      const result = await api.scanPrescriptionQr(rawToken.trim());
       setScanned(true);
-      setTimeout(() => {
-        onScan?.(result);
-        onClose();
-      }, 800);
+      setTimeout(() => { onScan?.(result); onClose(); }, 900);
     } catch (err) {
-      setError(err?.message || (t('qr_invalid_token') || "QR invalide ou expiré."));
+      setError(err?.message || "QR invalide ou expiré.");
+      processedRef.current = false;
     } finally {
       setLoading(false);
     }
   };
 
+  // Auto-process token from URL param (native camera opened the link)
+  useEffect(() => {
+    if (initialToken) {
+      processToken(initialToken);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (mode !== "camera" || scanned) return;
+    setCamReady(false);
+    processedRef.current = false;
+
+    let scanner = null;
+    let active = true;
+
+    const startScanner = async () => {
+      try {
+        // Nettoie le div avant d'initialiser
+        const el = document.getElementById(QR_SCANNER_ID);
+        if (el) el.innerHTML = "";
+
+        scanner = new Html5Qrcode(QR_SCANNER_ID, { verbose: false });
+        scannerRef.current = scanner;
+
+        const constraints = { facingMode: { ideal: "environment" } };
+        await scanner.start(
+          constraints,
+          { fps: 10, qrbox: { width: 240, height: 240 }, aspectRatio: 1.0 },
+          (decodedText) => {
+            if (!active) return;
+            active = false;
+            try { scanner.stop(); } catch {}
+            let tok = decodedText;
+            try {
+              const url = new URL(decodedText);
+              tok = url.searchParams.get('token') || decodedText;
+            } catch {}
+            processToken(tok);
+          },
+          () => {}
+        );
+        if (active) setCamReady(true);
+      } catch (err) {
+        if (!active) return;
+        const msg = String(err).toLowerCase();
+        if (msg.includes("permission") || msg.includes("denied") || msg.includes("notallowed")) {
+          setCamError("Accès caméra refusé. Autorisez la caméra dans votre navigateur ou utilisez la saisie manuelle.");
+        } else if (msg.includes("https") || msg.includes("secure") || msg.includes("insecure")) {
+          setCamError("La caméra nécessite HTTPS. Utilisez la saisie manuelle.");
+        } else {
+          setCamError("Caméra indisponible. Utilisez la saisie manuelle.");
+        }
+        console.warn("QR cam error:", err);
+      }
+    };
+
+    // Délai court pour que le DOM soit prêt
+    const timer = setTimeout(startScanner, 100);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+      if (scanner) {
+        try { scanner.stop(); } catch {}
+        const el = document.getElementById(QR_SCANNER_ID);
+        if (el) el.innerHTML = "";
+      }
+    };
+  }, [mode, scanned]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}>
-      <div className="rounded-2xl p-8 w-full max-w-sm shadow-2xl border"
+      style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}>
+      <div className="rounded-2xl w-full max-w-sm shadow-2xl border"
         style={{ background: c.card, borderColor: c.border }}>
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-bold" style={{ color: c.txt }}>{t('scan_order_btn') || "Scanner une ordonnance"}</h3>
-          <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center border transition-colors hover:opacity-70"
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-6 pb-4">
+          <h3 className="text-lg font-bold" style={{ color: c.txt }}>Scanner une ordonnance</h3>
+          <button onClick={onClose}
+            className="w-8 h-8 rounded-xl flex items-center justify-center border transition-colors hover:opacity-70"
             style={{ borderColor: c.border, color: c.txt3 }}>
             <X size={15} />
           </button>
         </div>
 
-        {/* Camera zone */}
-        <div className="relative rounded-2xl overflow-hidden mb-5"
-          style={{ background: "#000", height: 180 }}>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-32 h-32 relative">
-              {[["top-0 left-0","border-t-2 border-l-2"],["top-0 right-0","border-t-2 border-r-2"],
-                ["bottom-0 left-0","border-b-2 border-l-2"],["bottom-0 right-0","border-b-2 border-r-2"]
-              ].map(([pos, border], i) => (
-                <div key={i} className={`absolute w-5 h-5 ${pos} ${border} rounded-sm`}
-                  style={{ borderColor: scanned ? "#2D8C6F" : "#6492C9" }} />
-              ))}
-              <QrCode size={56} className="absolute inset-0 m-auto"
-                style={{ color: scanned ? "#2D8C6F" : "rgba(255,255,255,0.15)" }} />
-            </div>
-          </div>
-          {scanned && (
-            <div className="absolute inset-0 flex items-center justify-center"
-              style={{ background: "rgba(45,140,111,0.3)" }}>
-              <div className="w-14 h-14 rounded-full flex items-center justify-center"
-                style={{ background: "#2D8C6F" }}>
-                <Check size={28} className="text-white" strokeWidth={3} />
-              </div>
-            </div>
-          )}
+        {/* Tabs */}
+        <div className="flex border-b mx-6 mb-4" style={{ borderColor: c.border }}>
+          {[["camera", "Caméra"], ["manual", "Saisie manuelle"]].map(([id, label]) => (
+            <button key={id} onClick={() => { setMode(id); setError(""); setCamError(""); setCamReady(false); }}
+              className="flex-1 py-2 text-sm font-semibold transition-all"
+              style={{ color: mode === id ? c.blue : c.txt3, borderBottom: mode === id ? `2px solid ${c.blue}` : "2px solid transparent", marginBottom: -1 }}>
+              {label}
+            </button>
+          ))}
         </div>
 
-        {/* Saisie manuelle (fallback caméra) */}
-        <label className="block text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt2 }}>
-          {t('qr_token_label') || "Contenu du QR code"}
-        </label>
-        <input
-          type="text"
-          value={token}
-          onChange={(e) => setToken(e.target.value)}
-          placeholder={t('qr_token_placeholder') || "Collez le token QR ici…"}
-          className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border mb-3"
-          style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border, color: c.txt }}
-        />
+        <div className="px-6 pb-6">
+          {/* Zone caméra */}
+          {mode === "camera" && (
+            <div className="mb-4">
+              {camError ? (
+                <div className="rounded-2xl flex flex-col items-center justify-center gap-3 py-8"
+                  style={{ background: dk ? "#1A2333" : "#F8FAFC", border: `1px solid ${c.border}` }}>
+                  <QrCode size={36} style={{ color: c.txt3 }} />
+                  <p className="text-xs text-center font-medium px-4" style={{ color: c.txt3 }}>{camError}</p>
+                  <button onClick={() => setMode("manual")}
+                    className="text-xs font-semibold px-4 py-1.5 rounded-lg"
+                    style={{ background: c.blue, color: "#fff" }}>
+                    Saisir manuellement
+                  </button>
+                </div>
+              ) : scanned ? (
+                <div className="rounded-2xl flex items-center justify-center py-10"
+                  style={{ background: "rgba(45,140,111,0.12)", border: "1px solid #2D8C6F44" }}>
+                  <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "#2D8C6F" }}>
+                    <Check size={28} className="text-white" strokeWidth={3} />
+                  </div>
+                </div>
+              ) : (
+                <div style={{ position: "relative" }}>
+                  {/* Spinner pendant init caméra */}
+                  {!camReady && (
+                    <div style={{ position: "absolute", inset: 0, zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#000", borderRadius: 16, minHeight: 280 }}>
+                      <span style={{ width: 28, height: 28, border: "3px solid rgba(255,255,255,0.2)", borderTopColor: "#6492C9", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "block", marginBottom: 10 }} />
+                      <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>Activation caméra…</span>
+                    </div>
+                  )}
+                  {/* Le scanner injecte la vidéo ici — PAS de overflow:hidden, hauteur automatique */}
+                  <div
+                    id={QR_SCANNER_ID}
+                    style={{ width: "100%", minHeight: 280, borderRadius: 16, overflow: "hidden", background: "#000" }}
+                  />
+                </div>
+              )}
+              {!camError && !scanned && (
+                <p className="text-xs text-center mt-2" style={{ color: c.txt3 }}>
+                  Pointez la caméra arrière vers le QR code de l'ordonnance
+                </p>
+              )}
+            </div>
+          )}
 
-        {error && (
-          <p className="text-xs font-semibold mb-3 px-3 py-2 rounded-lg border"
-             style={{ color: "#E05555", background: "#E0555518", borderColor: "#E0555544" }}>
-            {error}
-          </p>
-        )}
+          {/* Saisie manuelle */}
+          {mode === "manual" && (
+            <div className="mb-5">
+              <label className="block text-xs font-bold uppercase tracking-wide mb-2" style={{ color: c.txt2 }}>
+                Token QR
+              </label>
+              {scanned ? (
+                <div className="rounded-2xl flex items-center justify-center py-8"
+                  style={{ background: "rgba(45,140,111,0.12)", border: "1px solid #2D8C6F44" }}>
+                  <div className="w-14 h-14 rounded-full flex items-center justify-center"
+                    style={{ background: "#2D8C6F" }}>
+                    <Check size={28} className="text-white" strokeWidth={3} />
+                  </div>
+                </div>
+              ) : (
+                <textarea
+                  rows={3}
+                  value={token}
+                  onChange={e => setToken(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), processToken(token))}
+                  placeholder="Collez le contenu du QR code ici…"
+                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border resize-none"
+                  style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border, color: c.txt }}
+                />
+              )}
+            </div>
+          )}
 
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={submitToken}
-            disabled={loading || scanned}
-            className="flex-1 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            style={{ background: c.blue }}
-          >
-            {loading && <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
-            {scanned ? (t('in_progress') || "Traitement…") : (t('validate_btn') || "Valider")}
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-3 rounded-xl text-sm font-semibold border transition-all hover:opacity-80"
-            style={{ borderColor: c.border, color: c.txt2 }}
-          >
-            {t('cancel_btn') || "Annuler"}
-          </button>
+          {error && (
+            <p className="text-xs font-semibold mb-4 px-3 py-2 rounded-lg border"
+              style={{ color: "#E05555", background: "#E0555518", borderColor: "#E0555544" }}>
+              {error}
+            </p>
+          )}
+
+          <div className="flex gap-3">
+            {mode === "manual" && !scanned && (
+              <button type="button" onClick={() => processToken(token)}
+                disabled={loading || !token.trim()}
+                className="flex-1 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+                style={{ background: c.blue }}>
+                {loading && <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
+                {loading ? "Validation…" : "Valider"}
+              </button>
+            )}
+            <button type="button" onClick={onClose}
+              className="flex-1 py-3 rounded-xl text-sm font-semibold border transition-all hover:opacity-80"
+              style={{ borderColor: c.border, color: c.txt2 }}>
+              Fermer
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -235,7 +357,7 @@ function QrModal({ onClose, dk, onScan }) {
 function OrderDetailModal({ order, onClose, dk }) {
   const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
-  const st = STATUS_META[order.status];
+  const st = STATUS_META[order.status] || STATUS_META.new;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}>
@@ -298,7 +420,7 @@ function OrderDetailModal({ order, onClose, dk }) {
             style={{ background: c.blueLight, borderColor: c.blue + "33" }}>
             <p className="font-bold" style={{ color: c.txt }}>{t('total_to_pay_label') || "Total à payer"}</p>
             <p className="text-xl font-bold" style={{ color: c.blue }}>
-              {order.total.toLocaleString()} DZD
+              {(order.total ?? 0).toLocaleString()} DZD
             </p>
           </div>
         </div>
@@ -1087,11 +1209,11 @@ function StockPage({ dk }) {
 }
 
 // ─── PAGE: COMMANDES ──────────────────────────────────────────────────────────
-function CommandesPage({ dk }) {
+function CommandesPage({ dk, initialScanToken }) {
   const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
   const [tab, setTab]                   = useState("all");
-  const [showQr, setShowQr]             = useState(false);
+  const [showQr, setShowQr]             = useState(!!initialScanToken);
   const [orders, setOrders]             = useState([]);
   const [loading, setLoading]           = useState(true);
   const [loadError, setLoadError]       = useState("");
@@ -1100,6 +1222,8 @@ function CommandesPage({ dk }) {
   const [refuseModal, setRefuseModal]   = useState(null);
   const [refusingId, setRefusingId]     = useState(null);
   const [successBanner, setSuccessBanner] = useState("");
+  const [searchOrders, setSearchOrders]   = useState("");
+  const [sourceFilter, setSourceFilter]   = useState("all"); // all | scan | click_collect
 
   const mapOrder = (o) => {
     const status = (o.status || "new").toLowerCase();
@@ -1160,7 +1284,17 @@ function CommandesPage({ dk }) {
     { id: "cancelled",  label: "Refusées",    count: cancelledCount, danger: cancelledCount > 0 },
   ];
 
-  const displayed = tab === "all" ? orders : orders.filter(o => o.status === tab);
+  const displayed = (tab === "all" ? orders : orders.filter(o => o.status === tab))
+    .filter(o => {
+      const q = searchOrders.toLowerCase();
+      const matchSearch = !q ||
+        (o.patient || "").toLowerCase().includes(q) ||
+        (o.doctor || "").toLowerCase().includes(q) ||
+        (o.id || "").toLowerCase().includes(q) ||
+        (o.items || []).some(i => i.toLowerCase().includes(q));
+      const matchSource = sourceFilter === "all" || o.source === sourceFilter;
+      return matchSearch && matchSource;
+    });
 
   // Mapping display status → backend status pour PATCH
   const BACK_STATUS = { processing: "preparing", ready: "ready", delivered: "delivered" };
@@ -1253,13 +1387,14 @@ function CommandesPage({ dk }) {
       {showQr && (
         <QrModal
           dk={dk}
+          initialToken={initialScanToken}
           onClose={() => setShowQr(false)}
           onScan={async (scanResult) => {
             // scanResult contient { prescription: { id, ... } } si le backend est branché
             const prescriptionId = scanResult?.prescription?.id ?? scanResult?.id ?? null;
             if (prescriptionId) {
               try {
-                await api.createPharmacyOrder({ prescription_id: prescriptionId });
+                await api.createPharmacyOrder({ prescription: prescriptionId, order_type: "prescription" });
               } catch (err) {
                 // Commande déjà existante ou endpoint pas encore prêt — on continue
                 console.warn("createPharmacyOrder:", err?.message);
@@ -1294,9 +1429,12 @@ function CommandesPage({ dk }) {
           </p>
         </div>
         <button onClick={() => setShowQr(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90"
-          style={{ background: c.blue }}>
-          <QrCode size={15} /> {t('scan_order_btn') || "Scanner ordonnance"}
+          style={{
+            background: "#304B71", color: "#fff", border: "none", borderRadius: "12px",
+            padding: "10px 20px", fontSize: "13px", fontWeight: "500", cursor: "pointer",
+            display: "flex", alignItems: "center", gap: "6px",
+          }}>
+          <QrCode size={15} /> Scanner ordonnance
         </button>
       </div>
 
@@ -1331,6 +1469,41 @@ function CommandesPage({ dk }) {
         })}
       </div>
 
+      {/* Search & filters */}
+      <div className="flex flex-wrap gap-2 mb-5">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl border flex-1 min-w-[180px]"
+          style={{ background: c.card, borderColor: c.border }}>
+          <Search size={14} style={{ color: c.txt3, flexShrink: 0 }} />
+          <input
+            value={searchOrders}
+            onChange={e => setSearchOrders(e.target.value)}
+            placeholder="Rechercher patient, médecin, médicament…"
+            className="outline-none text-sm bg-transparent flex-1"
+            style={{ color: c.txt }}
+          />
+          {searchOrders && (
+            <button onClick={() => setSearchOrders("")} style={{ color: c.txt3, background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>✕</button>
+          )}
+        </div>
+        <div className="flex items-center gap-1 p-1 rounded-xl border" style={{ borderColor: c.border, background: c.card }}>
+          {[
+            { id: "all",          label: "Toutes sources" },
+            { id: "click_collect", label: "Click & Collect" },
+            { id: "scan",         label: "Scan" },
+          ].map(opt => (
+            <button key={opt.id} onClick={() => setSourceFilter(opt.id)}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+              style={{
+                background: sourceFilter === opt.id ? c.blue : "transparent",
+                color: sourceFilter === opt.id ? "#fff" : c.txt2,
+                border: "none", cursor: "pointer",
+              }}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {successBanner && (
         <div className="mb-4 px-4 py-2.5 rounded-xl border text-sm font-semibold flex items-center gap-2"
           style={{ background: "#2D8C6F12", borderColor: "#2D8C6F44", color: "#2D8C6F" }}>
@@ -1357,7 +1530,11 @@ function CommandesPage({ dk }) {
         {!loading && displayed.length === 0 && (
           <div className="text-center py-12" style={{ color: c.txt3 }}>
             <ShoppingCart size={32} className="mx-auto mb-3 opacity-40" />
-            <p className="text-sm font-semibold">{t('no_orders_found') || "Aucune commande dans cet onglet"}</p>
+            <p className="text-sm font-semibold">
+              {searchOrders || sourceFilter !== "all"
+                ? "Aucune commande ne correspond à votre recherche."
+                : t('no_orders_found') || "Aucune commande dans cet onglet"}
+            </p>
           </div>
         )}
         {displayed.map(o => {
@@ -2117,12 +2294,12 @@ function MessagesPage({ dk, c, chatConvOpen, setChatConvOpen, activeChatConv, se
 }
 
 // ─── MAIN SHELL ───────────────────────────────────────────────────────────────
-export default function PharmacistDashboard({ onLogout }) {
+export default function PharmacistDashboard({ onLogout, initialScanToken }) {
   const { t } = useLanguage();
   const { theme, toggleTheme } = useTheme();
   const { userData } = useAuth();
   const dk = theme === "dark";
-  const [page, setPage] = useState("accueil");
+  const [page, setPage] = useState(initialScanToken ? "commandes" : "accueil");
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
   const { globalNotifications, markAllNotificationsRead } = useData();
@@ -2163,7 +2340,7 @@ export default function PharmacistDashboard({ onLogout }) {
   const renderPage = () => {
     switch (page) {
       case "accueil":      return <HomePage dk={dk} onNav={setPage} />;
-      case "commandes":    return <CommandesPage dk={dk} />;
+      case "commandes":    return <CommandesPage dk={dk} initialScanToken={initialScanToken} />;
       case "stock":        return <StockPage dk={dk} />;
       case "statistiques": return <StatistiquesPage dk={dk} />;
       case "parametres":   return <ParametresPage dk={dk} onToggleDark={toggleTheme} />;
@@ -2306,10 +2483,9 @@ export default function PharmacistDashboard({ onLogout }) {
                     </button>
 
                     {/* Dark mode */}
-                    <button className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer">
+                    <div className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer" onClick={toggleTheme}>
                       <Sun size={14} style={{ color: dk ? c.txt3 : "#E8A838" }} />
-                      <button
-                        onClick={toggleTheme}
+                      <div
                         className="relative rounded-full transition-all duration-300"
                         style={{
                           width: 42,
@@ -2323,9 +2499,9 @@ export default function PharmacistDashboard({ onLogout }) {
                           className="absolute top-0.5 rounded-full bg-white shadow-md transition-all duration-300"
                           style={{ width: 18, height: 18, left: dk ? 20 : 2 }}
                         />
-                      </button>
+                      </div>
                       <Moon size={13} style={{ color: dk ? c.blue : c.txt3 }} />
-                    </button>
+                    </div>
 
                     <div className="h-px my-1 mx-2" style={{ background: dk ? c.border : "#F1F5F9" }} />
                     <button onClick={onLogout}

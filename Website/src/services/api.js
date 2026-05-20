@@ -1415,11 +1415,21 @@ export async function getMessages(conversationId) {
 }
 
 /**
- * Envoie un message dans une conversation
+ * Envoie un message dans une conversation (texte et/ou fichier)
  * @param {number} conversationId
  * @param {string} content
+ * @param {File|null} file
  */
-export async function sendMessage(conversationId, content) {
+export async function sendMessage(conversationId, content, file = null) {
+  if (file) {
+    const form = new FormData();
+    if (content) form.append("content", content);
+    form.append("file", file);
+    return apiFetch(`/chat/conversations/${conversationId}/messages/`, {
+      method: "POST",
+      body: form,
+    });
+  }
   return apiFetch(`/chat/conversations/${conversationId}/messages/`, {
     method: "POST",
     body: JSON.stringify({ content }),
@@ -1462,8 +1472,16 @@ export async function markConversationRead(conversationId) {
  * Bloquer un utilisateur
  * @param {number} userId
  */
+export async function deleteConversation(conversationId) {
+  return apiFetch(`/chat/conversations/${conversationId}/`, { method: "DELETE" });
+}
+
 export async function blockUser(userId) {
   return apiFetch(`/chat/block/${userId}/`, { method: "POST" });
+}
+
+export async function unblockUser(userId) {
+  return apiFetch(`/chat/block/${userId}/`, { method: "DELETE" });
 }
 
 /**

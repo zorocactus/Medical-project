@@ -1,20 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   X, Send, ChevronLeft, Paperclip, Smile, MoreVertical,
-  Trash2, BellOff, Check, CheckCheck, ChevronDown,
-  Pencil, FileText, Ban, ShieldAlert, Flag,
+  Trash2, Check, CheckCheck, ChevronDown,
+  Pencil, FileText, Ban, ShieldAlert,
 } from "lucide-react";
 import * as api from "../../services/api";
 
-// ─── Démo uniquement en DEV — aucune trace visible en production ──────────────
-const MOCK_MESSAGES = import.meta.env.DEV ? [
-  { id: 1, sender: "other", content: "Bonjour, comment puis-je vous aider ?",
-    time: new Date(Date.now() - 7 * 60000).toISOString(), read: true },
-  { id: 2, sender: "me",    content: "Mon ordonnance est-elle prête ?",
-    time: new Date(Date.now() - 6 * 60000).toISOString(), read: true },
-  { id: 3, sender: "other", content: "Votre ordonnance est prête, vous pouvez passer la récupérer.",
-    time: new Date(Date.now() - 5 * 60000).toISOString(), read: true },
-] : [];
 
 const EMOJIS = [
   // Populaire / Faces
@@ -60,7 +51,9 @@ function normalizeMsg(m) {
   return {
     id: m.id,
     sender: m.is_mine ? "me" : "other",
-    content: m.content,
+    content: m.content || "",
+    file_url: m.file_url || null,
+    file_name: m.file_name || null,
     time: m.created_at ?? m.timestamp ?? m.time ?? nowISO(),
     read: !!m.is_read,
     edited: !!m.edited_at,
@@ -87,11 +80,22 @@ function TypingDots({ c }) {
 }
 
 // ─── BubbleMenu (dropdown trois points style Instagram) ──────────────────────
-function BubbleMenu({ onEdit, onDelete, onClose, c, isMe }) {
+function BubbleMenu({ onEdit, onDelete, onClose, c, isMe, anchorRef }) {
   const ref = useRef(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    if (anchorRef?.current) {
+      const rect = anchorRef.current.getBoundingClientRect();
+      setPos({
+        top: rect.top - 8,   // apparaît au-dessus du bouton
+        left: isMe ? rect.right - 148 : rect.left,
+      });
+    }
+  }, [anchorRef, isMe]);
+
   useEffect(() => {
     function h(e) { if (ref.current && !ref.current.contains(e.target)) onClose(); }
-    // léger délai pour ne pas fermer immédiatement au clic d'ouverture
     const t = setTimeout(() => document.addEventListener("mousedown", h), 10);
     return () => { clearTimeout(t); document.removeEventListener("mousedown", h); };
   }, [onClose]);
@@ -99,10 +103,12 @@ function BubbleMenu({ onEdit, onDelete, onClose, c, isMe }) {
   return (
     <div
       ref={ref}
-      className="absolute bottom-full mb-1 rounded-2xl border shadow-lg overflow-hidden z-50"
+      className="fixed rounded-2xl border shadow-lg overflow-hidden z-[200]"
       style={{
-        [isMe ? "right" : "left"]: 0,
+        top: pos.top,
+        left: pos.left,
         minWidth: 148,
+        transform: "translateY(-100%)",
         background: c.card,
         borderColor: c.border,
         animation: "dropdownIn 0.15s ease forwards",
@@ -136,6 +142,7 @@ function BubbleMenu({ onEdit, onDelete, onClose, c, isMe }) {
 function MessageBubble({ msg, conv, c, showAvatar, onEdit, onDelete }) {
   const [hovered, setHovered]   = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const dotsBtnRef              = useRef(null);
   const isMe = msg.sender === "me";
   const isDeleted = msg.deleted;
   const color = avatarColor(conv.role);
@@ -168,18 +175,55 @@ function MessageBubble({ msg, conv, c, showAvatar, onEdit, onDelete }) {
 
         {/* Bulle */}
         <div
-          className="px-3.5 py-2.5 text-sm leading-relaxed relative group"
+          className="text-sm leading-relaxed relative group overflow-hidden"
           style={{
             background: isDeleted ? "transparent" : (isMe ? c.blue : c.card),
             color: isDeleted ? c.txt3 : (isMe ? "#fff" : c.txt),
             borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
             boxShadow: isDeleted ? "none" : "0 2px 5px rgba(0,0,0,0.06)",
-            whiteSpace: "pre-wrap", wordBreak: "break-word",
             border: isDeleted ? `1px dashed ${c.border}` : "none",
             fontStyle: isDeleted ? "italic" : "normal",
-            transition: "transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
+            transition: "transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
+            maxWidth: "100%",
           }}>
-          {isDeleted ? "Message supprimé" : msg.content}
+          {isDeleted ? (
+            <span className="px-3.5 py-2.5 block">Message supprimé</span>
+          ) : (
+            <>
+              {/* Aperçu image */}
+              {msg.file_url && /\.(jpe?g|png|gif|webp)$/i.test(msg.file_name || msg.file_url) && (
+                <a href={msg.file_url} target="_blank" rel="noreferrer">
+                  <img
+                    src={msg.file_url}
+                    alt={msg.file_name || "image"}
+                    className="block rounded-t-[18px]"
+                    style={{ maxWidth: 220, maxHeight: 200, objectFit: "cover", display: "block" }}
+                  />
+                </a>
+              )}
+              {/* Fichier non-image */}
+              {msg.file_url && !/\.(jpe?g|png|gif|webp)$/i.test(msg.file_name || msg.file_url) && (
+                <a
+                  href={msg.file_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-2 px-3.5 py-2.5 hover:opacity-80 transition-opacity"
+                  style={{ color: isMe ? "#fff" : c.blue, textDecoration: "none" }}
+                >
+                  <FileText size={16} />
+                  <span className="text-xs font-medium truncate" style={{ maxWidth: 160 }}>
+                    {msg.file_name || "Fichier"}
+                  </span>
+                </a>
+              )}
+              {/* Texte */}
+              {msg.content && (
+                <p className="px-3.5 py-2.5" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", margin: 0 }}>
+                  {msg.content}
+                </p>
+              )}
+            </>
+          )}
         </div>
 
         {/* Timestamp + coches (hover) */}
@@ -196,9 +240,10 @@ function MessageBubble({ msg, conv, c, showAvatar, onEdit, onDelete }) {
 
       {/* ⋮ Three-dot — côté gauche de la bulle (côté centre du chat) */}
       {isMe && !isDeleted && (
-        <div className="relative self-center shrink-0"
+        <div className="self-center shrink-0"
           style={{ opacity: hovered || menuOpen ? 1 : 0, transition: "opacity 0.15s" }}>
           <button
+            ref={dotsBtnRef}
             onClick={() => setMenuOpen(v => !v)}
             className="w-7 h-7 rounded-full flex items-center justify-center transition-all hover:bg-gray-100 active:scale-90"
             style={{ color: c.txt3 }}
@@ -209,6 +254,7 @@ function MessageBubble({ msg, conv, c, showAvatar, onEdit, onDelete }) {
             <BubbleMenu
               isMe={isMe}
               c={c}
+              anchorRef={dotsBtnRef}
               onEdit={() => { onEdit(msg); setMenuOpen(false); }}
               onDelete={() => { onDelete(msg.id); setMenuOpen(false); setHovered(false); }}
               onClose={() => { setMenuOpen(false); setHovered(false); }}
@@ -222,8 +268,20 @@ function MessageBubble({ msg, conv, c, showAvatar, onEdit, onDelete }) {
 
 
 // ─── DropdownMenu ─────────────────────────────────────────────────────────────
-function DropdownMenu({ onClose, onBlock, onReport, isBlocked, c }) {
+function DropdownMenu({ onClose, onBlock, onReport, onDeleteConv, isBlocked, c, anchorRef }) {
   const ref = useRef(null);
+  const [pos, setPos] = useState({ top: 0, right: 0 });
+
+  useEffect(() => {
+    if (anchorRef?.current) {
+      const rect = anchorRef.current.getBoundingClientRect();
+      setPos({
+        top: rect.bottom + 6,
+        right: window.innerWidth - rect.right,
+      });
+    }
+  }, [anchorRef]);
+
   useEffect(() => {
     function h(e) { if (ref.current && !ref.current.contains(e.target)) onClose(); }
     document.addEventListener("mousedown", h);
@@ -233,32 +291,33 @@ function DropdownMenu({ onClose, onBlock, onReport, isBlocked, c }) {
   const sections = [
     {
       items: [
-        { icon: BellOff, label: "Mettre en sourdine", color: c.txt2, onClick: onClose },
         { icon: Ban, label: isBlocked ? "Débloquer" : "Bloquer", color: isBlocked ? c.blue : c.txt, onClick: onBlock },
       ]
     },
     {
       items: [
         { icon: ShieldAlert, label: "Signaler", color: "#E05555", onClick: onReport },
-        { icon: Trash2, label: "Supprimer", color: "#E05555", onClick: onClose },
+        { icon: Trash2, label: "Supprimer la conversation", color: "#E05555", onClick: onDeleteConv },
       ]
     }
   ];
 
   return (
     <div ref={ref}
-      className="absolute right-0 top-12 w-56 rounded-[24px] border border-white/20 shadow-2xl z-50 overflow-hidden backdrop-blur-xl"
-      style={{ 
-        background: c.dk ? "rgba(23, 23, 23, 0.85)" : "rgba(255, 255, 255, 0.85)", 
+      className="fixed w-56 rounded-[24px] border border-white/20 shadow-2xl z-[200] overflow-hidden backdrop-blur-xl"
+      style={{
+        top: pos.top,
+        right: pos.right,
+        background: c.dk ? "rgba(23, 23, 23, 0.85)" : "rgba(255, 255, 255, 0.85)",
         borderColor: c.border,
-        animation: "dropdownIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards" 
+        animation: "dropdownIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards"
       }}>
       {sections.map((section, idx) => (
         <div key={idx} className={idx > 0 ? "border-t" : ""} style={{ borderColor: c.border }}>
           {section.items.map(({ icon: Icon, label, color, onClick }) => (
-            <button key={label} 
+            <button key={label}
               onClick={() => { onClick(); onClose(); }}
-              className="w-full flex items-center gap-3 px-5 py-3.5 text-[13px] font-semibold transition-all hover:pl-6"
+              className="w-full flex items-center gap-3 px-5 py-3.5 text-[13px] font-semibold transition-all"
               style={{ color }}
               onMouseEnter={e => (e.currentTarget.style.background = c.blueLight)}
               onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
@@ -356,13 +415,14 @@ function AttachmentPreview({ file, previewUrl, onRemove, c }) {
 }
 
 // ─── ChatWindow ───────────────────────────────────────────────────────────────
-export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = false }) {
-  const [messages, setMessages]       = useState(MOCK_MESSAGES);
+export default function ChatWindow({ conv, onClose, onBack, onNewMessage, onDeleteConv, c, dk, embedded = false }) {
+  const [messages, setMessages]       = useState([]);
   const [input, setInput]             = useState("");
   const [sending, setSending]         = useState(false);
+  const [sendError, setSendError]     = useState(null);
   const [showEmoji, setShowEmoji]     = useState(false);
   const [showMenu, setShowMenu]       = useState(false);
-  const [isTyping, setIsTyping]       = useState(false);
+  const [isTyping] = useState(false);
   const [newMsgCount, setNewMsgCount] = useState(0);
   const [isAtBottom, setIsAtBottom]   = useState(true);
   const [allRead, setAllRead]         = useState(false);
@@ -378,19 +438,14 @@ export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = fa
   const bodyRef     = useRef(null);
   const textareaRef = useRef(null);
   const intervalRef = useRef(null);
-  const typingTimer = useRef(null);
-  const prevLenRef  = useRef(MOCK_MESSAGES.length);
+  const prevLenRef  = useRef(0);
   const fileInputRef = useRef(null);
-  const emojiBtnRef  = useRef(null);  // ancre pour positionner le picker
+  const emojiBtnRef  = useRef(null);
+  const menuBtnRef   = useRef(null);
 
-  // ── Statut en ligne ──
-  const lastMsgTime = messages.at(-1)?.time;
-  const isOnline = lastMsgTime
-    ? (Date.now() - new Date(lastMsgTime).getTime()) < 5 * 60 * 1000
-    : false;
-
-  const roleLabel = conv?.role === "pharmacist" ? "Pharmacien" : "Garde-malade";
-  const color     = avatarColor(conv?.role);
+  const otherUserId = conv?._raw?.other_participant?.id;
+  const roleLabel   = conv?.role === "pharmacist" ? "Pharmacien" : "Garde-malade";
+  const color       = avatarColor(conv?.role);
 
   // ── Scroll ──
   const scrollToBottom = useCallback((behavior = "smooth") => {
@@ -407,12 +462,13 @@ export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = fa
 
   useEffect(() => { scrollToBottom("instant"); }, [conv?.id]);
   useEffect(() => {
-    if (isAtBottom) { scrollToBottom(); }
-    else {
-      const prev = prevLenRef.current;
-      const newOther = messages.slice(prev).filter(m => m.sender === "other").length;
-      if (newOther > 0) setNewMsgCount(n => n + newOther);
+    const prev = prevLenRef.current;
+    const newOther = messages.slice(prev).filter(m => m.sender === "other").length;
+    if (newOther > 0) {
+      if (!isAtBottom) setNewMsgCount(n => n + newOther);
+      onNewMessage?.();
     }
+    if (isAtBottom) scrollToBottom();
     prevLenRef.current = messages.length;
   }, [messages]);
 
@@ -425,28 +481,27 @@ export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = fa
 
   // ── Polling ──
   const fetchMessages = useCallback(async () => {
-    if (!conv?.id) return;
+    if (!conv?.id || String(conv.id).startsWith("tmp-")) return;
     try {
       const data = await api.getMessages(conv.id);
-      if (Array.isArray(data) && data.length > 0) setMessages(data.map(normalizeMsg));
+      const list = Array.isArray(data) ? data : (data?.results || []);
+      setMessages(list.map(normalizeMsg));
     } catch { /* silencieux */ }
   }, [conv?.id]);
 
+  // Réinitialiser les messages et relancer le polling à chaque nouvelle conversation
   useEffect(() => {
     if (!conv?.id) return;
-    fetchMessages();
-    intervalRef.current = setInterval(fetchMessages, 5000);
+    setMessages([]);
+    prevLenRef.current = 0;
+    clearInterval(intervalRef.current);
+    if (!String(conv.id).startsWith("tmp-")) {
+      fetchMessages();
+      intervalRef.current = setInterval(fetchMessages, 5000);
+    }
     return () => clearInterval(intervalRef.current);
-  }, [conv?.id, fetchMessages]);
+  }, [conv?.id]);
 
-  // ── Simulation typing ──
-  const simulateTyping = useCallback(() => {
-    clearTimeout(typingTimer.current);
-    typingTimer.current = setTimeout(() => {
-      setIsTyping(true);
-      setTimeout(() => setIsTyping(false), 2200);
-    }, 2800);
-  }, []);
 
   // ── Envoi ──
   const handleSend = useCallback(async () => {
@@ -459,29 +514,44 @@ export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = fa
         setMessages(prev => prev.map(m =>
           m.id === editingMsg.id ? { ...m, content: text, edited: true } : m
         ));
-        // Optionnel : appel API
-        api.updateMessage?.(editingMsg.id, text).catch(() => {});
+        api.updateMessage(editingMsg.id, text).catch(() => {});
       }
       setEditingMsg(null);
       setInput("");
       return;
     }
 
-    const content = text || (attachment ? `[Fichier : ${attachment.file.name}]` : "");
-    const tempMsg = { id: `tmp-${Date.now()}`, sender: "me", content, time: nowISO(), read: false };
+    const file = attachment?.file || null;
+    const tempMsg = {
+      id: `tmp-${Date.now()}`,
+      sender: "me",
+      content: text,
+      file_url: attachment ? attachment.previewUrl : null,
+      file_name: file ? file.name : null,
+      time: nowISO(),
+      read: false,
+    };
     setMessages(prev => [...prev, tempMsg]);
     setInput(""); setAttachment(null); setSending(true);
-    simulateTyping();
     try {
-      const saved = await api.sendMessage(conv.id, content);
+      const saved = await api.sendMessage(conv.id, text, file);
       if (saved?.id) {
         setMessages(prev => prev.map(m =>
           m.id === tempMsg.id ? normalizeMsg({ ...saved, is_mine: true }) : m
         ));
       }
-    } catch { /* silencieux */ }
+    } catch (err) {
+      // Retirer le message temporaire en cas d'échec
+      setMessages(prev => prev.filter(m => m.id !== tempMsg.id));
+      if (err?.message === "MESSAGES_DISABLED") {
+        setSendError("Cet utilisateur a désactivé les messages.");
+      } else if (err?.message?.includes("désactivé")) {
+        setSendError("Vous avez désactivé les messages. Réactivez-les dans vos paramètres.");
+      }
+      setTimeout(() => setSendError(null), 5000);
+    }
     finally { setSending(false); }
-  }, [input, sending, conv?.id, simulateTyping, attachment, editingMsg]);
+  }, [input, sending, conv?.id, attachment, editingMsg]);
 
   const handleKeyDown = e => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
@@ -517,15 +587,20 @@ export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = fa
     setMessages(prev => prev.map(m =>
       m.id === id ? { ...m, deleted: true } : m
     ));
-    api.deleteMessage?.(id).catch(() => {});
+    api.deleteMessage(id).catch(() => {});
   };
 
   const handleBlock = async () => {
     const newState = !isBlocked;
     setIsBlocked(newState);
-    if (newState) {
-      // Optionnel : appel API
-      api.blockUser?.(conv.id).catch(() => {});
+    try {
+      if (newState) {
+        await api.blockUser(otherUserId);
+      } else {
+        await api.unblockUser(otherUserId);
+      }
+    } catch {
+      setIsBlocked(!newState); // annuler si erreur
     }
   };
 
@@ -533,7 +608,7 @@ export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = fa
     if (!reportReason.trim()) return;
     setReporting(true);
     try {
-      await api.reportUser?.(conv.id, reportReason);
+      await api.reportUser(otherUserId, reportReason);
       setShowReportModal(false);
       setReportReason("");
       setChatNotif({ type: "success", msg: "Merci. Votre signalement a été transmis aux administrateurs." });
@@ -544,6 +619,11 @@ export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = fa
     } finally {
       setReporting(false);
     }
+  };
+
+  const handleDeleteConversation = async () => {
+    try { await api.deleteConversation(conv.id); } catch { /* silencieux */ }
+    onDeleteConv?.();
   };
 
   // ── Pièce jointe ──
@@ -592,10 +672,6 @@ export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = fa
           0%, 60%, 100% { transform: translateY(0); }
           30%           { transform: translateY(-5px); }
         }
-        @keyframes pulseDot {
-          0%, 100% { opacity: 1; }
-          50%      { opacity: 0.35; }
-        }
       `}</style>
 
       <div style={containerStyle}>
@@ -628,32 +704,18 @@ export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = fa
 
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold truncate" style={{ color: c.txt }}>{conv.name}</p>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <div className="w-2 h-2 rounded-full shrink-0"
-                style={{ background: isOnline ? c.green : c.txt3,
-                  animation: isOnline ? "pulseDot 2s ease-in-out infinite" : "none" }} />
-              <p className="text-[11px]" style={{ color: c.txt3 }}>
-                {roleLabel} · {isOnline ? "En ligne" : "Hors ligne"}
-              </p>
-            </div>
+            <p className="text-[11px] mt-0.5" style={{ color: c.txt3 }}>{roleLabel}</p>
           </div>
 
           {/* ⋮ Menu */}
           <div className="relative shrink-0">
-            <button onClick={() => setShowMenu(v => !v)}
+            <button
+              ref={menuBtnRef}
+              onClick={() => setShowMenu(v => !v)}
               className="w-8 h-8 rounded-xl flex items-center justify-center border transition-all hover:opacity-80"
               style={{ borderColor: c.border, color: c.txt2 }}>
               <MoreVertical size={15} />
             </button>
-            {showMenu && (
-              <DropdownMenu 
-                onClose={() => setShowMenu(false)} 
-                onBlock={handleBlock}
-                onReport={() => setShowReportModal(true)}
-                isBlocked={isBlocked}
-                c={c} 
-              />
-            )}
           </div>
 
           <button onClick={onClose}
@@ -720,13 +782,12 @@ export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = fa
         <div className="px-3 py-2.5 border-t shrink-0 relative"
           style={{ borderColor: c.border, background: c.nav }}>
 
-          {/* Bloqué state footer */}
           {isBlocked ? (
             <div className="flex flex-col items-center gap-2 py-2 px-4 text-center">
               <p className="text-sm font-medium" style={{ color: c.txt2 }}>
                 Vous avez bloqué cet utilisateur.
               </p>
-              <button 
+              <button
                 onClick={handleBlock}
                 className="text-xs font-bold px-4 py-1.5 rounded-full bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 transition-colors"
                 style={{ color: "#E05555" }}
@@ -736,7 +797,6 @@ export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = fa
             </div>
           ) : (
             <>
-              {/* Instagram-style Editing Bar */}
               {editingMsg && (
                 <div className="absolute bottom-full left-0 right-0 px-4 py-2 border-t flex items-center justify-between animate-in slide-in-from-bottom-2 duration-200"
                   style={{ background: c.card, borderColor: c.border, zIndex: 5 }}>
@@ -747,7 +807,7 @@ export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = fa
                       <p className="text-xs truncate opacity-60" style={{ color: c.txt }}>{editingMsg.content}</p>
                     </div>
                   </div>
-                  <button 
+                  <button
                     onClick={cancelEdit}
                     className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
                     style={{ color: c.txt3 }}
@@ -757,7 +817,6 @@ export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = fa
                 </div>
               )}
 
-              {/* Prévisualisation pièce jointe */}
               {attachment && (
                 <AttachmentPreview
                   file={attachment.file}
@@ -767,10 +826,16 @@ export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = fa
                 />
               )}
 
-              {/* Input row — tous les éléments alignés verticalement au centre */}
-              <div className="flex items-center gap-2">
+              {sendError && (
+                <div className="px-4 py-2 text-xs font-semibold flex items-center gap-2 rounded-xl mx-1 mb-1"
+                  style={{ background: "#E0555512", color: "#E05555", border: "1px solid #E0555533" }}>
+                  <span>⊘</span>
+                  <span className="flex-1">{sendError}</span>
+                  <button onClick={() => setSendError(null)} className="hover:opacity-70 shrink-0">✕</button>
+                </div>
+              )}
 
-                {/* Pièce jointe */}
+              <div className="flex items-center gap-2">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -786,7 +851,6 @@ export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = fa
                   <Paperclip size={15} />
                 </button>
 
-                {/* 😊 Emoji */}
                 <button
                   ref={emojiBtnRef}
                   onClick={() => setShowEmoji(v => !v)}
@@ -798,7 +862,6 @@ export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = fa
                   <Smile size={15} />
                 </button>
 
-                {/* Textarea auto-resize */}
                 <div className="flex-1 relative">
                   <textarea
                     ref={textareaRef}
@@ -830,7 +893,6 @@ export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = fa
                   )}
                 </div>
 
-                {/* Envoyer */}
                 <button
                   onClick={handleSend}
                   disabled={!canSend}
@@ -843,48 +905,61 @@ export default function ChatWindow({ conv, onClose, onBack, c, dk, embedded = fa
           )}
         </div>
 
-        {/* ══ MODAL SIGNALEMENT ══════════════════════════════════════════════ */}
-        {showReportModal && (
-          <div className="absolute inset-0 z-[100] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.4)" }}>
-            <div className="w-full max-w-[280px] bg-white rounded-3xl p-5 shadow-2xl animate-in zoom-in-95 duration-200" style={{ background: c.card }}>
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center text-red-500">
-                  <ShieldAlert size={28} />
-                </div>
-                <h3 className="text-base font-bold text-center" style={{ color: c.txt }}>Signaler l'utilisateur</h3>
-                <p className="text-xs text-center opacity-60 px-2" style={{ color: c.txt }}>
-                  Décrivez brièvement le problème pour les administrateurs.
-                </p>
-                <textarea
-                  autoFocus
-                  value={reportReason}
-                  onChange={e => setReportReason(e.target.value)}
-                  placeholder="Raison du signalement..."
-                  className="w-full text-sm p-3 rounded-2xl border outline-none resize-none h-24 mt-1"
-                  style={{ background: c.blueLight, borderColor: c.border, color: c.txt }}
-                />
-                <div className="grid grid-cols-2 gap-2 w-full mt-2">
-                  <button 
-                    onClick={() => setShowReportModal(false)}
-                    className="py-2.5 rounded-xl text-xs font-bold border hover:bg-gray-50 transition-colors"
-                    style={{ borderColor: c.border, color: c.txt2 }}
-                  >
-                    Annuler
-                  </button>
-                  <button 
-                    disabled={!reportReason.trim() || reporting}
-                    onClick={handleReport}
-                    className="py-2.5 rounded-xl text-xs font-bold text-white bg-red-500 hover:bg-red-600 transition-colors disabled:opacity-50"
-                  >
-                    {reporting ? "Envoi..." : "Signaler"}
-                  </button>
-                </div>
+      </div>
+
+      {/* DropdownMenu — fixed, hors du container overflow:hidden */}
+      {showMenu && (
+        <DropdownMenu
+          onClose={() => setShowMenu(false)}
+          onBlock={handleBlock}
+          onReport={() => { setShowReportModal(true); setShowMenu(false); }}
+          onDeleteConv={handleDeleteConversation}
+          isBlocked={isBlocked}
+          c={c}
+          anchorRef={menuBtnRef}
+        />
+      )}
+
+      {/* Modal signalement — fixed, hors du container */}
+      {showReportModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.4)" }}>
+          <div className="w-full max-w-[280px] rounded-3xl p-5 shadow-2xl" style={{ background: c.card }}>
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center text-red-500">
+                <ShieldAlert size={28} />
+              </div>
+              <h3 className="text-base font-bold text-center" style={{ color: c.txt }}>Signaler l'utilisateur</h3>
+              <p className="text-xs text-center opacity-60 px-2" style={{ color: c.txt }}>
+                Décrivez brièvement le problème pour les administrateurs.
+              </p>
+              <textarea
+                autoFocus
+                value={reportReason}
+                onChange={e => setReportReason(e.target.value)}
+                placeholder="Raison du signalement..."
+                className="w-full text-sm p-3 rounded-2xl border outline-none resize-none h-24 mt-1"
+                style={{ background: c.blueLight, borderColor: c.border, color: c.txt }}
+              />
+              <div className="grid grid-cols-2 gap-2 w-full mt-2">
+                <button
+                  onClick={() => setShowReportModal(false)}
+                  className="py-2.5 rounded-xl text-xs font-bold border hover:bg-gray-50 transition-colors"
+                  style={{ borderColor: c.border, color: c.txt2 }}
+                >
+                  Annuler
+                </button>
+                <button
+                  disabled={!reportReason.trim() || reporting}
+                  onClick={handleReport}
+                  className="py-2.5 rounded-xl text-xs font-bold text-white bg-red-500 hover:bg-red-600 transition-colors disabled:opacity-50"
+                >
+                  {reporting ? "Envoi..." : "Signaler"}
+                </button>
               </div>
             </div>
           </div>
-        )}
-
-      </div>
+        </div>
+      )}
     </>
   );
 }

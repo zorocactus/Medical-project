@@ -35,6 +35,7 @@ import {
   ChevronRight,
   AlertTriangle,
   QrCode,
+  MessageSquare,
 } from "lucide-react";
 
 import { useAuth } from "../../context/AuthContext";
@@ -578,7 +579,8 @@ function DashboardHome({
   const { t } = useLanguage();
 
   const apiKpis = dashboardData?.kpis;
-  const avgRating = apiKpis?.avg_rating != null
+  const avgRatingTotal = apiKpis?.total_reviews ?? 0;
+  const avgRating = (avgRatingTotal > 0 && apiKpis?.avg_rating != null)
     ? Number(apiKpis.avg_rating).toFixed(1)
     : "—";
 
@@ -604,7 +606,7 @@ function DashboardHome({
     {
       label: t('dashboard.doctor.kpis.avgRating'),
       value: avgRating,
-      sub: apiKpis?.total_reviews != null ? `${apiKpis.total_reviews} avis` : undefined,
+      sub: avgRatingTotal > 0 ? `${avgRatingTotal} avis` : undefined,
       icon: Star,
       color: c.purple,
     },
@@ -798,7 +800,7 @@ function ScheduleView({ dk, onStartConsultation }) {
 // SUB-VIEW : PATIENTS
 // ============================================================================
 
-function PatientsView({ onSelectPatient }) {
+function PatientsView({ onSelectPatient, onMessagePatient }) {
   const { theme } = useTheme();
   const dk = theme === "dark";
   const c = dk ? T.dark : T.light;
@@ -895,6 +897,7 @@ function PatientsView({ onSelectPatient }) {
 
   const apiPatients = (Array.isArray(patients) ? patients : []).map(p => ({
     id: p.id,
+    user_id: p.user_id,
     firstName: p.first_name || p.firstName || "",
     lastName: p.last_name || p.lastName || "",
     age: p.age || "—",
@@ -1221,6 +1224,15 @@ function PatientsView({ onSelectPatient }) {
 
                   {/* Actions */}
                   <div className="flex items-center gap-2 shrink-0 ml-1">
+                    {p._type !== "external" && p.user_id && (
+                      <button
+                        onClick={() => onMessagePatient?.({ id: p.user_id, name: `${p.firstName} ${p.lastName}`.trim(), role: "patient" })}
+                        className="px-3 py-1.5 rounded-xl border text-xs font-bold transition-all hover:opacity-80 flex items-center gap-1"
+                        style={{ color: c.green, borderColor: c.green, background: c.green + "0D" }}>
+                        <MessageSquare size={12} />
+                        Message
+                      </button>
+                    )}
                     {p._type !== "external" && (
                       <button
                         onClick={() => onSelectPatient?.(p)}
@@ -1511,18 +1523,18 @@ function PrescriptionsView() {
         </div>
       )}
 
+      {/* Header */}
+      <div className="flex items-end justify-between mb-4">
+        <div>
+          <h1 className="text-xl font-black" style={{ color: c.txt }}>Ordonnances</h1>
+          <p className="text-sm mt-0.5" style={{ color: c.txt3 }}>{thisMonth} ordonnance{thisMonth !== 1 ? "s" : ""} ce mois</p>
+        </div>
+      </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 14, alignItems: "start" }}>
 
         {/* ══ COLONNE GAUCHE — liste ══════════════════════════════════════════ */}
         <div className="space-y-4">
-          {/* Header */}
-          <div className="flex items-end justify-between">
-            <div>
-              <h1 className="text-xl font-black" style={{ color: c.txt }}>Ordonnances</h1>
-              <p className="text-sm mt-0.5" style={{ color: c.txt3 }}>{thisMonth} ordonnance{thisMonth !== 1 ? "s" : ""} ce mois</p>
-            </div>
-          </div>
-
           {/* Barre de recherche */}
           <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl border"
             style={{ background: dk ? c.card : "#fff", borderColor: c.border }}>
@@ -1660,7 +1672,7 @@ function PrescriptionsView() {
         </div>
 
         {/* ══ COLONNE DROITE — formulaire sticky ═════════════════════════════ */}
-        <div style={{ position: "sticky", top: 72 }}>
+        <div id="rx-form-panel" style={{ position: "sticky", top: 72 }}>
           <div className="rounded-2xl border p-5 space-y-4" style={{ background: c.card, borderColor: c.border }}>
             <h2 className="font-black text-[15px]" style={{ color: c.txt }}>Nouvelle ordonnance</h2>
 
@@ -2350,8 +2362,8 @@ function DoctorReviewsView() {
 
   const cardBg    = dk ? "#172133" : "#ffffff";
   const labelStyle = { color: dk ? "#A0B5CD" : "#5C738A", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em" };
-  const rating    = summary?.rating ? Number(summary.rating) : 0;
   const total     = summary?.total_reviews ?? reviews.length;
+  const rating    = (total > 0 && summary?.rating) ? Number(summary.rating) : 0;
 
   function StarRow({ value }) {
     return (
@@ -2435,29 +2447,34 @@ function StatisticsView() {
   const appointments = Array.isArray(data?.appointments) ? data.appointments : [];
   const prescriptions = Array.isArray(data?.prescriptions) ? data.prescriptions : [];
   const patients = Array.isArray(data?.patients) ? data.patients : [];
+  const apiKpis = data?.dashboardData?.kpis;
+  const realTotal = apiKpis?.total_reviews ?? 0;
+  const realAvg = (realTotal > 0 && apiKpis?.avg_rating != null)
+    ? Number(apiKpis.avg_rating).toFixed(1)
+    : "—";
 
   const stats = [
     {
       label: t('dashboard.doctor.nav.schedule'),
-      value: appointments.length || 312,
+      value: appointments.length || 0,
       icon: Users,
       color: c.green,
     },
     {
       label: t('dashboard.doctor.nav.prescriptions'),
-      value: prescriptions.length || 94,
+      value: prescriptions.length || 0,
       icon: FileText,
       color: c.blue,
     },
     {
       label: t('dashboard.doctor.nav.patients'),
-      value: patients.length || 847,
+      value: patients.length || 0,
       icon: Users,
       color: c.purple,
     },
     {
       label: t('dashboard.doctor.kpis.avgRating'),
-      value: "4.8",
+      value: realAvg,
       icon: Star,
       color: c.amber,
     },
@@ -2546,10 +2563,12 @@ function SettingsView() {
   const { theme } = useTheme();
   const dk = theme === "dark";
   const c = dk ? T.dark : T.light;
-  const { userData: user } = useAuth();
+  const { userData: user, refreshUserData } = useAuth();
   const { t, lang, setLang } = useLanguage();
   const [showPwd, setShowPwd] = useState(false);
   const [locSaved, setLocSaved] = useState(false);
+  const [msgDisabled, setMsgDisabled] = useState(() => !!user?.messages_disabled);
+  const [msgToggling, setMsgToggling] = useState(false);
 
   const [form, setForm] = useState({
     first_name: "",
@@ -2982,6 +3001,44 @@ function SettingsView() {
             })()}
           </div>
 
+        </div>
+      </Card>
+
+      {/* ── Confidentialité messages ── */}
+      <Card dk={dk}>
+        <p className="font-semibold mb-1" style={{ color: c.txt }}>Confidentialité</p>
+        <p className="text-xs mb-4" style={{ color: c.txt3 }}>
+          Contrôlez qui peut vous envoyer des messages sur Healy.
+        </p>
+        <div className="flex items-center justify-between py-3 border-t" style={{ borderColor: c.border }}>
+          <div className="flex-1 min-w-0 mr-4">
+            <p className="text-sm font-semibold" style={{ color: c.txt }}>Désactiver les messages</p>
+            <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>
+              {msgDisabled
+                ? "Vous n'êtes pas joignable par messagerie. Les autres utilisateurs verront que vos messages sont désactivés."
+                : "Vous pouvez recevoir des messages de vos patients."}
+            </p>
+          </div>
+          <button
+            onClick={async () => {
+              if (msgToggling) return;
+              setMsgToggling(true);
+              const next = !msgDisabled;
+              try {
+                await api.updateMe({ messages_disabled: next });
+                setMsgDisabled(next);
+                await refreshUserData();
+              } catch { /* silencieux */ }
+              finally { setMsgToggling(false); }
+            }}
+            className="relative shrink-0 w-12 h-6 rounded-full transition-all duration-300 focus:outline-none"
+            style={{ background: msgDisabled ? c.red : c.green, opacity: msgToggling ? 0.6 : 1 }}
+          >
+            <span
+              className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300"
+              style={{ transform: msgDisabled ? "translateX(24px)" : "translateX(0)" }}
+            />
+          </button>
         </div>
       </Card>
 
@@ -3935,6 +3992,12 @@ export default function DoctorDashboard({ onLogout }) {
   const [mobileMenu, setMobileMenu] = useState(false);
   const [activeConsultation, setActiveConsultation] = useState(null);
 
+  // ── Messagerie ──
+  const [activeConv, setActiveConv] = useState(null);
+  const [msgRefresh, setMsgRefresh] = useState(0);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [msgInitialInterlocutor, setMsgInitialInterlocutor] = useState(null);
+
   const firstName = user?.first_name || user?.firstName || "";
   const lastName = user?.last_name || user?.lastName || "";
   const doctorName =
@@ -3995,6 +4058,10 @@ export default function DoctorDashboard({ onLogout }) {
               setSelectedPatient(p);
               setCurrentPage("patient-detail");
             }}
+            onMessagePatient={(interlocutor) => {
+              setMsgInitialInterlocutor({ ts: Date.now(), ...interlocutor });
+              setCurrentPage("messages");
+            }}
           />
         );
       case "prescriptions":
@@ -4022,20 +4089,6 @@ export default function DoctorDashboard({ onLogout }) {
               setCurrentPage("consultation-session");
             }}
           />
-        );
-      case "messages":
-        return (
-          <div className="flex gap-5" style={{ height: "calc(100vh - 120px)", minHeight: 500 }}>
-            <div
-              className="rounded-2xl border overflow-hidden shrink-0 flex flex-col"
-              style={{ width: "30%", minWidth: 260, background: c.card, borderColor: c.border }}
-            >
-              <ConversationList dk={dk} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <ChatWindow dk={dk} />
-            </div>
-          </div>
         );
       default:
         return (
@@ -4165,6 +4218,24 @@ export default function DoctorDashboard({ onLogout }) {
 
           {/* Right Actions */}
           <div className="flex items-center gap-3 ml-auto shrink-0">
+            {/* Messages Button */}
+            <button
+              onClick={() => setCurrentPage("messages")}
+              className="relative w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:opacity-80 border"
+              style={{
+                borderColor: currentPage === "messages" ? c.blue + "44" : c.border,
+                background: currentPage === "messages" ? c.blue + "11" : "transparent",
+              }}
+              title="Messages"
+            >
+              <MessageSquare size={18} style={{ color: currentPage === "messages" ? c.blue : c.txt2 }} />
+              {unreadChatCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-white font-bold"
+                  style={{ background: c.red, fontSize: 9 }}>
+                  {unreadChatCount > 9 ? "9+" : unreadChatCount}
+                </span>
+              )}
+            </button>
             {/* Profile Dropdown */}
             <div className="relative">
               {safeRequests.length > 0 && (
@@ -4363,7 +4434,63 @@ export default function DoctorDashboard({ onLogout }) {
         </div>
       )}
 
-      <main className="max-w-7xl mx-auto px-6 py-8 pb-24">
+      {/* Panel messages — always mounted, toggled via display */}
+      <div style={{ display: currentPage === "messages" ? "block" : "none" }} className="w-full px-6 py-6">
+        <div className="flex gap-5" style={{ height: "calc(100vh - 120px)", minHeight: 500 }}>
+          <div
+            className="rounded-2xl border overflow-hidden shrink-0 flex flex-col"
+            style={{ width: "30%", minWidth: 260, background: c.card, borderColor: c.border }}
+          >
+            <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0" style={{ borderColor: c.border }}>
+              <MessageSquare size={15} style={{ color: c.blue }} />
+              <h2 className="font-bold text-sm" style={{ color: c.txt }}>Messages</h2>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <ConversationList
+                open={true}
+                onClose={() => {}}
+                onSelectConv={(conv) => setActiveConv(conv)}
+                isDoctor={true}
+                onUnreadChange={(n) => setUnreadChatCount(n)}
+                refreshTrigger={msgRefresh}
+                initialConv={msgInitialInterlocutor}
+                c={c}
+                dk={dk}
+                inline={true}
+              />
+            </div>
+          </div>
+          <div className="flex-1 min-w-0">
+            {activeConv && !user?.messages_disabled ? (
+              <ChatWindow
+                conv={activeConv}
+                onClose={() => setActiveConv(null)}
+                onBack={null}
+                onNewMessage={() => setMsgRefresh(n => n + 1)}
+                onDeleteConv={() => { setActiveConv(null); setMsgRefresh(n => n + 1); }}
+                c={c}
+                dk={dk}
+                embedded={true}
+              />
+            ) : (
+              <div
+                className="h-full rounded-2xl border flex flex-col items-center justify-center gap-4"
+                style={{ background: c.card, borderColor: c.border }}
+              >
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                  style={{ background: user?.messages_disabled ? "#E0555512" : c.blueLight }}>
+                  <MessageSquare size={28} style={{ color: user?.messages_disabled ? "#E05555" : c.blue }} />
+                </div>
+                <p className="text-sm font-medium" style={{ color: c.txt3 }}>
+                  {user?.messages_disabled ? "Messagerie désactivée" : "Sélectionnez une conversation"}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <main className="max-w-7xl mx-auto px-6 py-8 pb-24" style={{ display: currentPage === "messages" ? "none" : "block" }}>
         <ErrorBoundary>{renderContent()}</ErrorBoundary>
       </main>
 

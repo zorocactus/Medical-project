@@ -11,10 +11,24 @@ import { useLanguage } from "../../../context/LanguageContext";
 import * as api from "../../../services/api";
 
 const getStatusConfig = (t) => ({
-  scheduled:   { label: t('on_hold'), color: "#F59E0B", icon: Clock },
-  in_progress: { label: t('in_consultation'), color: "#3B82F6", icon: Play },
-  completed:   { label: t('completed_tab'), color: "#10B981", icon: CheckCircle2 },
+  pending:     { label: "En attente",    color: "#F59E0B", icon: Clock },
+  confirmed:   { label: "Confirmé",      color: "#8B5CF6", icon: Clock },
+  in_progress: { label: "En cours",      color: "#3B82F6", icon: Play },
+  completed:   { label: "Terminé",       color: "#10B981", icon: CheckCircle2 },
+  cancelled:   { label: "Annulé",        color: "#6B7280", icon: X },
+  refused:     { label: "Refusé",        color: "#EF4444", icon: X },
 });
+
+function getPatientName(item) {
+  return item.patient_name || (typeof item.patient === "string" ? item.patient : item.patient?.full_name) || "Patient";
+}
+function getDoctorName(item) {
+  return item.doctor_name || (typeof item.doctor === "string" ? item.doctor : item.doctor?.last_name) || "—";
+}
+function getTime(item) {
+  const t = item.start_time || item.consulted_at || "";
+  return t.slice(0, 5) || "—";
+}
 
 export default function VisitQueueView({ dk }) {
   const { t } = useLanguage();
@@ -29,15 +43,10 @@ export default function VisitQueueView({ dk }) {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.getAdminQueue();
+      const data = await api.getAdminAppointments();
       setQueue(Array.isArray(data) ? data : data?.results || []);
     } catch (err) {
-      const msg = err?.message || "";
-      if (msg.includes("404") || msg.includes("403")) {
-        setQueue([]);
-      } else {
-        setError(t('loading_queue_error'));
-      }
+      setError(t('loading_queue_error'));
     } finally {
       setLoading(false);
     }
@@ -45,20 +54,13 @@ export default function VisitQueueView({ dk }) {
 
   useEffect(() => { fetchQueue(); }, [fetchQueue]);
 
-  const handleStatusUpdate = async (id, newStatus) => {
-    setActionError(null);
-    try {
-      await api.updateQueueStatus(id, newStatus);
-      setQueue(prev => prev.map(q => q.id === id ? { ...q, status: newStatus } : q));
-    } catch (err) {
-      setActionError(t('update_status_error'));
-    }
-  };
+  // Vue supervision uniquement — les statuts sont mis à jour par les médecins/patients
+  const handleStatusUpdate = () => {};
 
   const columns = {
-    waiting: queue.filter(q => q.status === "scheduled"),
+    waiting: queue.filter(q => q.status === "pending" || q.status === "confirmed"),
     active:  queue.filter(q => q.status === "in_progress"),
-    done:    queue.filter(q => q.status === "completed"),
+    done:    queue.filter(q => q.status === "completed" || q.status === "cancelled" || q.status === "refused"),
   };
 
   return (
@@ -157,23 +159,23 @@ function QueueListView({ queue, c, dk, onAction, t }) {
         </thead>
         <tbody className="divide-y" style={{ borderColor: c.border }}>
           {queue.map(item => {
-            const cfg = STATUS_CFG[item.status] || STATUS_CFG.scheduled;
+            const cfg = STATUS_CFG[item.status] || STATUS_CFG.pending;
             const StatusIcon = cfg.icon;
-            const nextStatus = item.status === "scheduled" ? "in_progress" : item.status === "in_progress" ? "completed" : null;
-            const nextLabel  = item.status === "scheduled" ? t('start_btn') : item.status === "in_progress" ? t('finish_btn') : null;
+            const nextStatus = (item.status === "pending" || item.status === "confirmed") ? "in_progress" : item.status === "in_progress" ? "completed" : null;
+            const nextLabel  = (item.status === "pending" || item.status === "confirmed") ? t('start_btn') : item.status === "in_progress" ? t('finish_btn') : null;
             return (
               <tr key={item.id}
                 onMouseEnter={e => e.currentTarget.style.background = dk ? "rgba(255,255,255,0.02)" : "#FAFBFD"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                 <td className="px-4 py-3 font-semibold" style={{ color: c.txt }}>
-                  {item.patient_name || item.patient?.full_name || item.patient?.name || "Patient"}
+                  {getPatientName(item)}
                 </td>
                 <td className="px-4 py-3" style={{ color: c.txt2 }}>
-                  Dr. {item.doctor_name || item.doctor?.last_name || item.doctor?.user?.last_name || t('unknown')}
+                  Dr. {getDoctorName(item)}
                 </td>
                 <td className="px-4 py-3">
                   <span className="flex items-center gap-1.5 text-xs" style={{ color: c.txt3 }}>
-                    <Clock size={12} />{item.consulted_at?.slice(11, 16) || "—"}
+                    <Clock size={12} />{getTime(item)}
                   </span>
                 </td>
                 <td className="px-4 py-3">
@@ -230,7 +232,7 @@ function QueueCard({ item, c, dk, borderColor, nextAction, onAction }) {
           <div className="flex items-center gap-2 mt-1 opacity-60">
             <User size={10} style={{ color: c.txt3 }} />
             <p className="text-[10px] font-medium truncate" style={{ color: c.txt3 }}>
-              Dr. {item.doctor_name || item.doctor?.last_name || item.doctor?.user?.last_name || t('unknown')}
+              Dr. {getDoctorName(item)}
             </p>
           </div>
         </div>
@@ -264,7 +266,7 @@ function QueueCard({ item, c, dk, borderColor, nextAction, onAction }) {
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg" style={{ background: dk ? 'rgba(255,255,255,0.05)' : '#F8FAFC' }}>
           <Clock size={12} style={{ color: c.txt3 }} />
-          <span className="text-[10px] font-bold" style={{ color: c.txt2 }}>{item.consulted_at?.slice(11, 16) || '??:??'}</span>
+          <span className="text-[10px] font-bold" style={{ color: c.txt2 }}>{getTime(item)}</span>
         </div>
 
         {nextAction && (

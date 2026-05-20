@@ -23,12 +23,9 @@ export function EditPatientModal({ patient, dk, onSave, onClose }) {
     email: patient.email || "",
     phone: patient.phone || "",
     wilaya: patient.wilaya || "",
-    blood_type: patient.blood_type || "",
+    blood_group: patient.blood_group || patient.blood_type || "",
     height: patient.height || "",
     weight: patient.weight || "",
-    chronic_diseases: patient.chronic_diseases || "",
-    current_medications: patient.current_medications || "",
-    allergies: patient.allergies || ""
   });
 
   const field = (label, key, type = "text", placeholder = "") => (
@@ -87,14 +84,12 @@ export function EditPatientModal({ patient, dk, onSave, onClose }) {
           )}
           {activeTab === "medical" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              {field(t('blood_group'), "blood_type", "text", "Ex: A+, O-")}
-              <div className="grid grid-cols-2 gap-2">
-                 {field(t('height_label') || "Taille (cm)", "height", "number")}
-                 {field(t('weight_label') || "Poids (kg)", "weight", "number")}
+              {field(t('blood_group') || "Groupe sanguin", "blood_group", "text", "Ex: A+, O-")}
+              {field(t('height_label') || "Taille (cm)", "height", "number")}
+              {field(t('weight_label') || "Poids (kg)", "weight", "number")}
+              <div className="md:col-span-2 p-3 rounded-xl text-xs border" style={{ background: "#4A6FA510", borderColor: "#4A6FA530", color: "#4A6FA5" }}>
+                Les allergies, maladies chroniques et médicaments sont gérés par les médecins lors des consultations.
               </div>
-              <div className="md:col-span-2">{field(t('allergies_label') || "Allergies", "allergies", "text", t('comma_separated_hint') || "Séparées par des virgules")}</div>
-              <div className="md:col-span-2">{field(t('chronic_diseases_label') || "Maladies Chroniques", "chronic_diseases")}</div>
-              <div className="md:col-span-2">{field(t('current_medications_label') || "Médicaments Actuels", "current_medications")}</div>
             </div>
           )}
           {activeTab === "history" && (
@@ -208,16 +203,11 @@ export function PatientDrawer({ patient, dk, onClose, onEdit, onToggleStatus }) 
 
           {activeTab === "medical" && (
             <div className="grid grid-cols-1 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div className="grid grid-cols-2 gap-4">
-                {field(t('blood_group'), patient.blood_type)}
-                <div className="grid grid-cols-2 gap-2">
-                  {field(t('height_label') || "Taille (cm)", patient.height)}
-                  {field(t('weight_label') || "Poids (kg)",  patient.weight)}
-                </div>
+              <div className="grid grid-cols-3 gap-4">
+                {field(t('blood_group') || "Groupe sanguin", patient.blood_group)}
+                {field(t('height_label') || "Taille (cm)", patient.height ? `${patient.height} cm` : null)}
+                {field(t('weight_label') || "Poids (kg)", patient.weight ? `${patient.weight} kg` : null)}
               </div>
-              {field(t('allergies_label') || "Allergies",          patient.allergies)}
-              {field(t('chronic_diseases_label') || "Maladies Chroniques", patient.chronic_diseases)}
-              {field(t('current_medications_label') || "Médicaments Actuels", patient.current_medications)}
             </div>
           )}
 
@@ -332,12 +322,9 @@ export default function PatientsView({ dk }) {
       setPatients(raw.map(u => ({
          ...u,
          full_name: `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || "Patient",
-         blood_type: u.patient_detail?.medical_profile?.blood_group || "",
+         blood_group: u.patient_detail?.medical_profile?.blood_group || "",
          height: u.patient_detail?.medical_profile?.height || "",
          weight: u.patient_detail?.medical_profile?.weight || "",
-         chronic_diseases: u.patient_detail?.medical_profile?.chronic_diseases || "",
-         current_medications: u.patient_detail?.medical_profile?.current_medications || "",
-         allergies: u.patient_detail?.medical_profile?.allergies || "",
       })));
     } catch (_err) {
       // keep mock
@@ -378,7 +365,7 @@ export default function PatientsView({ dk }) {
       ["ID", "Nom", "Email", "Téléphone", "Wilaya", "Statut", "Groupe sanguin"],
       ...filtered.map(p => [
         p.id, p.full_name, p.email, p.phone || "—", p.wilaya || "—",
-        p.is_active ? "Actif" : "Suspendu", p.blood_type || "—",
+        p.is_active ? "Actif" : "Suspendu", p.blood_group || "—",
       ]),
     ];
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(";")).join("\n");
@@ -495,7 +482,7 @@ export default function PatientsView({ dk }) {
                     <td className="px-4 py-3">
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold"
                         style={{ background: c.redBg, color: c.red }}>
-                        {p.blood_type || "—"}
+                        {p.blood_group || "—"}
                       </span>
                     </td>
                     <td className="px-4 py-3">

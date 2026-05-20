@@ -233,79 +233,111 @@ export default function ReportsView({ dk }) {
         </div>
       </Card>
 
-      {/* 🔮 MODAL DE DÉTAIL ────────────────────────────────────────────────── */}
+      {/* ── MODAL DÉTAIL SIGNALEMENT ─────────────────────────────────────── */}
       {selectedReport && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-white rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300" 
-            style={{ background: c.card, border: `1px solid ${c.border}` }}>
-            
-            {/* Header */}
-            <div className="px-8 py-6 border-b flex items-center justify-between" style={{ borderColor: c.border }}>
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)" }}
+          onClick={() => setSelectedReport(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-3xl overflow-hidden shadow-2xl"
+            style={{ background: c.card, border: `1px solid ${c.border}` }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* ── Header ── */}
+            <div className="px-6 pt-6 pb-5 flex items-start justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-red-50 flex items-center justify-center text-red-500">
-                  <ShieldAlert size={20} />
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
+                  style={{ background: "#E0555512" }}>
+                  <ShieldAlert size={22} color="#E05555" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black" style={{ color: c.txt }}>{t('report_details_title')}</h3>
-                  <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: c.txt3 }}>ID: #{selectedReport.id}</p>
+                  <h3 className="text-base font-black leading-tight" style={{ color: c.txt }}>
+                    {t('report_details_title')}
+                  </h3>
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full mt-0.5 inline-block"
+                    style={{ background: c.blueLight, color: c.txt3 }}>
+                    #{selectedReport.id}
+                  </span>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => setSelectedReport(null)}
-                className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
-                style={{ color: c.txt3 }}
+                className="w-8 h-8 rounded-xl flex items-center justify-center border shrink-0 hover:opacity-70 transition-opacity"
+                style={{ borderColor: c.border, color: c.txt3 }}
               >
-                <X size={20} />
+                <X size={14} />
               </button>
             </div>
 
-            {/* Content */}
-            <div className="p-8">
-              <div className="grid grid-cols-2 gap-6 mb-8">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: c.txt3 }}>{t('reporter_col')}</p>
-                  <p className="text-sm font-bold" style={{ color: c.txt }}>{selectedReport.reporter_name}</p>
-                  {getRoleBadge(selectedReport.reporter_role)}
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: c.txt3 }}>{t('reported_col')}</p>
-                  <p className="text-sm font-bold" style={{ color: c.txt }}>{selectedReport.reported_name}</p>
-                  {getRoleBadge(selectedReport.reported_role)}
-                </div>
-              </div>
+            {/* ── Parties impliquées ── */}
+            <div className="px-6 pb-4 grid grid-cols-2 gap-3">
+              {[
+                { label: t('reporter_col'), name: selectedReport.reporter_name, role: selectedReport.reporter_role },
+                { label: t('reported_col'), name: selectedReport.reported_name, role: selectedReport.reported_role },
+              ].map(({ label, name, role }) => {
+                const initials = (name || "?").split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+                return (
+                  <div key={label} className="rounded-2xl p-4 border flex flex-col gap-2"
+                    style={{ background: c.blueLight, borderColor: c.border }}>
+                    <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: c.txt3 }}>
+                      {label}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0"
+                        style={{ background: c.blue }}>
+                        {initials}
+                      </div>
+                      <p className="text-sm font-bold truncate" style={{ color: c.txt }}>{name || "—"}</p>
+                    </div>
+                    {getRoleBadge(role)}
+                  </div>
+                );
+              })}
+            </div>
 
-              <div className="mb-8">
-                <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: c.txt3 }}>{t('reason_col')}</p>
-                <div className="p-5 rounded-3xl text-sm leading-relaxed italic border" 
-                  style={{ background: c.blueLight, borderColor: c.border, color: c.txt }}>
+            {/* ── Motif ── */}
+            <div className="px-6 pb-4">
+              <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: c.txt3 }}>
+                {t('reason_col')}
+              </p>
+              <div className="rounded-2xl p-4 border"
+                style={{ background: c.blueLight, borderColor: c.border }}>
+                <p className="text-sm leading-relaxed italic" style={{ color: c.txt }}>
                   "{selectedReport.reason}"
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between pt-4 border-t" style={{ borderColor: c.border }}>
-                <div className="flex items-center gap-2">
-                  <Calendar size={14} style={{ color: c.txt3 }} />
-                  <span className="text-xs font-semibold" style={{ color: c.txt2 }}>
-                    {t('reported_on', { date: new Date(selectedReport.created_at).toLocaleString('fr-FR') })}
-                  </span>
-                </div>
-                {getStatusBadge(selectedReport.status)}
+                </p>
               </div>
             </div>
 
-            {/* Actions */}
+            {/* ── Meta : date + statut ── */}
+            <div className="px-6 pb-5 flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Calendar size={13} style={{ color: c.txt3 }} />
+                <span className="text-xs font-medium" style={{ color: c.txt3 }}>
+                  {new Date(selectedReport.created_at).toLocaleString('fr-FR', {
+                    day: '2-digit', month: 'short', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                  })}
+                </span>
+              </div>
+              {getStatusBadge(selectedReport.status)}
+            </div>
+
+            {/* ── Actions ── */}
             {selectedReport.status === "pending" && (
-              <div className="p-6 bg-gray-50 flex gap-3" style={{ background: dk ? "rgba(255,255,255,0.02)" : "#F9FAFB" }}>
-                <button 
+              <div className="px-6 pb-6 flex gap-3 border-t pt-5" style={{ borderColor: c.border }}>
+                <button
                   onClick={() => { handleAction(selectedReport.id, "resolve"); setSelectedReport(null); }}
-                  className="flex-1 py-3.5 rounded-2xl bg-green-600 text-white text-sm font-bold hover:bg-green-700 transition-all shadow-lg shadow-green-600/20 active:scale-95"
+                  className="flex-1 py-3 rounded-2xl text-white text-sm font-bold transition-all active:scale-95 hover:opacity-90"
+                  style={{ background: "#2D8C6F" }}
                 >
                   {t('process_report_btn')}
                 </button>
-                <button 
+                <button
                   onClick={() => { handleAction(selectedReport.id, "dismiss"); setSelectedReport(null); }}
-                  className="px-6 py-3.5 rounded-2xl border text-sm font-bold hover:bg-white transition-all active:scale-95"
-                  style={{ borderColor: c.border, color: c.txt2, background: c.card }}
+                  className="flex-1 py-3 rounded-2xl text-sm font-bold border transition-all active:scale-95 hover:opacity-80"
+                  style={{ borderColor: c.border, color: c.txt2, background: "transparent" }}
                 >
                   {t('ignore_report_btn')}
                 </button>

@@ -67,6 +67,13 @@ export function AuthProvider({ children }) {
     window.location.replace("/");
   }
 
+  async function refreshUserData() {
+    try {
+      const me = await getMe();
+      if (me) setUserData(me);
+    } catch { /* silencieux */ }
+  }
+
   // Derived: medical professionals must be approved before accessing dashboard.
   // Backend sets verification_status = 'verified' (admin_panel/views.py line 33).
   const isApproved = (() => {
@@ -104,7 +111,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated: isLoggedIn, accountType, userData, login, loginWithData, logout, isApproved }}>
+    <AuthContext.Provider value={{ isAuthenticated: isLoggedIn, accountType, userData, login, loginWithData, logout, isApproved, refreshUserData }}>
       {children}
     </AuthContext.Provider>
   );

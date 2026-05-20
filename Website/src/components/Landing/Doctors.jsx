@@ -1,23 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 
 const doctors = [
-  { name: "Dr. Kamel Benali", specialty: "Cardiologue · Clinique privée", rating: 4.9, reviews: 142, availability: "Disponible aujourd'hui", availColor: "#16a34a", initials: "KB", photo: "https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=400&q=85&fit=crop&crop=top" },
-  { name: "Dr. Sara Meziane", specialty: "Cardiologue · CHU Mustapha", rating: 4.8, reviews: 98, availability: "Disponible demain", availColor: "#16a34a", initials: "SM", photo: "https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=400&q=85&fit=crop&crop=top" },
-  { name: "Dr. Youcef Rahmani", specialty: "Généraliste · À domicile", rating: 4.6, reviews: 74, availability: "Dans 2h", availColor: "#16a34a", initials: "YR", photo: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=400&q=85&fit=crop&crop=top" },
-  { name: "Dr. Amira Boudali", specialty: "Gynécologue · Clinique El Azhar", rating: 4.9, reviews: 211, availability: "Lundi prochain", availColor: "#d97706", initials: "AB", photo: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&q=85&fit=crop&crop=top" },
+  { name: "Dr. Kamel Benali", specialty: "Cardiologue · Clinique privée", availability: "Disponible aujourd'hui", availColor: "#16a34a", initials: "KB", photo: "https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=400&q=85&fit=crop&crop=top" },
+  { name: "Dr. Sara Meziane", specialty: "Cardiologue · CHU Mustapha", availability: "Disponible demain", availColor: "#16a34a", initials: "SM", photo: "https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=400&q=85&fit=crop&crop=top" },
+  { name: "Dr. Youcef Rahmani", specialty: "Généraliste · À domicile", availability: "Dans 2h", availColor: "#16a34a", initials: "YR", photo: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=400&q=85&fit=crop&crop=top" },
+  { name: "Dr. Amira Boudali", specialty: "Gynécologue · Clinique El Azhar", availability: "Lundi prochain", availColor: "#d97706", initials: "AB", photo: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&q=85&fit=crop&crop=top" },
 ];
 
-function Stars({ rating }) {
-  return (
-    <div className="flex gap-0.5">
-      {[1, 2, 3, 4, 5].map((s) => (
-        <svg key={s} width="11" height="11" viewBox="0 0 24 24" fill={s <= Math.floor(rating) ? "#f59e0b" : "#d1d5db"}>
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-        </svg>
-      ))}
-    </div>
-  );
-}
 
 export default function Doctors() {
   const gridRef = useRef(null);
@@ -98,11 +87,6 @@ export default function Doctors() {
                 <div className="p-4">
                   <div className="text-[1rem] font-bold text-[#0D1B2E] mb-0.5">{doc.name}</div>
                   <div className="text-[.72rem] text-[#5A6E8A] mb-2">{doc.specialty}</div>
-                  <div className="flex items-center gap-1.5 mb-3">
-                    <Stars rating={doc.rating} />
-                    <span className="text-[.72rem] font-bold text-[#0D1B2E]">{doc.rating}</span>
-                    <span className="text-[.68rem] text-[#9AACBE]">({doc.reviews} avis)</span>
-                  </div>
                   <button className="w-full py-2.5 rounded-[9px] bg-[#395886] hover:bg-[#2d4570] text-white font-semibold text-[.8rem] transition-all duration-200 cursor-pointer border-none">
                     Prendre rendez-vous
                   </button>

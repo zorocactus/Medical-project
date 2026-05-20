@@ -761,35 +761,60 @@ function DashboardPage({
             )}
           </div>
 
-          {/* Card Accès rapide */}
+          {/* Card Prescription Status */}
           <div style={{ background: dk ? "#172133" : "#ffffff", border: `0.5px solid ${c.border}`, borderRadius:"16px", padding:"14px 16px" }}>
-            <p style={{ fontSize:"11px", fontWeight:"600", textTransform:"uppercase", letterSpacing:"0.05em", color: dk ? "#8AAEE0" : "#5C738A", margin:"0 0 12px" }}>
-              Accès rapide
-            </p>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"8px" }}>
-              {[
-                { label:"Trouver un médecin", icon:<Search size={16} />,    bg:"#E6F1FB", color:"#4A6FA5", page:"appointments" },
-                { label:"Pharmacie",          icon:<Package size={16} />,   bg:"#E1F5EE", color:"#2D8C6F", page:"pharmacy" },
-                { label:"Ordonnances",        icon:<FileText size={16} />,  bg:"#FAEEDA", color:"#E8A838", page:"prescriptions" },
-                { label:"Garde-malade",       icon:<Heart size={16} />,     bg:"#EEEDFE", color:"#7F77DD", page:"care-taker" },
-              ].map((item, idx) => (
-                <div
-                  key={item.page}
-                  onClick={() => onNav(item.page)}
-                  onMouseEnter={() => setHoveredQuick(idx)}
-                  onMouseLeave={() => setHoveredQuick(null)}
-                  style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:"6px", padding:"12px 8px", background: dk ? "#1A2333" : "#F8FAFC", borderRadius:"12px", border: `0.5px solid ${hoveredQuick === idx ? "#6492C9" : "transparent"}`, cursor:"pointer", transition:"transform 0.15s, border-color 0.15s", transform: hoveredQuick === idx ? "translateY(-2px)" : "translateY(0)" }}
-                >
-                  <div style={{ width:"36px", height:"36px", borderRadius:"10px", background: item.bg, display:"flex", alignItems:"center", justifyContent:"center", color: item.color }}>
-                    {item.icon}
-                  </div>
-                  <p style={{ fontSize:"11px", fontWeight:"500", color: dk ? "#F0F3FA" : "#0D2644", margin:0, textAlign:"center" }}>
-                    {item.label}
-                  </p>
-                </div>
-              ))}
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"12px" }}>
+              <p style={{ fontSize:"11px", fontWeight:"600", textTransform:"uppercase", letterSpacing:"0.05em", color: dk ? "#8AAEE0" : "#5C738A", margin:0 }}>
+                Prescription Status
+              </p>
+              <button
+                onClick={() => onNav("prescriptions")}
+                style={{ fontSize:"12px", color:"#6492C9", background:"none", border:"none", cursor:"pointer", fontWeight:"500" }}
+              >
+                Voir tout
+              </button>
             </div>
+            {loading ? (
+              <p style={{ fontSize:"12px", color: dk ? "#8AAEE0" : "#5C738A", textAlign:"center", padding:"12px 0" }}>Chargement…</p>
+            ) : prescriptions.length === 0 ? (
+              <p style={{ fontSize:"12px", color: dk ? "#8AAEE0" : "#5C738A", textAlign:"center", padding:"12px 0" }}>Aucune ordonnance</p>
+            ) : (
+              <div style={{ display:"flex", flexDirection:"column", gap:"12px" }}>
+                {prescriptions.map((p) => {
+                  const isActive = ["active","ACTIVE","en_cours"].includes((p.status || "").toLowerCase());
+                  const statusColor = isActive ? "#2D8C6F" : "#4A6FA5";
+                  const statusBg   = isActive ? "#E1F5EE"  : "#E6F1FB";
+                  const statusLabel = isActive ? "Active" : (p.status || "—");
+                  const doctorLabel = p.doctor_name ||
+                    (typeof p.doctor === "string" && !p.doctor.match(/^\d+$/) ? p.doctor : null) ||
+                    "—";
+                  const idStr = typeof p.id === "string" ? p.id.substring(0, 8) : String(p.id);
+                  const firstDrug = Array.isArray(p.medications) && p.medications.length > 0
+                    ? (p.medications[0]?.drug_name || p.medications[0]?.name || "")
+                    : "";
+                  return (
+                    <div key={p.id} style={{ padding:"10px 12px", borderRadius:"12px", background: dk ? "#1A2333" : "#F8FAFC", border: `0.5px solid ${c.border}` }}>
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"8px" }}>
+                        <p style={{ fontSize:"13px", fontWeight:"600", color: dk ? "#F0F3FA" : "#0D2644", margin:0 }}>
+                          {firstDrug || `Prescription #${idStr}`}
+                        </p>
+                        <span style={{ fontSize:"11px", fontWeight:"600", padding:"3px 8px", borderRadius:"6px", background: statusBg, color: statusColor, flexShrink:0 }}>
+                          {statusLabel}
+                        </span>
+                      </div>
+                      <div style={{ width:"100%", height:"5px", borderRadius:"99px", background: dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)", overflow:"hidden", marginBottom:"6px" }}>
+                        <div style={{ height:"100%", width: isActive ? "100%" : "40%", borderRadius:"99px", background: statusColor, transition:"width 0.4s ease" }} />
+                      </div>
+                      <p style={{ fontSize:"11px", color: dk ? "#8AAEE0" : "#5C738A", margin:0 }}>
+                        Dr. {doctorLabel} · {p.date || p.created_at?.split("T")[0] || "—"}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
+
         </div>
 
         {/* COLONNE DROITE */}
@@ -882,53 +907,6 @@ function DashboardPage({
         </div>
       </div>
 
-      {/* ── SECTION 5 : PRESCRIPTION STATUS ── */}
-      <Card dk={dk} empty={true}>
-        <h3 className="font-semibold mb-5" style={{ color: c.txt }}>
-          Prescription Status
-        </h3>
-        <div className="space-y-5">
-          {prescriptions.length === 0 ? (
-            <p className="text-xs text-center py-4" style={{ color: c.txt3 }}>Aucune ordonnance</p>
-          ) : (
-            prescriptions.map((p, i) => (
-              <div
-                key={p.id}
-                className="cursor-pointer hover:scale-[1.01] active:scale-[0.98] transition-all duration-150 animate-in fade-in slide-in-from-bottom-2"
-                style={{ animationDelay: `${i * 100}ms` }}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-semibold" style={{ color: c.txt }}>
-                    {typeof p.id === "string"
-                      ? "Prescription #" + p.id.substring(0, 8)
-                      : "Prescription #" + String(p.id)}
-                  </p>
-                  <Badge
-                    color={p.status?.toUpperCase() === 'ACTIVE' ? c.green : c.red}
-                    bg={(p.status?.toUpperCase() === 'ACTIVE' ? c.green : c.red) + "18"}
-                  >
-                    {p.status}
-                  </Badge>
-                </div>
-                <div className="w-full h-2 rounded-full overflow-hidden relative bg-black/5 dark:bg-white/5">
-                  <div
-                    className="h-full rounded-full transition-all animate-fill bar-shimmer"
-                    style={{ width:`100%`, background: p.status?.toUpperCase() === 'ACTIVE' ? c.green : c.red }}
-                  />
-                </div>
-                <p className="text-xs mt-1.5" style={{ color: c.txt3 }}>
-                  {(() => {
-                    const doctorLabel = p.doctor_name ||
-                      (typeof p.doctor === "string" && !p.doctor.match(/^\d+$/) ? p.doctor : null) ||
-                      "—";
-                    return `Issued by ${doctorLabel}`;
-                  })()} · {p.date || p.created_at?.split('T')[0]}
-                </p>
-              </div>
-            ))
-          )}
-        </div>
-      </Card>
     </>
   );
 }
@@ -2871,6 +2849,7 @@ function AppointmentsPage({
   appointments: rawAppointments,
   loading: shellLoading,
   refreshAppointments,
+  onMessageDoctor,
 }) {
   const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
@@ -3554,7 +3533,7 @@ function AppointmentsPage({
             </div>
 
             {/* Footer */}
-            <div className="px-6 pb-5 flex gap-3">
+            <div className="px-6 pb-5 flex gap-3 flex-wrap">
               <button
                 onClick={() => {
                   setProfileDoctor(null);
@@ -3565,6 +3544,21 @@ function AppointmentsPage({
               >
                 Voir disponibilités
               </button>
+              {profileDoctor.user_id && (
+                <button
+                  onClick={() => {
+                    const uid = profileDoctor.user_id;
+                    const name = profileDoctor.name || "Médecin";
+                    setProfileDoctor(null);
+                    onMessageDoctor?.(uid, name);
+                  }}
+                  className="py-2.5 px-4 rounded-xl text-sm font-bold transition-all hover:opacity-90 flex items-center gap-1.5"
+                  style={{ background: c.green + "18", color: c.green, border: `1px solid ${c.green}44` }}
+                >
+                  <MessageSquare size={14} />
+                  Message
+                </button>
+              )}
               <button
                 onClick={() => setProfileDoctor(null)}
                 className="px-5 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:opacity-80"
@@ -3894,8 +3888,8 @@ function AppointmentsPage({
                             </button>
                           </div>
                         </div>
-                        {/* Status Badge */}
-                        <div className="flex flex-col items-end gap-1">
+                        {/* Status Badge + Message */}
+                        <div className="flex flex-col items-end gap-1.5">
                           <span
                             className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md"
                             style={{
@@ -3905,6 +3899,17 @@ function AppointmentsPage({
                           >
                             {a.status === "confirmed" ? "Confirmé" : "En attente"}
                           </span>
+                          {a.doctor_user_id && (
+                            <button
+                              type="button"
+                              onClick={() => onMessageDoctor?.(a.doctor_user_id, a.doctor_name || "Médecin")}
+                              className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md transition-all hover:opacity-80"
+                              style={{ background: c.blue + "18", color: c.blue }}
+                            >
+                              <MessageSquare size={10} />
+                              Message
+                            </button>
+                          )}
                         </div>
                       </div>
                     </Card>
@@ -4676,7 +4681,7 @@ function AppointmentsPage({
                     </div>
 
                     {/* ── Actions ── */}
-                    <div className="p-3 mt-auto flex gap-2 border-t" style={{ borderColor: c.border }}>
+                    <div className="p-3 mt-auto flex gap-2 border-t flex-wrap" style={{ borderColor: c.border }}>
                       <button
                         onClick={(e) => { e.stopPropagation(); setProfileDoctor(doc); }}
                         className="flex-1 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors hover:opacity-80"
@@ -4684,6 +4689,16 @@ function AppointmentsPage({
                       >
                         {t('view_profile') || "Voir profil"}
                       </button>
+                      {doc.user_id && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onMessageDoctor?.(doc.user_id, doc.full_name || doc.name || "Médecin"); }}
+                          className="text-xs font-bold px-3 py-2 rounded-lg active:scale-95 hover:opacity-90 flex items-center gap-1"
+                          style={{ background: c.green + "18", color: c.green, border: `1px solid ${c.green}44` }}
+                        >
+                          <MessageSquare size={11} />
+                          Message
+                        </button>
+                      )}
                       <button
                         onClick={(e) => { e.stopPropagation(); openCalendar(doc); }}
                         className="flex-1 text-xs font-bold px-3 py-2 rounded-lg text-white shadow-sm active:scale-95 hover:opacity-90 flex items-center justify-center gap-1"
@@ -5229,6 +5244,11 @@ function PharmacyPage({ dk }) {
   const [loading, setLoading] = useState(false);
   const [activeMapPharma, setActiveMapPharma] = useState(null);
   const [isMapLocked, setIsMapLocked] = useState(false);
+  const [searchPharmacy, setSearchPharmacy] = useState("");
+  const [filterOpen24h, setFilterOpen24h] = useState(false);
+  const [filterChifa, setFilterChifa] = useState(false);
+  const [filterCity, setFilterCity] = useState("");
+  const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
 
   // État du Panier (Global à la page pharmacie)
   const [cart, setCart] = useState(() => {
@@ -5240,8 +5260,15 @@ function PharmacyPage({ dk }) {
     setLoading(true);
     api.getAllPharmacies().then(data => {
       const list = Array.isArray(data) ? data : (data?.results || []);
-      setPharmacies(list);
-      if (list.length > 0) setActiveMapPharma(list[0]);
+      const seen = new Set();
+      const deduped = list.filter(ph => {
+        const key = `${(ph.name || "").trim().toLowerCase()}|${(ph.pharm_address || "").trim().toLowerCase()}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      setPharmacies(deduped);
+      if (deduped.length > 0) setActiveMapPharma(deduped[0]);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -5297,12 +5324,107 @@ function PharmacyPage({ dk }) {
             <h2 className="font-black text-xl tracking-tight" style={{ color: c.txt }}>{t('nearby_pharmacies') || "Pharmacies à proximité"}</h2>
             <Badge color={c.blue} bg={c.blueLight}>{pharmacies.length}</Badge>
           </div>
-          
+
+          {/* Barre de recherche + filtres */}
+          {(() => {
+            const hasActiveFilter = filterOpen24h || filterChifa || filterCity;
+            return (
+              <div className="flex flex-col gap-2 mb-4">
+                {/* Champ texte */}
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border" style={{ background: c.card, borderColor: c.border }}>
+                  <Search size={14} style={{ color: c.txt3, flexShrink: 0 }} />
+                  <input
+                    value={searchPharmacy}
+                    onChange={e => setSearchPharmacy(e.target.value)}
+                    placeholder="Rechercher une pharmacie, adresse…"
+                    className="outline-none text-sm bg-transparent flex-1"
+                    style={{ color: c.txt }}
+                  />
+                  {searchPharmacy && (
+                    <button onClick={() => setSearchPharmacy("")} style={{ color: c.txt3, background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, fontSize: 14 }}>✕</button>
+                  )}
+                </div>
+
+                {/* Filtres rapides */}
+                <div className="flex gap-2 flex-wrap">
+                  <button
+                    onClick={() => setFilterOpen24h(v => !v)}
+                    className="text-xs font-semibold px-3 py-1.5 rounded-full border transition-all"
+                    style={{ background: filterOpen24h ? "#2D8C6F" : "transparent", color: filterOpen24h ? "#fff" : c.txt2, borderColor: filterOpen24h ? "#2D8C6F" : c.border }}
+                  >
+                    Ouvert 24h/7j
+                  </button>
+                  <button
+                    onClick={() => setFilterChifa(v => !v)}
+                    className="text-xs font-semibold px-3 py-1.5 rounded-full border transition-all"
+                    style={{ background: filterChifa ? c.blue : "transparent", color: filterChifa ? "#fff" : c.txt2, borderColor: filterChifa ? c.blue : c.border }}
+                  >
+                    Chifa (CNAS)
+                  </button>
+                  {hasActiveFilter && (
+                    <button
+                      onClick={() => { setFilterOpen24h(false); setFilterChifa(false); setFilterCity(""); }}
+                      className="text-xs font-semibold px-3 py-1.5 rounded-full border transition-all"
+                      style={{ background: "transparent", color: c.txt3, borderColor: c.border }}
+                    >
+                      Réinitialiser
+                    </button>
+                  )}
+                </div>
+
+                {/* Dropdown wilaya */}
+                <div className="relative">
+                  <button
+                    onClick={() => setCityDropdownOpen(o => !o)}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-xs font-medium"
+                    style={{ borderColor: cityDropdownOpen || filterCity ? c.blue : c.border, background: dk ? "rgba(255,255,255,0.05)" : c.bg, color: filterCity ? c.txt : c.txt3 }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <MapPin size={13} style={{ color: c.blue }} />
+                      <span>{filterCity || "Toutes les wilayas"}</span>
+                    </div>
+                    <ChevronDown size={13} className="transition-transform" style={{ transform: cityDropdownOpen ? "rotate(180deg)" : "none", color: c.txt3 }} />
+                  </button>
+                  {cityDropdownOpen && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setCityDropdownOpen(false)} />
+                      <div className="absolute top-[calc(100%+4px)] left-0 right-0 z-50 rounded-xl shadow-xl border py-1 max-h-52 overflow-y-auto"
+                        style={{ background: c.card, borderColor: c.border, scrollbarWidth: "none" }}>
+                        <button onClick={() => { setFilterCity(""); setCityDropdownOpen(false); }}
+                          className="w-full px-4 py-2 text-xs text-left transition-all hover:opacity-80"
+                          style={{ color: !filterCity ? c.blue : c.txt, fontWeight: !filterCity ? 700 : 400 }}>
+                          Toutes les wilayas
+                        </button>
+                        {WILAYAS_LIST.filter(w => w !== "Autres").map(wilaya => (
+                          <button key={wilaya} onClick={() => { setFilterCity(wilaya); setCityDropdownOpen(false); }}
+                            className="w-full px-4 py-2 text-xs text-left transition-all hover:opacity-80"
+                            style={{ background: filterCity === wilaya ? c.blue + "18" : "transparent", color: filterCity === wilaya ? c.blue : c.txt, fontWeight: filterCity === wilaya ? 700 : 400 }}>
+                            {wilaya}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
           {loading && pharmacies.length === 0 ? (
             <div className="py-10 text-center opacity-50" style={{ color: c.txt }}>{t('loading')}...</div>
           ) : (
             <div className="grid gap-4 grid-cols-1">
-              {pharmacies.map((ph, idx) => {
+              {pharmacies.filter(ph => {
+                const q = searchPharmacy.toLowerCase();
+                const matchSearch = !q ||
+                  (ph.name || "").toLowerCase().includes(q) ||
+                  (ph.pharm_city || "").toLowerCase().includes(q) ||
+                  (ph.pharm_address || "").toLowerCase().includes(q);
+                const matchOpen = !filterOpen24h || ph.is_open_24h;
+                const matchChifa = !filterChifa || ph.cnas_coverage;
+                const matchCity = !filterCity || ph.pharm_city === filterCity;
+                return matchSearch && matchOpen && matchChifa && matchCity;
+              }).map((ph, idx) => {
                 const isSelected = activeMapPharma?.id === ph.id;
                 const isLocked = isMapLocked && isSelected;
                 const PALETTE = ["#4A6FA5","#2D8C6F","#7B5EA7","#E8A838","#E05555","#2196F3","#009688"];
@@ -5340,15 +5462,29 @@ function PharmacyPage({ dk }) {
                           <p className="font-bold truncate" style={{ color: c.txt }}>{ph.name}</p>
                           <p className="text-xs mt-0.5 truncate" style={{ color: c.txt2 }}>{ph.pharm_city}</p>
                           {ph.pharm_phone && (
-                            <p className="text-xs font-bold mt-1" style={{ color: c.blue }}>{ph.pharm_phone}</p>
+                            <a
+                              href={`tel:${ph.pharm_phone}`}
+                              onClick={e => e.stopPropagation()}
+                              className="text-xs font-bold mt-1 flex items-center gap-1 hover:underline"
+                              style={{ color: c.blue }}
+                            >
+                              <Phone size={11} /> {ph.pharm_phone}
+                            </a>
                           )}
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 text-xs mt-3" style={{ color: c.txt3 }}>
-                        <MapPin size={12} className="shrink-0" />
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((ph.pharm_address || "") + ", " + (ph.pharm_city || "") + ", Algérie")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="flex items-center gap-1.5 text-xs mt-3 hover:underline"
+                        style={{ color: c.txt3 }}
+                      >
+                        <MapPin size={12} className="shrink-0" style={{ color: c.blue }} />
                         <span className="truncate">{ph.pharm_address}</span>
-                      </div>
+                      </a>
 
                       <div className="flex gap-1.5 mt-3 flex-wrap">
                         {ph.is_open_24h && (
@@ -5389,6 +5525,17 @@ function PharmacyPage({ dk }) {
                   </div>
                 );
               })}
+              {!loading && pharmacies.filter(ph => {
+                const q = searchPharmacy.toLowerCase();
+                const matchSearch = !q || (ph.name || "").toLowerCase().includes(q) || (ph.pharm_city || "").toLowerCase().includes(q) || (ph.pharm_address || "").toLowerCase().includes(q);
+                const matchOpen = !filterOpen24h || ph.is_open_24h;
+                const matchChifa = !filterChifa || ph.cnas_coverage;
+                return matchSearch && matchOpen && matchChifa;
+              }).length === 0 && (
+                <div className="py-10 text-center opacity-50" style={{ color: c.txt }}>
+                  Aucune pharmacie ne correspond à votre recherche.
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -6792,8 +6939,11 @@ function NotificationsPage({ dk, notifications, setNotifications }) {
 function SettingsPage(props) {
   const { dk, onToggleDark, userData, pendingIdentityRequest } = props;
   const { t, lang, setLang } = useLanguage();
+  const { refreshUserData } = useAuth();
   const c = dk ? T.dark : T.light;
   const [showPwd, setShowPwd] = useState(false);
+  const [msgDisabled, setMsgDisabled] = useState(() => !!userData?.messages_disabled);
+  const [msgToggling, setMsgToggling] = useState(false);
 
   const [form, setForm] = useState({
     first_name: "",
@@ -7233,6 +7383,42 @@ function SettingsPage(props) {
         </div>
         <div className="space-y-5">
           <Card dk={dk}>
+            <p className="font-semibold mb-1" style={{ color: c.txt }}>Confidentialité</p>
+            <p className="text-xs mb-4" style={{ color: c.txt3 }}>
+              Contrôlez qui peut vous envoyer des messages sur Healy.
+            </p>
+            <div className="flex items-center justify-between py-3 border-t" style={{ borderColor: c.border }}>
+              <div className="flex-1 min-w-0 mr-4">
+                <p className="text-sm font-semibold" style={{ color: c.txt }}>Désactiver les messages</p>
+                <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>
+                  {msgDisabled
+                    ? "Vous n'êtes pas joignable par messagerie. Les autres utilisateurs verront que vos messages sont désactivés."
+                    : "Vous pouvez recevoir des messages de vos médecins et professionnels de santé."}
+                </p>
+              </div>
+              <button
+                onClick={async () => {
+                  if (msgToggling) return;
+                  setMsgToggling(true);
+                  const next = !msgDisabled;
+                  try {
+                    await api.updateMe({ messages_disabled: next });
+                    setMsgDisabled(next);
+                    await refreshUserData();
+                  } catch { /* silencieux */ }
+                  finally { setMsgToggling(false); }
+                }}
+                className="relative shrink-0 w-12 h-6 rounded-full transition-all duration-300 focus:outline-none"
+                style={{ background: msgDisabled ? c.red : c.green, opacity: msgToggling ? 0.6 : 1 }}
+              >
+                <span
+                  className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300"
+                  style={{ transform: msgDisabled ? "translateX(24px)" : "translateX(0)" }}
+                />
+              </button>
+            </div>
+          </Card>
+          <Card dk={dk}>
             <p className="font-semibold mb-4" style={{ color: c.txt }}>
               {t('language')}
             </p>
@@ -7286,6 +7472,8 @@ export default function PatientDashboard({ onLogout }) {
 
   // ── Chat state ──
   const [activeConv, setActiveConv] = useState(null);
+  const [msgRefresh, setMsgRefresh] = useState(0);
+  const [msgInitialInterlocutor, setMsgInitialInterlocutor] = useState(null);
 
   const [appointments, setAppointments] = useState([]);
   const [medicalProfile, setMedicalProfile] = useState(null);
@@ -7413,65 +7601,21 @@ export default function PatientDashboard({ onLogout }) {
         return <AIDiagnosisPage dk={dk} firstName={userData?.first_name || "Guest"} setPage={setPage} />;
 
       case "appointments":
-        return <AppointmentsPage {...props} />;
+        return (
+          <AppointmentsPage
+            {...props}
+            onMessageDoctor={(doctorUserId, doctorName) => {
+              setMsgInitialInterlocutor({ ts: Date.now(), id: doctorUserId, name: doctorName, role: "doctor" });
+              setPage("messages");
+            }}
+          />
+        );
       case "prescriptions":
         return <PrescriptionsPage dk={dk} />;
       case "pharmacy":
         return <PharmacyPage dk={dk} />;
       case "care-taker":
         return <CareTakerPage dk={dk} />;
-      case "messages":
-        return (
-          <div className="flex gap-5" style={{ height: "calc(100vh - 120px)", minHeight: 500 }}>
-            {/* ConversationList — 30% */}
-            <div
-              className="rounded-2xl border overflow-hidden shrink-0 flex flex-col"
-              style={{ width: "30%", minWidth: 260, background: c.card, borderColor: c.border }}
-            >
-              <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0" style={{ borderColor: c.border }}>
-                <MessageSquare size={15} style={{ color: c.blue }} />
-                <h2 className="font-bold text-sm" style={{ color: c.txt }}>{t('nav_messages') || "Messages"}</h2>
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <ConversationList
-                  open={true}
-                  onClose={() => {}}
-                  onSelectConv={(conv) => setActiveConv(conv)}
-                  isPatient={true}
-                  onUnreadChange={(n) => setUnreadChatCount(n)}
-                  c={c}
-                  dk={dk}
-                  inline={true}
-                />
-              </div>
-            </div>
-            {/* ChatWindow — 70% */}
-            <div className="flex-1 min-w-0">
-              {activeConv ? (
-                <ChatWindow
-                  conv={activeConv}
-                  onClose={() => setActiveConv(null)}
-                  onBack={null}
-                  c={c}
-                  dk={dk}
-                  embedded={true}
-                />
-              ) : (
-                <div
-                  className="h-full rounded-2xl border flex flex-col items-center justify-center gap-4"
-                  style={{ background: c.card, borderColor: c.border }}
-                >
-                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: c.blueLight }}>
-                    <MessageSquare size={28} style={{ color: c.blue }} />
-                  </div>
-                  <p className="text-sm font-medium" style={{ color: c.txt3 }}>
-                    {t('select_conversation_desc') || "Sélectionnez une conversation"}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        );
       case "notifications":
         return (
           <NotificationsPage
@@ -7842,8 +7986,72 @@ export default function PatientDashboard({ onLogout }) {
         )}
       </nav>
 
+      {/* Panel messages — toujours monté pour préserver l'état */}
+      <div
+        className="w-full px-6 py-6"
+        style={{ display: page === "messages" ? "block" : "none" }}
+      >
+        <div className="flex gap-5" style={{ height: "calc(100vh - 120px)", minHeight: 500 }}>
+          {/* ConversationList — 30% */}
+          <div
+            className="rounded-2xl border overflow-hidden shrink-0 flex flex-col"
+            style={{ width: "30%", minWidth: 260, background: c.card, borderColor: c.border }}
+          >
+            <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0" style={{ borderColor: c.border }}>
+              <MessageSquare size={15} style={{ color: c.blue }} />
+              <h2 className="font-bold text-sm" style={{ color: c.txt }}>{t('nav_messages') || "Messages"}</h2>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <ConversationList
+                open={true}
+                onClose={() => {}}
+                onSelectConv={(conv) => setActiveConv(conv)}
+                isPatient={true}
+                onUnreadChange={(n) => setUnreadChatCount(n)}
+                refreshTrigger={msgRefresh}
+                initialConv={msgInitialInterlocutor}
+                c={c}
+                dk={dk}
+                inline={true}
+              />
+            </div>
+          </div>
+          {/* ChatWindow — 70% */}
+          <div className="flex-1 min-w-0">
+            {activeConv && !userData?.messages_disabled ? (
+              <ChatWindow
+                conv={activeConv}
+                onClose={() => setActiveConv(null)}
+                onBack={null}
+                onNewMessage={() => setMsgRefresh(n => n + 1)}
+                onDeleteConv={() => { setActiveConv(null); setMsgRefresh(n => n + 1); }}
+                c={c}
+                dk={dk}
+                embedded={true}
+              />
+            ) : (
+              <div
+                className="h-full rounded-2xl border flex flex-col items-center justify-center gap-4"
+                style={{ background: c.card, borderColor: c.border }}
+              >
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                  style={{ background: userData?.messages_disabled ? "#E0555512" : c.blueLight }}>
+                  <MessageSquare size={28} style={{ color: userData?.messages_disabled ? "#E05555" : c.blue }} />
+                </div>
+                <p className="text-sm font-medium" style={{ color: c.txt3 }}>
+                  {userData?.messages_disabled ? "Messagerie désactivée" : (t('select_conversation_desc') || "Sélectionnez une conversation")}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Page content */}
-      <main className={`w-full ${page === "ai-diagnosis" ? "px-0 py-0" : "px-6 py-6"}`}>
+      <main
+        className={`w-full ${page === "ai-diagnosis" ? "px-0 py-0" : "px-6 py-6"}`}
+        style={{ display: page === "messages" ? "none" : "block" }}
+      >
         <ErrorBoundary>{renderPage()}</ErrorBoundary>
       </main>
 

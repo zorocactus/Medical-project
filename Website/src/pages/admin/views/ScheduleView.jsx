@@ -20,13 +20,14 @@ export default function ScheduleView({ dk }) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [error, setError] = useState(null);
+  const [selectedAppt, setSelectedAppt] = useState(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const [docsData, apptsData] = await Promise.all([
-        api.getAdminUsers({ role: 'doctor' }),
+        api.getAdminUsers({ role: 'doctor', verification_status: 'verified', is_active: true }),
         api.getAdminAppointments({ date })
       ]);
 
@@ -68,7 +69,7 @@ export default function ScheduleView({ dk }) {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black" style={{ color: c.txt }}>
-            {t('global_planning')} <span style={{ color: c.blue }}>Global</span>
+            {t('global_planning')}
           </h1>
           <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
             {t('flow_management_desc')}
@@ -142,7 +143,11 @@ export default function ScheduleView({ dk }) {
         {/* Grid Body */}
         <div className="max-h-[600px] overflow-y-auto overflow-x-hidden">
           {filteredDoctors.map(doctor => {
-            const docAppts = appointments.filter(a => a.doctor === doctor.id || a.doctor?.id === doctor.id);
+            const docAppts = appointments.filter(a =>
+              a.doctor_id === doctor.id ||
+              a.doctor === doctor.id ||
+              (typeof a.doctor === "string" && `${doctor.first_name} ${doctor.last_name}`.toLowerCase() === a.doctor.toLowerCase())
+            );
             return (
               <div key={doctor.id} className="flex border-b group hover:bg-black/[0.01] transition-colors" style={{ borderColor: c.border }}>
                 <div className="w-64 p-4 shrink-0 flex items-center gap-3 border-r" style={{ borderColor: c.border }}>
@@ -164,16 +169,16 @@ export default function ScheduleView({ dk }) {
 
                   {/* Appointment blocks */}
                   {docAppts.map(appt => {
-                    // Normalize start time and duration
                     const sTime = appt.startTime || appt.start_time || "08:00";
                     const duration = appt.durationMinutes || appt.duration_minutes || 30;
-                    
                     const style = getApptStyle(sTime, duration);
-                    const color = appt.status === 'confirmed' ? c.blue : appt.status === 'completed' ? c.green : c.amber;
-                    const pName = appt.patient_name || appt.patient?.full_name || appt.patient?.name || t('patient');
+                    const color = appt.status === 'confirmed' ? c.blue : appt.status === 'completed' ? c.green : appt.status === 'in_progress' ? '#8B5CF6' : appt.status === 'cancelled' || appt.status === 'refused' ? '#6B7280' : c.amber;
+                    const pName = appt.patient_name || (typeof appt.patient === "string" ? appt.patient : appt.patient?.full_name) || t('patient');
 
                     return (
-                      <div key={appt.id} className="absolute top-2 bottom-2 p-1.5 rounded-lg shadow-sm border cursor-pointer hover:scale-[1.02] active:scale-95 transition-all overflow-hidden"
+                      <div key={appt.id}
+                        onClick={() => setSelectedAppt({ ...appt, pName, sTime, duration, color, doctorName: `Dr. ${doctor.first_name} ${doctor.last_name}` })}
+                        className="absolute top-2 bottom-2 p-1.5 rounded-lg shadow-sm border cursor-pointer hover:scale-[1.02] active:scale-95 transition-all overflow-hidden"
                         style={{ ...style, background: `${color}15`, borderColor: color, borderLeftWidth: '4px' }}>
                         <p className="text-[9px] font-black truncate" style={{ color }}>{pName}</p>
                         <p className="text-[8px] opacity-80 truncate" style={{ color: c.txt2 }}>{sTime.slice(0,5)} • {duration}m</p>
@@ -195,6 +200,68 @@ export default function ScheduleView({ dk }) {
           {t('schedule_hint')}
         </p>
       </div>
+
+      {/* ── Modal détail RDV ── */}
+      {selectedAppt && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
+          onClick={() => setSelectedAppt(null)}>
+          <div className="w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl"
+            style={{ background: c.card, border: `1px solid ${c.border}` }}
+            onClick={e => e.stopPropagation()}>
+
+            {/* Header coloré */}
+            <div className="px-6 py-5 flex items-center justify-between"
+              style={{ background: selectedAppt.color + '12', borderBottom: `1px solid ${selectedAppt.color}30` }}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl flex items-center justify-center"
+                  style={{ background: selectedAppt.color + '20' }}>
+                  <Calendar size={18} style={{ color: selectedAppt.color }} />
+                </div>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wider" style={{ color: selectedAppt.color }}>
+                    Rendez-vous #{selectedAppt.id}
+                  </p>
+                  <p className="text-[10px]" style={{ color: c.txt3 }}>{selectedAppt.date}</p>
+                </div>
+              </div>
+              <button onClick={() => setSelectedAppt(null)}
+                className="w-8 h-8 rounded-xl flex items-center justify-center border hover:opacity-70 transition-opacity"
+                style={{ borderColor: c.border, color: c.txt3 }}>
+                <X size={14} />
+              </button>
+            </div>
+
+            {/* Contenu */}
+            <div className="px-6 py-5 space-y-4">
+              {[
+                { label: "Patient", value: selectedAppt.pName },
+                { label: "Médecin", value: selectedAppt.doctorName },
+                { label: "Spécialité", value: selectedAppt.specialty || "Généraliste" },
+                { label: "Heure", value: `${selectedAppt.sTime.slice(0,5)} · ${selectedAppt.duration} min` },
+                { label: "Motif", value: selectedAppt.motif || "—" },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex items-start justify-between gap-4">
+                  <span className="text-[10px] font-black uppercase tracking-widest shrink-0 mt-0.5" style={{ color: c.txt3 }}>{label}</span>
+                  <span className="text-sm font-semibold text-right" style={{ color: c.txt }}>{value}</span>
+                </div>
+              ))}
+
+              {/* Badge statut */}
+              <div className="flex items-center justify-between pt-3 border-t" style={{ borderColor: c.border }}>
+                <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: c.txt3 }}>Statut</span>
+                <span className="px-3 py-1 rounded-full text-[11px] font-bold"
+                  style={{ background: selectedAppt.color + '18', color: selectedAppt.color }}>
+                  {{
+                    pending: 'En attente', confirmed: 'Confirmé', in_progress: 'En cours',
+                    completed: 'Terminé', cancelled: 'Annulé', refused: 'Refusé'
+                  }[selectedAppt.status] || selectedAppt.status}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
