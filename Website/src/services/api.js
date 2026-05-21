@@ -186,9 +186,23 @@ export async function refreshAccessToken() {
 }
 
 /**
- * Déconnexion — supprime les tokens locaux
+ * Déconnexion — révoque le refresh token côté serveur (blacklist) puis vide localStorage.
+ * En cas d'échec réseau on vide quand même les tokens locaux : la session locale est cassée.
  */
-export function logout() {
+export async function logout() {
+  const refresh = getRefreshToken();
+  if (refresh) {
+    try {
+      await fetch(`${BASE_URL}/auth/logout/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${getToken()}`,
+        },
+        body: JSON.stringify({ refresh }),
+      });
+    } catch { /* network down — proceed with local cleanup */ }
+  }
   clearTokens();
 }
 
@@ -446,12 +460,19 @@ export async function getMedicalProfile() {
 
 /**
  * Met à jour le profil médical du patient
- * @param {object} data — { blood_type, allergies, ... }
+ * @param {object} data — { blood_group, allergies, ... }
+ *   ⚠️ backend attend `blood_group` (PAS `blood_type`). Si l'appelant fournit
+ *      `blood_type`, on le rename pour éviter un échec silencieux.
  */
 export async function updateMedicalProfile(data) {
+  const payload = { ...data };
+  if (payload.blood_type !== undefined && payload.blood_group === undefined) {
+    payload.blood_group = payload.blood_type;
+    delete payload.blood_type;
+  }
   return apiFetch("/patients/medical-profile/", {
     method: "PATCH",
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
   });
 }
 
@@ -950,6 +971,17 @@ export async function respondToCareRequest(requestId, status) {
   return apiFetch(`/caretaker/requests/${requestId}/respond_to_offer/`, {
     method: "POST",
     body: JSON.stringify({ status }),
+  });
+}
+
+/**
+ * (Garde-malade) Se résilier d'un patient (mettre fin à la prise en charge)
+ * POST /api/caretaker/requests/{id}/terminate/
+ */
+export async function resignFromPatient(careRequestId, reason = "") {
+  return apiFetch(`/caretaker/requests/${careRequestId}/terminate/`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
   });
 }
 

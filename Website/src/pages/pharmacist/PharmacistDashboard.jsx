@@ -12,7 +12,7 @@ import {
   X, Plus, Minus, QrCode, TrendingUp, TrendingDown, AlertCircle,
   Clock, CheckCircle, Eye, Download, Filter, RefreshCw, Truck,
   BarChart2, Users, DollarSign, Archive, User, ChevronRight,
-  Zap, Shield, Activity, Send, Phone, MapPin, Link2, MessageSquare, Languages
+  Zap, Shield, Activity, Send, Phone, MapPin, Link2, MessageSquare, Languages, Edit2, Trash2
 } from "lucide-react";
 import ChatButton from "../../components/chat/ChatButton";
 import ConversationList from "../../components/chat/ConversationList";
@@ -60,6 +60,19 @@ const STOCK_CATEGORIES = [
   "cardiology_label", "diabetology_label", "antibiotics_label", "analgesics_label",
   "gastro_label", "vitamins_label", "neurology_label", "dermatology_label", "pediatrics_label", "others_label",
 ];
+
+const CATEGORY_DISPLAY = {
+  cardiology_label:  "Cardiologie",
+  diabetology_label: "Diabétologie",
+  antibiotics_label: "Antibiotiques",
+  analgesics_label:  "Analgésiques",
+  gastro_label:      "Gastro-entérologie",
+  vitamins_label:    "Vitamines",
+  neurology_label:   "Neurologie",
+  dermatology_label: "Dermatologie",
+  pediatrics_label:  "Pédiatrie",
+  others_label:      "Autres",
+};
 
 // ─── Reusable components ──────────────────────────────────────────────────────
 function Card({ children, className = "", style = {}, dk, empty = false }) {
@@ -508,16 +521,19 @@ function RefuseOrderModal({ order, onClose, onConfirm, loading, dk }) {
 }
 
 // ─── MODAL: AJOUTER UN ARTICLE (STOCK) ───────────────────────────────────────
-function AddItemModal({ onClose, onAdd, dk }) {
+function AddItemModal({ onClose, onAdd, dk, existingMedicationIds = new Set(), existingStockItems = [] }) {
   const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
   const [form, setForm] = useState({
-    medication_id: null, category: "", expiry: "", qty: "", price: "", min_threshold: "10",
+    medication_id: null, expiry: "", qty: "", price: "", min_threshold: "10",
   });
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [selectedMed, setSelectedMed] = useState(null);
   const [searching, setSearching] = useState(false);
+  const [showCatDropdown, setShowCatDropdown] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [alreadyInStock, setAlreadyInStock] = useState(null);
 
   useEffect(() => {
     if (!searchQuery.trim() || searchQuery.length < 2) {
@@ -541,6 +557,14 @@ function AddItemModal({ onClose, onAdd, dk }) {
     setSearchQuery(med.name || med.commercial_name || "");
     setForm(f => ({ ...f, medication_id: med.id }));
     setSearchResults([]);
+    if (med.category) setSelectedCategory(med.category);
+    const medId = String(med.id);
+    if (existingMedicationIds.has(medId)) {
+      const existing = existingStockItems.find(s => s.medicationId === medId);
+      setAlreadyInStock(existing || true);
+    } else {
+      setAlreadyInStock(null);
+    }
   };
 
   const inputStyle = { background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border, color: c.txt };
@@ -557,6 +581,9 @@ function AddItemModal({ onClose, onAdd, dk }) {
     });
     onClose();
   };
+
+  const moleculeValue = selectedMed?.molecule || selectedMed?.dci || "";
+  const catLabel = CATEGORY_DISPLAY[selectedCategory] || selectedCategory || "—";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -579,7 +606,7 @@ function AddItemModal({ onClose, onAdd, dk }) {
             <div className="relative">
               <input
                 value={searchQuery}
-                onChange={e => { setSearchQuery(e.target.value); setSelectedMed(null); setForm(f => ({ ...f, medication_id: null })); }}
+                onChange={e => { setSearchQuery(e.target.value); setSelectedMed(null); setForm(f => ({ ...f, medication_id: null })); setSelectedCategory(""); setAlreadyInStock(null); }}
                 placeholder="Rechercher un médicament…"
                 className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
                 style={inputStyle}
@@ -602,11 +629,68 @@ function AddItemModal({ onClose, onAdd, dk }) {
                 ))}
               </div>
             )}
-            {selectedMed && (
+            {selectedMed && !alreadyInStock && (
               <p className="mt-1 text-xs font-semibold" style={{ color: "#0F6E56" }}>
-                {selectedMed.name || selectedMed.commercial_name} sélectionné
+                ✓ {selectedMed.name || selectedMed.commercial_name} sélectionné
               </p>
             )}
+            {alreadyInStock && (
+              <div className="mt-2 rounded-xl px-4 py-3 border"
+                style={{ background: "#E8A83818", borderColor: "#E8A83855" }}>
+                <p className="text-xs font-bold" style={{ color: "#E8A838" }}>
+                  Ce médicament est déjà dans votre stock.
+                </p>
+                {alreadyInStock !== true && (
+                  <p className="text-xs mt-1" style={{ color: "#E8A838" }}>
+                    Stock actuel : <strong>{alreadyInStock.qty}</strong> unités · Prix : <strong>{alreadyInStock.price} DZD</strong>
+                  </p>
+                )}
+                <p className="text-xs mt-1" style={{ color: "#9AACBE" }}>
+                  Fermez ce modal et utilisez le bouton Modifier pour le mettre à jour.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Molécule + Catégorie */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Molécule */}
+            <div>
+              <label className={labelCls} style={{ color: c.txt2 }}>Molécule</label>
+              <div className="w-full px-4 py-2.5 rounded-xl text-sm border"
+                style={{ ...inputStyle, color: moleculeValue ? c.txt : c.txt3, minHeight: 40 }}>
+                {moleculeValue || <span style={{ color: c.txt3 }}>Auto-rempli</span>}
+              </div>
+            </div>
+            {/* Catégorie */}
+            <div className="relative">
+              <label className={labelCls} style={{ color: c.txt2 }}>Catégorie</label>
+              <button
+                type="button"
+                onClick={() => setShowCatDropdown(v => !v)}
+                className="w-full px-4 py-2.5 rounded-xl text-sm border text-left flex items-center justify-between"
+                style={{ ...inputStyle, color: selectedCategory ? c.txt : c.txt3 }}>
+                <span>{selectedCategory ? catLabel : "Choisir…"}</span>
+                <ChevronDown size={13} style={{ color: c.txt3, flexShrink: 0 }} />
+              </button>
+              {showCatDropdown && (
+                <div className="absolute z-20 w-full mt-1 rounded-xl border shadow-lg overflow-auto max-h-48"
+                  style={{ background: c.card, borderColor: c.border }}>
+                  {STOCK_CATEGORIES.map(key => (
+                    <button key={key} type="button"
+                      onClick={() => { setSelectedCategory(key); setShowCatDropdown(false); }}
+                      className="w-full text-left px-4 py-2 text-sm transition-colors hover:opacity-80"
+                      style={{
+                        background: selectedCategory === key ? c.blueLight : "transparent",
+                        color: selectedCategory === key ? c.blue : c.txt,
+                        borderBottom: `1px solid ${c.border}`,
+                      }}>
+                      {CATEGORY_DISPLAY[key]}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Date d'expiration */}
@@ -660,10 +744,124 @@ function AddItemModal({ onClose, onAdd, dk }) {
             style={{ borderColor: c.border, color: c.txt2 }}>
             {t('cancel_btn') || "Annuler"}
           </button>
-          <button onClick={handleAdd}
-            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
-            style={{ background: c.blue, opacity: !form.medication_id ? 0.5 : 1 }}>
+          <button onClick={handleAdd} disabled={!form.medication_id || !!alreadyInStock}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ background: c.blue }}>
             {t('save_btn') || "Enregistrer"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── MODAL: MODIFIER UN ARTICLE (STOCK) ──────────────────────────────────────
+function EditItemModal({ item, onClose, onSave, dk }) {
+  const c = dk ? T.dark : T.light;
+  const [form, setForm] = useState({
+    qty:           String(item.qty),
+    price:         String(item.price),
+    min_threshold: String(item.min),
+    expiry:        item.expiry !== "—" ? item.expiry : "",
+  });
+  const [saving, setSaving] = useState(false);
+
+  const inputStyle = { background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border, color: c.txt };
+  const labelCls = "block text-xs font-bold uppercase tracking-wide mb-1.5";
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await onSave(item.id, {
+        quantity:      parseInt(form.qty)           || 0,
+        selling_price: parseFloat(form.price)       || 0,
+        min_threshold: parseInt(form.min_threshold) || 10,
+        expiry_date:   form.expiry || undefined,
+      });
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}>
+      <div className="rounded-2xl p-6 w-full max-w-md shadow-2xl border"
+        style={{ background: c.card, borderColor: c.border }}>
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-lg font-bold" style={{ color: c.txt }}>Modifier l'article</h3>
+          <button onClick={onClose}
+            className="w-8 h-8 rounded-xl flex items-center justify-center border transition-colors hover:opacity-70"
+            style={{ borderColor: c.border, color: c.txt3 }}>
+            <X size={15} />
+          </button>
+        </div>
+
+        {/* Infos lecture seule */}
+        <div className="rounded-xl px-4 py-3 mb-5 flex items-center gap-3"
+          style={{ background: c.blueLight }}>
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+            style={{ background: c.blue + "22" }}>
+            <Pill size={15} style={{ color: c.blue }} />
+          </div>
+          <div>
+            <p className="text-sm font-bold" style={{ color: c.txt }}>{item.name}</p>
+            <p className="text-xs" style={{ color: c.txt3 }}>
+              {item.molecule && <span>{item.molecule} · </span>}
+              {item.category}
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {/* Quantité + Prix */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls} style={{ color: c.txt2 }}>Quantité en stock</label>
+              <input type="number" min={0} value={form.qty}
+                onChange={e => setForm(f => ({ ...f, qty: e.target.value.replace(/\D/g, "") }))}
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
+                style={inputStyle} />
+            </div>
+            <div>
+              <label className={labelCls} style={{ color: c.txt2 }}>Prix (DZD)</label>
+              <input type="number" min={0} value={form.price}
+                onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
+                style={inputStyle} />
+            </div>
+          </div>
+
+          {/* Seuil + Expiration */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls} style={{ color: c.txt2 }}>Seuil min.</label>
+              <input type="number" min={0} value={form.min_threshold}
+                onChange={e => setForm(f => ({ ...f, min_threshold: e.target.value.replace(/\D/g, "") }))}
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
+                style={inputStyle} />
+            </div>
+            <div>
+              <label className={labelCls} style={{ color: c.txt2 }}>Date d'expiration</label>
+              <input type="date" value={form.expiry}
+                onChange={e => setForm(f => ({ ...f, expiry: e.target.value }))}
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
+                style={inputStyle} />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-3 mt-6">
+          <button onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:opacity-80"
+            style={{ borderColor: c.border, color: c.txt2 }}>
+            Annuler
+          </button>
+          <button onClick={handleSave} disabled={saving}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-60"
+            style={{ background: c.blue }}>
+            {saving ? "Enregistrement…" : "Enregistrer"}
           </button>
         </div>
       </div>
@@ -923,26 +1121,27 @@ function StockPage({ dk }) {
   const c = dk ? T.dark : T.light;
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all"); // all | critical | ok
-  const [editQty, setEditQty] = useState(null);
-  const [editValue, setEditValue] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editItem, setEditItem] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
   const [stockItems, setStockItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [banner, setBanner] = useState(null);
-  const [updatingId, setUpdatingId] = useState(null);
 
   const mapStockRow = (row) => {
     const m = row.medication_details || {};
     return {
-      id:       row.id,
-      name:     m.name || `Médicament #${row.medication}`,
-      molecule: m.molecule || "",
-      qty:      Number(row.quantity) || 0,
-      min:      Number(row.min_threshold) || 10,
-      price:    Number(row.selling_price) || Number(m.price_dzd) || 0,
-      cnas:     !!m.cnas_covered,
-      category: m.category || "—",
-      expiry:   row.expiry_date || "—",
+      id:           row.id,
+      medicationId: String(row.medication || ""),
+      name:         m.name || `Médicament #${row.medication}`,
+      molecule:     m.molecule || "",
+      qty:          Number(row.quantity) || 0,
+      min:          Number(row.min_threshold) || 10,
+      price:        Number(row.selling_price) || Number(m.price_dzd) || 0,
+      cnas:         !!m.cnas_covered,
+      category:     m.category || "—",
+      expiry:       row.expiry_date || "—",
     };
   };
 
@@ -964,55 +1163,132 @@ function StockPage({ dk }) {
 
   useEffect(() => { reload(); }, []);
 
-  const handleSaveQty = async (item) => {
-    const newQty = parseInt(editValue, 10);
-    if (Number.isNaN(newQty) || newQty < 0) {
-      setBanner({ type: "error", msg: "Quantité invalide." });
-      setTimeout(() => setBanner(null), 3000);
-      return;
-    }
-    const previous = stockItems;
-    setStockItems(prev => prev.map(s => s.id === item.id ? { ...s, qty: newQty } : s));
-    setUpdatingId(item.id);
+  const handleSaveEdit = async (id, data) => {
     try {
-      await api.updatePharmacyStock(item.id, { quantity: newQty });
-      setEditQty(null);
-      setBanner({ type: "success", msg: "Stock mis à jour." });
+      await api.updatePharmacyStock(id, data);
+      await reload();
+      setBanner({ type: "success", msg: "Article mis à jour." });
     } catch (err) {
-      setStockItems(previous);
       setBanner({ type: "error", msg: err?.message || "Échec de la mise à jour." });
     } finally {
-      setUpdatingId(null);
       setTimeout(() => setBanner(null), 3000);
     }
   };
 
-  const handleExportStock = () => {
-    const rows = stockItems.map(s => [
-      s.name || "",
-      s.qty,
-      s.min,
-      s.price || "",
-      s.expiry || "",
-    ]);
-    const csv = [
-      ["Médicament", "Quantité", "Seuil", "Prix", "Expiration"],
-      ...rows,
-    ].map(r => r.join(";")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "stock-pharmacie.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleDelete = async (id) => {
+    setDeletingId(id);
+    try {
+      await api.deletePharmacyStock(id);
+      setStockItems(prev => prev.filter(s => s.id !== id));
+      setConfirmDeleteId(null);
+      setBanner({ type: "success", msg: "Article retiré du stock." });
+    } catch (err) {
+      setBanner({ type: "error", msg: err?.message || "Échec de la suppression." });
+    } finally {
+      setDeletingId(null);
+      setTimeout(() => setBanner(null), 3000);
+    }
+  };
+
+  const handleExportPDF = () => {
+    const now = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
+    const rows = stockItems.map(s => {
+      const pct = s.qty / (s.min || 1);
+      const statut = pct < 0.4 ? "Critique" : pct < 1.0 ? "Bas" : "Normal";
+      const statutColor = pct < 0.4 ? "#E05555" : pct < 1.0 ? "#E8A838" : "#2D8C6F";
+      return `
+        <tr>
+          <td>${s.name || "—"}</td>
+          <td>${s.molecule || "—"}</td>
+          <td>${s.category || "—"}</td>
+          <td style="font-weight:700;color:${statutColor}">${s.qty}</td>
+          <td>${s.min}</td>
+          <td style="color:${statutColor};font-weight:600">${statut}</td>
+          <td>${s.expiry && s.expiry !== "—" ? new Date(s.expiry).toLocaleDateString("fr-FR") : "—"}</td>
+          <td>${s.price ? s.price + " DZD" : "—"}</td>
+        </tr>`;
+    }).join("");
+
+    const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Stock Pharmacie</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #0D1B2E; padding: 32px; font-size: 12px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; padding-bottom: 18px; border-bottom: 2px solid #4A6FA5; }
+    .header-left h1 { font-size: 22px; font-weight: 800; color: #4A6FA5; }
+    .header-left p { color: #5A6E8A; margin-top: 4px; font-size: 12px; }
+    .header-right { text-align: right; color: #5A6E8A; font-size: 11px; }
+    .header-right strong { display: block; font-size: 13px; color: #0D1B2E; }
+    .stats { display: flex; gap: 16px; margin-bottom: 24px; }
+    .stat-box { flex: 1; border: 1px solid #E4EAF5; border-radius: 8px; padding: 12px 16px; }
+    .stat-box .val { font-size: 20px; font-weight: 800; color: #4A6FA5; }
+    .stat-box .lbl { font-size: 10px; color: #9AACBE; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    thead tr { background: #4A6FA5; color: #fff; }
+    thead th { padding: 9px 12px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+    tbody tr:nth-child(even) { background: #F0F4F8; }
+    tbody td { padding: 8px 12px; border-bottom: 1px solid #E4EAF5; vertical-align: middle; }
+    .footer { margin-top: 28px; padding-top: 14px; border-top: 1px solid #E4EAF5; text-align: center; color: #9AACBE; font-size: 10px; }
+    @media print { body { padding: 20px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-left">
+      <h1>Gestion du Stock — Pharmacie</h1>
+      <p>État du stock au ${now}</p>
+    </div>
+    <div class="header-right">
+      <strong>Healy Medical Platform</strong>
+      Exporté le ${now}
+    </div>
+  </div>
+  <div class="stats">
+    <div class="stat-box"><div class="val">${stockItems.length}</div><div class="lbl">Références totales</div></div>
+    <div class="stat-box"><div class="val" style="color:#E05555">${stockItems.filter(s => s.qty / (s.min || 1) < 0.4).length}</div><div class="lbl">Stocks critiques</div></div>
+    <div class="stat-box"><div class="val" style="color:#E8A838">${stockItems.filter(s => { const p = s.qty / (s.min || 1); return p >= 0.4 && p < 1; }).length}</div><div class="lbl">Stocks bas</div></div>
+    <div class="stat-box"><div class="val" style="color:#2D8C6F">${stockItems.filter(s => s.qty / (s.min || 1) >= 1).length}</div><div class="lbl">Stocks normaux</div></div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Médicament</th>
+        <th>Molécule</th>
+        <th>Catégorie</th>
+        <th>Quantité</th>
+        <th>Seuil min.</th>
+        <th>Statut</th>
+        <th>Expiration</th>
+        <th>Prix</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="footer">Healy — Document généré automatiquement · ${now}</div>
+  <script>window.onload = function(){ window.print(); }<\/script>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank");
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+    }
   };
 
   const allStock = stockItems;
 
+  const norm = str => (str || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
   const filtered = allStock.filter(s => {
-    const matchSearch = (s.name || "").toLowerCase().includes(search.toLowerCase()) ||
-                        (s.molecule || "").toLowerCase().includes(search.toLowerCase());
+    const q = norm(search);
+    if (!q) return filter === "all" || (filter === "critical" ? s.qty < s.min : s.qty >= s.min);
+    const matchSearch = norm(s.name).includes(q) ||
+                        norm(s.molecule).includes(q) ||
+                        norm(s.category).includes(q);
     if (filter === "critical") return matchSearch && s.qty < s.min;
     if (filter === "ok")       return matchSearch && s.qty >= s.min;
     return matchSearch;
@@ -1030,6 +1306,8 @@ function StockPage({ dk }) {
       {showAddModal && (
         <AddItemModal
           dk={dk}
+          existingMedicationIds={new Set(stockItems.map(s => s.medicationId))}
+          existingStockItems={stockItems}
           onClose={() => setShowAddModal(false)}
           onAdd={async (item) => {
             try {
@@ -1041,13 +1319,29 @@ function StockPage({ dk }) {
                 expiry_date:   item.expiry,
               });
               await reload();
-              setBanner({ type: "success", msg: "Article ajouté." });
+              setBanner({ type: "success", msg: "Article ajouté avec succès." });
             } catch (err) {
-              setBanner({ type: "error", msg: err?.message || "Échec de l'ajout." });
+              const msg = err?.message || "";
+              const isDuplicate = msg.toLowerCase().includes("existe déjà") || msg.includes("uniq") || msg.includes("unique");
+              setBanner({
+                type: "error",
+                msg: isDuplicate
+                  ? "Ce médicament est déjà dans votre stock. Utilisez le bouton Modifier pour changer la quantité ou le prix."
+                  : msg || "Échec de l'ajout.",
+              });
             } finally {
-              setTimeout(() => setBanner(null), 4000);
+              setTimeout(() => setBanner(null), 5000);
             }
           }}
+        />
+      )}
+
+      {editItem && (
+        <EditItemModal
+          dk={dk}
+          item={editItem}
+          onClose={() => setEditItem(null)}
+          onSave={handleSaveEdit}
         />
       )}
 
@@ -1095,9 +1389,9 @@ function StockPage({ dk }) {
               </button>
             ))}
           </div>
-          <button onClick={handleExportStock} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all hover:opacity-80"
+          <button onClick={handleExportPDF} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all hover:opacity-80"
             style={{ borderColor: c.border, color: c.txt2 }}>
-            <Download size={13} /> {t('export_btn') || "Exporter"}
+            <Download size={13} /> {t('export_btn') || "Exporter PDF"}
           </button>
         </div>
       </Card>
@@ -1154,29 +1448,7 @@ function StockPage({ dk }) {
                     <td className="px-4 py-3 text-xs" style={{ color: c.txt2 }}>{item.molecule}</td>
                     <td className="px-4 py-3 text-xs" style={{ color: c.txt2 }}>{item.category}</td>
                     <td className="px-4 py-3">
-                      {editQty === item.id ? (
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => handleSaveQty(item)}
-                            disabled={updatingId === item.id}
-                            className="w-6 h-6 rounded flex items-center justify-center text-xs disabled:opacity-50"
-                            style={{ background: c.green, color: "#fff" }}>
-                            {updatingId === item.id ? "…" : "OK"}
-                          </button>
-                          <button onClick={() => { setEditQty(null); setEditValue(""); }}
-                            className="w-6 h-6 rounded flex items-center justify-center text-xs"
-                            style={{ background: c.red, color: "#fff" }}>X</button>
-                          <input
-                            type="number"
-                            min={0}
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            className="w-16 px-2 py-1 rounded-lg text-xs outline-none border"
-                            style={{ background: c.blueLight, borderColor: c.border, color: c.txt }}
-                          />
-                        </div>
-                      ) : (
-                        <span className="text-sm font-bold" style={{ color: st.color }}>{item.qty}</span>
-                      )}
+                      <span className="text-sm font-bold" style={{ color: st.color }}>{item.qty}</span>
                     </td>
                     <td className="px-4 py-3 text-xs" style={{ color: c.txt3 }}>{item.min}</td>
                     <td className="px-4 py-3"><Badge color={st.color} bg={st.bg}>{t(st.label) || st.label}</Badge></td>
@@ -1188,13 +1460,44 @@ function StockPage({ dk }) {
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => { setEditQty(item.id); setEditValue(String(item.qty)); }}
+                          onClick={() => setEditItem(item)}
                           className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:opacity-70"
-                          style={{ borderColor: c.border, color: c.txt3 }}
-                          title="Modifier la quantité"
+                          style={{ borderColor: c.blue + "55", color: c.blue }}
+                          title="Modifier l'article"
                         >
-                          <RefreshCw size={12} />
+                          <Edit2 size={12} />
                         </button>
+                        {confirmDeleteId === item.id ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(item.id)}
+                              disabled={deletingId === item.id}
+                              className="px-2 py-1 rounded-lg text-xs font-bold text-white disabled:opacity-50"
+                              style={{ background: c.red }}
+                            >
+                              {deletingId === item.id ? "…" : "Oui"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteId(null)}
+                              className="px-2 py-1 rounded-lg text-xs font-bold border"
+                              style={{ borderColor: c.border, color: c.txt2 }}
+                            >
+                              Non
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteId(item.id)}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:opacity-70"
+                            style={{ borderColor: c.red + "55", color: c.red }}
+                            title="Retirer du stock"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1239,7 +1542,8 @@ function CommandesPage({ dk, initialScanToken }) {
       : [];
     const dateStr = o.created_at ? new Date(o.created_at).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
     return {
-      id: o.prescription_ref || `ORD-${o.id}`,
+      id: o.id,
+      ref: o.prescription_ref || `ORD-${String(o.id).slice(0, 8).toUpperCase()}`,
       _rawId: o.id,
       _rawItems: Array.isArray(o.items) ? o.items : [],
       patient: o.patient_name || "Patient",
@@ -1290,7 +1594,7 @@ function CommandesPage({ dk, initialScanToken }) {
       const matchSearch = !q ||
         (o.patient || "").toLowerCase().includes(q) ||
         (o.doctor || "").toLowerCase().includes(q) ||
-        (o.id || "").toLowerCase().includes(q) ||
+        (o.ref || "").toLowerCase().includes(q) ||
         (o.items || []).some(i => i.toLowerCase().includes(q));
       const matchSource = sourceFilter === "all" || o.source === sourceFilter;
       return matchSearch && matchSource;
@@ -1569,7 +1873,7 @@ function CommandesPage({ dk, initialScanToken }) {
                 {/* Info */}
                 <div className="flex-1 min-w-48">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <p className="font-bold" style={{ color: c.txt }}>{o.id}</p>
+                    <p className="font-bold" style={{ color: c.txt }}>{o.ref}</p>
                     <Badge color={st.color} bg={st.bg}>{st.label}</Badge>
                     {o.cnas && <Badge color={c.blue} bg={c.blueLight}>CNAS</Badge>}
                     {o.source === "click_collect" && (
@@ -2247,6 +2551,105 @@ function ParametresPage({ dk, onToggleDark }) {
   );
 }
 
+// ─── PAGE: NOTIFICATIONS ─────────────────────────────────────────────────────
+function NotificationsPage({ dk, notifications, onMarkRead, onMarkAllRead }) {
+  const c = dk ? T.dark : T.light;
+
+  const TYPE_META = {
+    appointment: { label: "Rendez-vous", color: "#6492C9", bg: "#6492C918" },
+    pharmacy:    { label: "Pharmacie",   color: "#2D8C6F", bg: "#2D8C6F18" },
+    caretaker:   { label: "Aidant",      color: "#7B5EA7", bg: "#7B5EA718" },
+    system:      { label: "Système",     color: "#E8A838", bg: "#E8A83818" },
+  };
+
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  const fmtDate = (iso) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return d.toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  };
+
+  return (
+    <>
+      <div className="mb-6 flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: c.txt }}>Notifications</h1>
+          <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
+            {unreadCount > 0 ? `${unreadCount} non lue${unreadCount > 1 ? "s" : ""}` : "Toutes lues"}
+          </p>
+        </div>
+        {unreadCount > 0 && (
+          <button
+            onClick={onMarkAllRead}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-all hover:opacity-80"
+            style={{ borderColor: c.border, color: c.txt2 }}
+          >
+            <Check size={14} /> Tout marquer comme lu
+          </button>
+        )}
+      </div>
+
+      {notifications.length === 0 ? (
+        <Card dk={dk} empty>
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: c.blueLight }}>
+              <Bell size={28} style={{ color: c.blue }} />
+            </div>
+            <p className="text-sm font-medium" style={{ color: c.txt3 }}>Aucune notification</p>
+          </div>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {notifications.map(notif => {
+            const type = notif.notification_type || notif.type || "system";
+            const meta = TYPE_META[type] || TYPE_META.system;
+            return (
+              <Card key={notif.id} dk={dk} style={{
+                padding: "14px 18px",
+                opacity: notif.is_read ? 0.7 : 1,
+                borderColor: notif.is_read ? c.border : meta.color + "44",
+              }}>
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: meta.bg }}>
+                    <Bell size={15} style={{ color: meta.color }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <Badge color={meta.color} bg={meta.bg}>{meta.label}</Badge>
+                      {!notif.is_read && (
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: meta.color }} />
+                      )}
+                      <span className="text-xs ml-auto" style={{ color: c.txt3 }}>{fmtDate(notif.created_at)}</span>
+                    </div>
+                    {notif.title && (
+                      <p className="text-sm font-semibold mb-0.5" style={{ color: c.txt }}>{notif.title}</p>
+                    )}
+                    {notif.message && (
+                      <p className="text-sm" style={{ color: c.txt2 }}>{notif.message}</p>
+                    )}
+                  </div>
+                  {!notif.is_read && (
+                    <button
+                      onClick={() => onMarkRead(notif.id)}
+                      className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:opacity-70"
+                      style={{ borderColor: meta.color + "55", color: meta.color }}
+                      title="Marquer comme lu"
+                    >
+                      <Check size={12} />
+                    </button>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+}
+
 // ─── MESSAGES PAGE (layout 30/70) ────────────────────────────────────────────
 function MessagesPage({ dk, c, chatConvOpen, setChatConvOpen, activeChatConv, setActiveChatConv, setUnreadChatCount }) {
   const { t } = useLanguage();
@@ -2315,8 +2718,31 @@ export default function PharmacistDashboard({ onLogout, initialScanToken }) {
   const [page, setPage] = useState(initialScanToken ? "commandes" : "accueil");
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
-  const { globalNotifications, markAllNotificationsRead } = useData();
-  const notifCount = globalNotifications.filter(n => !n.read).length;
+  const [notifications, setNotifications] = useState([]);
+  const notifCount = notifications.filter(n => !n.is_read).length;
+
+  const loadNotifications = () => {
+    api.getNotifications().then(data => {
+      const list = Array.isArray(data) ? data : (data?.results || []);
+      setNotifications(list);
+    }).catch(() => {});
+  };
+
+  useEffect(() => { loadNotifications(); }, []);
+
+  const handleMarkRead = async (id) => {
+    try {
+      await api.markNotificationRead(id);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+    } catch {}
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await api.markAllNotificationsRead();
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    } catch {}
+  };
   const c = dk ? T.dark : T.light;
 
   const pharmacyName =
@@ -2357,13 +2783,14 @@ export default function PharmacistDashboard({ onLogout, initialScanToken }) {
       case "stock":        return <StockPage dk={dk} />;
       case "statistiques": return <StatistiquesPage dk={dk} />;
       case "parametres":   return <ParametresPage dk={dk} onToggleDark={toggleTheme} />;
-      case "messages":     return <MessagesPage dk={dk} c={c}
+      case "messages":       return <MessagesPage dk={dk} c={c}
                                     chatConvOpen={chatConvOpen}
                                     setChatConvOpen={setChatConvOpen}
                                     activeChatConv={activeChatConv}
                                     setActiveChatConv={setActiveChatConv}
                                     setUnreadChatCount={setUnreadChatCount} />;
-      default:             return <HomePage dk={dk} onNav={setPage} />;
+      case "notifications":  return <NotificationsPage dk={dk} notifications={notifications} onMarkRead={handleMarkRead} onMarkAllRead={handleMarkAllRead} />;
+      default:               return <HomePage dk={dk} onNav={setPage} />;
     }
   };
 
@@ -2423,6 +2850,7 @@ export default function PharmacistDashboard({ onLogout, initialScanToken }) {
 
           {/* Right */}
           <div className="flex items-center gap-3 ml-auto shrink-0">
+
             {/* Messages Icon Button */}
             <button
               onClick={() => setPage("messages")}
@@ -2481,7 +2909,7 @@ export default function PharmacistDashboard({ onLogout, initialScanToken }) {
                   </div>
 
                   <div className="p-2 flex flex-col gap-1">
-                    <button onClick={() => { markAllNotificationsRead(); setPage("parametres"); setProfileOpen(false); }}
+                    <button onClick={() => { setProfileOpen(false); setPage("notifications"); }}
                       className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer">
                       <Bell size={16} />
                       Notifications

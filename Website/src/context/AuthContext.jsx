@@ -46,7 +46,7 @@ export function AuthProvider({ children }) {
           setUserData(me);
         }
       } catch { /* token expired — apiFetch already redirects */ }
-    }, 30000);
+    }, 300000); // 5 min — réduit la charge serveur vs. polling 30 s
     return () => clearInterval(timer);
   }, [isLoggedIn]);
 
@@ -84,12 +84,19 @@ export function AuthProvider({ children }) {
     setIsLoggedIn(true);
   }
 
-  function logout() {
-    apiLogout();
+  async function logout() {
+    // apiLogout est désormais async (révoque le refresh token côté serveur).
+    // On déclenche la révocation mais on n'attend pas plus de 2s pour ne pas
+    // bloquer la déconnexion si le backend est lent.
+    try {
+      await Promise.race([
+        apiLogout(),
+        new Promise((res) => setTimeout(res, 2000)),
+      ]);
+    } catch { /* ignore */ }
     setIsLoggedIn(false);
     setAccountType(null);
     setUserData(null);
-    // Hard redirect to root — prevents back-button return to authenticated pages
     window.location.replace("/");
   }
 

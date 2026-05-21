@@ -461,7 +461,8 @@ export default function AppRouter() {
   // BYPASS RAPIDE POUR TESTS (Décommenter pour utiliser)
   // =========================================================================
 
-  const FORCE_TEST = false; // Mettre à true pour activer le bypass
+  // Bypass dev — ne JAMAIS s'activer en production (Vite strip ce bloc si DEV=false).
+  const FORCE_TEST = false && import.meta.env.DEV;
 
   if (FORCE_TEST) {
     const ROLE_MAP = {

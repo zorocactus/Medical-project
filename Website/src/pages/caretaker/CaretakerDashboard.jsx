@@ -1706,11 +1706,96 @@ function MyPatientsView({ onChangePage, dk, c }) {
   const { t } = useLanguage();
   const { gmPatients: patients, refreshGmPatients } = useData();
   const [profilePatient, setProfilePatient] = useState(null);
+  const [resignTarget, setResignTarget]     = useState(null); // patient à résilier
+  const [resignReason, setResignReason]     = useState("");
+  const [resigning, setResigning]           = useState(false);
+  const [resignBanner, setResignBanner]     = useState(null);
 
   useEffect(() => { refreshGmPatients(); }, []);
 
+  const handleResign = async () => {
+    if (!resignTarget?.care_request_id) return;
+    setResigning(true);
+    try {
+      await api.resignFromPatient(resignTarget.care_request_id, resignReason);
+      setResignBanner({ type: "success", msg: `Résiliation effectuée pour ${resignTarget.name}.` });
+      setResignTarget(null);
+      setResignReason("");
+      refreshGmPatients();
+    } catch (err) {
+      setResignBanner({ type: "error", msg: err?.message || "Échec de la résiliation." });
+    } finally {
+      setResigning(false);
+      setTimeout(() => setResignBanner(null), 4000);
+    }
+  };
+
   return (
     <>
+      {/* ── Modal Résiliation ── */}
+      {resignTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}>
+          <div className="rounded-2xl p-6 w-full max-w-md shadow-2xl border"
+            style={{ background: c.card, borderColor: c.border }}>
+
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: "#E0555518" }}>
+                <X size={18} style={{ color: "#E05555" }} />
+              </div>
+              <div>
+                <h3 className="font-bold" style={{ color: c.txt }}>Se résilier du patient</h3>
+                <p className="text-xs" style={{ color: c.txt2 }}>{resignTarget.name}</p>
+              </div>
+              <button onClick={() => { setResignTarget(null); setResignReason(""); }}
+                disabled={resigning}
+                className="ml-auto w-8 h-8 rounded-xl flex items-center justify-center border hover:opacity-70 disabled:opacity-40"
+                style={{ borderColor: c.border, color: c.txt3 }}>
+                <X size={14} />
+              </button>
+            </div>
+
+            <div className="rounded-xl p-3 mb-4 text-xs font-semibold flex gap-2"
+              style={{ background: "#E0555510", border: "1px solid #E0555530", color: "#C0392B" }}>
+              <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+              <span>
+                Le patient sera <strong>notifié immédiatement</strong>. Votre accès à son dossier médical sera révoqué et la prise en charge sera clôturée.
+              </span>
+            </div>
+
+            <label className="block text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: c.txt2 }}>
+              Motif de la résiliation <span style={{ color: "#E05555" }}>*</span>
+            </label>
+            <textarea
+              value={resignReason}
+              onChange={e => setResignReason(e.target.value)}
+              placeholder="Ex : fin de contrat, déménagement, raisons personnelles…"
+              rows={3}
+              className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border resize-none"
+              style={{ background: dk ? "#1A2333" : "#F8FAFC", borderColor: c.border, color: c.txt }}
+            />
+
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => { setResignTarget(null); setResignReason(""); }} disabled={resigning}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:opacity-80 disabled:opacity-40"
+                style={{ borderColor: c.border, color: c.txt2 }}>
+                Annuler
+              </button>
+              <button
+                onClick={handleResign}
+                disabled={resigning || !resignReason.trim()}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                style={{ background: "#E05555" }}>
+                {resigning
+                  ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  : <><X size={14} strokeWidth={3} /> Confirmer la résiliation</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Modal Profil Patient ── */}
       {profilePatient && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -1803,6 +1888,18 @@ function MyPatientsView({ onChangePage, dk, c }) {
         <p className="font-medium" style={{ color: c.txt3 }}>{t('patients_assigned_count', {count: patients.length}) || `${patients.length} patients assignés à votre charge`}</p>
       </header>
 
+      {resignBanner && (
+        <div className="px-4 py-2.5 rounded-xl border text-sm font-semibold flex items-center gap-2"
+          style={{
+            background: (resignBanner.type === "success" ? "#2D8C6F" : "#E05555") + "18",
+            borderColor: (resignBanner.type === "success" ? "#2D8C6F" : "#E05555") + "44",
+            color: resignBanner.type === "success" ? "#2D8C6F" : "#E05555",
+          }}>
+          {resignBanner.type === "success" ? <CheckCircle2 size={15} /> : <AlertTriangle size={15} />}
+          {resignBanner.msg}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {patients.length === 0 ? (
           <Card dk={dk} empty={true} className="col-span-full flex flex-col items-center justify-center min-h-[40vh] text-center p-8">
@@ -1849,6 +1946,12 @@ function MyPatientsView({ onChangePage, dk, c }) {
                   className="w-full py-2.5 border border-red-500/30 text-red-500 hover:bg-red-500 hover:text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2">
                   <Phone size={13} /> {t('alert_patient_btn') || "Alerter"}
                 </a>
+                <button
+                  onClick={() => { setResignTarget(p); setResignReason(""); }}
+                  className="w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 border"
+                  style={{ borderColor: "#E05555" + "44", color: "#E05555", background: "#E0555508" }}>
+                  <X size={13} strokeWidth={2.5} /> Se résilier
+                </button>
               </div>
             </div>
           </Card>
