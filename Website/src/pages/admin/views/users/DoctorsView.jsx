@@ -11,6 +11,7 @@ import { T, HMS, getAdminTheme } from "../../adminTheme.js";
 import { Card, Badge } from "../../AdminPrimitives.jsx";
 import { useLanguage } from "../../../../context/LanguageContext";
 import * as api from "../../../../services/api";
+import RegistrationDrawer from "./RegistrationDrawer";
 
 // ─── SUB-COMPONENTS (modals / drawer — kept exactly as original) ─────────────
 
@@ -254,18 +255,27 @@ export function DoctorDrawer({ doctor, dk, onClose, onEdit, onVerify, onToggleSt
 
         {/* Footer */}
         <div className="p-6 border-t flex gap-3" style={{ borderColor: c.border }}>
-          <button onClick={onEdit}
-            className="flex-1 py-3 rounded-xl text-xs font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:scale-[1.02] flex items-center justify-center gap-2"
-            style={{ background: c.blue }}>
-            <Edit3 size={14} /> {t('modify')}
-          </button>
-          <button onClick={onToggleStatus}
-            className="flex-1 py-3 rounded-xl text-xs font-bold border transition-all hover:opacity-80 flex items-center justify-center gap-2"
-            style={{ borderColor: doctor.is_active ? c.red : c.green, color: doctor.is_active ? c.red : c.green }}>
-            {doctor.is_active
-              ? <><Lock size={14} /> {t('suspend_btn') || "Suspendre"}</>
-              : <><Unlock size={14} /> {t('reactivate_btn') || "Réactiver"}</>}
-          </button>
+          {onEdit && (
+            <button onClick={onEdit}
+              className="flex-1 py-3 rounded-xl text-xs font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:scale-[1.02] flex items-center justify-center gap-2"
+              style={{ background: c.blue }}>
+              <Edit3 size={14} /> {t('modify')}
+            </button>
+          )}
+          {onToggleStatus && (
+            <button onClick={onToggleStatus}
+              className="flex-1 py-3 rounded-xl text-xs font-bold border transition-all hover:opacity-80 flex items-center justify-center gap-2"
+              style={{ borderColor: doctor.is_active ? c.red : c.green, color: doctor.is_active ? c.red : c.green }}>
+              {doctor.is_active
+                ? <><Lock size={14} /> {t('suspend_btn') || "Suspendre"}</>
+                : <><Unlock size={14} /> {t('reactivate_btn') || "Réactiver"}</>}
+            </button>
+          )}
+          {!onEdit && !onToggleStatus && (
+            <p className="flex-1 text-center text-xs py-2" style={{ color: c.txt3 }}>
+              Inscription refusée — lecture seule
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -349,14 +359,8 @@ export default function DoctorsView({ dk }) {
       const raw = Array.isArray(data) ? data : data?.results || [];
       const mapped = raw.map(u => ({
          ...u,
-         full_name: `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || "Doctor",
-         specialty: u.specialty || "Généraliste",
-         clinic_name: u.doctor_detail?.clinic_name || "",
-         consultation_fee: u.doctor_detail?.consultation_fee || 0,
-         experience_years: u.doctor_detail?.experience_years || 0,
-         license_number: u.doctor_detail?.license_number || "",
-         bio: u.doctor_detail?.bio || "",
-         docs: u.submitted_documents || [],
+         full_name: u.full_name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || "Doctor",
+         specialty: u.doctor_detail?.specialty || u.specialty || "Généraliste",
       }));
       setDoctors(mapped);
     } catch (_err) {
@@ -563,7 +567,7 @@ export default function DoctorsView({ dk }) {
 
       {/* Modals & Drawer */}
       {selDoc && (
-        <DoctorDrawer doctor={selDoc} dk={dk ?? true} onClose={() => setSelDoc(null)}
+        <RegistrationDrawer user={selDoc} dk={dk ?? true} onClose={() => setSelDoc(null)}
           onEdit={() => { setEditDoc(selDoc); setSelDoc(null); }}
           onToggleStatus={async () => { await api.toggleSuspendUser(selDoc.id); fetchDocs(); setSelDoc(null); }}
           onVerify={async () => { await api.verifyUser(selDoc.id); fetchDocs(); setSelDoc(null); }}

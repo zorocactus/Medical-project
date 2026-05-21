@@ -60,24 +60,34 @@ export async function apiFetch(endpoint, options = {}) {
     headers,
   });
 
-  // Token expiré → on tente un refresh automatique
   if (response.status === 401) {
-    const refreshed = await refreshAccessToken();
-    if (refreshed) {
-      // Retry la requête originale avec le nouveau token
-      headers["Authorization"] = `Bearer ${getToken()}`;
-      const retryResponse = await fetch(`${BASE_URL}${endpoint}`, {
-        ...options,
-        headers,
-      });
-      if (!retryResponse.ok) throw new Error(`Erreur ${retryResponse.status}`);
-      return retryResponse.json();
-    } else {
-      // Refresh échoué → déconnecter l'utilisateur
-      clearTokens();
-      window.location.href = "/?expired=1"; // redirige vers login avec drapeau d'expiration
-      return;
+    if (token) {
+      // Authenticated request whose token expired → try refresh once
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        headers["Authorization"] = `Bearer ${getToken()}`;
+        const retryResponse = await fetch(`${BASE_URL}${endpoint}`, {
+          ...options,
+          headers,
+        });
+        if (!retryResponse.ok) throw new Error(`Erreur ${retryResponse.status}`);
+        return retryResponse.json();
+      } else {
+        // Refresh failed → session ended (expired or suspended)
+        clearTokens();
+        window.location.href = "/?expired=1";
+        return;
+      }
     }
+    // No token = unauthenticated request (login, register…) — propagate the error normally
+    let errorMsg = "Erreur 401";
+    try {
+      const errorData = await response.json();
+      errorMsg = errorData.detail || errorData.message || JSON.stringify(errorData);
+    } catch (e) {
+      if (!(e instanceof SyntaxError)) throw e;
+    }
+    throw new Error(errorMsg);
   }
 
   if (!response.ok) {
@@ -113,16 +123,11 @@ export async function apiFetchBlob(endpoint, options = {}) {
     headers,
   });
 
-  // Token expiré → on tente un refresh automatique
-  if (response.status === 401) {
+  if (response.status === 401 && token) {
     const refreshed = await refreshAccessToken();
     if (refreshed) {
-      // Retry la requête originale avec le nouveau token
       headers["Authorization"] = `Bearer ${getToken()}`;
-      response = await fetch(`${BASE_URL}${endpoint}`, {
-        ...options,
-        headers,
-      });
+      response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
       if (!response.ok) throw new Error(`Erreur ${response.status}`);
       return response.blob();
     } else {

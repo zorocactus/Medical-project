@@ -14,7 +14,7 @@ function validatePassword(pw) {
   return null;
 }
 
-export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchToLogin, initialData }) {
+export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchToLogin, initialData, serverErrors = {} }) {
   const { theme } = useTheme();
   const { t } = useLanguage();
   const isDark = theme === "dark";
@@ -71,6 +71,11 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchT
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [accountType, setAccountType]           = useState(initialData?.accountType || "patient");
   const [oauthMessage, setOauthMessage]         = useState("");
+
+  const accountTypeOptions = [
+    { value: "patient", label: t('auth.register.patient') },
+    { value: "personnel médical", label: t('auth.register.medicalStaff') },
+  ];
 
   // OTP step 1.5
   const [otpStep, setOtpStep]         = useState(false);
@@ -393,7 +398,7 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchT
                   style={{ background: c.inputBg, color: c.inputTxt }}
                 />
               </div>
-              {errors.email && <p className="text-[11px] text-red-400">{errors.email}</p>}
+              {(errors.email || serverErrors.email) && <p className="text-[11px] text-red-400">{errors.email || serverErrors.email}</p>}
             </div>
 
             {/* Mot de passe */}
@@ -416,7 +421,7 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchT
                   {showPassword ? <Eye size={15} /> : <EyeOff size={15} />}
                 </button>
               </div>
-              {errors.password && <p className="text-[11px] text-red-400">{errors.password}</p>}
+              {(errors.password || serverErrors.password) && <p className="text-[11px] text-red-400">{errors.password || serverErrors.password}</p>}
             </div>
 
             {/* Confirmer mot de passe */}
@@ -446,12 +451,12 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchT
             <div className="space-y-1">
               <label className="text-[12px] font-medium block" style={{ color: c.label }}>{t('auth.register.accountType')}</label>
               <div className="grid grid-cols-2 gap-3">
-                {["patient", "personnel médical"].map((type) => {
-                  const isSelected = accountType === type;
+                {accountTypeOptions.map(({ value, label }) => {
+                  const isSelected = accountType === value;
                   return (
                     <button
-                      key={type} type="button" onClick={() => setAccountType(type)}
-                      className={`w-full py-2 rounded-xl border-2 transition-all text-[12px] font-medium cursor-pointer capitalize flex items-center justify-center ${
+                      key={value} type="button" onClick={() => setAccountType(value)}
+                      className={`w-full py-2 rounded-xl border-2 transition-all text-[12px] font-medium cursor-pointer flex items-center justify-center ${
                         isSelected ? "border-transparent" : c.typeIdleBorder
                       }`}
                       style={isSelected
@@ -459,7 +464,7 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchT
                         : { background: c.typeIdleBg, color: c.typeIdleTxt }
                       }
                     >
-                      {type}
+                      {label}
                     </button>
                   );
                 })}

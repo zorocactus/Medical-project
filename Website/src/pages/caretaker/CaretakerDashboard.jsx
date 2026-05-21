@@ -139,7 +139,7 @@ function EmergencyModal({ onClose, dk }) {
             className="w-full py-3.5 rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-all hover:opacity-90"
             style={{ background: "#E05555", boxShadow: "0 4px 20px rgba(224,85,85,0.4)" }}
           >
-            <Phone size={16} /> {t('call_samu_btn') || "Call 15 (SAMU) Now"}
+            <Phone size={16} /> {t('call_samu_btn') || "Appeler le 1021 (SAMU)"}
           </button>
           <button
             className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors"
@@ -576,23 +576,6 @@ function HomeView({ onChangePage, dk, c }) {
                   Appeler
                 </a>
               </div>
-              {/* SAMU France */}
-              <div className="flex items-center gap-3 px-5 py-3 border-b"
-                style={{ borderColor: dk ? "rgba(240,149,149,0.15)" : "rgba(240,149,149,0.2)" }}>
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-                  style={{ background: samuBg, color: samuText, border: `1px solid ${samuBorder}` }}>
-                  <Phone size={13} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold" style={{ color: c.txt }}>SAMU France</p>
-                  <p className="text-xs font-bold" style={{ color: samuText }}>15</p>
-                </div>
-                <a href="tel:15"
-                  className="text-xs font-bold px-3 py-1.5 text-white shrink-0 transition-opacity hover:opacity-80"
-                  style={{ background: samuBtn, borderRadius: 8 }}>
-                  Appeler
-                </a>
-              </div>
               {/* Contacts famille patients */}
               {patientEmergencyContacts.map((ec, i) => (
                 <div key={i} className="flex items-center gap-3 px-5 py-3 border-b" style={{ borderColor: c.border }}>
@@ -640,7 +623,7 @@ function HomeView({ onChangePage, dk, c }) {
               </button>
             </div>
             <div className="p-6 space-y-3">
-              {[{ name: "SAMU Algérie", num: "1021" }, { name: "SAMU France", num: "15" }].map(s => (
+              {[{ name: "SAMU Algérie", num: "1021" }].map(s => (
                 <a key={s.num} href={`tel:${s.num}`}
                   className="flex items-center gap-4 p-4 rounded-xl border hover:opacity-80 transition-opacity"
                   style={{ borderColor: samuBorder, background: samuBg }}>
@@ -678,7 +661,6 @@ function EmergenciesView({ dk, c }) {
 
   const samuContacts = [
     { name: "SAMU Algérie", number: "1021", tel: "1021" },
-    { name: "SAMU France",  number: "15",   tel: "15"   },
   ];
 
   const familyContacts = patients
@@ -695,8 +677,8 @@ function EmergenciesView({ dk, c }) {
     });
 
   const procedures = [
-    { title: t('thoracic_pain_proc') || "Douleur Thoracique / Crise Cardiaque", steps: [t('call_samu_step') || "Appeler le SAMU 15 immédiatement", t('keep_calm_step') || "Garder le patient calme et immobile", t('no_meds_step') || "Ne PAS donner de médicaments", t('share_gps_step') || "Partager la position GPS via l'app"], color: c.red },
-    { title: t('hypoglycemia_proc') || "Hypoglycémie (Sucre Bas)", steps: [t('give_sugar_step') || "Donner du sucre ou un jus", t('reevaluate_step') || "Réévaluer après 15 min", t('unconscious_step') || "Si inconscient — appeler le SAMU 15"], color: c.amber },
+    { title: t('thoracic_pain_proc') || "Douleur Thoracique / Crise Cardiaque", steps: [t('call_samu_step') || "Appeler le SAMU 1021 immédiatement", t('keep_calm_step') || "Garder le patient calme et immobile", t('no_meds_step') || "Ne PAS donner de médicaments", t('share_gps_step') || "Partager la position GPS via l'app"], color: c.red },
+    { title: t('hypoglycemia_proc') || "Hypoglycémie (Sucre Bas)", steps: [t('give_sugar_step') || "Donner du sucre ou un jus", t('reevaluate_step') || "Réévaluer après 15 min", t('unconscious_step') || "Si inconscient — appeler le SAMU 1021"], color: c.amber },
     { title: t('hypertension_proc') || "Crise d'Hypertension", steps: [t('sit_patient_step') || "Faire asseoir le patient", t('remeasure_step') || "Remesurer après 5 min", t('systolic_high_step') || "Systolique >180 → SAMU immédiat"], color: c.blue }
   ];
 
@@ -2366,7 +2348,7 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
   const [pwdStatus, setPwdStatus] = useState({ type: "", msg: "" });
   const [isSavingPwd, setIsSavingPwd] = useState(false);
 
-  const [locForm, setLocForm] = useState({ address: "", commune: "", wilaya: "Alger", mapsUrl: "" });
+  const [locForm, setLocForm] = useState({ address: "", commune: "", wilaya: "", mapsUrl: "" });
   const [tarifForm, setTarifForm] = useState({ tarifSoin: "", tarifNuit: "", tarifMensuel: "" });
   const [identityReason, setIdentityReason] = useState("");
   const [emailReason, setEmailReason] = useState("");
@@ -2379,6 +2361,17 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
         email: user.email || "",
         phone: user.phone || "",
       });
+      setLocForm(f => ({
+        ...f,
+        address: user.address || "",
+        commune: user.city    || "",
+        wilaya:  user.wilaya  || "",
+        mapsUrl: user.maps_url || "",
+      }));
+      setTarifForm(f => ({
+        ...f,
+        tarifSoin: user.tarif_de_base != null ? String(user.tarif_de_base) : "",
+      }));
     }
   }, [user]);
 
@@ -2458,7 +2451,10 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
     setLocError("");
     try {
       const area = [locForm.commune, locForm.wilaya].filter(Boolean).join(", ");
-      await api.updateCaretakerProfile({ availability_area: area });
+      await api.updateCaretakerProfile({
+        availability_area: area,
+        maps_url: locForm.mapsUrl || undefined,
+      });
       setLocSaved(true);
       setTimeout(() => setLocSaved(false), 3000);
     } catch (err) {
@@ -2476,10 +2472,8 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
     setTarifSaving(true);
     setTarifError("");
     try {
-      await api.updateMe({
+      await api.updateCaretakerProfile({
         tarif_de_base: tarifForm.tarifSoin || undefined,
-        tarif_nuit:    tarifForm.tarifNuit  || undefined,
-        tarif_mensuel: tarifForm.tarifMensuel || undefined,
       });
       setTarifSaved(true);
       if (onTarifSaved) onTarifSaved(tarifForm.tarifMensuel);

@@ -306,6 +306,36 @@ function RejectedPage({ logout }) {
   );
 }
 
+function SuspendedPage({ logout }) {
+  const { t } = useLanguage();
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F0F4F8", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+      <div style={{ background: "#fff", borderRadius: 24, padding: "48px 40px", maxWidth: 440, width: "100%", textAlign: "center", boxShadow: "0 8px 40px rgba(74,111,165,0.12)" }}>
+        <div style={{ width: 72, height: 72, borderRadius: 20, background: "linear-gradient(135deg, #E05555, #B33B3B)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+        </div>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0D1B2E", marginBottom: 12 }}>
+          {t("suspended_title") || "Compte suspendu"}
+        </h1>
+        <p style={{ fontSize: 14, color: "#5A6E8A", lineHeight: 1.7, marginBottom: 28 }}>
+          {t("suspended_desc") || "Votre compte a été temporairement suspendu par l'administrateur. Contactez le support pour plus d'informations."}
+        </p>
+        <a href="mailto:support@Healy.dz?subject=Demande%20réactivation%20compte%20suspendu"
+          style={{ display: "block", width: "100%", padding: "14px", borderRadius: 14, background: "linear-gradient(135deg, #304B71, #6492C9)", color: "#fff", fontWeight: 700, fontSize: 15, textDecoration: "none", marginBottom: 12 }}>
+          {t("contact_support_btn") || "Contacter le support"}
+        </a>
+        <button onClick={logout}
+          style={{ width: "100%", padding: "14px", borderRadius: 14, background: "transparent", color: "#5A6E8A", fontWeight: 700, fontSize: 15, border: "1px solid #E4EAF5", cursor: "pointer" }}>
+          {t("logout_btn") || "Se déconnecter"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function RoleRouter({ pendingToken }) {
   const { accountType, userData, logout, isApproved } = useAuth();
   const { t } = useLanguage();
@@ -315,6 +345,11 @@ function RoleRouter({ pendingToken }) {
   // userData.role peut venir du backend en anglais (doctor, pharmacist, caretaker)
   // ou en français depuis le Register flow (Médecin, Pharmacien, Garde-malade)
   const role = userData?.role?.toLowerCase();
+
+  // Suspended account — takes priority over all routing
+  if (userData?.is_active === false) {
+    return <SuspendedPage logout={logout} />;
+  }
 
   if (type === "patient") {
     if (userData?.verification_status === "rejected") {

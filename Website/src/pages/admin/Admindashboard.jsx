@@ -783,13 +783,9 @@ const USER_ROLE_PILLS = [
 
 // Status badge config (HMS dark)
 const HMS_USER_STATUS = {
-  active: { label: "Active", color: "#22C55E", bg: "rgba(34,197,94,0.14)" },
-  pending: { label: "Pending", color: "#F59E0B", bg: "rgba(245,158,11,0.14)" },
-  suspended: {
-    label: "Suspended",
-    color: "#EF4444",
-    bg: "rgba(239,68,68,0.14)",
-  },
+  active:    { label: "Actif",    color: "#22C55E", bg: "rgba(34,197,94,0.14)" },
+  pending:   { label: "En attente", color: "#F59E0B", bg: "rgba(245,158,11,0.14)" },
+  suspended: { label: "Suspendu", color: "#EF4444",  bg: "rgba(239,68,68,0.14)" },
 };
 
 // ─── User detail modal ────────────────────────────────────────────────────────
@@ -946,7 +942,7 @@ function UserRowMenu({ user, onSuspend, onView, onEdit, dk }) {
   const actions = [
     { label: t('copy_id') || "Copier ID",  icon: Copy,   action: () => navigator.clipboard?.writeText(String(user.id)) },
     { label: t('view_btn') || "Voir",       icon: Eye,    action: () => onView(user) },
-    { label: t('edit_btn') || "Modifier",   icon: Pencil, action: () => onEdit(user) },
+    { label: t('edit_btn') || "Modifier",   icon: Pencil, action: () => onEdit?.(user) },
     { label: isSuspended ? (t('unban_btn') || "Réactiver") : (t('ban_btn') || "Suspendre"),
       icon: Lock, danger: true, action: () => onSuspend(user.id) },
   ];
@@ -1039,7 +1035,7 @@ function RoleDrawer({ user, dk, onClose, onEdit, onRefresh }) {
   // fallback: generic modal
   return (
     <UserDetailModal user={user} dk={dk} onClose={onClose}
-      onEdit={onEdit} onSuspend={() => { toggle(); }} />
+      onEdit={onEdit} onSuspend={toggle} />
   );
 }
 
@@ -1085,8 +1081,11 @@ function UtilisateursPage({ dk }) {
       const data = await api.getUsers();
       const raw = Array.isArray(data) ? data : (data?.results ?? []);
       if (raw.length > 0) {
-        setUsers(raw.map((u) => {
+        const mapped = raw
+          .filter((u) => u.verification_status !== "pending" && u.verification_status !== "rejected")
+          .map((u) => {
           const fullName = `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || "—";
+          const verStatus = u.verification_status || "verified";
           return {
             // ── table display fields ──
             id: u.id,
@@ -1095,16 +1094,26 @@ function UtilisateursPage({ dk }) {
             role: u.role || "patient",
             wilaya: u.wilaya || u.city || "—",
             phone: u.phone || u.phone_number || "—",
-            status: u.is_active === false ? "suspended" : u.verification_status === "pending" ? "pending" : "active",
+            status: u.is_active === false ? "suspended" : "active",
             joined: u.date_joined?.slice(0, 10) || "—",
-            verified: u.verification_status === "verified",
+            verified: verStatus === "verified",
             // ── fields needed by role-specific drawers/modals ──
             full_name: fullName,
             first_name: u.first_name || "",
             last_name: u.last_name || "",
             is_active: u.is_active !== false,
-            verification_status: u.verification_status || "verified",
+            verification_status: verStatus,
+            // common identity fields (from registration)
+            date_of_birth: u.date_of_birth || u.patient_detail?.date_of_birth || "",
+            sex: u.sex || "",
+            id_card_number: u.id_card_number || "",
+            postal_code: u.postal_code || "",
+            city: u.city || u.wilaya || "",
+            photo_url: u.photo || u.photo_url || "",
+            id_card_recto_url: u.id_card_recto || u.id_card_recto_url || "",
+            id_card_verso_url: u.id_card_verso || u.id_card_verso_url || "",
             // patient fields
+            address: u.address || u.patient_detail?.address || u.pharmacist_detail?.address || "",
             blood_type: u.patient_detail?.medical_profile?.blood_group || "",
             height: u.patient_detail?.medical_profile?.height || "",
             weight: u.patient_detail?.medical_profile?.weight || "",
@@ -1122,10 +1131,10 @@ function UtilisateursPage({ dk }) {
             services: u.caretaker_detail?.services || "",
             // pharmacist fields
             pharmacy_name: u.pharmacist_detail?.pharmacy_name || "",
-            address: u.pharmacist_detail?.address || "",
             business_hours: u.pharmacist_detail?.business_hours || "",
           };
-        }));
+        });
+        setUsers(mapped);
       }
     } catch (err) {
       setError(err.message || t('error_loading_users') || "Impossible de charger les utilisateurs.");
@@ -1228,7 +1237,6 @@ function UtilisateursPage({ dk }) {
         {[
           { value: "all",       label: t('all_tab')       || "Tous" },
           { value: "active",    label: t('active_tab')    || "Actifs" },
-          { value: "pending",   label: t('pending_tab')   || "En attente" },
           { value: "suspended", label: t('suspended_tab') || "Suspendus" },
         ].map(opt => (
           <button key={opt.value} onClick={() => { setStatusFilter(opt.value); setPage(1); }}

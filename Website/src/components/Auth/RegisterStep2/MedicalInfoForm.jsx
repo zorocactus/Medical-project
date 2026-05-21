@@ -449,8 +449,11 @@ export default function MedicalInfoForm({
         newErrors.cabinetName = t("auth.register.fieldRequired");
       if (!formData.experienceYears.trim())
         newErrors.experienceYears = t("auth.register.fieldRequired");
-      if (!formData.mapsUrl.trim())
+      if (!formData.mapsUrl.trim()) {
         newErrors.mapsUrl = t("auth.register.fieldRequired");
+      } else if (!/^https?:\/\/(www\.)?(maps\.google\.com|google\.com\/maps|goo\.gl\/maps|maps\.app\.goo\.gl)/.test(formData.mapsUrl.trim())) {
+        newErrors.mapsUrl = "Veuillez entrer une URL Google Maps valide (ex: https://maps.google.com/...)";
+      }
       if (!formData.docFile)
         newErrors.docFile = t("auth.register.fieldRequired");
     } else if (medicalRole === "Pharmacien") {
@@ -458,8 +461,11 @@ export default function MedicalInfoForm({
         newErrors.pharmacyName = t("auth.register.fieldRequired");
       if (!formData.agrement.trim())
         newErrors.agrement = t("auth.register.fieldRequired");
-      if (!formData.pharmacyMapsUrl.trim())
+      if (!formData.pharmacyMapsUrl.trim()) {
         newErrors.pharmacyMapsUrl = t("auth.register.fieldRequired");
+      } else if (!/^https?:\/\/(www\.)?(maps\.google\.com|google\.com\/maps|goo\.gl\/maps|maps\.app\.goo\.gl)/.test(formData.pharmacyMapsUrl.trim())) {
+        newErrors.pharmacyMapsUrl = "Veuillez entrer une URL Google Maps valide (ex: https://maps.google.com/...)";
+      }
       if (!formData.docFile)
         newErrors.docFile = t("auth.register.fieldRequired");
     } else if (medicalRole === "Garde-malade") {
@@ -793,14 +799,6 @@ export default function MedicalInfoForm({
         </div>
       </div>
 
-      {import.meta.env.DEV && (
-        <button
-          onClick={handleDevFill}
-          className="fixed bottom-4 left-4 z-50 bg-black/80 text-[#8AAEE0] text-[10px] px-3 py-1.5 rounded border border-[#2A4A7F] hover:bg-[#173253] font-mono cursor-pointer"
-        >
-          DEV: Auto-Fill ({medicalRole})
-        </button>
-      )}
     </div>
   );
 }

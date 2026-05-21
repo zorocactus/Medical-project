@@ -64,9 +64,15 @@ function LoginInner({ onLogin, onSwitchToRegister, onForgotPassword }) {
   const [loading, setLoading] = useState(false);
   const [oauthMessage, setOauthMessage] = useState("");
 
+  const [isSuspendedError, setIsSuspendedError] = useState(false);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("expired") === "1") {
+    if (params.get("suspended") === "1") {
+      setIsSuspendedError(true);
+      setApiError(t('auth.login.sessionSuspended'));
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (params.get("expired") === "1") {
       setApiError(t('auth.login.sessionExpired'));
       window.history.replaceState({}, document.title, window.location.pathname);
     }
@@ -84,7 +90,14 @@ function LoginInner({ onLogin, onSwitchToRegister, onForgotPassword }) {
       const me = await login(email, password);
       onLogin(me?.role || "patient", me);
     } catch (err) {
-      setApiError(err.message || t('auth.login.incorrectCredentials'));
+      const msg = err.message || "";
+      const isSuspended = msg === "SUSPENDED" || /suspen|disabled|inactive|inactif/i.test(msg);
+      setIsSuspendedError(isSuspended);
+      setApiError(
+        isSuspended
+          ? t('auth.login.sessionSuspended')
+          : t('auth.login.incorrectCredentials')
+      );
     } finally {
       setLoading(false);
     }
@@ -121,7 +134,11 @@ function LoginInner({ onLogin, onSwitchToRegister, onForgotPassword }) {
 
         {/* ── Messages d'erreur ────────────────────────── */}
         {apiError && (
-          <div className="mb-5 p-3.5 rounded-xl text-sm font-medium border bg-red-500/10 text-red-400 border-red-500/20">
+          <div className={`mb-5 p-3.5 rounded-xl text-sm font-medium border ${
+            isSuspendedError
+              ? "bg-orange-500/10 text-orange-400 border-orange-500/20"
+              : "bg-red-500/10 text-red-400 border-red-500/20"
+          }`}>
             {apiError}
           </div>
         )}

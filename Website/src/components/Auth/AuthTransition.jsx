@@ -49,6 +49,7 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [regError, setRegError]         = useState(null);
   const [fieldErrors, setFieldErrors]   = useState({});
+  const [step1Errors, setStep1Errors]   = useState({});
   const [activeImg, setActiveImg] = useState(0);
 
   useEffect(() => {
@@ -68,6 +69,7 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
   // Étape 1 → 2 : expand le panneau gauche
   const handleNextStep = (userData) => {
     setTempUser(userData);
+    setStep1Errors({});
     setIsExpanded(true);
     setStep(2);
   };
@@ -226,12 +228,7 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
             });
           }
 
-          // ── DIAGNOSTIC LOG ──
-          console.group("[registerDoctor] FormData");
-          for (let [key, value] of fd.entries()) {
-            console.log(key, value instanceof File ? `File(${value.name})` : value);
-          }
-          console.groupEnd();
+          fd.append("maps_url", data.mapsUrl || "");
 
           await api.registerDoctor(fd);
 
@@ -242,6 +239,7 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
           fd.append("cnas_coverage",             data.cnas === "Oui" ? "true" : "false");
           if (data.agreementFile) fd.append("agreement_scan",    data.agreementFile);
           if (data.docFile)       fd.append("registre_commerce", data.docFile);
+          fd.append("maps_url", data.pharmacyMapsUrl || "");
           await api.registerPharmacist(fd);
 
         } else if (backendRole === "caretaker") {
@@ -263,16 +261,41 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
             });
           }
 
+          fd.append("maps_url", data.mapsUrl || "");
           await api.registerCaretaker(fd);
         }
 
         setStep(7);
       } catch (err) {
-        // Tente de parser les erreurs champ par champ retournées par le backend
         let parsed = null;
         try { parsed = JSON.parse(err.message); } catch {}
         if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          const STEP1 = ['email', 'password', 'username', 'first_name', 'last_name'];
+          const STEP2 = ['phone', 'date_of_birth', 'sex', 'id_card_number', 'address', 'postal_code', 'city', 'wilaya'];
+          const STEP3 = ['id_card_recto', 'id_card_verso', 'photo'];
+          const STEP5 = ['specialty', 'order_number', 'clinic_name', 'experience_years',
+                         'practice_authorization', 'cnas_coverage', 'name', 'agreement_number',
+                         'availability_area', 'tarif_de_base'];
+          const keys = Object.keys(parsed);
+          const s1Errs = {};
+          keys.forEach(k => { if (STEP1.includes(k)) s1Errs[k] = Array.isArray(parsed[k]) ? parsed[k][0] : parsed[k]; });
+
           setFieldErrors(parsed);
+
+          if (Object.keys(s1Errs).length > 0) {
+            setStep1Errors(s1Errs);
+            setStep(1);
+          } else if (keys.some(k => STEP2.includes(k))) {
+            setStep(2);
+          } else if (keys.some(k => STEP3.includes(k))) {
+            setStep(3);
+          } else if (keys.some(k => STEP5.includes(k))) {
+            setStep(5);
+          } else {
+            // Erreurs step 6 ou non-reconnues → bandeau visible
+            const firstMsg = Object.values(parsed).flat()[0];
+            if (firstMsg) setRegError(`Erreur : ${firstMsg}`);
+          }
         } else {
           setRegError("Erreur lors de l'inscription médicale : " + err.message);
         }
@@ -289,10 +312,10 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
   const renderCurrentStep = () => {
     if (step === 2) {
       if (tempUser?.accountType === "patient") {
-        return <PatientForm onComplete={handleCompletedStep2} onBack={handleBackFromStep2} savedData={tempUser} />;
+        return <PatientForm onComplete={handleCompletedStep2} onBack={handleBackFromStep2} savedData={tempUser} serverErrors={fieldErrors} />;
       }
       if (tempUser?.accountType === "personnel médical") {
-        return <MedicalForm onComplete={handleCompletedStep2} onBack={handleBackFromStep2} savedData={tempUser} />;
+        return <MedicalForm onComplete={handleCompletedStep2} onBack={handleBackFromStep2} savedData={tempUser} serverErrors={fieldErrors} />;
       }
       // Fallback : type inconnu → connexion directe
       onLogin(tempUser?.accountType || "patient");
@@ -304,7 +327,7 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
         return <PatientIdentityForm onComplete={handleCompletedStep3} onBack={(data) => handleBack(2, data)} savedData={tempUser} serverErrors={fieldErrors} />;
       }
       if (tempUser?.accountType === "personnel médical") {
-        return <MedicalIdentityForm onComplete={handleCompletedStep3} onBack={(data) => handleBack(2, data)} savedData={tempUser} />;
+        return <MedicalIdentityForm onComplete={handleCompletedStep3} onBack={(data) => handleBack(2, data)} savedData={tempUser} serverErrors={fieldErrors} />;
       }
     }
 
@@ -486,6 +509,7 @@ export default function AuthTransition({ onLogin, initialActive = false, onBack 
                 isVisible={isActive}
                 onSwitchToLogin={() => setIsActive(false)}
                 initialData={tempUser}
+                serverErrors={step1Errors}
               />
             </div>
           </>

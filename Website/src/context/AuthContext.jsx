@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useRef } from "react";
 import { login as apiLogin, logout as apiLogout, getMe, isAuthenticated } from "../services/api";
 
 const AuthContext = createContext(null);
@@ -15,6 +15,11 @@ export function AuthProvider({ children }) {
         try {
           const me = await getMe();
           if (me) {
+            if (me.is_active === false) {
+              apiLogout();
+              window.location.href = "/?suspended=1";
+              return;
+            }
             setUserData(me);
             setAccountType(normalizeRole(me.role));
             setIsLoggedIn(true);
@@ -27,6 +32,23 @@ export function AuthProvider({ children }) {
     }
     checkAuth();
   }, []);
+
+  // Poll every 30 s to detect real-time suspension while user is logged in
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const timer = setInterval(async () => {
+      try {
+        const me = await getMe();
+        if (me?.is_active === false) {
+          apiLogout();
+          window.location.href = "/?suspended=1";
+        } else if (me) {
+          setUserData(me);
+        }
+      } catch { /* token expired — apiFetch already redirects */ }
+    }, 30000);
+    return () => clearInterval(timer);
+  }, [isLoggedIn]);
 
   function normalizeRole(role) {
     const map = {
@@ -46,6 +68,10 @@ export function AuthProvider({ children }) {
 
     // Après login on récupère le profil complet
     const me = await getMe();
+    if (me?.is_active === false) {
+      apiLogout();
+      throw new Error("SUSPENDED");
+    }
     setUserData({ ...data, ...me });
     setAccountType(normalizeRole(me?.role || data?.role));
     setIsLoggedIn(true);

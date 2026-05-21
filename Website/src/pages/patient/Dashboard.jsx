@@ -362,14 +362,14 @@ function EmergencyModal({ onClose, dk }) {
         </div>
         <div className="space-y-3 mb-4">
           <button
-            onClick={() => { window.location.href = "tel:15"; }}
+            onClick={() => { window.location.href = "tel:1021"; }}
             className="w-full py-3.5 rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-all hover:opacity-90"
             style={{
               background: "#E05555",
               boxShadow: "0 4px 20px rgba(224,85,85,0.4)",
             }}
           >
-            <Phone size={16} /> {t('call_samu_btn') || "Appeler le 15 (SAMU)"}
+            <Phone size={16} /> {t('call_samu_btn') || "Appeler le 1021 (SAMU)"}
           </button>
           <button
             onClick={() => { window.location.href = "tel:1021"; }}
@@ -2757,14 +2757,6 @@ function AIDiagnosisPage({ dk, firstName, setPage }) {
                 fontSize:15, color:c.txt, lineHeight:1.2, fontFamily:"'DM Sans', sans-serif",
                 maxHeight:100, overflowY:"hidden", padding:"9px 0", minHeight:34 }}/>
 
-            <button onClick={toggleRecording}
-              style={{ width:34, height:34, borderRadius:10, flexShrink:0,
-                border:`1px solid ${isRecording ? "#ef4444" : c.border}`,
-                background: isRecording ? "rgba(239,68,68,.1)" : "transparent",
-                cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
-              <Mic size={18} color={isRecording ? "#ef4444" : c.txt3}/>
-            </button>
-
             <button onClick={() => send()} disabled={!input.trim() && attachedFiles.length === 0}
               style={{ width:40, height:40, borderRadius:12, border:"none", flexShrink:0,
                 cursor: (input.trim() || attachedFiles.length > 0) ? "pointer" : "default",
@@ -2860,9 +2852,8 @@ function AppointmentsPage({
   const [success, setSuccess] = useState("");
   const [err, setErr] = useState("");
   const [tab, setTab] = useState("mesrdv"); // "mesrdv" | "finddoctor"
-  const { globalSearch, setGlobalSearch } = useData();
-  const searchTerm = globalSearch;
-  const setSearchTerm = setGlobalSearch;
+  const [searchTerm, setSearchTerm] = useState("");
+  const searchInputRef = useRef(null);
   const [selectedDoctor, setSelectedDoctor] = useState(null); // for calendar panel
   const [profileDoctor, setProfileDoctor] = useState(null); // for profile modal
 
@@ -2932,7 +2923,6 @@ function AppointmentsPage({
     "Batna",
   ];
   const SPECIALTIES = [
-    t('all_specialties'),
     "Généraliste",
     "Cardiologie",
     "Gynécologie",
@@ -4064,14 +4054,17 @@ function AppointmentsPage({
               <div className="mb-4">
                 <div
                   className="rounded-2xl border flex items-center gap-3 px-4 py-3 search-hover"
+                  onClick={() => searchInputRef.current?.focus()}
                   style={{
                     background: dk ? '#1a2235' : c.card,
                     borderColor: searchFocused ? c.blue : c.border,
                     boxShadow: searchFocused ? `0 0 0 3px ${c.blue}22` : '0 2px 8px rgba(0,0,0,0.06)',
+                    cursor: 'text',
                   }}
                 >
-                  <Search size={18} style={{ color: searchFocused ? c.blue : c.txt3, flexShrink: 0 }} />
+                  <Search size={18} style={{ color: searchFocused ? c.blue : c.txt3, flexShrink: 0, pointerEvents: 'none' }} />
                   <input
+                    ref={searchInputRef}
                     type="text"
                     placeholder="Rechercher un médecin, une spécialité..."
                     value={searchTerm}
@@ -4171,6 +4164,11 @@ function AppointmentsPage({
                         <div className="fixed inset-0 z-10" onClick={() => setSpecOpen(false)} />
                         <div className="absolute top-[calc(100%+4px)] left-0 right-0 z-50 rounded-xl shadow-xl border py-1 max-h-52 overflow-y-auto"
                           style={{ background: c.card, borderColor: c.border, scrollbarWidth: 'thin' }}>
+                          <button onClick={() => { setSpecFilter("All"); setSpecOpen(false); }}
+                            className="w-full px-4 py-2 text-xs text-left transition-all hover:opacity-80 flex items-center justify-between"
+                            style={{ background: specFilter === "All" ? c.blue + "18" : "transparent", color: specFilter === "All" ? c.blue : c.txt, fontWeight: specFilter === "All" ? 700 : 400 }}>
+                            Toutes les spécialités
+                          </button>
                           {SPECIALTIES.map((s) => (
                             <button key={s} onClick={() => { setSpecFilter(s); setSpecOpen(false); }}
                               className="w-full px-4 py-2 text-xs text-left transition-all hover:opacity-80 flex items-center justify-between"
@@ -4656,10 +4654,17 @@ function AppointmentsPage({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 text-xs mt-3 truncate" style={{ color: c.txt3 }}>
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(doc.clinic_address || (doc.name + " " + doc.loc + ", Algerie"))}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1.5 text-xs mt-3 truncate hover:underline"
+                        style={{ color: c.txt3 }}
+                      >
                         <MapPin size={12} className="shrink-0" />
                         <span className="truncate">{doc.clinic_address || doc.loc}</span>
-                      </div>
+                      </a>
 
                       <div className="flex gap-1.5 mt-3 flex-wrap">
                         <span
@@ -4821,7 +4826,7 @@ function PrescriptionsPage({ dk }) {
   // ── Polling statut commande ────────────────────────────────────────────────
   const pollOrders = useCallback(async () => {
     const sentIds = Object.keys(ccStatuses).filter(
-      (id) => ccStatuses[id]?.orderId && ccStatuses[id]?.ccStatus !== "ready"
+      (id) => ccStatuses[id]?.orderId && !["ready", "cancelled"].includes(ccStatuses[id]?.ccStatus)
     );
     if (sentIds.length === 0) return;
 
@@ -4836,6 +4841,7 @@ function PrescriptionsPage({ dk }) {
           const backMap = {
             pending: "sent", preparing: "preparing",
             ready: "ready", delivered: "ready",
+            cancelled: "cancelled",
           };
           const mapped = backMap[(o.status || "").toLowerCase()] || "sent";
           next[rxId] = { ...next[rxId], ccStatus: mapped };
@@ -4850,7 +4856,7 @@ function PrescriptionsPage({ dk }) {
   // Lance le polling quand des commandes sont en cours
   useEffect(() => {
     const hasPending = Object.values(ccStatuses).some(
-      (s) => s?.orderId && s?.ccStatus !== "ready"
+      (s) => s?.orderId && !["ready", "cancelled"].includes(s?.ccStatus)
     );
     if (hasPending) {
       clearInterval(pollRef.current);
@@ -4906,7 +4912,9 @@ function PrescriptionsPage({ dk }) {
       setRxList(
         results.map((rx) => {
           const statusRaw = (rx.status || "active").toLowerCase();
-          const isExpired = rx.valid_until
+          // N'appliquer la vérification de date que sur les ordonnances "active" —
+          // une ordonnance "cancelled" reste "cancelled" même si la date est dépassée.
+          const isExpired = statusRaw === "active" && rx.valid_until
             ? new Date(rx.valid_until) < new Date()
             : false;
           const statusDisplay = isExpired ? "EXPIRED" : statusRaw.toUpperCase();
@@ -4939,17 +4947,15 @@ function PrescriptionsPage({ dk }) {
         const backMap = {
           pending: "sent", preparing: "preparing",
           ready: "ready", delivered: "ready",
+          cancelled: "cancelled",
         };
         const mapped = backMap[status] || "sent";
-        
-        // On évite d'écraser si la commande est annulée sauf si pertinent
-        if (status !== "cancelled") {
-            initialStatuses[rxId] = {
-              ccStatus: mapped,
-              pharmacy: o.pharmacist_name || "Pharmacie",
-              orderId: o.id
-            };
-        }
+        initialStatuses[rxId] = {
+          ccStatus: mapped,
+          pharmacy: o.pharmacist_name || "Pharmacie",
+          orderId: o.id,
+          pharmacistNote: o.pharmacist_note || "",
+        };
       });
       setCcStatuses(initialStatuses);
       
@@ -5121,8 +5127,8 @@ function PrescriptionsPage({ dk }) {
                     <QrCode size={12} /> QR Code
                   </button>
 
-                  {/* Envoyer à la pharmacie — visible si ACTIVE et pas encore envoyé */}
-                  {isActive && !cc && (
+                  {/* Envoyer à la pharmacie — visible si ACTIVE et pas encore envoyé (ou si refusée) */}
+                  {isActive && (!cc || cc.ccStatus === "cancelled") && (
                     <button
                       onClick={() => setSendingRx(rx)}
                       className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg text-white transition-all hover:opacity-90 active:scale-95 ml-auto"
@@ -5135,19 +5141,36 @@ function PrescriptionsPage({ dk }) {
                   {/* Statut Click & Collect */}
                   {cc && (
                     <span className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg ml-auto"
-                      style={{ background: cc.ccStatus === "ready" ? "#2D8C6F18" : c.blue + "15",
-                               color: cc.ccStatus === "ready" ? "#2D8C6F" : c.blue }}>
+                      style={{
+                        background: cc.ccStatus === "ready" ? "#2D8C6F18"
+                          : cc.ccStatus === "cancelled" ? "#E0555518"
+                          : c.blue + "15",
+                        color: cc.ccStatus === "ready" ? "#2D8C6F"
+                          : cc.ccStatus === "cancelled" ? "#E05555"
+                          : c.blue,
+                      }}>
                       {cc.ccStatus === "ready"
                         ? <><CheckCircle size={11} /> Prêt !</>
                         : cc.ccStatus === "preparing"
                         ? <><Clock size={11} /> En préparation</>
+                        : cc.ccStatus === "cancelled"
+                        ? <><X size={11} /> Refusée</>
                         : <><Send size={11} /> Transmis</>}
                     </span>
                   )}
                 </div>
 
-                {/* Tracker Click & Collect */}
-                {cc && (
+                {/* Motif du refus */}
+                {cc?.ccStatus === "cancelled" && (
+                  <div className="mt-3 px-3 py-2 rounded-xl border text-xs"
+                    style={{ background: "#E0555510", borderColor: "#E0555530", color: "#E05555" }}>
+                    <span className="font-bold">Commande refusée par la pharmacie.</span>
+                    {cc.pharmacistNote ? ` Motif : ${cc.pharmacistNote}` : " Vous pouvez la renvoyer à une autre pharmacie."}
+                  </div>
+                )}
+
+                {/* Tracker Click & Collect — masqué si annulé */}
+                {cc && cc.ccStatus !== "cancelled" && (
                   <ClickCollectTracker ccStatus={cc.ccStatus} pharmacy={cc.pharmacy} dk={dk} />
                 )}
               </Card>
@@ -7902,31 +7925,27 @@ export default function PatientDashboard({ onLogout }) {
                       {t('nav_settings') || "Settings"}
                     </button>
                     {/* Dark mode */}
-                    <button className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer">
-                      <Sun
-                        size={14}
-                        style={{ color: dk ? c.txt3 : "#E8A838" }}
-                      />
-                      <button
-                        onClick={toggleTheme}
-                        className="relative rounded-full transition-all duration-150  "
+                    <div
+                      onClick={toggleTheme}
+                      className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer"
+                    >
+                      <Sun size={14} style={{ color: dk ? c.txt3 : "#E8A838" }} />
+                      <div
+                        className="relative rounded-full transition-all duration-150"
                         style={{
                           width: 42,
                           height: 24,
-                          background: dk
-                            ? "linear-gradient(135deg, #304B71, #4A6FA5)"
-                            : "#D5DEEF",
+                          background: dk ? "linear-gradient(135deg, #304B71, #4A6FA5)" : "#D5DEEF",
                           border: `1.5px solid ${dk ? c.blue + "80" : "#BBC8DC"}`,
-                          padding: 0,
                         }}
                       >
                         <div
                           className="absolute top-0.5 rounded-full bg-white shadow-md transition-all duration-150"
                           style={{ width: 18, height: 18, left: dk ? 20 : 2 }}
                         />
-                      </button>
+                      </div>
                       <Moon size={13} style={{ color: dk ? c.blue : c.txt3 }} />
-                    </button>
+                    </div>
                     {/* Divider */}
                     <div
                       className="h-px my-1 mx-2"

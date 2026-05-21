@@ -678,27 +678,6 @@ export default function MedicalDocumentsForm({
         </div>
       </div>
 
-      {import.meta.env.DEV && (
-        <button
-          onClick={() => {
-            const f = new File([""], "dev_diploma.pdf", {
-              type: "application/pdf",
-            });
-            const d = {
-              id: Date.now(),
-              title: "Doctorat en Médecine",
-              institution: "Université d'Alger",
-              date_obtained: "15/06/2015",
-              specialization: "Généraliste",
-              file: f,
-            };
-            setFormData((p) => ({ ...p, diplomas: [...p.diplomas, d] }));
-          }}
-          className="fixed bottom-4 left-4 z-50 bg-black/80 text-[#8AAEE0] text-[10px] px-3 py-1.5 rounded border border-[#2A4A7F] hover:bg-[#173253] font-mono cursor-pointer"
-        >
-          DEV: Add Dummy Diploma
-        </button>
-      )}
     </div>
   );
 }

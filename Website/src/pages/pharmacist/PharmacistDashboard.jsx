@@ -1865,13 +1865,20 @@ function ParametresPage({ dk, onToggleDark }) {
         email: user.email || "",
         phone: user.phone || "",
       });
+      setLocForm(f => ({
+        ...f,
+        address: user.address || "",
+        commune: user.city    || "",
+        wilaya:  user.wilaya  || "",
+        mapsUrl: user.maps_url || "",
+      }));
     }
   }, [user]);
 
   const [locForm, setLocForm] = useState({
-    address: user?.address || "",
-    commune: user?.city   || "",
-    wilaya:  user?.wilaya || "",
+    address: "",
+    commune: "",
+    wilaya:  "",
     mapsUrl: "",
   });
   const [locSaved, setLocSaved] = useState(false);
@@ -1935,13 +1942,19 @@ function ParametresPage({ dk, onToggleDark }) {
 
   const handleSaveLocation = async () => {
     setLocError("");
-    await api.updateMe({
-      address: locForm.address,
-      city:    locForm.commune,
-      wilaya:  locForm.wilaya,
-    }).catch(err => setLocError(err?.message || "Erreur lors de la sauvegarde."));
-    setLocSaved(true);
-    setTimeout(() => setLocSaved(false), 3000);
+    try {
+      await api.updateMe({
+        address: locForm.address || undefined,
+        city:    locForm.commune || undefined,
+        wilaya:  locForm.wilaya || undefined,
+        maps_url: locForm.mapsUrl || undefined,
+      });
+      setLocSaved(true);
+    } catch (err) {
+      setLocError(err?.message || "Erreur lors de la sauvegarde.");
+    } finally {
+      setTimeout(() => setLocSaved(false), 3000);
+    }
   };
 
   return (

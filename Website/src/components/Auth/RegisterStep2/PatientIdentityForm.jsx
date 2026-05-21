@@ -261,33 +261,6 @@ export default function PatientIdentityForm({ onComplete, onBack, savedData, ser
         </div>
       </div>
 
-      {import.meta.env.DEV && (
-        <button
-          onClick={() => {
-            const createDummy = (name) => {
-              const b64 =
-                "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-              const byteString = atob(b64);
-              const ab = new ArrayBuffer(byteString.length);
-              const ia = new Uint8Array(ab);
-              for (let i = 0; i < byteString.length; i++) {
-                ia[i] = byteString.charCodeAt(i);
-              }
-              return new File([new Blob([ab], { type: "image/gif" })], name, {
-                type: "image/gif",
-              });
-            };
-            onComplete({
-              cinRecto: createDummy("cin_recto.gif"),
-              cinVerso: createDummy("cin_verso.gif"),
-              profilePhoto: createDummy("photo.gif"),
-            });
-          }}
-          className="fixed bottom-4 left-4 z-50 bg-black/80 text-[#8AAEE0] text-[10px] px-3 py-1.5 rounded border border-[#2A4A7F] hover:bg-[#173253] font-mono cursor-pointer"
-        >
-          DEV: Auto-Fill
-        </button>
-      )}
     </div>
   );
 }

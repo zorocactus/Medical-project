@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+﻿import { useState, useEffect } from "react";
 import { Phone, User, Home, ChevronDown } from "lucide-react";
 import StepBar from "./StepBar";
 import { useTheme } from "../../../context/ThemeContext";
@@ -136,6 +136,7 @@ export default function PersonalInfoForm({
   currentStep,
   devFillData,
   savedData,
+  serverErrors = {},
 }) {
   const { theme } = useTheme();
   const { t } = useLanguage();
@@ -187,6 +188,19 @@ export default function PersonalInfoForm({
     bloodGroup: savedData?.bloodGroup || "",
   });
   const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    const fieldMap = {
+      phone: 'phone', address: 'address', city: 'city', wilaya: 'wilaya',
+      postal_code: 'postalCode', date_of_birth: 'birthDate', id_card_number: 'idCardNumber',
+    };
+    const mapped = {};
+    Object.entries(serverErrors).forEach(([k, v]) => {
+      const local = fieldMap[k];
+      if (local) mapped[local] = Array.isArray(v) ? v[0] : v;
+    });
+    if (Object.keys(mapped).length > 0) setErrors(prev => ({ ...prev, ...mapped }));
+  }, [serverErrors]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -471,14 +485,6 @@ export default function PersonalInfoForm({
         </div>
       </div>
 
-      {import.meta.env.DEV && (
-        <button
-          onClick={() => onComplete(devFillData)}
-          className="fixed bottom-4 left-4 z-50 bg-black/80 text-[#8AAEE0] text-[10px] px-3 py-1.5 rounded border border-[#2A4A7F] hover:bg-[#173253] font-mono cursor-pointer"
-        >
-          DEV: Auto-Fill
-        </button>
-      )}
     </div>
   );
 }

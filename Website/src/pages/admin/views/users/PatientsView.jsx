@@ -8,8 +8,47 @@ import {
 } from "lucide-react";
 import { getAdminTheme } from "../../adminTheme.js";
 import { Card } from "../../AdminPrimitives.jsx";
+import RegistrationDrawer from "./RegistrationDrawer";
 import { useLanguage } from "../../../../context/LanguageContext";
 import * as api from "../../../../services/api";
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const API_BASE = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "");
+
+function docUrl(url) {
+  if (!url) return null;
+  if (url.startsWith("http")) return url;
+  return `${API_BASE}${url}`;
+}
+
+function DocImage({ url, label, c }) {
+  const src = docUrl(url);
+  if (!src) return (
+    <div className="w-full h-28 rounded-xl border flex items-center justify-center text-xs italic"
+      style={{ borderColor: c.border, background: c.row, color: c.txt3 }}>
+      Non fourni
+    </div>
+  );
+  return (
+    <a href={src} target="_blank" rel="noreferrer" className="block group">
+      <img
+        src={src}
+        alt={label}
+        className="w-full h-28 object-cover rounded-xl border group-hover:opacity-80 transition-opacity"
+        style={{ borderColor: c.border }}
+        onError={e => {
+          e.currentTarget.style.display = "none";
+          e.currentTarget.nextSibling.style.display = "flex";
+        }}
+      />
+      <div className="w-full h-28 rounded-xl border hidden items-center justify-center text-xs font-semibold"
+        style={{ borderColor: c.blue, background: `${c.blue}10`, color: c.blue }}>
+        Voir le document ↗
+      </div>
+    </a>
+  );
+}
 
 // ─── SUB-COMPONENTS ──────────────────────────────────────────────────────────
 
@@ -18,14 +57,19 @@ export function EditPatientModal({ patient, dk, onSave, onClose }) {
   const c = getAdminTheme(dk);
   const [activeTab, setActiveTab] = useState("account");
   const [form, setForm] = useState({
-    first_name: patient.first_name || "",
-    last_name: patient.last_name || "",
-    email: patient.email || "",
-    phone: patient.phone || "",
-    wilaya: patient.wilaya || "",
-    blood_group: patient.blood_group || patient.blood_type || "",
-    height: patient.height || "",
-    weight: patient.weight || "",
+    first_name:     patient.first_name     || "",
+    last_name:      patient.last_name      || "",
+    email:          patient.email          || "",
+    phone:          patient.phone          || "",
+    wilaya:         patient.wilaya         || "",
+    address:        patient.address        || "",
+    city:           patient.city           || "",
+    postal_code:    patient.postal_code    || "",
+    date_of_birth:  patient.date_of_birth  || "",
+    id_card_number: patient.id_card_number || "",
+    blood_group:    patient.blood_group    || patient.blood_type || "",
+    height:         patient.height         || "",
+    weight:         patient.weight         || "",
   });
 
   const field = (label, key, type = "text", placeholder = "") => (
@@ -63,11 +107,11 @@ export function EditPatientModal({ patient, dk, onSave, onClose }) {
             { id: "account", label: t('account_contact'), icon: User },
             { id: "medical", label: t('medical_profile_tab'), icon: Heart },
             { id: "history", label: t('appointment_history_tab'), icon: Clock },
-          ].map(tItem => (
-            <button key={tItem.id} onClick={() => setActiveTab(tItem.id)}
+          ].map(tab => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
               className="px-4 py-3 text-xs font-bold flex items-center gap-2 transition-all border-b-2"
-              style={{ color: activeTab === tItem.id ? c.blue : c.txt3, borderColor: activeTab === tItem.id ? c.blue : "transparent" }}>
-              <tItem.icon size={14} />{tItem.label}
+              style={{ color: activeTab === tab.id ? c.blue : c.txt3, borderColor: activeTab === tab.id ? c.blue : "transparent" }}>
+              <tab.icon size={14} />{tab.label}
             </button>
           ))}
         </div>
@@ -79,14 +123,19 @@ export function EditPatientModal({ patient, dk, onSave, onClose }) {
               {field(t('last_name_label'), "last_name")}
               {field(t('email_address'), "email", "email")}
               {field(t('phone_number'), "phone")}
+              {field("Date de naissance", "date_of_birth", "text", "AAAA-MM-JJ")}
+              {field("N° pièce d'identité", "id_card_number")}
+              {field("Adresse", "address")}
+              {field("Ville", "city")}
+              {field("Code postal", "postal_code")}
               <div className="md:col-span-2">{field(t('wilaya_residence'), "wilaya")}</div>
             </div>
           )}
           {activeTab === "medical" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              {field(t('blood_group') || "Groupe sanguin", "blood_group", "text", "Ex: A+, O-")}
-              {field(t('height_label') || "Taille (cm)", "height", "number")}
-              {field(t('weight_label') || "Poids (kg)", "weight", "number")}
+              {field("Groupe sanguin", "blood_group", "text", "Ex: A+, O-")}
+              {field("Taille (cm)", "height", "number")}
+              {field("Poids (kg)", "weight", "number")}
               <div className="md:col-span-2 p-3 rounded-xl text-xs border" style={{ background: "#4A6FA510", borderColor: "#4A6FA530", color: "#4A6FA5" }}>
                 Les allergies, maladies chroniques et médicaments sont gérés par les médecins lors des consultations.
               </div>
@@ -94,13 +143,13 @@ export function EditPatientModal({ patient, dk, onSave, onClose }) {
           )}
           {activeTab === "history" && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="p-4 rounded-xl border bg-blue-500/5 border-blue-500/10">
-                   <p className="text-xs font-bold text-blue-500 mb-2">{t('admin_note') || "Note de l'administrateur"}</p>
-                   <p className="text-xs opacity-70 leading-relaxed">{t('admin_note_desc') || "Les informations ci-dessous proviennent des dossiers remplis par les praticiens lors des consultations."}</p>
-                </div>
-                <div className="space-y-2 opacity-50 italic text-center py-10 text-xs">
-                   {t('no_medical_history') || "Aucun antécédent médical externe disponible pour le moment."}
-                </div>
+              <div className="p-4 rounded-xl border bg-blue-500/5 border-blue-500/10">
+                <p className="text-xs font-bold text-blue-500 mb-2">Note de l'administrateur</p>
+                <p className="text-xs opacity-70 leading-relaxed">Les informations ci-dessous proviennent des dossiers remplis par les praticiens lors des consultations.</p>
+              </div>
+              <div className="space-y-2 opacity-50 italic text-center py-10 text-xs">
+                Aucun antécédent médical externe disponible pour le moment.
+              </div>
             </div>
           )}
         </div>
@@ -162,14 +211,15 @@ export function PatientDrawer({ patient, dk, onClose, onEdit, onToggleStatus }) 
         {/* ── Tabs ── */}
         <div className="flex px-2 border-b" style={{ borderColor: c.border, background: dk ? "rgba(0,0,0,0.1)" : "#fcfcfc" }}>
           {[
-            { id: "account", label: t('account_contact'), icon: User },
-            { id: "medical", label: t('medical_profile_tab'), icon: Heart },
-            { id: "history", label: t('appointment_history_tab'), icon: Clock },
-          ].map(t => (
-            <button key={t.id} onClick={() => setActiveTab(t.id)}
+            { id: "account",  label: t('account_contact'),       icon: User },
+            { id: "medical",  label: t('medical_profile_tab'),    icon: Heart },
+            { id: "documents",label: "Documents",                 icon: Activity },
+            { id: "history",  label: t('appointment_history_tab'),icon: Clock },
+          ].map(tab => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
               className="px-4 py-3 text-xs font-bold flex items-center gap-2 transition-all border-b-2"
-              style={{ color: activeTab === t.id ? c.blue : c.txt3, borderColor: activeTab === t.id ? c.blue : "transparent" }}>
-              <t.icon size={14} />{t.label}
+              style={{ color: activeTab === tab.id ? c.blue : c.txt3, borderColor: activeTab === tab.id ? c.blue : "transparent" }}>
+              <tab.icon size={14} />{tab.label}
             </button>
           ))}
         </div>
@@ -179,19 +229,28 @@ export function PatientDrawer({ patient, dk, onClose, onEdit, onToggleStatus }) 
           {activeTab === "account" && (
             <div className="grid grid-cols-1 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div className="grid grid-cols-2 gap-4">
-                {field(t('first_name_label'),  patient.first_name)}
-                {field(t('last_name_label'),     patient.last_name)}
+                {field(t('first_name_label'), patient.first_name)}
+                {field(t('last_name_label'),  patient.last_name)}
               </div>
-              {field(t('email_address'),      patient.email)}
-              {field(t('phone_number'), patient.phone)}
-              {field(t('wilaya_residence'), patient.wilaya)}
+              {field(t('email_address'), patient.email)}
+              <div className="grid grid-cols-2 gap-4">
+                {field(t('phone_number'), patient.phone)}
+                {field("Date de naissance", patient.date_of_birth)}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                {field("Sexe", patient.sex === "male" ? "Masculin" : patient.sex === "female" ? "Féminin" : patient.sex)}
+                {field("N° pièce d'identité", patient.id_card_number)}
+              </div>
+              {field("Adresse", patient.address)}
+              <div className="grid grid-cols-3 gap-4">
+                {field("Code postal", patient.postal_code)}
+                {field("Ville", patient.city)}
+                {field(t('wilaya_residence'), patient.wilaya)}
+              </div>
               <div className="mt-2 pt-3 border-t" style={{ borderColor: c.border }}>
                 <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1 block mb-2" style={{ color: c.txt }}>Statut du compte</label>
                 <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border"
-                  style={{
-                    background: dk ? "rgba(255,255,255,0.03)" : "#F8FAFC",
-                    borderColor: c.border,
-                  }}>
+                  style={{ background: dk ? "rgba(255,255,255,0.03)" : "#F8FAFC", borderColor: c.border }}>
                   <span className="w-2 h-2 rounded-full" style={{ background: patient.is_active ? c.green : c.red }} />
                   <span className="text-sm font-semibold" style={{ color: patient.is_active ? c.green : c.red }}>
                     {patient.is_active ? t('active_status') : t('suspended_status')}
@@ -204,23 +263,60 @@ export function PatientDrawer({ patient, dk, onClose, onEdit, onToggleStatus }) 
           {activeTab === "medical" && (
             <div className="grid grid-cols-1 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div className="grid grid-cols-3 gap-4">
-                {field(t('blood_group') || "Groupe sanguin", patient.blood_group)}
-                {field(t('height_label') || "Taille (cm)", patient.height ? `${patient.height} cm` : null)}
-                {field(t('weight_label') || "Poids (kg)", patient.weight ? `${patient.weight} kg` : null)}
+                {field("Groupe sanguin", patient.blood_group)}
+                {field("Taille (cm)", patient.height ? `${patient.height} cm` : null)}
+                {field("Poids (kg)", patient.weight ? `${patient.weight} kg` : null)}
               </div>
+            </div>
+          )}
+
+          {activeTab === "documents" && (
+            <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-2" style={{ color: c.txt }}>Photo de profil</p>
+                <div className="w-24 h-24">
+                  {docUrl(patient.photo_url) ? (
+                    <a href={docUrl(patient.photo_url)} target="_blank" rel="noreferrer">
+                      <img src={docUrl(patient.photo_url)} alt="Photo"
+                        className="w-24 h-24 rounded-2xl object-cover border hover:opacity-80 transition-opacity"
+                        style={{ borderColor: c.border }}
+                        onError={e => { e.currentTarget.parentElement.innerHTML = '<span style="font-size:11px;color:var(--c-txt3)">Non disponible</span>'; }}
+                      />
+                    </a>
+                  ) : (
+                    <div className="w-24 h-24 rounded-2xl border flex items-center justify-center text-xs italic"
+                      style={{ borderColor: c.border, background: c.row, color: c.txt3 }}>
+                      Non fourni
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-2" style={{ color: c.txt }}>CIN Recto</p>
+                  <DocImage url={patient.id_card_recto_url} label="CIN Recto" c={c} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-2" style={{ color: c.txt }}>CIN Verso</p>
+                  <DocImage url={patient.id_card_verso_url} label="CIN Verso" c={c} />
+                </div>
+              </div>
+              <p className="text-[11px] text-center italic" style={{ color: c.txt3 }}>
+                Cliquez sur un document pour l'ouvrir en plein écran
+              </p>
             </div>
           )}
 
           {activeTab === "history" && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div className="p-4 rounded-xl border bg-blue-500/5 border-blue-500/10">
-                <p className="text-xs font-bold text-blue-500 mb-2">{t('admin_note') || "Note de l'administrateur"}</p>
+                <p className="text-xs font-bold text-blue-500 mb-2">Note de l'administrateur</p>
                 <p className="text-xs opacity-70 leading-relaxed">
-                  {t('admin_note_desc') || "Les informations ci-dessous proviennent des dossiers remplis par les praticiens lors des consultations."}
+                  Les informations ci-dessous proviennent des dossiers remplis par les praticiens lors des consultations.
                 </p>
               </div>
               <div className="py-10 text-center opacity-50 italic text-xs" style={{ color: c.txt3 }}>
-                {t('no_medical_history') || "Aucun antécédent médical externe disponible pour le moment."}
+                Aucun antécédent médical externe disponible pour le moment.
               </div>
             </div>
           )}
@@ -228,18 +324,27 @@ export function PatientDrawer({ patient, dk, onClose, onEdit, onToggleStatus }) 
 
         {/* ── Footer ── */}
         <div className="p-6 border-t flex gap-3" style={{ borderColor: c.border }}>
-          <button onClick={onEdit}
-            className="flex-1 py-3 rounded-xl text-xs font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:scale-[1.02] flex items-center justify-center gap-2"
-            style={{ background: c.blue }}>
-            <Edit3 size={14} /> {t('modify')}
-          </button>
-          <button onClick={onToggleStatus}
-            className="flex-1 py-3 rounded-xl text-xs font-bold border transition-all hover:opacity-80 flex items-center justify-center gap-2"
-            style={{ borderColor: patient.is_active ? c.red : c.green, color: patient.is_active ? c.red : c.green }}>
-            {patient.is_active
-              ? <><Lock size={14} /> {t('suspend_btn')}</>
-              : <><Unlock size={14} /> {t('reactivate_btn')}</>}
-          </button>
+          {onEdit && (
+            <button onClick={onEdit}
+              className="flex-1 py-3 rounded-xl text-xs font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:scale-[1.02] flex items-center justify-center gap-2"
+              style={{ background: c.blue }}>
+              <Edit3 size={14} /> {t('modify')}
+            </button>
+          )}
+          {onToggleStatus && (
+            <button onClick={onToggleStatus}
+              className="flex-1 py-3 rounded-xl text-xs font-bold border transition-all hover:opacity-80 flex items-center justify-center gap-2"
+              style={{ borderColor: patient.is_active ? c.red : c.green, color: patient.is_active ? c.red : c.green }}>
+              {patient.is_active
+                ? <><Lock size={14} /> {t('suspend_btn')}</>
+                : <><Unlock size={14} /> {t('reactivate_btn')}</>}
+            </button>
+          )}
+          {!onToggleStatus && !onEdit && (
+            <p className="flex-1 text-center text-xs py-2" style={{ color: c.txt3 }}>
+              Inscription refusée — lecture seule
+            </p>
+          )}
         </div>
       </Card>
     </div>
@@ -317,14 +422,23 @@ export default function PatientsView({ dk }) {
   const fetchPatients = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await api.getAdminUsers({ role: "patient", verification_status: "verified" });
+      const data = await api.getAdminUsers({ role: "patient" });
       const raw = Array.isArray(data) ? data : data?.results || [];
       setPatients(raw.map(u => ({
-         ...u,
-         full_name: `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || "Patient",
-         blood_group: u.patient_detail?.medical_profile?.blood_group || "",
-         height: u.patient_detail?.medical_profile?.height || "",
-         weight: u.patient_detail?.medical_profile?.weight || "",
+        ...u,
+        full_name:          `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || "Patient",
+        blood_group:        u.patient_detail?.medical_profile?.blood_group || u.blood_group || "",
+        height:             u.patient_detail?.medical_profile?.height      || u.height      || "",
+        weight:             u.patient_detail?.medical_profile?.weight      || u.weight      || "",
+        date_of_birth:      u.date_of_birth     || u.patient_detail?.date_of_birth  || "",
+        sex:                u.sex               || u.patient_detail?.sex            || "",
+        address:            u.address           || u.patient_detail?.address        || "",
+        postal_code:        u.postal_code       || u.patient_detail?.postal_code    || "",
+        city:               u.city              || u.patient_detail?.city           || "",
+        id_card_number:     u.id_card_number    || u.patient_detail?.id_card_number || "",
+        photo_url:          u.photo             || u.patient_detail?.photo          || "",
+        id_card_recto_url:  u.id_card_recto     || u.patient_detail?.id_card_recto  || "",
+        id_card_verso_url:  u.id_card_verso     || u.patient_detail?.id_card_verso  || "",
       })));
     } catch (_err) {
       // keep mock
@@ -514,7 +628,7 @@ export default function PatientsView({ dk }) {
       </div>
 
       {selectedPatient && (
-        <PatientDrawer patient={selectedPatient} dk={dk ?? true} onClose={() => setSelectedPatient(null)}
+        <RegistrationDrawer user={selectedPatient} dk={dk ?? true} onClose={() => setSelectedPatient(null)}
           onEdit={() => { setEditPatient(selectedPatient); setSelectedPatient(null); }}
           onToggleStatus={async () => { await api.toggleSuspendUser(selectedPatient.id); fetchPatients(); setSelectedPatient(null); }}
         />

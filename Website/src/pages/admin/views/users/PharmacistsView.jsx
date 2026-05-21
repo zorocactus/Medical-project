@@ -10,6 +10,7 @@ import { T, HMS, getAdminTheme } from "../../adminTheme.js";
 import { Card } from "../../AdminPrimitives.jsx";
 import { useLanguage } from "../../../../context/LanguageContext";
 import * as api from "../../../../services/api";
+import RegistrationDrawer from "./RegistrationDrawer";
 
 // ─── SUB-COMPONENTS (kept exactly as original) ────────────────────────────────
 
@@ -178,18 +179,27 @@ export function PharmacistDrawer({ user, dk, onClose, onEdit, onToggleStatus, on
 
         {/* Footer */}
         <div className="p-6 border-t flex gap-3" style={{ borderColor: c.border }}>
-          <button onClick={onEdit}
-            className="flex-1 py-3 rounded-xl text-xs font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:scale-[1.02] flex items-center justify-center gap-2"
-            style={{ background: c.blue }}>
-            <Edit3 size={14} /> {t('modify')}
-          </button>
-          <button onClick={onToggleStatus}
-            className="flex-1 py-3 rounded-xl text-xs font-bold border transition-all hover:opacity-80 flex items-center justify-center gap-2"
-            style={{ borderColor: user.is_active ? c.red : c.green, color: user.is_active ? c.red : c.green }}>
-            {user.is_active
-              ? <><Lock size={14} /> {t('suspend_btn') || "Suspendre"}</>
-              : <><Unlock size={14} /> {t('reactivate_btn') || "Réactiver"}</>}
-          </button>
+          {onEdit && (
+            <button onClick={onEdit}
+              className="flex-1 py-3 rounded-xl text-xs font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:scale-[1.02] flex items-center justify-center gap-2"
+              style={{ background: c.blue }}>
+              <Edit3 size={14} /> {t('modify')}
+            </button>
+          )}
+          {onToggleStatus && (
+            <button onClick={onToggleStatus}
+              className="flex-1 py-3 rounded-xl text-xs font-bold border transition-all hover:opacity-80 flex items-center justify-center gap-2"
+              style={{ borderColor: user.is_active ? c.red : c.green, color: user.is_active ? c.red : c.green }}>
+              {user.is_active
+                ? <><Lock size={14} /> {t('suspend_btn') || "Suspendre"}</>
+                : <><Unlock size={14} /> {t('reactivate_btn') || "Réactiver"}</>}
+            </button>
+          )}
+          {!onEdit && !onToggleStatus && (
+            <p className="flex-1 text-center text-xs py-2" style={{ color: c.txt3 }}>
+              Inscription refusée — lecture seule
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -406,7 +416,7 @@ export default function PharmacistsView({ dk }) {
       </div>
 
       {sel && (
-        <PharmacistDrawer user={sel} dk={dk ?? true} onClose={() => setSel(null)}
+        <RegistrationDrawer user={sel} dk={dk ?? true} onClose={() => setSel(null)}
           onEdit={() => { setEdit(sel); setSel(null); }}
           onToggleStatus={async () => { await api.toggleSuspendUser(sel.id); fetchData(); setSel(null); }}
           onVerify={async () => { await api.verifyUser(sel.id); fetchData(); setSel(null); }}

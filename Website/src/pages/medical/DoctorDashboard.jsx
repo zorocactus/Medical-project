@@ -2604,6 +2604,13 @@ function SettingsView() {
         email: user.email || "",
         phone: user.phone || "",
       });
+      setLocForm(f => ({
+        ...f,
+        address: user.address || "",
+        commune: user.city    || "",
+        wilaya:  user.wilaya  || "",
+        mapsUrl: user.maps_url || "",
+      }));
     }
   }, [user]);
 
@@ -2675,9 +2682,20 @@ function SettingsView() {
     }
   };
 
-  const handleSaveLocation = () => {
-    setLocSaved(true);
-    setTimeout(() => setLocSaved(false), 3000);
+  const handleSaveLocation = async () => {
+    try {
+      await api.updateMe({
+        address: locForm.address || undefined,
+        city:    locForm.commune || undefined,
+        wilaya:  locForm.wilaya || undefined,
+        maps_url: locForm.mapsUrl || undefined,
+      });
+      setLocSaved(true);
+    } catch (err) {
+      console.error("Doctor location save failed:", err);
+    } finally {
+      setTimeout(() => setLocSaved(false), 3000);
+    }
   };
 
   // Helper: input style
@@ -3406,7 +3424,7 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
               <div>
                 <p style={{ fontSize: 18, fontWeight: 800, color: c.txt, margin: 0 }}>{t('dashboard.doctor.consultation.recorded')}</p>
                 <p style={{ fontSize: 13, color: c.txt3, margin: 0, marginTop: 2 }}>
-                  {sessionResult?.consultation_id ? `#${sessionResult.consultation_id}` : ""}
+                  {sessionResult?.consultation_id ? `#${String(sessionResult.consultation_id).slice(0, 8).toUpperCase()}` : ""}
                 </p>
               </div>
             </div>
@@ -3643,7 +3661,7 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                       placeholder={placeholder}
                       value={vitals[key]}
                       onChange={e => setVitals(v => ({ ...v, [key]: e.target.value }))}
-                      className="flex-1 min-w-0 bg-transparent border-none outline-none font-medium"
+                      className="flex-1 min-w-0 bg-transparent border-none outline-none font-medium placeholder:opacity-40"
                       style={{ fontSize: 16, fontWeight: 500, color: dk ? "#ffffff" : "#0D2644" }}
                     />
                     <span className="text-xs shrink-0" style={{ color: "#A0B5CD" }}>{unit}</span>
@@ -3664,7 +3682,7 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                   value={symptoms}
                   onChange={e => setSymptoms(e.target.value)}
                   rows={3}
-                  className="w-full rounded-xl border outline-none resize-none text-sm"
+                  className="w-full rounded-xl border outline-none resize-none text-sm placeholder:opacity-40"
                   style={{ padding: "8px 10px", background: dk ? "rgba(30,45,74,0.3)" : "#F8FAFC", borderColor: dk ? "#374151" : "#E5E7EB", color: dk ? "#ffffff" : "#0D2644" }}
                   placeholder="Décrire les symptômes…"
                 />
@@ -3678,7 +3696,7 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                 <input
                   value={diagnosis}
                   onChange={e => { setDiagnosis(e.target.value); if (e.target.value.trim()) setDiagnosisError(false); }}
-                  className="w-full rounded-xl border outline-none text-sm"
+                  className="w-full rounded-xl border outline-none text-sm placeholder:opacity-40"
                   style={{ padding: "8px 10px", background: dk ? "rgba(30,45,74,0.3)" : "#F8FAFC", borderColor: diagnosisError ? "#EF4444" : (dk ? "#374151" : "#E5E7EB"), color: dk ? "#ffffff" : "#0D2644" }}
                   placeholder="Diagnostic principal…"
                 />
@@ -3694,7 +3712,7 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
                   value={plan}
                   onChange={e => setPlan(e.target.value)}
                   rows={2}
-                  className="w-full rounded-xl border outline-none resize-none text-sm"
+                  className="w-full rounded-xl border outline-none resize-none text-sm placeholder:opacity-40"
                   style={{ padding: "8px 10px", background: dk ? "rgba(30,45,74,0.3)" : "#F8FAFC", borderColor: dk ? "#374151" : "#E5E7EB", color: dk ? "#ffffff" : "#0D2644" }}
                   placeholder="Plan de traitement proposé…"
                 />
