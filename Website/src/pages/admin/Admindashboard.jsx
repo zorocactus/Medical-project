@@ -2987,170 +2987,8 @@ function AuditPage({ dk }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // PAGE: PARAMÈTRES
 // ─────────────────────────────────────────────────────────────────────────────
-function AdminSettingsPage({ dk, onToggleDark }) {
-  const { t, lang, setLang } = useLanguage();
-  const c = getAdminTheme(dk);
-  const [secFields, setSecFields] = useState(() => ({
-    timeout: localStorage.getItem("admin_timeout") || "30 minutes",
-    maxLogin: localStorage.getItem("admin_maxLogin") || "5 essais",
-    ipWhitelist: localStorage.getItem("admin_ipWhitelist") || "10.0.0.1/24",
-  }));
-  const [saved, setSaved] = useState(false);
-
-  const handleSave = () => {
-    localStorage.setItem("admin_timeout", secFields.timeout);
-    localStorage.setItem("admin_maxLogin", secFields.maxLogin);
-    localStorage.setItem("admin_ipWhitelist", secFields.ipWhitelist);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
-  };
-
-  return (
-    <>
-      <div className="mb-6">
-        <h1 className="text-2xl font-black" style={{ color: c.txt }}>
-          {t('admin_settings_title')}
-        </h1>
-        <p className="text-sm mt-0.5" style={{ color: c.txt2 }}>
-          {t('admin_settings_desc')}
-        </p>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <Card dk={dk} style={{ padding: 20 }}>
-          <p className="font-bold mb-5" style={{ color: c.txt }}>
-            {t('platform_settings')}
-          </p>
-          <div className="space-y-4">
-            {[
-              { id: "open_reg",    label: t('open_registration')      || "Inscription ouverte",        on: true },
-              { id: "verif",       label: t('mandatory_verification')  || "Vérification obligatoire",   on: true },
-              { id: "two_fa",      label: t('two_fa_doctors')          || "2FA pour médecins",           on: true },
-              { id: "maintenance", label: t('maintenance_mode')        || "Mode maintenance",            on: false },
-              { id: "logs",        label: t('detailed_logs')           || "Logs détaillés",              on: true },
-              { id: "dark",        label: t('dark_mode')               || "Mode sombre",                 on: dk, toggle: true },
-            ].map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between py-2 border-b last:border-0"
-                style={{ borderColor: c.border }}
-              >
-                <span className="text-sm" style={{ color: c.txt }}>
-                  {item.label}
-                </span>
-                <button
-                  onClick={item.toggle ? onToggleDark : undefined}
-                  className="relative w-10 h-5 rounded-full transition-all"
-                  style={{ background: item.on ? c.blue : c.border }}
-                >
-                  <div
-                    className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all"
-                    style={{ left: item.on ? "22px" : "2px" }}
-                  />
-                </button>
-              </div>
-            ))}
-
-            {/* Language Selection */}
-            <div className="pt-4 mt-2 border-t" style={{ borderColor: c.border }}>
-              <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: c.txt2 }}>
-                {t('language')}
-              </p>
-              <div className="flex gap-2">
-                {[
-                  { id: 'fr', label: "Français" },
-                  { id: 'en', label: "English" }
-                ].map(l => (
-                  <button
-                    key={l.id}
-                    onClick={() => setLang(l.id)}
-                    className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold border transition-all"
-                    style={{
-                      background: lang === l.id ? c.blue : 'transparent',
-                      color: lang === l.id ? '#fff' : c.txt2,
-                      borderColor: lang === l.id ? c.blue : c.border
-                    }}
-                  >
-                    <span>{l.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Card>
-        <Card dk={dk} style={{ padding: 20 }}>
-          <p className="font-bold mb-5" style={{ color: c.txt }}>
-            {t('security_access')}
-          </p>
-          <div className="space-y-4">
-            {[
-              { label: t('session_timeout') || "Session timeout", key: "timeout" },
-              { label: t('max_login_attempts') || "Max tentatives login", key: "maxLogin" },
-              { label: t('ip_whitelist_admin') || "IP whitelist admin", key: "ipWhitelist" },
-            ].map((item) => (
-              <div key={item.label} className="mb-3">
-                <label
-                  className="block text-xs font-bold uppercase tracking-wide mb-1.5"
-                  style={{ color: c.txt2 }}
-                >
-                  {item.label}
-                </label>
-                <input
-                  value={secFields[item.key]}
-                  onChange={(e) =>
-                    setSecFields((p) => ({ ...p, [item.key]: e.target.value }))
-                  }
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border"
-                  style={{
-                    background: dk ? "#0A1220" : "#F8FAFC",
-                    borderColor: c.border,
-                    color: c.txt,
-                  }}
-                />
-              </div>
-            ))}
-            <button
-              onClick={handleSave}
-              className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
-              style={{ background: saved ? c.green : c.blue }}
-            >
-              {saved ? t('changes_saved') : t('save_changes')}
-            </button>
-          </div>
-        </Card>
-        <Card dk={dk} style={{ padding: 20 }}>
-          <p className="font-bold mb-4" style={{ color: c.txt }}>
-            {t('platform_info')}
-          </p>
-          <div className="space-y-3">
-            {[
-              [t('version') || "Version", "Healy Admin v2.2.0"],
-              [t('build') || "Build", "#20260328-stable"],
-              [t('environment') || "Environnement", t('production_alg') || "Production · Algérie"],
-              [t('db_label') || "Base de données", "PostgreSQL 16.2"],
-              [t('conformity') || "Conformité", "RGPD · ISO 27001"],
-            ].map(([k, v]) => (
-              <div
-                key={k}
-                className="flex items-center justify-between py-1.5 border-b last:border-0"
-                style={{ borderColor: c.border }}
-              >
-                <span
-                  className="text-xs font-semibold"
-                  style={{ color: c.txt3 }}
-                >
-                  {k}
-                </span>
-                <span className="text-xs font-bold" style={{ color: c.txt2 }}>
-                  {v}
-                </span>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-    </>
-  );
-}
+// AdminSettingsPage supprimée — mode sombre et langue désormais dans la topbar.
+// État système : affiché sur OverviewPage via /api/admin/system-status/.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NOTIFICATION PANEL
@@ -3218,7 +3056,7 @@ function NotifPanel({ notifs, dk, c, onRead, onMarkAllRead }) {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AdminDashboard({ onLogout }) {
   const { userData } = useAuth();
-  const { t } = useLanguage();
+  const { t, lang, setLang } = useLanguage();
   const { theme, toggleTheme } = useTheme();
   const dk = theme === "dark";
   const [activePage, setActivePage] = useState("overview");
@@ -3274,10 +3112,6 @@ export default function AdminDashboard({ onLogout }) {
         return <GardeMaladesPage dk={dk} />;
       case "audit":
         return <AuditPage dk={dk} />;
-      case "parametres":
-        return (
-          <AdminSettingsPage dk={dk} onToggleDark={toggleTheme} />
-        );
       // ── Gestion des Comptes ──
       case "patients":
         return <PatientsView dk={dk} />;
@@ -3384,7 +3218,6 @@ export default function AdminDashboard({ onLogout }) {
                 pharmacies: t('pharmacies'),
                 gardemalades: t('caretakers'),
                 audit: t('audit'),
-                parametres: t('settings'),
                 patients: t('patients'),
                 doctors: t('doctors'),
                 caretakers: t('caretakers'),
@@ -3433,6 +3266,16 @@ export default function AdminDashboard({ onLogout }) {
               />
             )}
           </div>
+
+          {/* Language toggle (FR ⇄ EN) */}
+          <button
+            onClick={() => setLang(lang === 'fr' ? 'en' : 'fr')}
+            className="h-8 px-2.5 flex items-center justify-center rounded-xl border text-[11px] font-black tracking-wider transition-all hover:opacity-80"
+            title={t('language') || "Langue"}
+            style={{ borderColor: c.border, color: c.txt2 }}
+          >
+            {(lang || 'fr').toUpperCase()}
+          </button>
 
           {/* Dark mode toggle */}
           <button

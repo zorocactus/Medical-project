@@ -6,7 +6,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 // IMP-01 fix : BASE_URL via variable d'environnement Vite (définie dans .env)
-const BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
+const RAW_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
+const BASE_URL = RAW_BASE_URL.replace(/\/+$/, "");
+const buildUrl = (endpoint) => `${BASE_URL}${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`;
+
 // ─── Helpers internes ─────────────────────────────────────────────────────────
 
 /** Récupère le token JWT sauvegardé au login */
@@ -55,7 +58,8 @@ export async function apiFetch(endpoint, options = {}) {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
+  const requestUrl = buildUrl(endpoint);
+  const response = await fetch(requestUrl, {
     ...options,
     headers,
   });
@@ -66,7 +70,7 @@ export async function apiFetch(endpoint, options = {}) {
       const refreshed = await refreshAccessToken();
       if (refreshed) {
         headers["Authorization"] = `Bearer ${getToken()}`;
-        const retryResponse = await fetch(`${BASE_URL}${endpoint}`, {
+        const retryResponse = await fetch(requestUrl, {
           ...options,
           headers,
         });
@@ -118,7 +122,8 @@ export async function apiFetchBlob(endpoint, options = {}) {
   const headers = { ...options.headers };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  let response = await fetch(`${BASE_URL}${endpoint}`, {
+  const requestUrl = buildUrl(endpoint);
+  let response = await fetch(requestUrl, {
     ...options,
     headers,
   });
@@ -127,7 +132,7 @@ export async function apiFetchBlob(endpoint, options = {}) {
     const refreshed = await refreshAccessToken();
     if (refreshed) {
       headers["Authorization"] = `Bearer ${getToken()}`;
-      response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
+      response = await fetch(requestUrl, { ...options, headers });
       if (!response.ok) throw new Error(`Erreur ${response.status}`);
       return response.blob();
     } else {
@@ -169,7 +174,7 @@ export async function refreshAccessToken() {
     const refresh = getRefreshToken();
     if (!refresh) return false;
 
-    const res = await fetch(`${BASE_URL}/auth/refresh/`, {
+    const res = await fetch(buildUrl("/auth/refresh/"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh }),
@@ -193,7 +198,7 @@ export async function logout() {
   const refresh = getRefreshToken();
   if (refresh) {
     try {
-      await fetch(`${BASE_URL}/auth/logout/`, {
+      await fetch(buildUrl("/auth/logout/"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1361,6 +1366,11 @@ export async function getAdminDashboard() {
   return apiFetch("/admin/dashboard/");
 }
 
+/** (Admin) État système : versions backend/DB, statut email, compteurs users */
+export async function getSystemStatus() {
+  return apiFetch("/admin/system-status/");
+}
+
 /** (Admin) Catalogue médicaments — ?search=nom&category=cardio */
 export async function getMedications(filters = {}) {
   const params = new URLSearchParams(filters).toString();
@@ -1575,7 +1585,7 @@ export async function analyzeSymptoms(data) {
  */
 export async function analyzeSymptomsStream(data, onChunk, onMeta, onAlert = () => {}) {
   const token = getToken();
-  const response = await fetch(`${BASE_URL}/diagnostic/chat/stream/`, {
+  const response = await fetch(buildUrl("/diagnostic/chat/stream/"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1630,7 +1640,7 @@ export async function analyzeMedicalFileStream(file, message = "", lang = "fr", 
   formData.append("lang", lang);
   formData.append("history", JSON.stringify(history));
 
-  const response = await fetch(`${BASE_URL}/diagnostic/chat/analyze-file/`, {
+  const response = await fetch(buildUrl("/diagnostic/chat/analyze-file/"), {
     method: "POST",
     headers: { "Authorization": `Bearer ${token}` },
     body: formData,

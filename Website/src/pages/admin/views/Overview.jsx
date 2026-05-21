@@ -7,6 +7,8 @@ import { getAdminTheme } from "../adminTheme.js";
 import { Card, Badge } from "../AdminPrimitives.jsx";
 import * as api from "../../../services/api";
 import { useLanguage } from "../../../context/LanguageContext";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
 function KpiCard({ label, value, sub, icon: Icon, color, trend, dk }) {
@@ -62,23 +64,43 @@ export default function OverviewPage({ dk, onNav }) {
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
   const [usingFallback, setUsingFallback] = useState(false);
+  const [sysStatus, setSysStatus] = useState(null);
 
-  const exportCSV = () => {
+  const exportPDF = () => {
     const rows = [
-      [t('indicator_label'), t('value_label')],
       [t('utilisateurs_totaux'), kpis?.total_users ?? "—"],
       [t('medecins_verifies'), kpis?.verified_doctors ?? "—"],
       [t('pharmacies_actives'), kpis?.active_pharmacies ?? "—"],
       [t('total_rdv'), kpis?.total_appointments ?? "—"],
     ];
-    const csv = rows.map(r => r.join(";")).join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Healy_report_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+
+    const doc = new jsPDF();
+    const title = t('export_report') || "Rapport";
+    const dateLabel = new Date().toLocaleDateString(lang === "fr" ? "fr-FR" : "en-US", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+
+    doc.setFontSize(16);
+    doc.text(title, 14, 18);
+    doc.setFontSize(10);
+    doc.text(`${t('updated_at', { time: dateLabel })}`, 14, 26);
+
+    autoTable(doc, {
+      startY: 32,
+      head: [[t('indicator_label'), t('value_label')]],
+      body: rows,
+      theme: 'striped',
+      headStyles: { fillColor: '#304B71', textColor: '#ffffff' },
+      styles: { fontSize: 10 },
+      columnStyles: {
+        0: { cellWidth: 90 },
+        1: { cellWidth: 70 },
+      },
+    });
+
+    doc.save(`Healy_report_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
   const fetchData = async () => {
@@ -97,6 +119,13 @@ export default function OverviewPage({ dk, onNav }) {
       setLoading(false);
       setRefreshing(false);
       setLastRefresh(new Date());
+    }
+    // État système (non bloquant — failure silencieuse autorisée)
+    try {
+      const s = await api.getSystemStatus();
+      setSysStatus(s);
+    } catch {
+      setSysStatus(null);
     }
   };
 
@@ -170,7 +199,7 @@ export default function OverviewPage({ dk, onNav }) {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={exportCSV}
+            onClick={exportPDF}
             disabled={usingFallback}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ borderColor: c.border, color: c.txt2 }}
@@ -321,17 +350,37 @@ export default function OverviewPage({ dk, onNav }) {
             </button>
           </div>
           <div className="space-y-3">
-            {[
-              {
-                label: "API Backend",
-                status: kpis ? "ok" : "warn",
-                msg: kpis ? t('system_operational') : t('server_unreachable'),
-              },
-              { label: t('database') || "Database", status: "ok", msg: "PostgreSQL" },
-              { label: "Auth JWT", status: "ok", msg: "Active" },
-              { label: "Notifications", status: "ok", msg: t('active_status') || "Active" },
-              { label: t('reports') || "Reports", status: "ok", msg: t('system_operational') || "Ready" },
-            ].map((s, i) => (
+            {(() => {
+              // Statuts réels depuis /api/admin/system-status/ ; fallback prudent si l'API ne répond pas.
+              const backendOk  = !!sysStatus?.backend?.status && sysStatus.backend.status === 'ok';
+              const dbOk       = sysStatus?.database?.status === 'ok';
+              const emailState = sysStatus?.email?.status;
+              const djangoV    = sysStatus?.backend?.django;
+              const dbV        = sysStatus?.database?.version;
+              return [
+                {
+                  label: "API Backend",
+                  status: (kpis && backendOk) ? "ok" : (sysStatus ? "warn" : (kpis ? "ok" : "warn")),
+                  msg: djangoV ? `Django ${djangoV}` : (kpis ? t('system_operational') : t('server_unreachable')),
+                },
+                {
+                  label: t('database') || "Database",
+                  status: dbOk ? "ok" : (sysStatus ? "err" : "ok"),
+                  msg: dbV || "PostgreSQL",
+                },
+                { label: "Auth JWT", status: "ok", msg: t('active_status') || "Active" },
+                {
+                  label: "Email",
+                  status: emailState === 'ok' ? "ok" : (emailState === 'unconfigured' ? "warn" : "ok"),
+                  msg: emailState === 'unconfigured' ? (t('unconfigured') || "Non configuré") : (sysStatus?.email?.host || "SMTP"),
+                },
+                {
+                  label: t('reports') || "Reports",
+                  status: "ok",
+                  msg: t('system_operational') || "Ready",
+                },
+              ];
+            })().map((s, i) => (
               <div
                 key={i}
                 className="flex items-center justify-between py-2 border-b last:border-0"

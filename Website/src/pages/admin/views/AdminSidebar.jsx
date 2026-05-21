@@ -1,6 +1,6 @@
 ﻿// src/pages/admin/views/AdminSidebar.jsx
 import {
-  LayoutDashboard, Users, Pill, Shield, Settings,
+  LayoutDashboard, Users, Pill, Shield,
   UserCheck, Calendar, X,
   LogOut, User, Activity, ListFilter,
   Building2, ClipboardList, ShieldAlert
@@ -58,7 +58,6 @@ export default function AdminSidebar({
       items: [
         { id: "reports",      label: t('reports'),      icon: ShieldAlert, badge: true },
         { id: "audit",        label: t('audit'),        icon: Shield },
-        { id: "parametres",   label: t('parametres'),   icon: Settings },
       ],
     },
   ];
