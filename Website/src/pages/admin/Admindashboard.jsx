@@ -3,6 +3,7 @@
 // Les vues individuelles sont dans ./views/
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import * as api from "../../services/api";
@@ -926,15 +927,39 @@ function UserRowMenu({ user, onSuspend, onView, onEdit, dk }) {
   const { t } = useLanguage();
   const c = getAdminTheme(dk);
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef(null);
+  const menuRef = useRef(null);
+
+  const MENU_W = 176; // w-44
+
+  const updatePosition = () => {
+    const btn = btnRef.current;
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    setPos({
+      top: r.bottom + 4,
+      left: Math.max(8, r.right - MENU_W),
+    });
+  };
 
   useEffect(() => {
     if (!open) return;
+    updatePosition();
     const close = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      if (menuRef.current?.contains(e.target)) return;
+      if (btnRef.current?.contains(e.target)) return;
+      setOpen(false);
     };
+    const onScrollOrResize = () => setOpen(false);
     document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
+    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onScrollOrResize);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      window.removeEventListener("scroll", onScrollOrResize, true);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
   }, [open]);
 
   const isSuspended = user.status === "suspended";
@@ -948,21 +973,26 @@ function UserRowMenu({ user, onSuspend, onView, onEdit, dk }) {
   ];
 
   return (
-    <div className="relative" ref={ref}>
+    <>
       <button
+        ref={btnRef}
         onClick={(e) => {
           e.stopPropagation();
           setOpen((v) => !v);
         }}
-        className="w-7 h-7 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-white/10"
+        className="w-7 h-7 rounded-md flex items-center justify-center opacity-60 group-hover:opacity-100 transition-all hover:bg-white/10"
         style={{ color: c.txt3 }}
       >
         <MoreHorizontal size={15} />
       </button>
-      {open && (
+      {open && createPortal(
         <div
-          className="absolute right-0 top-8 z-50 rounded-lg border shadow-2xl py-1 w-44 overflow-hidden"
+          ref={menuRef}
+          onClick={(e) => e.stopPropagation()}
+          className="fixed z-[9999] rounded-lg border shadow-2xl py-1 w-44 overflow-hidden"
           style={{
+            top: pos.top,
+            left: pos.left,
             background: c.card,
             borderColor: c.border,
             boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
@@ -982,9 +1012,10 @@ function UserRowMenu({ user, onSuspend, onView, onEdit, dk }) {
               {label}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }
 
@@ -3067,7 +3098,10 @@ export default function AdminDashboard({ onLogout }) {
   const notifRef = useRef(null);
   const c = getAdminTheme(dk);
 
-  useEffect(() => {
+  // Refresh des badges + notifications. Appelé au mount, à chaque navigation
+  // et toutes les 60s pour détecter les nouveaux signalements faits par
+  // d'autres admins ou via les autres flux backend.
+  const refreshBadges = useCallback(() => {
     api.getPendingDoctors()
       .then(d => { const n = Array.isArray(d) ? d.length : (d?.results?.length ?? 0); setBadgeCounts(p => ({ ...p, validation: n })); })
       .catch(() => {});
@@ -3083,6 +3117,12 @@ export default function AdminDashboard({ onLogout }) {
   }, []);
 
   useEffect(() => {
+    refreshBadges();
+    const poll = setInterval(refreshBadges, 60_000);
+    return () => clearInterval(poll);
+  }, [refreshBadges]);
+
+  useEffect(() => {
     if (!notifOpen) return;
     const h = e => { if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false); };
     document.addEventListener("mousedown", h);
@@ -3092,7 +3132,10 @@ export default function AdminDashboard({ onLogout }) {
   const handleNav = useCallback((page) => {
     setActivePage(page);
     setMobileMenu(false);
-  }, []);
+    // Recharge les badges à chaque navigation pour refléter le travail fait
+    // sur la page précédente (ex: traitement de signalement ou validation).
+    refreshBadges();
+  }, [refreshBadges]);
 
   const renderPage = () => {
     switch (activePage) {
@@ -3122,7 +3165,12 @@ export default function AdminDashboard({ onLogout }) {
       case "pharmacists":
         return <PharmacistsView dk={dk} />;
       case "reports":
-        return <ReportsView dk={dk} />;
+        return (
+          <ReportsView
+            dk={dk}
+            onCountChange={n => setBadgeCounts(p => ({ ...p, reports: n }))}
+          />
+        );
       case "profile_updates":
         return <ProfileUpdateRequests dk={dk} />;
 

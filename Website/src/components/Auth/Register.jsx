@@ -243,11 +243,8 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchT
         style={{ background: c.bg }}
       >
         <div className="max-w-md w-full mx-auto">
-          <div className="flex items-center gap-2.5 mb-6">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: c.blue }}>
-              <ShieldCheck size={18} color="white" strokeWidth={2.5} />
-            </div>
-            <span className="font-bold text-lg tracking-tight" style={{ color: c.title }}>Healy</span>
+          <div className="flex items-center mb-6">
+            <img src="/healy-logo.svg" alt="Healy" className="h-10 w-auto" />
           </div>
 
           <div className="mb-5">
@@ -331,11 +328,8 @@ export default function RegisterForm({ onLogin, onNextStep, isVisible, onSwitchT
     >
       <div className="max-w-md w-full mx-auto">
 
-        <div className="flex items-center gap-2.5 mb-4">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: c.blue }}>
-            <UserCircle size={18} color="white" strokeWidth={2.5} />
-          </div>
-          <span className="font-bold text-lg tracking-tight" style={{ color: c.title }}>Healy</span>
+        <div className="flex items-center mb-4">
+          <img src="/healy-logo.svg" alt="Healy" className="h-10 w-auto" />
         </div>
 
         <div className="mb-3">

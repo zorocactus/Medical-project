@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { 
-  ShieldAlert, RefreshCw, CheckCircle, XCircle, 
-  Calendar, User, Shield, MessageCircle, MoreHorizontal,
-  Search, Filter, Clock, Eye, X
+import {
+  ShieldAlert, RefreshCw, CheckCircle, XCircle,
+  Calendar, Shield, MoreHorizontal,
+  Search, Clock, Eye, X, AlertTriangle, Ban
 } from "lucide-react";
 import { getAdminTheme } from "../adminTheme.js";
 import { Card, Badge } from "../AdminPrimitives.jsx";
@@ -10,40 +10,80 @@ import DashSelect from "../../../components/ui/DashSelect.jsx";
 import { useLanguage } from "../../../context/LanguageContext";
 import * as api from "../../../services/api";
 
-const MOCK_REPORTS = [];
+// Libellés et couleurs des catégories de signalement (alignés sur le backend)
+const CATEGORY_META = {
+  harassment:     { label: "Harcèlement",     color: "#E05555" },
+  spam:           { label: "Spam",            color: "#E8A838" },
+  fraud:          { label: "Fraude",          color: "#A33B3B" },
+  inappropriate:  { label: "Inapproprié",     color: "#7B5EA7" },
+  misinformation: { label: "Désinformation",  color: "#4A6FA5" },
+  other:          { label: "Autre",           color: "#5A6E8A" },
+};
 
-export default function ReportsView({ dk }) {
+const ACTION_META = {
+  warn:      { label: "Avertissement",   color: "#E8A838" },
+  suspend:   { label: "Suspension",      color: "#E05555" },
+  dismissed: { label: "Classé sans suite", color: "#5A6E8A" },
+  none:      { label: "Aucune action",   color: "#9AACBE" },
+};
+
+export default function ReportsView({ dk, onCountChange }) {
   const { t } = useLanguage();
   const c = getAdminTheme(dk);
-  const [reports, setReports] = useState(MOCK_REPORTS);
+  const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all"); // all, pending, resolved, dismissed
   const [search, setSearch] = useState("");
   const [selectedReport, setSelectedReport] = useState(null);
+  // Modal d'action : { id, action: 'warn'|'suspend'|'dismiss', notes }
+  const [actionModal, setActionModal] = useState(null);
+  const [actionBusy, setActionBusy]   = useState(false);
 
-  useEffect(() => {
-    const fetchReports = async () => {
-      try {
-        const data = await api.getReports();
-        const list = Array.isArray(data) ? data : (data?.results ?? []);
-        if (list.length > 0) setReports(list);
-      } catch (err) {
-        console.error("Erreur lors de la récupération des signalements:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchReports();
-  }, []);
+  // Synchronise le badge du sidebar avec le nombre réel de signalements pending.
+  const syncPendingCount = (list) => {
+    if (typeof onCountChange === "function") {
+      onCountChange(list.filter(r => r.status === "pending").length);
+    }
+  };
 
-  const handleAction = async (id, action) => {
+  const fetchReports = async () => {
     try {
-      await api.handleReportAction(id, action);
-      setReports(prev => prev.map(r => 
-        r.id === id ? { ...r, status: action === 'resolve' ? 'resolved' : 'dismissed' } : r
-      ));
+      const data = await api.getReports();
+      const list = Array.isArray(data) ? data : (data?.results ?? []);
+      setReports(list);
+      syncPendingCount(list);
     } catch (err) {
-      console.error("Erreur lors du traitement du signalement.");
+      console.error("Erreur lors de la récupération des signalements:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchReports(); }, []);
+
+  const openAction = (report, actionType) => {
+    setActionModal({ report, action: actionType, notes: "" });
+  };
+
+  const submitAction = async () => {
+    if (!actionModal) return;
+    setActionBusy(true);
+    try {
+      const updated = await api.handleReportAction(
+        actionModal.report.id, actionModal.action, actionModal.notes.trim()
+      );
+      // Remplace en place avec la version serveur (contient resolved_by, etc.)
+      const newList = reports.map(r =>
+        r.id === actionModal.report.id ? { ...r, ...updated } : r
+      );
+      setReports(newList);
+      syncPendingCount(newList);  // ← badge sidebar mis à jour
+      setActionModal(null);
+      setSelectedReport(null);
+    } catch (err) {
+      alert("Échec : " + (err?.message || "action refusée"));
+    } finally {
+      setActionBusy(false);
     }
   };
 
@@ -140,7 +180,7 @@ export default function ReportsView({ dk }) {
           <table className="w-full border-collapse">
             <thead>
               <tr style={{ background: dk ? "rgba(255,255,255,0.02)" : "#FAFBFD", borderBottom: `1px solid ${c.border}` }}>
-                {[t('date'), t('reporter_col'), t('reported_col'), t('reason_col'), t('status_label'), "Actions"].map(h => (
+                {[t('date'), t('reporter_col'), t('reported_col'), "Catégorie", t('reason_col'), t('status_label'), "Actions"].map(h => (
                   <th key={h} className="text-left py-4 px-5 text-[11px] font-black uppercase tracking-wider" style={{ color: c.txt3 }}>
                     {h}
                   </th>
@@ -172,7 +212,13 @@ export default function ReportsView({ dk }) {
                       {getRoleBadge(report.reported_role)}
                     </div>
                   </td>
-                  <td className="py-4 px-5 max-w-[300px]">
+                  <td className="py-4 px-5">
+                    {(() => {
+                      const meta = CATEGORY_META[report.category] || CATEGORY_META.other;
+                      return <Badge color={meta.color} bg={meta.color + "1A"}>{meta.label}</Badge>;
+                    })()}
+                  </td>
+                  <td className="py-4 px-5 max-w-[260px]">
                     <p className="text-sm line-clamp-2 italic" style={{ color: c.txt2 }}>
                       "{report.reason}"
                     </p>
@@ -192,17 +238,25 @@ export default function ReportsView({ dk }) {
                       </button>
                       {report.status === "pending" ? (
                         <>
-                          <button 
-                            onClick={() => handleAction(report.id, "resolve")}
-                            title="Marquer comme traité"
+                          <button
+                            onClick={() => openAction(report, "warn")}
+                            title="Avertir l'utilisateur signalé"
                             className="w-8 h-8 rounded-lg flex items-center justify-center text-white transition-transform hover:scale-110 active:scale-95"
-                            style={{ background: "#2D8C6F" }}
+                            style={{ background: "#E8A838" }}
                           >
-                            <CheckCircle size={16} />
+                            <AlertTriangle size={16} />
                           </button>
-                          <button 
-                            onClick={() => handleAction(report.id, "dismiss")}
-                            title="Ignorer"
+                          <button
+                            onClick={() => openAction(report, "suspend")}
+                            title="Suspendre le compte signalé"
+                            className="w-8 h-8 rounded-lg flex items-center justify-center text-white transition-transform hover:scale-110 active:scale-95"
+                            style={{ background: "#E05555" }}
+                          >
+                            <Ban size={16} />
+                          </button>
+                          <button
+                            onClick={() => openAction(report, "dismiss")}
+                            title="Classer sans suite"
                             className="w-8 h-8 rounded-lg flex items-center justify-center border transition-transform hover:scale-110 active:scale-95"
                             style={{ borderColor: c.border, color: c.txt3, background: c.card }}
                           >
@@ -220,7 +274,7 @@ export default function ReportsView({ dk }) {
               ))}
               {filteredReports.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center">
+                  <td colSpan={7} className="py-12 text-center">
                     <div className="flex flex-col items-center gap-3 opacity-40" style={{ color: c.txt3 }}>
                       <Shield size={48} strokeWidth={1} />
                       <p className="text-sm font-medium">{t('no_reports_found')}</p>
@@ -274,9 +328,9 @@ export default function ReportsView({ dk }) {
             {/* ── Parties impliquées ── */}
             <div className="px-6 pb-4 grid grid-cols-2 gap-3">
               {[
-                { label: t('reporter_col'), name: selectedReport.reporter_name, role: selectedReport.reporter_role },
-                { label: t('reported_col'), name: selectedReport.reported_name, role: selectedReport.reported_role },
-              ].map(({ label, name, role }) => {
+                { label: t('reporter_col'), name: selectedReport.reporter_name, role: selectedReport.reporter_role, suspended: false },
+                { label: t('reported_col'), name: selectedReport.reported_name, role: selectedReport.reported_role, suspended: selectedReport.reported_is_active === false },
+              ].map(({ label, name, role, suspended }) => {
                 const initials = (name || "?").split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
                 return (
                   <div key={label} className="rounded-2xl p-4 border flex flex-col gap-2"
@@ -292,9 +346,30 @@ export default function ReportsView({ dk }) {
                       <p className="text-sm font-bold truncate" style={{ color: c.txt }}>{name || "—"}</p>
                     </div>
                     {getRoleBadge(role)}
+                    {suspended && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                        style={{ background: "#E0555520", color: "#E05555" }}>
+                        Compte suspendu
+                      </span>
+                    )}
                   </div>
                 );
               })}
+            </div>
+
+            {/* ── Catégorie + récidive ── */}
+            <div className="px-6 pb-4 flex flex-wrap items-center gap-2">
+              {(() => {
+                const meta = CATEGORY_META[selectedReport.category] || CATEGORY_META.other;
+                return <Badge color={meta.color} bg={meta.color + "1A"}>{meta.label}</Badge>;
+              })()}
+              {selectedReport.reported_user_report_count > 1 && (
+                <span className="text-[11px] font-bold px-2 py-1 rounded-full flex items-center gap-1"
+                  style={{ background: "#E0555520", color: "#E05555" }}>
+                  <ShieldAlert size={11} />
+                  {selectedReport.reported_user_report_count} signalements au total
+                </span>
+              )}
             </div>
 
             {/* ── Motif ── */}
@@ -310,6 +385,35 @@ export default function ReportsView({ dk }) {
               </div>
             </div>
 
+            {/* ── Si traité : action prise + notes admin + qui ── */}
+            {selectedReport.status !== "pending" && (
+              <div className="px-6 pb-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: c.txt3 }}>
+                    Décision
+                  </p>
+                  {(() => {
+                    const meta = ACTION_META[selectedReport.action_taken] || ACTION_META.none;
+                    return <Badge color={meta.color} bg={meta.color + "1A"}>{meta.label}</Badge>;
+                  })()}
+                </div>
+                {selectedReport.admin_notes && (
+                  <div className="rounded-xl p-3 border text-xs leading-relaxed"
+                    style={{ background: c.blueLight, borderColor: c.border, color: c.txt2 }}>
+                    {selectedReport.admin_notes}
+                  </div>
+                )}
+                {selectedReport.resolved_by_name && (
+                  <p className="text-[11px]" style={{ color: c.txt3 }}>
+                    Traité par <strong>{selectedReport.resolved_by_name}</strong>
+                    {selectedReport.resolved_at && (
+                      <> · {new Date(selectedReport.resolved_at).toLocaleString('fr-FR', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</>
+                    )}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* ── Meta : date + statut ── */}
             <div className="px-6 pb-5 flex items-center justify-between">
               <div className="flex items-center gap-1.5">
@@ -324,25 +428,128 @@ export default function ReportsView({ dk }) {
               {getStatusBadge(selectedReport.status)}
             </div>
 
-            {/* ── Actions ── */}
+            {/* ── Actions de modération (3 niveaux) ── */}
             {selectedReport.status === "pending" && (
-              <div className="px-6 pb-6 flex gap-3 border-t pt-5" style={{ borderColor: c.border }}>
+              <div className="px-6 pb-6 grid grid-cols-3 gap-2 border-t pt-5" style={{ borderColor: c.border }}>
                 <button
-                  onClick={() => { handleAction(selectedReport.id, "resolve"); setSelectedReport(null); }}
-                  className="flex-1 py-3 rounded-2xl text-white text-sm font-bold transition-all active:scale-95 hover:opacity-90"
-                  style={{ background: "#2D8C6F" }}
+                  onClick={() => openAction(selectedReport, "warn")}
+                  className="py-2.5 rounded-2xl text-white text-xs font-bold transition-all active:scale-95 hover:opacity-90 flex items-center justify-center gap-1.5"
+                  style={{ background: "#E8A838" }}
+                  title="Notifier l'utilisateur signalé"
                 >
-                  {t('process_report_btn')}
+                  <AlertTriangle size={14} /> Avertir
                 </button>
                 <button
-                  onClick={() => { handleAction(selectedReport.id, "dismiss"); setSelectedReport(null); }}
-                  className="flex-1 py-3 rounded-2xl text-sm font-bold border transition-all active:scale-95 hover:opacity-80"
-                  style={{ borderColor: c.border, color: c.txt2, background: "transparent" }}
+                  onClick={() => openAction(selectedReport, "suspend")}
+                  className="py-2.5 rounded-2xl text-white text-xs font-bold transition-all active:scale-95 hover:opacity-90 flex items-center justify-center gap-1.5"
+                  style={{ background: "#E05555" }}
+                  title="Désactiver le compte signalé"
                 >
-                  {t('ignore_report_btn')}
+                  <Ban size={14} /> Suspendre
+                </button>
+                <button
+                  onClick={() => openAction(selectedReport, "dismiss")}
+                  className="py-2.5 rounded-2xl text-xs font-bold border transition-all active:scale-95 hover:opacity-80 flex items-center justify-center gap-1.5"
+                  style={{ borderColor: c.border, color: c.txt2, background: "transparent" }}
+                  title="Classer sans suite"
+                >
+                  <XCircle size={14} /> Ignorer
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL CONFIRMATION ACTION (avec saisie notes admin) ──────────── */}
+      {actionModal && (
+        <div
+          className="fixed inset-0 z-[110] flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)" }}
+          onClick={() => !actionBusy && setActionModal(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-3xl overflow-hidden shadow-2xl"
+            style={{ background: c.card, border: `1px solid ${c.border}` }}
+            onClick={e => e.stopPropagation()}
+          >
+            {(() => {
+              const meta = {
+                warn:    { label: "Avertir l'utilisateur",    icon: AlertTriangle, color: "#E8A838",
+                           desc: "Une notification d'avertissement sera envoyée à l'utilisateur signalé." },
+                suspend: { label: "Suspendre le compte",      icon: Ban,           color: "#E05555",
+                           desc: "Le compte sera désactivé. L'utilisateur ne pourra plus se connecter." },
+                dismiss: { label: "Classer sans suite",       icon: XCircle,       color: "#5A6E8A",
+                           desc: "Le signalement sera marqué comme ignoré, sans action sur le compte." },
+              }[actionModal.action];
+              const Icon = meta.icon;
+              return (
+                <>
+                  <div className="px-6 pt-6 pb-4 flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-2xl flex items-center justify-center"
+                        style={{ background: meta.color + "18" }}>
+                        <Icon size={22} style={{ color: meta.color }} />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-black" style={{ color: c.txt }}>{meta.label}</h3>
+                        <p className="text-xs mt-0.5" style={{ color: c.txt3 }}>
+                          Signalement #{actionModal.report.id}
+                        </p>
+                      </div>
+                    </div>
+                    <button onClick={() => !actionBusy && setActionModal(null)}
+                      className="w-8 h-8 rounded-xl flex items-center justify-center border hover:opacity-70"
+                      style={{ borderColor: c.border, color: c.txt3 }}>
+                      <X size={14} />
+                    </button>
+                  </div>
+
+                  <div className="px-6 pb-4">
+                    <p className="text-sm leading-relaxed" style={{ color: c.txt2 }}>{meta.desc}</p>
+                  </div>
+
+                  <div className="px-6 pb-5">
+                    <label className="text-[10px] font-black uppercase tracking-widest" style={{ color: c.txt3 }}>
+                      Notes internes {actionModal.action !== 'dismiss' && '(visible par le user)'}
+                    </label>
+                    <textarea
+                      value={actionModal.notes}
+                      onChange={e => setActionModal(m => ({ ...m, notes: e.target.value }))}
+                      placeholder={
+                        actionModal.action === 'warn'
+                          ? "Ex : Veuillez modérer vos propos dans la messagerie."
+                          : actionModal.action === 'suspend'
+                          ? "Ex : Comportement répété malgré avertissements."
+                          : "Ex : Signalement non fondé après vérification."
+                      }
+                      rows={4}
+                      className="mt-2 w-full px-4 py-3 rounded-2xl border text-sm outline-none resize-none"
+                      style={{ background: c.blueLight, borderColor: c.border, color: c.txt }}
+                    />
+                  </div>
+
+                  <div className="px-6 pb-6 flex gap-3 border-t pt-5" style={{ borderColor: c.border }}>
+                    <button
+                      onClick={() => !actionBusy && setActionModal(null)}
+                      disabled={actionBusy}
+                      className="flex-1 py-3 rounded-2xl text-sm font-bold border transition-all hover:opacity-80 disabled:opacity-50"
+                      style={{ borderColor: c.border, color: c.txt2, background: "transparent" }}
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      onClick={submitAction}
+                      disabled={actionBusy}
+                      className="flex-1 py-3 rounded-2xl text-white text-sm font-bold transition-all active:scale-95 hover:opacity-90 disabled:opacity-50"
+                      style={{ background: meta.color }}
+                    >
+                      {actionBusy ? "Traitement…" : "Confirmer"}
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}

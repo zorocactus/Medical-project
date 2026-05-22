@@ -142,17 +142,8 @@ export default function AdminSidebar({
         style={{ borderColor: c.border }}
       >
         <div className="flex items-center gap-3">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-            style={{ background: c.blue }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <rect x="9" y="2" width="6" height="20" rx="2" fill="white" opacity="0.95" />
-              <rect x="2" y="9" width="20" height="6" rx="2" fill="white" opacity="0.95" />
-            </svg>
-          </div>
+          <img src="/healy-logo.svg" alt="Healy" className="h-8 w-auto shrink-0" />
           <div>
-            <p className="text-sm font-bold leading-tight" style={{ color: c.txt }}>Healy</p>
             <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: c.txt3 }}>
               Admin Console
             </p>

@@ -1540,14 +1540,15 @@ export async function unblockUser(userId) {
 }
 
 /**
- * Signaler un utilisateur aux administrateurs
+ * Signaler un utilisateur aux administrateurs.
  * @param {number} userId
  * @param {string} reason
+ * @param {string} [category] - "harassment" | "spam" | "fraud" | "inappropriate" | "misinformation" | "other"
  */
-export async function reportUser(userId, reason) {
+export async function reportUser(userId, reason, category = "other") {
   return apiFetch("/chat/report/", {
     method: "POST",
-    body: JSON.stringify({ reported_user_id: userId, reason }),
+    body: JSON.stringify({ reported_user_id: userId, reason, category }),
   });
 }
 
@@ -1559,14 +1560,18 @@ export async function getReports() {
 }
 
 /**
- * Traite un signalement (Admin uniquement)
+ * Traite un signalement (Admin uniquement) avec une vraie action de modération.
  * @param {number} reportId
- * @param {string} action - 'resolve' ou 'dismiss'
+ * @param {string} action - "warn" | "suspend" | "dismiss"
+ *   - warn    : avertit le user signalé (notif in-app)
+ *   - suspend : désactive le compte du user signalé + notif
+ *   - dismiss : signalement classé sans suite
+ * @param {string} [notes] - notes internes admin (visibles dans le détail du report)
  */
-export async function handleReportAction(reportId, action) {
+export async function handleReportAction(reportId, action, notes = "") {
   return apiFetch(`/chat/reports/${reportId}/action/`, {
     method: "POST",
-    body: JSON.stringify({ action }),
+    body: JSON.stringify({ action, notes }),
   });
 }
 

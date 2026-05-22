@@ -188,16 +188,8 @@ export default function ForgotPassword({ onBack }) {
     >
       <div className="max-w-sm w-full mx-auto">
         {/* Logo */}
-        <div className="flex items-center gap-2.5 mb-8">
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: c.blue }}
-          >
-            <Activity size={18} color="white" strokeWidth={2.5} />
-          </div>
-          <span className="font-bold text-lg tracking-tight" style={{ color: c.title }}>
-            Healy
-          </span>
+        <div className="flex items-center mb-8">
+          <img src="/healy-logo.svg" alt="Healy" className="h-10 w-auto" />
         </div>
 
         {/* Bouton retour */}

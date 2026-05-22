@@ -3296,26 +3296,9 @@ export default function GardeMaladeDashboard({ onLogout }) {
         style={{ background: c.nav, borderColor: c.border }}
       >
         <div className="w-full px-6 h-[60px] flex items-center gap-3">
-          {/* Logo SVG Healy */}
-          <div className="flex items-center gap-2 shrink-0 mr-2">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-              style={{ background: "linear-gradient(135deg, #304B71, #6492C9)" }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <rect x="9" y="2" width="6" height="20" rx="2" fill="white" opacity="0.95" />
-                <rect x="2" y="9" width="20" height="6" rx="2" fill="white" opacity="0.95" />
-                <path
-                  d="M4 14 L6 10 L8 13 L10 7 L12 15 L14 11 L16 13 L18 11"
-                  stroke="#6492C9"
-                  strokeWidth="1.3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  fill="none"
-                />
-              </svg>
-            </div>
-            <span className="font-bold text-base" style={{ color: c.txt }}>Healy</span>
+          {/* Logo Healy */}
+          <div className="flex items-center shrink-0 mr-2">
+            <img src="/healy-logo.svg" alt="Healy" className="h-9 w-auto" />
           </div>
 
           {/* Liens Nav centrés */}

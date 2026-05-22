@@ -36,14 +36,9 @@ export default function Navbar({ onLogin, onRegister }) {
       <a
         href="#"
         onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-        className="flex items-center gap-2.5 font-bold text-[1.2rem] text-[#395886] no-underline"
+        className="flex items-center no-underline"
       >
-        <div className="w-8 h-8 bg-[#395886] rounded-[9px] flex items-center justify-center flex-shrink-0">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M6 0h2v14H6V0zM0 6h14v2H0V6z" fill="white" />
-          </svg>
-        </div>
-        Healy
+        <img src="/healy-logo.svg" alt="Healy" className="h-9 w-auto" />
       </a>
 
       {/* Nav links */}
