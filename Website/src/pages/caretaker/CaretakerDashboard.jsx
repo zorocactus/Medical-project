@@ -2994,16 +2994,35 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
 function NotificationsView({ dk, c }) {
   const { globalNotifications, markNotificationRead, markAllNotificationsRead } = useData();
 
-  const typeColor = { error: "#E05555", warning: "#E8A838", success: "#2D8C6F", info: "#4A6FA5" };
-  const typeLabel = { error: "Erreur", warning: "Attention", success: "Succès", info: "Info" };
+  // Couleurs par type — gère à la fois les types backend (caretaker/appointment/...) et locaux (error/warning/...)
+  const typeColor = {
+    error: "#E05555", warning: "#E8A838", success: "#2D8C6F", info: "#4A6FA5",
+    caretaker: "#7B5EA7", appointment: "#4A6FA5", pharmacy: "#E8A838", system: "#5A6E8A",
+  };
+  const typeLabel = {
+    error: "Erreur", warning: "Attention", success: "Succès", info: "Info",
+    caretaker: "Patient", appointment: "Rendez-vous", pharmacy: "Pharmacie", system: "Système",
+  };
 
-  useEffect(() => { markAllNotificationsRead(); }, []);
+  const unreadCount = globalNotifications.filter(n => !n.is_read).length;
 
   return (
     <div className="animate-in fade-in duration-500 space-y-6">
-      <header>
-        <h1 className="text-3xl font-bold mb-1" style={{ color: c.txt }}>Notifications</h1>
-        <p className="text-sm font-medium" style={{ color: c.txt3 }}>Historique de vos alertes et messages système</p>
+      <header className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-3xl font-bold mb-1" style={{ color: c.txt }}>Notifications</h1>
+          <p className="text-sm font-medium" style={{ color: c.txt3 }}>
+            Historique de vos alertes et messages système
+          </p>
+        </div>
+        {unreadCount > 0 && (
+          <button
+            onClick={markAllNotificationsRead}
+            className="text-xs font-bold px-3 py-2 rounded-xl border hover:opacity-80"
+            style={{ borderColor: c.border, color: c.blue }}>
+            Tout marquer lu
+          </button>
+        )}
       </header>
 
       {globalNotifications.length === 0 ? (
@@ -3014,14 +3033,14 @@ function NotificationsView({ dk, c }) {
         </Card>
       ) : (
         <div className="rounded-2xl border overflow-hidden" style={{ background: c.card, borderColor: c.border }}>
-          {globalNotifications.map((n, i) => {
+          {globalNotifications.map((n) => {
             const color = typeColor[n.type] || typeColor.info;
             const label = typeLabel[n.type] || "Info";
             return (
               <div key={n.id}
-                onClick={() => markNotificationRead(n.id)}
+                onClick={() => !n.is_read && markNotificationRead(n.id)}
                 className="flex items-start gap-4 px-5 py-4 border-b last:border-b-0 cursor-pointer transition-colors hover:bg-black/[.02]"
-                style={{ borderColor: c.border, background: n.read ? "transparent" : (color + "08") }}>
+                style={{ borderColor: c.border, background: n.is_read ? "transparent" : (color + "08") }}>
                 <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
                   style={{ background: color + "15", border: `1px solid ${color}30` }}>
                   <Bell size={14} style={{ color }} />
@@ -3032,11 +3051,11 @@ function NotificationsView({ dk, c }) {
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: color + "15", color }}>
                       {label}
                     </span>
-                    {!n.read && <span className="w-1.5 h-1.5 rounded-full ml-auto shrink-0" style={{ background: color }} />}
+                    {!n.is_read && <span className="w-1.5 h-1.5 rounded-full ml-auto shrink-0" style={{ background: color }} />}
                   </div>
                   <p className="text-xs leading-relaxed" style={{ color: c.txt2 }}>{n.message}</p>
-                  {n.createdAt && (
-                    <p className="text-[10px] mt-1" style={{ color: c.txt3 }}>{formatNotifDate(n.createdAt)}</p>
+                  {n.created_at && (
+                    <p className="text-[10px] mt-1" style={{ color: c.txt3 }}>{formatNotifDate(n.created_at)}</p>
                   )}
                 </div>
               </div>
@@ -3156,7 +3175,7 @@ export default function GardeMaladeDashboard({ onLogout }) {
   const [mobileMenu, setMobileMenu] = useState(false);
   const { globalNotifications, markAllNotificationsRead } = useData();
   const [tarifMensuel, setTarifMensuel] = useState("");
-  const unreadCount = globalNotifications.filter(n => !n.read).length;
+  const unreadCount = globalNotifications.filter(n => !n.is_read).length;
 
   const dk = theme === "dark";
   const c = dk ? T.dark : T.light;
@@ -3434,11 +3453,13 @@ export default function GardeMaladeDashboard({ onLogout }) {
                     </button>
 
                     {/* Toggle jour/nuit */}
-                    <button className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl cursor-pointer">
+                    <div className="pd-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl">
                       <Sun size={14} style={{ color: dk ? c.txt3 : "#E8A838" }} />
                       <button
+                        type="button"
                         onClick={toggleTheme}
-                        className="relative rounded-full transition-all duration-300"
+                        aria-label="Basculer le thème"
+                        className="relative rounded-full transition-all duration-300 cursor-pointer"
                         style={{
                           width: 42,
                           height: 24,
@@ -3453,7 +3474,7 @@ export default function GardeMaladeDashboard({ onLogout }) {
                         />
                       </button>
                       <Moon size={13} style={{ color: dk ? c.blue : c.txt3 }} />
-                    </button>
+                    </div>
 
                     {/* Séparateur */}
                     <div className="h-px my-1 mx-2" style={{ background: dk ? c.border : "#F1F5F9" }} />

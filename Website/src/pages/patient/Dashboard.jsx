@@ -827,7 +827,14 @@ function DashboardPage({
                 Notifications
               </p>
               <button
-                onClick={() => (notifications || []).forEach(n => api.markNotificationRead(n.id).catch(() => {}))}
+                onClick={async () => {
+                  // Un seul appel /mark_all_as_read/ + mise à jour optimiste du
+                  // state local (sinon le point rouge persistait visuellement).
+                  try { await api.markAllNotificationsRead(); } catch { /* on continue */ }
+                  if (setNotifications) {
+                    setNotifications(prev => prev.map(n => ({ ...n, is_read: true, unread: false })));
+                  }
+                }}
                 style={{ fontSize:"12px", color:"#6492C9", background:"none", border:"none", cursor:"pointer", fontWeight:"500" }}
               >
                 Tout lire
@@ -1333,7 +1340,7 @@ function MedicalProfilePage({ dk }) {
                       </p>
                     </div>
                     <button
-                      onClick={() => { console.log("[MedicalProfilePage] Voir détail clicked:", con); setSelectedConsult(con); }}
+                      onClick={() => setSelectedConsult(con)}
                       className="text-xs font-semibold px-3 py-1.5 rounded-lg shrink-0 transition-all hover:opacity-80"
                       style={{ background: c.blue + "18", color: c.blue }}
                     >
@@ -5888,13 +5895,18 @@ function CareTakerPage({ dk }) {
       if (existingAddress) setHomeAddress(existingAddress);
 
       const results = Array.isArray(reqData) ? reqData : (reqData?.results || []);
-      if (results.length > 0) {
-        const req = results[0];
+      // On ne garde QUE les demandes actives (pending ou accepted). Les anciennes
+      // demandes rejected/cancelled/completed ne doivent pas être affichées comme
+      // "demande en cours" sinon le patient croit être bloqué.
+      const activeReq = results.find(
+        r => r.status === 'pending' || r.status === 'accepted'
+      );
+      if (activeReq) {
         setPendingRequest({
-          id: req.caretaker,
-          care_request_id: req.id,
-          name: req.caretaker_name,
-          initials: (req.caretaker_name?.[0] || "C").toUpperCase(),
+          id: activeReq.caretaker,
+          care_request_id: activeReq.id,
+          name: activeReq.caretaker_name,
+          initials: (activeReq.caretaker_name?.[0] || "C").toUpperCase(),
           color: "#4A6FA5",
           role: "Garde-malade",
           exp: "—",
@@ -5905,7 +5917,7 @@ function CareTakerPage({ dk }) {
           tags: [],
           bio: ""
         });
-        const accepted = req.status === 'accepted';
+        const accepted = activeReq.status === 'accepted';
         setIsAccepted(accepted);
         if (accepted) {
           setTab("assigned");
@@ -5920,16 +5932,30 @@ function CareTakerPage({ dk }) {
   }, []);
 
   // ── Charge plan médicamenteux + tâches quand mission finalisée ──
+  // Polling 60s : si le GM ajoute/modifie des meds pendant que le patient est
+  // sur la page, il les voit apparaître sans avoir à rafraîchir.
   useEffect(() => {
     if (!isAccepted || !emergencyContactFilled) return;
-    setMissionDataLoading(true);
-    Promise.all([
-      api.getMedicationSchedules().catch(() => []),
-      api.getCaretakerTasks().catch(() => []),
-    ]).then(([schedData, tasksData]) => {
-      setMedicationSchedules(Array.isArray(schedData) ? schedData : (schedData?.results || []));
-      setPatientTasks(Array.isArray(tasksData) ? tasksData : (tasksData?.results || []));
-    }).finally(() => setMissionDataLoading(false));
+
+    let cancelled = false;
+    const loadMission = async (showSpinner = false) => {
+      if (showSpinner) setMissionDataLoading(true);
+      try {
+        const [schedData, tasksData] = await Promise.all([
+          api.getMedicationSchedules().catch(() => []),
+          api.getCaretakerTasks().catch(() => []),
+        ]);
+        if (cancelled) return;
+        setMedicationSchedules(Array.isArray(schedData) ? schedData : (schedData?.results || []));
+        setPatientTasks(Array.isArray(tasksData) ? tasksData : (tasksData?.results || []));
+      } finally {
+        if (showSpinner && !cancelled) setMissionDataLoading(false);
+      }
+    };
+
+    loadMission(true);
+    const poll = setInterval(() => loadMission(false), 60_000);
+    return () => { cancelled = true; clearInterval(poll); };
   }, [isAccepted, emergencyContactFilled]);
 
   // ── Filtre des gardes-malades ──
@@ -5973,12 +5999,18 @@ function CareTakerPage({ dk }) {
   const handleAssign = async () => {
     if (!requestModal) return;
     setSendingRequest(true);
+    setCtError("");
     try {
-      await api.createCareRequest({
+      const created = await api.createCareRequest({
         caretaker: requestModal.id,
         patient_message: requestMessage.trim(),
       });
-      setPendingRequest(requestModal);
+      // Conserver l'ID renvoyé par le serveur (UUID) : nécessaire pour annuler
+      // ou laisser un avis sans devoir rafraîchir la page.
+      setPendingRequest({
+        ...requestModal,
+        care_request_id: created?.id ?? null,
+      });
       setIsAccepted(false);
       setEmergencyContactFilled(false);
       setRequestModal(null);
@@ -5991,8 +6023,21 @@ function CareTakerPage({ dk }) {
     }
   };
 
-  const handleReassign = () => {
-    setPendingRequest(null); setIsAccepted(false); setEmergencyContactFilled(false);
+  const handleReassign = async () => {
+    // Si une demande existe côté serveur, on l'annule avant de revenir au
+    // listing — sinon le backend bloquera la prochaine assignation pour cause
+    // de doublon (le patient ne peut avoir qu'une demande active à la fois).
+    if (pendingRequest?.care_request_id) {
+      try {
+        await api.cancelCareRequest(pendingRequest.care_request_id);
+      } catch (err) {
+        setCtError(err.message || "Impossible d'annuler la demande en cours.");
+        return;
+      }
+    }
+    setPendingRequest(null);
+    setIsAccepted(false);
+    setEmergencyContactFilled(false);
     setTab("find");
   };
 
@@ -6804,53 +6849,33 @@ function CareTakerPage({ dk }) {
 function NotificationsPage({ dk, notifications, setNotifications }) {
   const { t } = useLanguage();
   const c = dk ? T.dark : T.light;
-  const { globalNotifications = [], markAllNotificationsRead: markGlobalRead } = useData();
+
+  // Source UNIQUE : `notifications` (état local du dashboard patient, déjà
+  // chargé depuis /api/notifications/). On ne merge plus avec globalNotifications
+  // du DataContext — c'était le même endpoint et provoquait des doublons +
+  // utilisait d'anciens noms de champ (n.read / n.createdAt).
+  const sortedNotifications = useMemo(() => {
+    return [...(notifications || [])].sort(
+      (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+    );
+  }, [notifications]);
 
   const handleMarkAllAsRead = async () => {
-    // 1. Context (transient) notifications
-    markGlobalRead();
-    
-    // 2. Backend & local state notifications
     try {
       await api.markAllNotificationsRead();
-      if (setNotifications) {
-        setNotifications(prev => prev.map(n => ({ ...n, is_read: true, unread: false })));
-      }
-    } catch(err) {
-      // Fallback local update if API fails or not yet synced
-      if (setNotifications) {
-        setNotifications(prev => prev.map(n => ({ ...n, is_read: true, unread: false })));
-      }
+    } catch { /* on met à jour le state local même si l'API échoue */ }
+    if (setNotifications) {
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true, unread: false })));
     }
   };
 
-  const mergedNotifications = useMemo(() => {
-    const adapted = globalNotifications.map((n) => ({
-      id: "g_" + n.id,
-      title: n.title,
-      message: n.message,
-      is_read: n.read,
-      created_at: n.createdAt instanceof Date ? n.createdAt.toISOString() : new Date().toISOString(),
-      type: n.type,
-    }));
-    const combined = [...(notifications || []), ...adapted];
-    return combined.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-  }, [notifications, globalNotifications]);
-
   const handleMarkSingleRead = async (n) => {
-    if (typeof n.id === "string" && n.id.startsWith("g_")) {
-      markGlobalRead(parseInt(n.id.replace("g_", "")));
-    } else {
-      try {
-        await api.markNotificationRead(n.id);
-        if (setNotifications) {
-          setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, is_read: true, unread: false } : item));
-        }
-      } catch(err) {
-        if (setNotifications) {
-          setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, is_read: true, unread: false } : item));
-        }
-      }
+    if (n.is_read) return;
+    try {
+      await api.markNotificationRead(n.id);
+    } catch { /* idem */ }
+    if (setNotifications) {
+      setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, is_read: true, unread: false } : item));
     }
   };
 
@@ -6872,7 +6897,7 @@ function NotificationsPage({ dk, notifications, setNotifications }) {
           </p>
         </div>
         
-        {mergedNotifications.some(n => !n.is_read) && (
+        {sortedNotifications.some(n => !n.is_read) && (
           <button 
             onClick={handleMarkAllAsRead}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all hover:opacity-80 border"
@@ -6884,7 +6909,7 @@ function NotificationsPage({ dk, notifications, setNotifications }) {
         )}
       </div>
       <div className="space-y-3">
-        {mergedNotifications.map((n) => {
+        {sortedNotifications.map((n) => {
           const isUnread = !n.is_read && n.unread !== false;
           const typeColor =
             n.type === "emergency"
@@ -7772,9 +7797,10 @@ export default function PatientDashboard({ onLogout }) {
             </button>
             {/* Profile button — red dot on border corner for notifications */}
             <div className="relative">
-              {/* Red dot — API notifications + global notifications */}
-              {(notifications.filter(n => !n.is_read && n.unread !== false).length +
-                globalNotifications.filter(n => !n.read).length) > 0 && (
+              {/* Red dot — `notifications` (état local) et `globalNotifications`
+                  pointent vers le même endpoint /api/notifications/. On utilise
+                  UNE seule source pour ne pas compter deux fois la même notif. */}
+              {notifications.filter(n => !n.is_read && n.unread !== false).length > 0 && (
                 <div
                   className="absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 z-10 flex items-center justify-center"
                   style={{
@@ -7786,8 +7812,7 @@ export default function PatientDashboard({ onLogout }) {
                     pointerEvents: "none",
                   }}
                 >
-                  {notifications.filter(n => !n.is_read && n.unread !== false).length +
-                   globalNotifications.filter(n => !n.read).length}
+                  {notifications.filter(n => !n.is_read && n.unread !== false).length}
                 </div>
               )}
               <button

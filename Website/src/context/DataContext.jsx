@@ -45,10 +45,46 @@ export function DataProvider({ children }) {
   const chatPollRef = useRef(null);
 
   // ── Notifications ──────────────────────────────────────────────────────────
+  //
+  // Le state `globalNotifications` mélange deux sources :
+  //   1. Notifs réelles du backend (charge via api.getNotifications)
+  //   2. Notifs locales transitoires (erreurs côté client) flaggées `local: true`
+  // Les deux exposent le même schéma : { id, title, message, type, is_read, created_at, local }
+
+  function normalizeServerNotif(n) {
+    return {
+      id:         n.id,
+      title:      n.title || "",
+      message:    n.message || "",
+      type:       n.notification_type || "system",
+      is_read:    !!n.is_read,
+      created_at: n.created_at,
+      local:      false,
+    };
+  }
+
+  const refreshGlobalNotifications = useCallback(async () => {
+    try {
+      const data = await api.getNotifications();
+      const list = Array.isArray(data) ? data : (data?.results || []);
+      const server = list.map(normalizeServerNotif);
+      // Préserve les notifs locales transitoires (erreurs client) en tête de liste
+      setGlobalNotifications(prev => {
+        const local = prev.filter(n => n.local);
+        return [...local, ...server];
+      });
+    } catch { /* silencieux : on ne casse pas l'app pour une notif */ }
+  }, []);
 
   function addNotification(title, message, type = "info") {
     setGlobalNotifications(prev => [
-      { id: Date.now(), title, message, type, read: false, createdAt: new Date() },
+      {
+        id:         `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        title, message, type,
+        is_read:    false,
+        created_at: new Date().toISOString(),
+        local:      true,
+      },
       ...prev,
     ]);
   }
@@ -57,12 +93,17 @@ export function DataProvider({ children }) {
     addNotification("Erreur", message, "error");
   }
 
-  function markNotificationRead(id) {
-    setGlobalNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  async function markNotificationRead(id) {
+    setGlobalNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+    // Pas d'appel API pour les notifs locales (id préfixé "local-")
+    if (typeof id === 'number') {
+      try { await api.markNotificationRead(id); } catch { /* silencieux */ }
+    }
   }
 
-  function markAllNotificationsRead() {
-    setGlobalNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  async function markAllNotificationsRead() {
+    setGlobalNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    try { await api.markAllNotificationsRead(); } catch { /* silencieux */ }
   }
 
   // ── Chat polling ────────────────────────────────────────────────────────────
@@ -159,15 +200,27 @@ export function DataProvider({ children }) {
       refreshDoctorPatients();
       refreshDashboardData();
       refreshDoctorPrescriptions();
+      refreshGlobalNotifications();
+      // Poll modéré (60s) pour ne pas saturer le throttle backend.
+      // Les données rarement changeantes (patients, prescriptions) ne sont pas
+      // rafraîchies dans le poll — elles le seront sur action utilisateur.
       const poll = setInterval(() => {
         refreshPatientRequests();
         refreshDoctorAppointments();
-        refreshDashboardData();
-      }, 30_000);
+        refreshGlobalNotifications();
+      }, 60_000);
       return () => clearInterval(poll);
     } else if (userData?.role === "caretaker") {
       refreshGmPatients();
       refreshGmTreatments();
+      refreshGlobalNotifications();
+      // Poll uniquement notifs (les données changent rarement).
+      const poll = setInterval(refreshGlobalNotifications, 90_000);
+      return () => clearInterval(poll);
+    } else if (userData?.role === "patient" || userData?.role === "pharmacist") {
+      refreshGlobalNotifications();
+      const poll = setInterval(refreshGlobalNotifications, 90_000);
+      return () => clearInterval(poll);
     } else {
       setAppointments([]);
       setPatientRequests([]);
@@ -175,6 +228,7 @@ export function DataProvider({ children }) {
       setDashboardData(null);
       setGmPatients([]);
       setGmTreatments([]);
+      setGlobalNotifications([]);
     }
   }, [userData?.role]);
 
@@ -282,7 +336,7 @@ export function DataProvider({ children }) {
       gmPatients, gmTreatments, loadGMDemoData,
       addMedicationToTreatment, removeMedicationFromTreatment,
       addPatientToTreatments, removePatientFromTreatments,
-      globalNotifications, addNotification, markNotificationRead, markAllNotificationsRead,
+      globalNotifications, addNotification, markNotificationRead, markAllNotificationsRead, refreshGlobalNotifications,
       unreadChatCount, setUnreadChatCount,
       globalSearch, setGlobalSearch,
     }}>

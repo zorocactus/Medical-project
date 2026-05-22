@@ -967,6 +967,14 @@ export async function createCareRequest(data) {
 }
 
 /**
+ * (Patient) Annule sa propre demande de soins (pending ou accepted)
+ * DELETE /api/caretaker/requests/{id}/
+ */
+export async function cancelCareRequest(careRequestId) {
+  return apiFetch(`/caretaker/requests/${careRequestId}/`, { method: "DELETE" });
+}
+
+/**
  * (Garde-malade) Répondre à une offre (accepter / refuser)
  * POST /api/caretaker/requests/{id}/respond_to_offer/
  * @param {number} requestId
@@ -1669,18 +1677,34 @@ export async function analyzeMedicalFileStream(file, message = "", lang = "fr", 
   }
 }
 
-/** Récupère les sessions de conversation IA passées */
+// Les endpoints /diagnostic/chat/sessions/* sont réservés au rôle "patient"
+// côté backend (SessionListView/SessionDetailView). On évite l'appel pour
+// les autres rôles → pas de 404 inutiles dans la console DevTools.
+function _isPatient() {
+  return (localStorage.getItem("mock_role") || "").toLowerCase() === "patient";
+}
+
+/** Récupère les sessions de conversation IA passées (patient uniquement) */
 export async function getAISessions() {
+  if (!_isPatient()) return { sessions: [] };
   return apiFetch("/diagnostic/chat/sessions/");
 }
 
-/** Supprime une session IA par son identifiant */
+/** Récupère le détail (historique complet) d'une session IA (patient uniquement) */
+export async function getAISession(sessionId) {
+  if (!_isPatient()) return null;
+  return apiFetch(`/diagnostic/chat/sessions/${sessionId}/`);
+}
+
+/** Supprime une session IA par son identifiant (patient uniquement) */
 export async function deleteAISession(sessionId) {
+  if (!_isPatient()) return null;
   return apiFetch(`/diagnostic/chat/sessions/${sessionId}/`, { method: "DELETE" });
 }
 
 /** Récupère l'historique complet des interactions IA */
 export async function getAIHistory() {
+  if (!_isPatient()) return { results: [] };
   return apiFetch("/diagnostic/chat/history/");
 }
 

@@ -27,17 +27,26 @@ export default function ErrorToast() {
   const [visible, setVisible] = useState([]);
 
   useEffect(() => {
-    const unread = globalNotifications.filter(n => !n.read && n.type !== "info_silent");
+    // ErrorToast n'affiche QUE les notifications locales (erreurs/warnings côté
+    // client). Les notifications serveur (caretaker, appointment, pharmacy, …)
+    // ne doivent PAS apparaître en toast : elles sont affichées dans la cloche
+    // de notifications. Sinon chaque notif backend ferait popup un toast à
+    // chaque polling — et avec l'ancien filtre `!n.read` (champ qui n'existe
+    // plus), `markNotificationRead` était appelé en boucle infinie.
+    const unread = globalNotifications.filter(
+      n => n.local === true && !n.is_read && n.type !== "info_silent"
+    );
     if (unread.length === 0) return;
 
     // Ajoute les nouvelles notifs à la liste visible
     setVisible(prev => {
       const prevIds = new Set(prev.map(n => n.id));
       const toAdd = unread.filter(n => !prevIds.has(n.id));
+      if (toAdd.length === 0) return prev;
       return [...prev, ...toAdd];
     });
 
-    // Marquer comme lues dans le contexte
+    // Marquer comme lues — pas d'appel API car ce sont des notifs locales (id "local-…")
     unread.forEach(n => markNotificationRead(n.id));
   }, [globalNotifications]);
 
