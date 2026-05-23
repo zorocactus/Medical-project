@@ -78,6 +78,7 @@ import ScheduleView from "./views/ScheduleView";
 import VisitQueueView from "./views/VisitQueueView";
 import ReportsView from "./views/ReportsView";
 import ProfileUpdateRequests from "./views/ProfileUpdateRequests";
+import ContactRequestsView from "./views/ContactRequestsView";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SHARED HELPERS
@@ -3092,7 +3093,7 @@ export default function AdminDashboard({ onLogout }) {
   const dk = theme === "dark";
   const [activePage, setActivePage] = useState("overview");
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [badgeCounts, setBadgeCounts] = useState({ validation: 0, profile_updates: 0, reports: 0 });
+  const [badgeCounts, setBadgeCounts] = useState({ validation: 0, profile_updates: 0, reports: 0, contact_requests: 0 });
   const [notifs, setNotifs] = useState([]);
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef(null);
@@ -3110,6 +3111,9 @@ export default function AdminDashboard({ onLogout }) {
       .catch(() => {});
     api.getReports()
       .then(d => { const arr = Array.isArray(d) ? d : (d?.results ?? []); setBadgeCounts(p => ({ ...p, reports: arr.filter(r => r.status === "pending").length })); })
+      .catch(() => {});
+    api.getAdminContactRequests({ status: "pending" })
+      .then(d => { const arr = Array.isArray(d) ? d : (d?.results ?? []); setBadgeCounts(p => ({ ...p, contact_requests: arr.length })); })
       .catch(() => {});
     api.getNotifications()
       .then(d => setNotifs(Array.isArray(d) ? d : (d?.results ?? [])))
@@ -3173,6 +3177,13 @@ export default function AdminDashboard({ onLogout }) {
         );
       case "profile_updates":
         return <ProfileUpdateRequests dk={dk} />;
+      case "contact_requests":
+        return (
+          <ContactRequestsView
+            dk={dk}
+            onCountChange={n => setBadgeCounts(p => ({ ...p, contact_requests: n }))}
+          />
+        );
 
       // ── Activité (Planning & Queue) ──
       case "rdv":
@@ -3275,6 +3286,7 @@ export default function AdminDashboard({ onLogout }) {
                 queue: t('queue'),
                 reports: t('reports'),
                 profile_updates: t('profile_updates'),
+                contact_requests: "Demandes utilisateurs",
               }[activePage] ?? activePage}
             </span>
           </div>

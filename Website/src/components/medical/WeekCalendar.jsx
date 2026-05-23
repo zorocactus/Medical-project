@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useMemo } from "react";
 import {
   format,
   addWeeks,
@@ -14,7 +14,7 @@ import {
   isToday,
   startOfToday,
 } from "date-fns";
-import { ChevronLeft, ChevronRight, Plus, X, Clock, Calendar as CalIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
 
 // ─── Theme tokens (matching DoctorDashboard.jsx) ────────────────────────────
@@ -58,27 +58,26 @@ const WeekCalendar = ({
   selectedDate = new Date(),
   onDateChange = () => {},
   appointmentCounts = {},
+  weeklySchedules = [],
   view = "week",
   onViewChange = () => {},
-  onSlotCreated = () => {},
+  headerRight = null,
 }) => {
   const { theme } = useTheme();
   const dk = theme === "dark";
   const c = dk ? T.dark : T.light;
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
   // Grid logic
   const currentStart = useMemo(() => {
-    if (view === "month") return startOfWeek(startOfMonth(selectedDate), { weekStartsOn: 1 });
-    return startOfWeek(selectedDate, { weekStartsOn: 1 });
+    if (view === "month") return startOfWeek(startOfMonth(selectedDate), { weekStartsOn: 0 });
+    return startOfWeek(selectedDate, { weekStartsOn: 0 });
   }, [selectedDate, view]);
 
   const days = useMemo(() => {
     if (view === "month") {
       return Array.from({ length: 35 }).map((_, i) => addDays(currentStart, i));
     }
-    const end = endOfWeek(currentStart, { weekStartsOn: 1 });
+    const end = endOfWeek(currentStart, { weekStartsOn: 0 });
     return eachDayOfInterval({ start: currentStart, end });
   }, [currentStart, view]);
 
@@ -97,7 +96,7 @@ const WeekCalendar = ({
   const handleToday = () => onDateChange(startOfToday());
 
   const getDayName = (day) => {
-    const names = { Mon: "LUN", Tue: "MAR", Wed: "MER", Thu: "JEU", Fri: "VEN", Sat: "SAM", Sun: "DIM" };
+    const names = { Sun: "DIM", Mon: "LUN", Tue: "MAR", Wed: "MER", Thu: "JEU", Fri: "VEN", Sat: "SAM" };
     return names[format(day, "eee")] || format(day, "eee").toUpperCase();
   };
 
@@ -148,13 +147,11 @@ const WeekCalendar = ({
           </button>
         </div>
 
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="px-4 py-2 rounded-xl text-white text-sm font-bold flex items-center gap-1.5 transition-transform hover:scale-105 shadow-lg active:scale-95"
-          style={{ background: "#638ECB" }}
-        >
-          <Plus size={16} strokeWidth={2.5} /> Add Slot
-        </button>
+        {headerRight && (
+          <div className="flex items-center gap-2">
+            {headerRight}
+          </div>
+        )}
       </div>
 
       {/* 2. CALENDAR CARD */}
@@ -181,6 +178,9 @@ const WeekCalendar = ({
               const isCurrToday = isToday(day);
               const isCurrentMonthDay = format(day, "MMM") === format(selectedDate, "MMM");
               const count = appointmentCounts[format(day, "yyyy-MM-dd")] || 0;
+              // 0=Sun..6=Sat → convert to 0=Mon..6=Sun (backend convention)
+              const dayOfWeek = (day.getDay() + 6) % 7;
+              const schedule = weeklySchedules.find(s => s.day_of_week === dayOfWeek && s.is_active);
 
               return (
                 <button
@@ -198,9 +198,15 @@ const WeekCalendar = ({
                   <span className={`text-[16px] sm:text-[20px] font-black transition-colors ${isCurrToday && !isSelected ? "text-[#6492C9]" : ""}`} style={{ color: isSelected ? "#fff" : isCurrToday ? "#6492C9" : c.txt }}>
                     {format(day, "d")}
                   </span>
-                  <span className={`text-[9px] sm:text-[10px] font-bold mt-1 transition-opacity ${count === 0 ? "opacity-20" : "opacity-100 uppercase"}`} style={{ color: isSelected ? "rgba(255,255,255,0.7)" : "#3DAA73" }}>
-                    {count} rdv
-                  </span>
+                  {schedule ? (
+                    <span className="text-[9px] sm:text-[10px] font-bold mt-1 px-1.5 py-0.5 rounded-full" style={{ background: isSelected ? "rgba(255,255,255,0.25)" : "#6492C918", color: isSelected ? "#fff" : "#6492C9" }}>
+                      {schedule.start_time?.slice(0,5)}–{schedule.end_time?.slice(0,5)}
+                    </span>
+                  ) : (
+                    <span className={`text-[9px] sm:text-[10px] font-bold mt-1 transition-opacity ${count === 0 ? "opacity-20" : "opacity-100 uppercase"}`} style={{ color: isSelected ? "rgba(255,255,255,0.7)" : "#3DAA73" }}>
+                      {count > 0 ? `${count} rdv` : "—"}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -215,108 +221,10 @@ const WeekCalendar = ({
           </button>
         </div>
       </div>
-
-      {/* Add Slot Modal */}
-      {isModalOpen && (
-        <AddSlotModal
-          onClose={() => setIsModalOpen(false)}
-          onConfirm={(slot) => {
-            onSlotCreated(slot);
-            setIsModalOpen(false);
-          }}
-          selectedDate={selectedDate}
-          theme={c}
-        />
-      )}
     </div>
   );
 };
 
-const AddSlotModal = ({ onClose, onConfirm, selectedDate, theme: c }) => {
-  const [date, setDate] = useState(format(selectedDate, "yyyy-MM-dd"));
-  const [startTime, setStartTime] = useState("09:00");
-  const [endTime, setEndTime] = useState("10:00");
-  const [note, setNote] = useState("");
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onConfirm({ date, startTime, endTime, note });
-  };
-
-  return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div
-        className="relative w-full max-w-sm rounded-[12px] p-6 shadow-2xl animate-in zoom-in duration-200 border"
-        style={{ background: c.card, borderColor: c.border }}
-      >
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-bold" style={{ color: c.txt }}>Nouveau Créneau</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
-            <X size={24} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-gray-400 mb-1 uppercase">Date</label>
-            <div className="relative">
-              <CalIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 rounded-xl border outline-none transition-all"
-                style={{ background: c.bg, borderColor: c.border, color: c.txt }}
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-gray-400 mb-1 uppercase">Début</label>
-              <div className="relative">
-                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border outline-none transition-all"
-                  style={{ background: c.bg, borderColor: c.border, color: c.txt }}
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-400 mb-1 uppercase">Fin</label>
-              <div className="relative">
-                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border outline-none transition-all"
-                  style={{ background: c.bg, borderColor: c.border, color: c.txt }}
-                />
-              </div>
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-gray-400 mb-1 uppercase">Note / Description</label>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Ex: Consultation de suivi..."
-              className="w-full px-4 py-3 rounded-xl border outline-none transition-all resize-none h-24 text-[13px]"
-              style={{ background: c.bg, borderColor: c.border, color: c.txt }}
-            />
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button onClick={onClose} type="button" className="flex-1 py-3 rounded-xl border text-sm font-bold transition-all hover:opacity-70" style={{ color: c.txt2, borderColor: c.border }}>Annuler</button>
-            <button type="submit" className="flex-1 py-3 rounded-xl text-white text-sm font-bold shadow-lg transition-transform hover:scale-105 active:scale-95" style={{ background: "#638ECB" }}>Confirmer</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
+WeekCalendar.displayName = "WeekCalendar";
 
 export default WeekCalendar;

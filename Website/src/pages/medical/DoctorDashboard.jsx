@@ -1,8 +1,10 @@
 ﻿import { useState, useEffect, useRef, useMemo } from "react";
 import ErrorBoundary from "../../components/ErrorBoundary";
 import DashSelect from "../../components/ui/DashSelect";
+import TimePicker from "../../components/ui/TimePicker";
 import { ParticlesHero } from '../../components/backgrounds/MedParticles';
 import { T } from "../_shared/theme";
+import ContactAdminCard from "../../components/ContactAdminCard";
 import {
   Users,
   User,
@@ -666,13 +668,289 @@ function DashboardHome({
 // SUB-VIEW : SCHEDULE
 // ============================================================================
 
+function NewAppointmentModal({ dk, onClose, onCreated, initialDate }) {
+  const c = dk ? T.dark : T.light;
+  const { patients = [] } = useData();
+  const [mode, setMode] = useState("linked"); // "linked" | "external"
+  const [extMode, setExtMode] = useState("existing"); // "existing" | "new"
+  const [patientId, setPatientId] = useState("");
+  const [extPatientId, setExtPatientId] = useState("");
+  const [extFirstName, setExtFirstName] = useState("");
+  const [extLastName, setExtLastName] = useState("");
+  const [extPhone, setExtPhone] = useState("");
+  const [externalPatients, setExternalPatients] = useState([]);
+  const [date, setDate] = useState(initialDate || format(new Date(), "yyyy-MM-dd"));
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("09:30");
+  const [motif, setMotif] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api.getExternalPatients()
+      .then(d => setExternalPatients(Array.isArray(d) ? d : (d?.results ?? [])))
+      .catch(() => {});
+  }, []);
+
+  const linkedPatients = (Array.isArray(patients) ? patients : []).map(p => ({
+    id: p.id,
+    name: `${p.first_name || ""} ${p.last_name || ""}`.trim() || `Patient #${p.id}`,
+  }));
+
+  const handleSubmit = async () => {
+    setError("");
+    if (mode === "linked" && !patientId) { setError("Sélectionnez un patient."); return; }
+    if (mode === "external" && extMode === "existing" && !extPatientId) { setError("Sélectionnez un patient externe."); return; }
+    if (mode === "external" && extMode === "new" && (!extFirstName.trim() || !extLastName.trim())) {
+      setError("Prénom et nom requis.");
+      return;
+    }
+    if (!motif.trim()) { setError("Le motif est requis."); return; }
+    if (endTime <= startTime) { setError("L'heure de fin doit être après l'heure de début."); return; }
+    setSubmitting(true);
+    try {
+      const payload = {
+        date,
+        start_time: startTime.length === 5 ? startTime + ":00" : startTime,
+        end_time:   endTime.length   === 5 ? endTime   + ":00" : endTime,
+        motif: motif.trim(),
+      };
+      if (mode === "linked") {
+        payload.patient_id = Number(patientId);
+      } else if (extMode === "existing") {
+        payload.external_patient_id = Number(extPatientId);
+      } else {
+        payload.external_first_name = extFirstName.trim();
+        payload.external_last_name  = extLastName.trim();
+        payload.external_phone      = extPhone.trim();
+      }
+      const created = await api.doctorCreateAppointment(payload);
+      onCreated?.(created);
+      onClose?.();
+    } catch (err) {
+      setError(err?.message || "Échec de la création du RDV.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
+      <div className="w-full max-w-md rounded-2xl shadow-2xl border overflow-hidden" style={{ background: c.card, borderColor: c.border }}>
+        <div className="flex items-center justify-between px-6 py-5 border-b" style={{ borderColor: c.border }}>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: c.blue + "18" }}>
+              <Calendar size={18} style={{ color: c.blue }} />
+            </div>
+            <div>
+              <h3 className="font-bold text-base" style={{ color: c.txt }}>Nouveau rendez-vous</h3>
+              <p className="text-xs" style={{ color: c.txt3 }}>Sera automatiquement confirmé</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center hover:opacity-70" style={{ background: c.bg }}>
+            <X size={16} style={{ color: c.txt3 }} />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {/* Toggle Patient lié / Personne extérieure */}
+          <div className="flex p-1 rounded-xl border" style={{ borderColor: c.border, background: c.bg }}>
+            {[
+              { key: "linked",   label: "Patient lié" },
+              { key: "external", label: "Personne extérieure" },
+            ].map(opt => {
+              const active = mode === opt.key;
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setMode(opt.key)}
+                  className="flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all"
+                  style={{
+                    background: active ? c.card : "transparent",
+                    color: active ? c.blue : c.txt2,
+                    boxShadow: active ? `0 1px 3px ${c.border}` : "none",
+                  }}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Mode "Patient lié" */}
+          {mode === "linked" && (
+            <div>
+              <label className="block text-[11px] font-black uppercase tracking-wider mb-1.5" style={{ color: c.txt3 }}>Patient</label>
+              {linkedPatients.length === 0 ? (
+                <p className="text-xs italic px-3 py-3 rounded-xl border" style={{ borderColor: c.amber + "44", background: c.amber + "12", color: c.amber }}>
+                  Aucun patient lié. Utilisez "Personne extérieure" ou envoyez une demande de liaison depuis l'onglet Patients.
+                </p>
+              ) : (
+                <DashSelect
+                  dk={dk}
+                  c={c}
+                  value={patientId}
+                  onSelect={setPatientId}
+                  placeholder="Choisir un patient…"
+                  options={linkedPatients.map(p => ({ value: String(p.id), label: p.name }))}
+                />
+              )}
+            </div>
+          )}
+
+          {/* Mode "Personne extérieure" */}
+          {mode === "external" && (
+            <div className="space-y-3">
+              {/* Sous-toggle : existant / nouveau */}
+              <div className="flex p-1 rounded-lg border" style={{ borderColor: c.border, background: c.bg }}>
+                {[
+                  { key: "existing", label: `Existant (${externalPatients.length})` },
+                  { key: "new",      label: "+ Nouveau" },
+                ].map(opt => {
+                  const active = extMode === opt.key;
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setExtMode(opt.key)}
+                      className="flex-1 px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all"
+                      style={{
+                        background: active ? c.card : "transparent",
+                        color: active ? c.blue : c.txt3,
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {extMode === "existing" ? (
+                externalPatients.length === 0 ? (
+                  <p className="text-xs italic px-3 py-3 rounded-xl border" style={{ borderColor: c.amber + "44", background: c.amber + "12", color: c.amber }}>
+                    Aucun patient externe enregistré. Choisissez "+ Nouveau" pour en créer un.
+                  </p>
+                ) : (
+                  <DashSelect
+                    dk={dk}
+                    c={c}
+                    value={extPatientId}
+                    onSelect={setExtPatientId}
+                    placeholder="Choisir un patient externe…"
+                    options={externalPatients.map(p => ({
+                      value: String(p.id),
+                      label: `${p.first_name} ${p.last_name}`.trim(),
+                    }))}
+                  />
+                )
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-black uppercase tracking-wider mb-1.5" style={{ color: c.txt3 }}>Prénom</label>
+                      <input type="text" value={extFirstName} onChange={(e) => setExtFirstName(e.target.value)}
+                        placeholder="Ahmed"
+                        className="w-full px-3 py-2.5 rounded-xl border text-sm font-bold outline-none"
+                        style={{ background: c.bg, borderColor: c.border, color: c.txt }} />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-black uppercase tracking-wider mb-1.5" style={{ color: c.txt3 }}>Nom</label>
+                      <input type="text" value={extLastName} onChange={(e) => setExtLastName(e.target.value)}
+                        placeholder="Meziane"
+                        className="w-full px-3 py-2.5 rounded-xl border text-sm font-bold outline-none"
+                        style={{ background: c.bg, borderColor: c.border, color: c.txt }} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-black uppercase tracking-wider mb-1.5" style={{ color: c.txt3 }}>Téléphone <span className="opacity-50 normal-case tracking-normal">(optionnel)</span></label>
+                    <input type="tel" value={extPhone} onChange={(e) => setExtPhone(e.target.value.replace(/\D/g, ""))}
+                      placeholder="0555 00 00 00"
+                      className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none"
+                      style={{ background: c.bg, borderColor: c.border, color: c.txt }} />
+                  </div>
+                  <p className="text-[11px] px-3 py-2 rounded-lg" style={{ background: c.blue + "10", color: c.txt3 }}>
+                    Ce patient sera ajouté à votre liste de patients externes — vous pourrez lui prescrire des ordonnances et consulter son dossier comme un patient lié.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Date */}
+          <div>
+            <label className="block text-[11px] font-black uppercase tracking-wider mb-1.5" style={{ color: c.txt3 }}>Date</label>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl border text-sm font-bold outline-none"
+              style={{ background: c.bg, borderColor: c.border, color: c.txt }} />
+          </div>
+
+          {/* Heures */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-black uppercase tracking-wider mb-1.5" style={{ color: c.txt3 }}>Début</label>
+              <TimePicker value={startTime} onChange={setStartTime} theme={c} />
+            </div>
+            <div>
+              <label className="block text-[11px] font-black uppercase tracking-wider mb-1.5" style={{ color: c.txt3 }}>Fin</label>
+              <TimePicker value={endTime} onChange={setEndTime} theme={c} />
+            </div>
+          </div>
+
+          {/* Motif */}
+          <div>
+            <label className="block text-[11px] font-black uppercase tracking-wider mb-1.5" style={{ color: c.txt3 }}>Motif</label>
+            <input type="text" value={motif} onChange={(e) => setMotif(e.target.value)}
+              placeholder="ex : Suivi tension"
+              className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none"
+              style={{ background: c.bg, borderColor: c.border, color: c.txt }} />
+          </div>
+
+          {error && (
+            <p className="text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-2" style={{ color: c.red, background: c.red + "15" }}>
+              <AlertTriangle size={14} /> {error}
+            </p>
+          )}
+        </div>
+
+        <div className="px-6 pb-6 flex gap-3">
+          <button onClick={handleSubmit}
+            disabled={submitting || (mode === "linked" && linkedPatients.length === 0)}
+            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-40"
+            style={{ background: c.blue }}>
+            {submitting
+              ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              : <><Plus size={15} /> Créer le rendez-vous</>}
+          </button>
+          <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-semibold border hover:opacity-80" style={{ borderColor: c.border, color: c.txt2 }}>
+            Annuler
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ScheduleView({ dk, onStartConsultation }) {
   const c = dk ? T.dark : T.light;
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [view, setView] = useState("week"); // "week" | "month"
   const [successBanner, setSuccessBanner] = useState(false);
-  const { appointments = [], patientRequests = [] } = useData();
+  const [weeklySchedules, setWeeklySchedules] = useState([]);
+  const [showNewAppt, setShowNewAppt] = useState(false);
+  const [newApptBanner, setNewApptBanner] = useState(null);
+  const { appointments = [], patientRequests = [], refreshDoctorAppointments } = useData();
+
+  const loadWeeklySchedules = async () => {
+    try {
+      const data = await api.getMySlots();
+      setWeeklySchedules(Array.isArray(data) ? data : (data?.results ?? []));
+    } catch {}
+  };
+
+  useEffect(() => { loadWeeklySchedules(); }, []);
 
   const handleStartConsultation = (appointment) => {
     setSuccessBanner(true);
@@ -713,33 +991,6 @@ function ScheduleView({ dk, onStartConsultation }) {
     return counts;
   }, [allAppointments]);
 
-  const [slotBanner, setSlotBanner] = useState(null);
-  const handleSlotCreated = async (slot) => {
-    // Convertit { date, startTime, endTime, note } → payload backend
-    if (!slot?.date || !slot?.startTime || !slot?.endTime) {
-      setSlotBanner({ type: "error", msg: "Créneau incomplet." });
-      setTimeout(() => setSlotBanner(null), 4000);
-      return;
-    }
-    // day_of_week : Lundi = 0, Dimanche = 6 côté backend (cf WeeklySchedule)
-    const jsDay = new Date(slot.date).getDay(); // dim=0..sam=6
-    const dayOfWeek = (jsDay + 6) % 7;
-    try {
-      await api.createSlot({
-        day_of_week: dayOfWeek,
-        start_time: slot.startTime.length === 5 ? slot.startTime + ":00" : slot.startTime,
-        end_time: slot.endTime.length === 5 ? slot.endTime + ":00" : slot.endTime,
-        slot_duration: 30,
-        is_active: true,
-      });
-      setSlotBanner({ type: "success", msg: "Créneau enregistré." });
-    } catch (err) {
-      setSlotBanner({ type: "error", msg: err?.message || "Échec de l'enregistrement." });
-    } finally {
-      setTimeout(() => setSlotBanner(null), 4000);
-    }
-  };
-
   return (
     <div className="animate-in fade-in duration-500 space-y-6">
       {/* Success banner */}
@@ -753,17 +1004,31 @@ function ScheduleView({ dk, onStartConsultation }) {
         </div>
       )}
 
-      {slotBanner && (
+      {newApptBanner && (
         <div
           className="flex items-center gap-3 px-5 py-3 rounded-xl border font-semibold text-sm animate-in fade-in duration-300"
           style={{
-            background: (slotBanner.type === "success" ? c.green : c.red) + "18",
-            borderColor: (slotBanner.type === "success" ? c.green : c.red) + "44",
-            color: slotBanner.type === "success" ? c.green : c.red,
+            background: (newApptBanner.type === "success" ? c.green : c.red) + "18",
+            borderColor: (newApptBanner.type === "success" ? c.green : c.red) + "44",
+            color: newApptBanner.type === "success" ? c.green : c.red,
           }}
         >
-          {slotBanner.msg}
+          {newApptBanner.type === "success" ? <Check size={16} /> : <AlertTriangle size={16} />}
+          {newApptBanner.msg}
         </div>
+      )}
+
+      {showNewAppt && (
+        <NewAppointmentModal
+          dk={dk}
+          onClose={() => setShowNewAppt(false)}
+          initialDate={format(selectedDate, "yyyy-MM-dd")}
+          onCreated={(appt) => {
+            setNewApptBanner({ type: "success", msg: `RDV créé pour le ${appt?.date || ""} à ${appt?.start_time?.slice(0,5) || ""}.` });
+            setTimeout(() => setNewApptBanner(null), 5000);
+            if (typeof refreshDoctorAppointments === "function") refreshDoctorAppointments();
+          }}
+        />
       )}
 
       {/* Dynamic Week Calendar */}
@@ -771,9 +1036,18 @@ function ScheduleView({ dk, onStartConsultation }) {
         selectedDate={selectedDate}
         onDateChange={(date) => setSelectedDate(date)}
         appointmentCounts={appointmentCounts}
+        weeklySchedules={weeklySchedules}
         view={view}
         onViewChange={(v) => setView(v)}
-        onSlotCreated={handleSlotCreated}
+        headerRight={
+          <button
+            onClick={() => setShowNewAppt(true)}
+            className="px-4 py-2 rounded-xl text-white text-sm font-bold flex items-center gap-1.5 transition-all hover:scale-105 shadow-lg active:scale-95"
+            style={{ background: c.blue, boxShadow: `0 4px 12px ${c.blue}44` }}
+          >
+            <Plus size={16} strokeWidth={2.5} /> Nouveau rendez-vous
+          </button>
+        }
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
@@ -829,6 +1103,23 @@ function PatientsView({ onSelectPatient, onMessagePatient }) {
   // ── Résiliation de liaison ──
   const [unlinkingId, setUnlinkingId] = useState(null);
   const [unlinkConfirmId, setUnlinkConfirmId] = useState(null); // id en attente de confirmation
+
+  // ── Suppression patient externe ──
+  const [deleteExtConfirmId, setDeleteExtConfirmId] = useState(null);
+  const [deletingExtId, setDeletingExtId] = useState(null);
+
+  const handleDeleteExternal = async (rawExtId) => {
+    setDeletingExtId(rawExtId);
+    try {
+      await api.deleteExternalPatient(rawExtId);
+      setExternalPatients(prev => prev.filter(ep => ep.id !== rawExtId));
+      setDeleteExtConfirmId(null);
+    } catch (err) {
+      console.error("Erreur suppression patient externe:", err);
+    } finally {
+      setDeletingExtId(null);
+    }
+  };
 
   // Load external patients on mount
   useEffect(() => {
@@ -1233,15 +1524,45 @@ function PatientsView({ onSelectPatient, onMessagePatient }) {
                         Message
                       </button>
                     )}
-                    {p._type !== "external" && (
-                      <button
-                        onClick={() => onSelectPatient?.(p)}
-                        className="px-3 py-1.5 rounded-xl border text-xs font-bold transition-all hover:opacity-80"
-                        style={{ color: c.blue, borderColor: c.blue, background: c.blue + "0D" }}>
-                        Voir profil
-                      </button>
-                    )}
-                    {p._type !== "external" && (
+                    <button
+                      onClick={() => onSelectPatient?.(p)}
+                      className="px-3 py-1.5 rounded-xl border text-xs font-bold transition-all hover:opacity-80"
+                      style={{ color: c.blue, borderColor: c.blue, background: c.blue + "0D" }}>
+                      Voir profil
+                    </button>
+                    {p._type === "external" ? (
+                      (() => {
+                        const rawExtId = String(p.id).replace(/^ext-/, "");
+                        const isDeleting = deletingExtId === rawExtId;
+                        const isAskingDelete = deleteExtConfirmId === rawExtId;
+                        return isAskingDelete ? (
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border animate-in fade-in"
+                            style={{ borderColor: "#FECACA", background: dk ? "rgba(239,68,68,0.08)" : "#FFF5F5" }}>
+                            <span className="text-[11px] font-bold" style={{ color: "#EF4444" }}>Retirer ?</span>
+                            <button
+                              onClick={() => handleDeleteExternal(rawExtId)}
+                              disabled={isDeleting}
+                              className="text-[11px] font-black px-2 py-0.5 rounded-lg text-white bg-red-500 transition-all disabled:opacity-60">
+                              {isDeleting ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" /> : "Oui"}
+                            </button>
+                            <button
+                              onClick={() => setDeleteExtConfirmId(null)}
+                              className="text-[11px] font-bold px-2 py-0.5 rounded-lg border transition-all hover:opacity-70"
+                              style={{ color: "#5C738A", borderColor: c.border }}>
+                              Non
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setDeleteExtConfirmId(rawExtId)}
+                            className="px-3 py-1.5 rounded-xl border text-xs font-bold transition-all hover:bg-red-50 flex items-center gap-1"
+                            style={{ color: "#EF4444", borderColor: "#FECACA", background: "transparent" }}
+                            title="Retirer ce patient externe">
+                            <Trash2 size={11} /> Retirer
+                          </button>
+                        );
+                      })()
+                    ) : (
                       isConfirming ? (
                         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border animate-in fade-in"
                           style={{ borderColor: "#FECACA", background: dk ? "rgba(239,68,68,0.08)" : "#FFF5F5" }}>
@@ -1866,22 +2187,48 @@ function PatientDetailView({ patient, onBack, dk, onStartConsultation }) {
   const [pdfLoading, setPdfLoading] = useState({});
 
   const patientId = patient?.id;
+  const isExternal = patient?._type === "external" || String(patientId || "").startsWith("ext-");
+  const rawExtId = isExternal ? String(patientId).replace(/^ext-/, "") : null;
 
   useEffect(() => {
-    if (!patientId || String(patientId).startsWith("ext-")) { setLoading(false); return; }
-    Promise.all([
-      api.getPatientRecord(patientId).catch(() => null),
-      api.getAntecedents(patientId).catch(() => []),
-      api.getPatientPrescriptions(patientId).catch(() => []),
-      api.getMyConsultations(patientId).catch(() => []),
-    ]).then(([record, antecedents, rxList, consults]) => {
-      setPatientData(record || {});
-      setHistory(Array.isArray(antecedents) ? antecedents : []);
-      setPrescriptions(Array.isArray(rxList) ? rxList : []);
-      setConsultations(Array.isArray(consults) ? consults : []);
-      setLoading(false);
-    });
-  }, [patientId]);
+    if (!patientId) { setLoading(false); return; }
+
+    if (isExternal) {
+      // Patient externe : utilise les endpoints dédiés
+      Promise.all([
+        api.getExternalPatient(rawExtId).catch(() => null),
+        api.getExternalPatientPrescriptions(rawExtId).catch(() => []),
+        api.getExternalPatientConsultations(rawExtId).catch(() => []),
+      ]).then(([record, rxList, consults]) => {
+        setPatientData({
+          profile: record ? {
+            first_name: record.first_name,
+            last_name: record.last_name,
+            phone: record.phone,
+            age: record.age,
+          } : {},
+          medical_profile: { allergies: [], blood_group: null },
+          _external: record,
+        });
+        setHistory([]);
+        setPrescriptions(Array.isArray(rxList) ? rxList : (rxList?.results ?? []));
+        setConsultations(Array.isArray(consults) ? consults : (consults?.results ?? []));
+        setLoading(false);
+      });
+    } else {
+      Promise.all([
+        api.getPatientRecord(patientId).catch(() => null),
+        api.getPatientPrescriptions(patientId).catch(() => []),
+        api.getMyConsultations(patientId).catch(() => []),
+      ]).then(([record, rxList, consults]) => {
+        setPatientData(record || {});
+        setHistory(Array.isArray(record?.history) ? record.history : []);
+        setPrescriptions(Array.isArray(rxList) ? rxList : []);
+        setConsultations(Array.isArray(consults) ? consults : []);
+        setLoading(false);
+      });
+    }
+  }, [patientId, isExternal, rawExtId]);
 
   if (!patient) return null;
 
@@ -2069,18 +2416,22 @@ function PatientDetailView({ patient, onBack, dk, onStartConsultation }) {
           <div className="flex flex-wrap gap-3 sm:flex-col sm:items-end">
             <button
               onClick={() => setShowAddForm(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-bold transition-all hover:opacity-90"
+              disabled={isExternal}
+              title={isExternal ? "Non disponible pour un patient externe" : ""}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-bold transition-all hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ color: "rgba(255,255,255,0.90)", borderColor: "rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.12)" }}
             >
               Antécédent
             </button>
-            <button
-              onClick={onStartConsultation}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all hover:opacity-90"
-              style={{ background: "rgba(255,255,255,0.20)", border: "1px solid rgba(255,255,255,0.35)", color: "#ffffff" }}
-            >
-              <Activity size={15} /> Démarrer consultation
-            </button>
+            {!isExternal && (
+              <button
+                onClick={onStartConsultation}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all hover:opacity-90"
+                style={{ background: "rgba(255,255,255,0.20)", border: "1px solid rgba(255,255,255,0.35)", color: "#ffffff" }}
+              >
+                <Activity size={15} /> Démarrer consultation
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -3091,6 +3442,8 @@ function SettingsView() {
           <p className="text-xs mt-1" style={{ color: c.txt3 }}>{t('dashboard.doctor.settings.certified')}</p>
         </Card>
       </div>
+
+      <ContactAdminCard dk={dk} />
     </div>
   );
 }
@@ -3314,13 +3667,19 @@ function PatientConsultationView({ appointment, onComplete, dk, c, setCurrentPag
       diagnosisRef.current?.focus();
       return;
     }
+    if (!appointment?.id) {
+      setTerminateError(
+        "Aucun rendez-vous associé à cette consultation. Pour clôturer une consultation, lancez-la depuis le planning (un RDV confirmé est requis)."
+      );
+      return;
+    }
     setDiagnosisError(false);
     setTerminateError(null);
     setIsTerminating(true);
 
     try {
       const payload = {
-        appointment_id: appointment?.id,
+        appointment_id: appointment.id,
         symptoms,
         diagnosis,
         treatment_plan: plan || undefined,
@@ -3744,13 +4103,16 @@ function WorkScheduleView({ dk }) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
 
-  // Initialize with 7 days if empty
-  const initialDays = [0, 1, 2, 3, 4, 5, 6].map(d => ({
+  // Display order: Sunday first (Algerian/Arab convention).
+  // Backend day_of_week: 0=Mon, 1=Tue, ..., 5=Sat, 6=Sun
+  // → display order: [6, 0, 1, 2, 3, 4, 5] = Dim, Lun, Mar, Mer, Jeu, Ven, Sam
+  const DAY_DISPLAY_ORDER = [6, 0, 1, 2, 3, 4, 5];
+  const initialDays = DAY_DISPLAY_ORDER.map(d => ({
     day_of_week: d,
     start_time: "09:00",
     end_time: "17:00",
-    break_start: "12:00",
-    break_end: "13:00",
+    break_start: "",
+    break_end: "",
     slot_duration: 30,
     is_active: true
   }));
@@ -3764,26 +4126,28 @@ function WorkScheduleView({ dk }) {
       const resp = await api.getSchedules();
       // Handle both array and paginated results ({ results: [] })
       const data = Array.isArray(resp) ? resp : (resp?.results || []);
-      
+
       // Map existing data to our 7-day grid
       const fullGrid = initialDays.map(day => {
-        const existing = data.find(s => s.day_of_week === day.day_of_week);
+        const existing = data.find(s => Number(s.day_of_week) === day.day_of_week);
         if (existing) {
           return {
             ...existing,
-            start_time: existing.start_time.slice(0, 5),
-            end_time: existing.end_time.slice(0, 5),
-            break_start: existing.break_start ? existing.break_start.slice(0, 5) : "12:00",
-            break_end: existing.break_end ? existing.break_end.slice(0, 5) : "13:00",
+            day_of_week: Number(existing.day_of_week),
+            start_time: existing.start_time ? existing.start_time.slice(0, 5) : "09:00",
+            end_time: existing.end_time ? existing.end_time.slice(0, 5) : "17:00",
+            break_start: existing.break_start ? existing.break_start.slice(0, 5) : "",
+            break_end: existing.break_end ? existing.break_end.slice(0, 5) : "",
           };
         }
         return day;
       });
       setSchedules(fullGrid);
+      setMessage(null);
     } catch (err) {
       console.error("Error loading schedules:", err);
-      // Even on error, show the default grid so the user can start from scratch
       setSchedules(initialDays);
+      setMessage({ type: "error", text: `Échec du chargement: ${err?.message || "erreur inconnue"}. Les valeurs par défaut sont affichées.` });
     } finally {
       setLoading(false);
     }
@@ -3801,28 +4165,62 @@ function WorkScheduleView({ dk }) {
     setSchedules(next);
   };
 
+  const DAY_LABELS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+
+  const validateDay = (day) => {
+    const s = day.start_time, e = day.end_time;
+    const bs = day.break_start, be = day.break_end;
+    if (!s || !e) return "Heures de travail manquantes";
+    if (e <= s) return "L'heure de fin doit être après l'heure de début";
+    if ((bs && !be) || (!bs && be)) return "Pause incomplète (renseignez début ET fin)";
+    if (bs && be) {
+      if (be <= bs) return "La fin de pause doit être après le début";
+      if (bs < s || be > e) return "La pause doit être comprise dans les heures de travail";
+    }
+    return null;
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setMessage(null);
-    try {
-      // Parallel save for all modified/active days
-      await Promise.all(schedules.map(day => {
-        const payload = {
-          ...day,
-          start_time: day.start_time?.length === 5 ? `${day.start_time}:00` : day.start_time,
-          end_time: day.end_time?.length === 5 ? `${day.end_time}:00` : day.end_time,
-          break_start: (day.break_start && day.break_start.length === 5) ? `${day.break_start}:00` : (day.break_start || null),
-          break_end: (day.break_end && day.break_end.length === 5) ? `${day.break_end}:00` : (day.break_end || null),
-        };
-        return api.saveSchedule(payload);
-      }));
-      setMessage({ type: "success", text: t('dashboard.doctor.workSchedule.saveSuccess') });
-    } catch (err) {
-      setMessage({ type: "error", text: err.message || t('dashboard.doctor.workSchedule.saveError') });
-    } finally {
+
+    // Client-side validation per day (use real day_of_week, not array index)
+    const errors = schedules
+      .map((day) => ({ dow: day.day_of_week, err: validateDay(day) }))
+      .filter(x => x.err);
+    if (errors.length) {
+      const list = errors.map(x => `${DAY_LABELS[x.dow]}: ${x.err}`).join(" • ");
+      setMessage({ type: "error", text: list });
       setSaving(false);
-      setTimeout(() => setMessage(null), 5000);
+      setTimeout(() => setMessage(null), 7000);
+      return;
     }
+
+    const toTime = (t) => (!t || t.trim() === "") ? null : (t.length === 5 ? `${t}:00` : t);
+    const results = await Promise.allSettled(schedules.map(day => {
+      const payload = {
+        ...day,
+        start_time: toTime(day.start_time),
+        end_time: toTime(day.end_time),
+        break_start: toTime(day.break_start),
+        break_end: toTime(day.break_end),
+      };
+      return api.saveSchedule(payload);
+    }));
+
+    const failures = results
+      .map((r, i) => ({ dow: schedules[i].day_of_week, r }))
+      .filter(x => x.r.status === "rejected");
+
+    if (failures.length === 0) {
+      setMessage({ type: "success", text: t('dashboard.doctor.workSchedule.saveSuccess') });
+    } else {
+      const detail = failures.map(f => `${DAY_LABELS[f.dow]}: ${f.r.reason?.message || "erreur"}`).join(" • ");
+      setMessage({ type: "error", text: detail });
+    }
+
+    setSaving(false);
+    setTimeout(() => setMessage(null), 7000);
   };
 
   if (loading) return <div className="p-10 text-center opacity-50">{t('common.loading')}</div>;
@@ -3909,24 +4307,20 @@ function WorkScheduleView({ dk }) {
                 </h4>
                 <div className="flex items-center gap-2">
                   <div className="flex-1">
-                    <input
-                      type="time"
-                      disabled={!day.is_active}
+                    <TimePicker
                       value={day.start_time}
-                      onChange={(e) => handleChange(idx, "start_time", e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border text-sm font-bold outline-none focus:ring-2 ring-[#638ECB33]"
-                      style={{ background: c.bg, borderColor: c.border, color: c.txt }}
+                      onChange={(v) => handleChange(idx, "start_time", v)}
+                      disabled={!day.is_active}
+                      theme={c}
                     />
                   </div>
                   <span className="opacity-30">→</span>
                   <div className="flex-1">
-                    <input
-                      type="time"
-                      disabled={!day.is_active}
+                    <TimePicker
                       value={day.end_time}
-                      onChange={(e) => handleChange(idx, "end_time", e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border text-sm font-bold outline-none focus:ring-2 ring-[#638ECB33]"
-                      style={{ background: c.bg, borderColor: c.border, color: c.txt }}
+                      onChange={(v) => handleChange(idx, "end_time", v)}
+                      disabled={!day.is_active}
+                      theme={c}
                     />
                   </div>
                 </div>
@@ -3935,51 +4329,71 @@ function WorkScheduleView({ dk }) {
               {/* Break Time */}
               <div className="space-y-4">
                 <h4 className="text-xs font-black uppercase tracking-wider flex items-center gap-2" style={{ color: c.amber }}>
+                  {(day.break_start || day.break_end) && day.is_active && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleChange(idx, "break_start", "");
+                        handleChange(idx, "break_end", "");
+                      }}
+                      className="w-4 h-4 rounded-full flex items-center justify-center border transition-all hover:bg-red-500 hover:text-white hover:border-red-500"
+                      style={{ borderColor: c.amber + "66", color: c.amber }}
+                      title="Supprimer la pause"
+                    >
+                      <X size={10} strokeWidth={3} />
+                    </button>
+                  )}
                   <Moon size={14} /> {t('dashboard.doctor.workSchedule.break')}
                 </h4>
                 <div className="flex items-center gap-2">
                   <div className="flex-1">
-                    <input
-                      type="time"
-                      disabled={!day.is_active}
+                    <TimePicker
                       value={day.break_start}
-                      onChange={(e) => handleChange(idx, "break_start", e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border text-sm font-bold outline-none focus:ring-2 ring-amber-500/20"
-                      style={{ background: c.bg, borderColor: c.border, color: c.txt }}
+                      onChange={(v) => handleChange(idx, "break_start", v)}
+                      disabled={!day.is_active}
+                      placeholder="Aucune"
+                      theme={c}
                     />
                   </div>
                   <span className="opacity-30">→</span>
                   <div className="flex-1">
-                    <input
-                      type="time"
-                      disabled={!day.is_active}
+                    <TimePicker
                       value={day.break_end}
-                      onChange={(e) => handleChange(idx, "break_end", e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border text-sm font-bold outline-none focus:ring-2 ring-amber-500/20"
-                      style={{ background: c.bg, borderColor: c.border, color: c.txt }}
+                      onChange={(v) => handleChange(idx, "break_end", v)}
+                      disabled={!day.is_active}
+                      placeholder="Aucune"
+                      theme={c}
                     />
                   </div>
                 </div>
               </div>
 
               {/* Consultation Duration */}
-              <div className="sm:col-span-2 flex items-center justify-between pt-2 border-t" style={{ borderColor: c.border }}>
-                <div className="flex items-center gap-2">
-                  <Activity size={16} style={{ color: c.green }} />
-                  <span className="text-xs font-bold" style={{ color: c.txt2 }}>{t('dashboard.doctor.workSchedule.duration')}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <select
-                    disabled={!day.is_active}
-                    value={day.slot_duration}
-                    onChange={(e) => handleChange(idx, "slot_duration", parseInt(e.target.value))}
-                    className="px-3 py-1.5 rounded-lg border text-sm font-black outline-none appearance-none cursor-pointer"
-                    style={{ background: c.bg, borderColor: c.border, color: c.blue }}
-                  >
-                    {[15, 20, 30, 45, 60, 90].map(val => (
-                      <option key={val} value={val}>{val} {t('dashboard.doctor.workSchedule.durationHint')}</option>
-                    ))}
-                  </select>
+              <div className="sm:col-span-2 space-y-3 pt-4 border-t" style={{ borderColor: c.border }}>
+                <h4 className="text-xs font-black uppercase tracking-wider flex items-center gap-2" style={{ color: c.green }}>
+                  <Activity size={14} /> {t('dashboard.doctor.workSchedule.duration')}
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {[15, 20, 30, 45, 60, 90].map(val => {
+                    const active = day.slot_duration === val;
+                    return (
+                      <button
+                        type="button"
+                        key={val}
+                        disabled={!day.is_active}
+                        onClick={() => handleChange(idx, "slot_duration", val)}
+                        className={`px-3 py-1.5 rounded-lg border text-xs font-black outline-none transition-all tabular-nums ${day.is_active ? "hover:scale-105 active:scale-95" : "opacity-50 cursor-not-allowed"}`}
+                        style={{
+                          background: active ? c.green : c.bg,
+                          borderColor: active ? c.green : c.border,
+                          color: active ? "#fff" : c.txt2,
+                          boxShadow: active ? `0 2px 8px ${c.green}44` : "none",
+                        }}
+                      >
+                        {val} {t('dashboard.doctor.workSchedule.durationHint')}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -3993,6 +4407,110 @@ function WorkScheduleView({ dk }) {
 // ============================================================================
 // COMPOSANT PRINCIPAL
 // ============================================================================
+// SUB-VIEW : NOTIFICATIONS
+// ============================================================================
+
+function NotificationsView() {
+  const { theme } = useTheme();
+  const dk = theme === "dark";
+  const c = dk ? T.dark : T.light;
+  const { globalNotifications = [], markNotificationRead, markAllNotificationsRead } = useData();
+
+  const TYPE_META = {
+    appointment: { label: "Rendez-vous", color: "#4A6FA5" },
+    caretaker:   { label: "Patient",     color: "#7B5EA7" },
+    pharmacy:    { label: "Pharmacie",   color: "#E8A838" },
+    system:      { label: "Système",     color: "#5A6E8A" },
+    info:        { label: "Info",        color: "#4A6FA5" },
+    success:     { label: "Succès",      color: "#2D8C6F" },
+    warning:     { label: "Alerte",      color: "#E8A838" },
+    error:       { label: "Erreur",      color: "#E05555" },
+  };
+
+  const fmt = (iso) => {
+    if (!iso) return "";
+    try {
+      return new Date(iso).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+    } catch { return ""; }
+  };
+
+  const unread = globalNotifications.filter(n => !n.is_read).length;
+
+  return (
+    <div className="animate-in fade-in duration-500 space-y-5">
+      <header className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold mb-1" style={{ color: c.txt }}>Notifications</h1>
+          <p className="text-sm" style={{ color: c.txt3 }}>
+            {unread > 0 ? `${unread} non lue${unread > 1 ? "s" : ""}` : "Toutes lues"}
+          </p>
+        </div>
+        {unread > 0 && (
+          <button
+            onClick={() => markAllNotificationsRead?.()}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border hover:opacity-80"
+            style={{ borderColor: c.border, color: c.blue }}
+          >
+            <Check size={13} /> Tout marquer comme lu
+          </button>
+        )}
+      </header>
+
+      {globalNotifications.length === 0 ? (
+        <Card dk={dk}>
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: c.blueLight }}>
+              <Bell size={28} style={{ color: c.blue }} />
+            </div>
+            <p className="text-sm font-medium" style={{ color: c.txt3 }}>Aucune notification</p>
+          </div>
+        </Card>
+      ) : (
+        <div className="rounded-2xl border overflow-hidden" style={{ background: c.card, borderColor: c.border }}>
+          {globalNotifications.map(n => {
+            const type = n.notification_type || n.type || "system";
+            const meta = TYPE_META[type] || TYPE_META.system;
+            return (
+              <div
+                key={n.id}
+                onClick={() => !n.is_read && markNotificationRead?.(n.id)}
+                className="flex items-start gap-3 px-5 py-4 border-b last:border-b-0 cursor-pointer transition-colors hover:bg-black/[.02]"
+                style={{ borderColor: c.border, background: n.is_read ? "transparent" : meta.color + "08" }}
+              >
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                  style={{ background: meta.color + "18", border: `1px solid ${meta.color}33` }}
+                >
+                  <Bell size={15} style={{ color: meta.color }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                    <span className="text-sm font-bold" style={{ color: c.txt }}>{n.title}</span>
+                    <span
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase"
+                      style={{ background: meta.color + "18", color: meta.color }}
+                    >
+                      {meta.label}
+                    </span>
+                    {!n.is_read && <span className="w-2 h-2 rounded-full ml-auto shrink-0" style={{ background: meta.color }} />}
+                  </div>
+                  {n.message && (
+                    <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: c.txt2 }}>{n.message}</p>
+                  )}
+                  {n.created_at && (
+                    <p className="text-[10px] mt-1" style={{ color: c.txt3 }}>{fmt(n.created_at)}</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
 
 
 export default function DoctorDashboard({ onLogout }) {
@@ -4002,10 +4520,24 @@ export default function DoctorDashboard({ onLogout }) {
   const { t } = useLanguage();
 
   const { userData: user } = useAuth();
-  const { patients = [], appointments = [], patientRequests = [], globalNotifications = [], markAllNotificationsRead, dashboardData } = useData();
+  const { patients = [], appointments = [], patientRequests = [], globalNotifications = [], markAllNotificationsRead, markNotificationRead, dashboardData } = useData();
 
   const [currentPage, setCurrentPage] = useState("dashboard");
   const [profileOpen, setProfileOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef(null);
+
+  // Ferme le panneau notifications au clic extérieur
+  useEffect(() => {
+    if (!notifOpen) return;
+    const handler = (e) => {
+      if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [notifOpen]);
+
+  const unreadNotifCount = (globalNotifications || []).filter(n => !n.is_read).length;
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [activeConsultation, setActiveConsultation] = useState(null);
@@ -4090,6 +4622,8 @@ export default function DoctorDashboard({ onLogout }) {
         return <DoctorReviewsView />;
       case "settings":
         return <SettingsView onLogout={onLogout} />;
+      case "notifications":
+        return <NotificationsView />;
       case "patient-detail":
         return (
           <PatientDetailView
@@ -4197,6 +4731,86 @@ export default function DoctorDashboard({ onLogout }) {
 
           {/* Right Actions */}
           <div className="flex items-center gap-3 ml-auto shrink-0">
+            {/* Notifications Bell */}
+            <div className="relative" ref={notifRef}>
+              <button
+                onClick={() => setNotifOpen(o => !o)}
+                className="relative w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:opacity-80 border"
+                style={{ borderColor: c.border, background: "transparent" }}
+                title="Notifications"
+              >
+                <Bell size={18} style={{ color: notifOpen ? c.blue : c.txt2 }} />
+                {unreadNotifCount > 0 && (
+                  <span
+                    className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full flex items-center justify-center text-white font-bold px-1"
+                    style={{ background: c.red, fontSize: 9 }}
+                  >
+                    {unreadNotifCount > 9 ? "9+" : unreadNotifCount}
+                  </span>
+                )}
+              </button>
+              {notifOpen && (
+                <div
+                  className="absolute right-0 top-12 w-80 max-h-[420px] rounded-2xl border overflow-hidden shadow-xl z-50 flex flex-col animate-in slide-in-from-top-2 duration-200"
+                  style={{ background: c.card, borderColor: c.border }}
+                >
+                  <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: c.border }}>
+                    <p className="text-sm font-bold" style={{ color: c.txt }}>Notifications</p>
+                    {unreadNotifCount > 0 && (
+                      <button
+                        onClick={() => markAllNotificationsRead?.()}
+                        className="text-[10px] font-bold uppercase tracking-wide hover:opacity-70"
+                        style={{ color: c.blue }}
+                      >
+                        Tout marquer lu
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex-1 overflow-y-auto">
+                    {(!globalNotifications || globalNotifications.length === 0) ? (
+                      <div className="flex flex-col items-center justify-center py-10 gap-2">
+                        <Bell size={28} style={{ color: c.txt3, opacity: 0.4 }} />
+                        <p className="text-xs" style={{ color: c.txt3 }}>Aucune notification</p>
+                      </div>
+                    ) : (
+                      globalNotifications.slice(0, 12).map(n => (
+                        <button
+                          key={n.id}
+                          onClick={() => { if (!n.is_read) markNotificationRead?.(n.id); }}
+                          className="w-full text-left px-4 py-3 border-b transition-colors hover:bg-black/[.03]"
+                          style={{ borderColor: c.border, background: n.is_read ? "transparent" : c.blue + "08" }}
+                        >
+                          <div className="flex items-start gap-2">
+                            {!n.is_read && (
+                              <span className="w-2 h-2 rounded-full shrink-0 mt-1.5" style={{ background: c.blue }} />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold truncate" style={{ color: c.txt }}>{n.title}</p>
+                              {n.message && (
+                                <p className="text-xs line-clamp-2 mt-0.5" style={{ color: c.txt2 }}>{n.message}</p>
+                              )}
+                              {n.created_at && (
+                                <p className="text-[10px] mt-1" style={{ color: c.txt3 }}>
+                                  {new Date(n.created_at).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                  <button
+                    onClick={() => { setNotifOpen(false); setCurrentPage("notifications"); }}
+                    className="px-4 py-2.5 text-xs font-bold border-t hover:opacity-80"
+                    style={{ borderColor: c.border, color: c.blue, background: c.blue + "08" }}
+                  >
+                    Voir toutes les notifications
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* Messages Button */}
             <button
               onClick={() => setCurrentPage("messages")}
@@ -4300,6 +4914,26 @@ export default function DoctorDashboard({ onLogout }) {
                   </div>
 
                   <div className="p-2 flex flex-col gap-1">
+                    {/* Notifications */}
+                    <button
+                      onClick={() => {
+                        setCurrentPage("notifications");
+                        setProfileOpen(false);
+                      }}
+                      className="pd-item w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-xl"
+                    >
+                      <Bell size={16} />
+                      Notifications
+                      {unreadNotifCount > 0 && (
+                        <span
+                          className="ml-auto min-w-[18px] h-[18px] rounded-full text-white text-[9px] font-black flex items-center justify-center px-1"
+                          style={{ background: c.red }}
+                        >
+                          {unreadNotifCount > 9 ? "9+" : unreadNotifCount}
+                        </span>
+                      )}
+                    </button>
+
                     {/* Settings */}
                     <button
                       onClick={() => {

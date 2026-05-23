@@ -10,6 +10,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useData } from "../../context/DataContext";
 import * as api from "../../services/api";
 import ChatButton from "../../components/chat/ChatButton";
+import ContactAdminCard from "../../components/ContactAdminCard";
 import ConversationList from "../../components/chat/ConversationList";
 import ChatWindow from "../../components/chat/ChatWindow";
 import {
@@ -7502,6 +7503,10 @@ function SettingsPage(props) {
             </p>
           </Card>
         </div>
+      </div>
+
+      <div className="mt-5">
+        <ContactAdminCard dk={dk} />
       </div>
     </>
   );

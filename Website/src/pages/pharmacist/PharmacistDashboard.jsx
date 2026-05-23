@@ -20,6 +20,7 @@ import ChatWindow from "../../components/chat/ChatWindow";
 import { useLanguage } from "../../context/LanguageContext";
 import { Html5Qrcode } from "html5-qrcode";
 import { T } from "../_shared/theme";
+import ContactAdminCard from "../../components/ContactAdminCard";
 
 // ─── Données de démonstration ─────────────────────────────────────────────────
 // Activées uniquement en développement — jamais visibles en production.
@@ -2547,6 +2548,10 @@ function ParametresPage({ dk, onToggleDark }) {
         <p className="text-sm" style={{ color: c.txt2 }}>Healy {t('pharmacy_view_label', {context: 'dash'}) || "Pharmacie"} v2.1.0</p>
         <p className="text-xs mt-1" style={{ color: c.txt3 }}>{t('hosted_in_algeria') || "CNAS Certifié · Hébergé en Algérie"}</p>
       </Card>
+
+      <div className="mt-5">
+        <ContactAdminCard dk={dk} />
+      </div>
     </>
   );
 }

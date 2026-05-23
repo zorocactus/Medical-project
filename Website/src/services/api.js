@@ -673,6 +673,17 @@ export async function completeAppointment(appointmentId) {
 }
 
 /**
+ * (Médecin) Crée un RDV directement pour un patient lié (auto-confirmé)
+ * @param {object} data — { patient_id, date: "YYYY-MM-DD", start_time: "HH:MM", end_time: "HH:MM", motif }
+ */
+export async function doctorCreateAppointment(data) {
+  return apiFetch("/doctor/appointments/create/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
  * (Médecin) Annuler un RDV — notifie le patient
  * @param {number} appointmentId
  * @param {string} [reason]
@@ -898,6 +909,24 @@ export async function createExternalPatient(data) {
 /** (Médecin) Lister ses patients sans compte */
 export async function getExternalPatients() {
   return apiFetch("/patients/external/");
+}
+
+/** (Médecin) Détail d'un patient externe */
+export async function getExternalPatient(externalPatientId) {
+  return apiFetch(`/patients/external/${externalPatientId}/`);
+}
+
+/** (Médecin) Mettre à jour un patient externe */
+export async function updateExternalPatient(externalPatientId, data) {
+  return apiFetch(`/patients/external/${externalPatientId}/`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+/** (Médecin) Supprimer un patient externe */
+export async function deleteExternalPatient(externalPatientId) {
+  return apiFetch(`/patients/external/${externalPatientId}/`, { method: "DELETE" });
 }
 
 /** (Médecin) Ordonnances d'un patient sans compte */
@@ -1734,5 +1763,50 @@ export async function actionProfileUpdate(requestId, action, notes = "") {
   return apiFetch(`/admin/profile-updates/${requestId}/action/`, {
     method: "POST",
     body: JSON.stringify({ action, ...(notes ? { notes } : {}) }),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONTACT ADMIN — disponible depuis toutes les pages Paramètres
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * (Tous rôles) Envoie une demande à l'administrateur depuis Paramètres
+ * @param {object} data — { category, subject, message }
+ */
+export async function createAdminContactRequest(data) {
+  return apiFetch("/admin/contact-requests/me/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * (Tous rôles) Liste mes propres demandes envoyées à l'admin
+ */
+export async function getMyAdminContactRequests() {
+  return apiFetch("/admin/contact-requests/me/");
+}
+
+/**
+ * (Admin) Liste toutes les demandes reçues
+ * @param {object} params — { status, category, search }
+ */
+export async function getAdminContactRequests(params = {}) {
+  const qs = new URLSearchParams(
+    Object.entries(params).filter(([, v]) => v !== undefined && v !== "" && v !== null)
+  ).toString();
+  return apiFetch(`/admin/contact-requests/${qs ? "?" + qs : ""}`);
+}
+
+/**
+ * (Admin) Répond / change le statut d'une demande
+ * @param {number} requestId
+ * @param {object} payload — { status, admin_response }
+ */
+export async function respondAdminContactRequest(requestId, payload) {
+  return apiFetch(`/admin/contact-requests/${requestId}/respond/`, {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
 }

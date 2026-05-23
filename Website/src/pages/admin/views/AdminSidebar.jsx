@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, Pill, Shield,
   UserCheck, Calendar, X,
   LogOut, User, Activity, ListFilter,
-  Building2, ClipboardList, ShieldAlert
+  Building2, ClipboardList, ShieldAlert, Mail
 } from "lucide-react";
 import { getAdminTheme } from "../adminTheme.js";
 import { useLanguage } from "../../../context/LanguageContext";
@@ -40,6 +40,7 @@ export default function AdminSidebar({
       items: [
         { id: "validation",   label: t('validation'),       icon: UserCheck, badge: true },
         { id: "profile_updates", label: t('profile_updates'), icon: User, badge: true },
+        { id: "contact_requests", label: "Demandes utilisateurs", icon: Mail, badge: true },
         { id: "rendezvous",   label: t('rendezvous'),      icon: Calendar },
         { id: "planning",     label: t('planning'),         icon: ListFilter },
         { id: "queue",        label: t('queue'),   icon: Activity, pulse: true },

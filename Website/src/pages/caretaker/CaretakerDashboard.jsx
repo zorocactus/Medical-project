@@ -21,6 +21,7 @@ import {
   Mic, Paperclip, History
 } from "lucide-react";
 import { T } from "../_shared/theme";
+import ContactAdminCard from "../../components/ContactAdminCard";
 
 // ─── Reusable Card Component ──────────────────────────────────────────────────
 function Card({ children, className = "", style = {}, dk, empty = false }) {
@@ -2987,6 +2988,8 @@ function SettingsView({ onTarifSaved, dk, c, user }) {
           <p className="text-xs mt-1" style={{ color: c.txt3 }}>CNAS Certified · RGPD Compliant · Hosted in Algeria</p>
         </Card>
       </div>
+
+      <ContactAdminCard dk={dk} />
     </div>
   );
 }
